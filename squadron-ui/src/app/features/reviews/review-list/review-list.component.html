@@ -1,0 +1,54 @@
+<div class="review-list">
+  <div class="review-list__header">
+    <div>
+      <h1>Code Reviews</h1>
+      <p>Review pull requests and provide feedback</p>
+    </div>
+    <select class="sq-select" [(ngModel)]="filterStatus" (ngModelChange)="loadReviews()">
+      <option value="">All Statuses</option>
+      <option value="PENDING">Pending</option>
+      <option value="IN_PROGRESS">In Progress</option>
+      <option value="APPROVED">Approved</option>
+      <option value="CHANGES_REQUESTED">Changes Requested</option>
+    </select>
+  </div>
+
+  <div class="review-table sq-card">
+    <table class="sq-table">
+      <thead>
+        <tr>
+          <th>Pull Request</th>
+          <th>Task</th>
+          <th>Status</th>
+          <th>Changes</th>
+          <th>Reviewer</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (review of reviews(); track review.id) {
+          <tr [routerLink]="['/reviews', review.id]" class="clickable-row">
+            <td>
+              <div class="pr-info">
+                <span class="pr-number">#{{ review.pullRequestNumber }}</span>
+                <span class="pr-repo">{{ review.repositoryName }}</span>
+              </div>
+            </td>
+            <td><span class="task-title">{{ review.taskTitle }}</span></td>
+            <td><span class="sq-badge" [class]="'sq-badge--' + statusClass(review.status)">{{ review.status.replace('_', ' ') }}</span></td>
+            <td>
+              <span class="changes">
+                <span class="changes--add">+{{ review.linesAdded }}</span>
+                <span class="changes--remove">-{{ review.linesRemoved }}</span>
+              </span>
+            </td>
+            <td><span class="sq-badge sq-badge--neutral">{{ review.reviewerType }}</span></td>
+            <td><span class="date">{{ review.updatedAt | timeAgo }}</span></td>
+          </tr>
+        } @empty {
+          <tr><td colspan="6" class="empty-row">No reviews found</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

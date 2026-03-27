@@ -1,0 +1,298 @@
+# =============================================================================
+# Squadron - Helm Values Overlay for mTLS
+# =============================================================================
+# Apply this values file on top of the default values to enable mTLS for all
+# Squadron services. Requires:
+#   - Vault PKI configured (./deploy/vault/setup-pki.sh)
+#   - cert-manager installed with ClusterIssuers applied
+#   - Certificate resources applied (./deploy/vault/cert-manager/certificates.yaml)
+#
+# Usage:
+#   helm upgrade --install squadron deploy/helm/squadron \
+#     -f deploy/vault/values-mtls.yaml \
+#     --namespace squadron
+# =============================================================================
+
+global:
+  # -------------------------------------------------------------------------
+  # mTLS configuration
+  # -------------------------------------------------------------------------
+  mtls:
+    enabled: true
+    # Path where TLS certificates are mounted in containers
+    certMountPath: /etc/tls
+    # File names within the TLS secret
+    certFile: tls.crt
+    keyFile: tls.key
+    caFile: ca.crt
+
+  # Override service URLs to use HTTPS
+  postgresql:
+    host: squadron-postgresql
+    port: 5432
+    sslMode: verify-full
+    sslRootCert: /etc/tls/ca.crt
+    sslCert: /etc/tls/tls.crt
+    sslKey: /etc/tls/tls.key
+  redis:
+    host: squadron-redis
+    port: 6379
+    ssl: true
+    sslCaPath: /etc/tls/ca.crt
+  nats:
+    url: tls://squadron-nats:4222
+    tlsCaPath: /etc/tls/ca.crt
+    tlsCertPath: /etc/tls/tls.crt
+    tlsKeyPath: /etc/tls/tls.key
+  keycloak:
+    url: https://squadron-keycloak:8443
+  identity:
+    jwksUri: https://squadron-identity:8081/api/auth/jwks
+
+# =============================================================================
+# Per-Service TLS Configuration
+# =============================================================================
+# Each service mounts its cert-manager-issued TLS secret and configures
+# Spring Boot's embedded Tomcat for HTTPS with client certificate auth.
+
+gateway:
+  env:
+    # Spring Boot TLS server configuration
+    SERVER_SSL_ENABLED: "true"
+    SERVER_SSL_KEY_STORE_TYPE: PEM
+    SERVER_SSL_KEY_STORE: /etc/tls/tls.crt
+    SERVER_SSL_KEY_STORE_KEY: /etc/tls/tls.key
+    SERVER_SSL_TRUST_STORE_TYPE: PEM
+    SERVER_SSL_TRUST_STORE: /etc/tls/ca.crt
+    SERVER_SSL_CLIENT_AUTH: need
+    # Downstream service URLs
+    SQUADRON_IDENTITY_URL: https://squadron-identity:8081
+    SQUADRON_CONFIG_URL: https://squadron-config:8082
+    SQUADRON_ORCHESTRATOR_URL: https://squadron-orchestrator:8083
+    SQUADRON_PLATFORM_URL: https://squadron-platform:8084
+    SQUADRON_AGENT_URL: https://squadron-agent:8085
+    SQUADRON_WORKSPACE_URL: https://squadron-workspace:8086
+    SQUADRON_GIT_URL: https://squadron-git:8087
+    SQUADRON_REVIEW_URL: https://squadron-review:8088
+    SQUADRON_NOTIFICATION_URL: https://squadron-notification:8089
+    # NATS TLS
+    NATS_URL: tls://squadron-nats:4222
+    NATS_TLS_TRUST_STORE: /etc/tls/ca.crt
+    # Redis TLS
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-gateway-tls
+
+identity:
+  env:
+    SERVER_SSL_ENABLED: "true"
+    SERVER_SSL_KEY_STORE_TYPE: PEM
+    SERVER_SSL_KEY_STORE: /etc/tls/tls.crt
+    SERVER_SSL_KEY_STORE_KEY: /etc/tls/tls.key
+    SERVER_SSL_TRUST_STORE_TYPE: PEM
+    SERVER_SSL_TRUST_STORE: /etc/tls/ca.crt
+    SERVER_SSL_CLIENT_AUTH: need
+    # PostgreSQL TLS
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://squadron-postgresql:5432/squadron_identity?sslmode=verify-full&sslrootcert=/etc/tls/ca.crt&sslcert=/etc/tls/tls.crt&sslkey=/etc/tls/tls.key"
+    NATS_URL: tls://squadron-nats:4222
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-identity-tls
+
+config:
+  env:
+    SERVER_SSL_ENABLED: "true"
+    SERVER_SSL_KEY_STORE_TYPE: PEM
+    SERVER_SSL_KEY_STORE: /etc/tls/tls.crt
+    SERVER_SSL_KEY_STORE_KEY: /etc/tls/tls.key
+    SERVER_SSL_TRUST_STORE_TYPE: PEM
+    SERVER_SSL_TRUST_STORE: /etc/tls/ca.crt
+    SERVER_SSL_CLIENT_AUTH: need
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://squadron-postgresql:5432/squadron_config?sslmode=verify-full&sslrootcert=/etc/tls/ca.crt&sslcert=/etc/tls/tls.crt&sslkey=/etc/tls/tls.key"
+    NATS_URL: tls://squadron-nats:4222
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-config-tls
+
+orchestrator:
+  env:
+    SERVER_SSL_ENABLED: "true"
+    SERVER_SSL_KEY_STORE_TYPE: PEM
+    SERVER_SSL_KEY_STORE: /etc/tls/tls.crt
+    SERVER_SSL_KEY_STORE_KEY: /etc/tls/tls.key
+    SERVER_SSL_TRUST_STORE_TYPE: PEM
+    SERVER_SSL_TRUST_STORE: /etc/tls/ca.crt
+    SERVER_SSL_CLIENT_AUTH: need
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://squadron-postgresql:5432/squadron_orchestrator?sslmode=verify-full&sslrootcert=/etc/tls/ca.crt&sslcert=/etc/tls/tls.crt&sslkey=/etc/tls/tls.key"
+    NATS_URL: tls://squadron-nats:4222
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-orchestrator-tls
+
+platform:
+  env:
+    SERVER_SSL_ENABLED: "true"
+    SERVER_SSL_KEY_STORE_TYPE: PEM
+    SERVER_SSL_KEY_STORE: /etc/tls/tls.crt
+    SERVER_SSL_KEY_STORE_KEY: /etc/tls/tls.key
+    SERVER_SSL_TRUST_STORE_TYPE: PEM
+    SERVER_SSL_TRUST_STORE: /etc/tls/ca.crt
+    SERVER_SSL_CLIENT_AUTH: need
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://squadron-postgresql:5432/squadron_platform?sslmode=verify-full&sslrootcert=/etc/tls/ca.crt&sslcert=/etc/tls/tls.crt&sslkey=/etc/tls/tls.key"
+    NATS_URL: tls://squadron-nats:4222
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-platform-tls
+
+agent:
+  env:
+    SERVER_SSL_ENABLED: "true"
+    SERVER_SSL_KEY_STORE_TYPE: PEM
+    SERVER_SSL_KEY_STORE: /etc/tls/tls.crt
+    SERVER_SSL_KEY_STORE_KEY: /etc/tls/tls.key
+    SERVER_SSL_TRUST_STORE_TYPE: PEM
+    SERVER_SSL_TRUST_STORE: /etc/tls/ca.crt
+    SERVER_SSL_CLIENT_AUTH: need
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://squadron-postgresql:5432/squadron_agent?sslmode=verify-full&sslrootcert=/etc/tls/ca.crt&sslcert=/etc/tls/tls.crt&sslkey=/etc/tls/tls.key"
+    NATS_URL: tls://squadron-nats:4222
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+    # Inter-service HTTPS URLs
+    SQUADRON_WORKSPACE_URL: https://squadron-workspace:8086
+    SQUADRON_GIT_URL: https://squadron-git:8087
+    SQUADRON_REVIEW_URL: https://squadron-review:8088
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-agent-tls
+
+workspace:
+  env:
+    SERVER_SSL_ENABLED: "true"
+    SERVER_SSL_KEY_STORE_TYPE: PEM
+    SERVER_SSL_KEY_STORE: /etc/tls/tls.crt
+    SERVER_SSL_KEY_STORE_KEY: /etc/tls/tls.key
+    SERVER_SSL_TRUST_STORE_TYPE: PEM
+    SERVER_SSL_TRUST_STORE: /etc/tls/ca.crt
+    SERVER_SSL_CLIENT_AUTH: need
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://squadron-postgresql:5432/squadron_workspace?sslmode=verify-full&sslrootcert=/etc/tls/ca.crt&sslcert=/etc/tls/tls.crt&sslkey=/etc/tls/tls.key"
+    NATS_URL: tls://squadron-nats:4222
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-workspace-tls
+
+git:
+  env:
+    SERVER_SSL_ENABLED: "true"
+    SERVER_SSL_KEY_STORE_TYPE: PEM
+    SERVER_SSL_KEY_STORE: /etc/tls/tls.crt
+    SERVER_SSL_KEY_STORE_KEY: /etc/tls/tls.key
+    SERVER_SSL_TRUST_STORE_TYPE: PEM
+    SERVER_SSL_TRUST_STORE: /etc/tls/ca.crt
+    SERVER_SSL_CLIENT_AUTH: need
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://squadron-postgresql:5432/squadron_git?sslmode=verify-full&sslrootcert=/etc/tls/ca.crt&sslcert=/etc/tls/tls.crt&sslkey=/etc/tls/tls.key"
+    NATS_URL: tls://squadron-nats:4222
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-git-tls
+
+review:
+  env:
+    SERVER_SSL_ENABLED: "true"
+    SERVER_SSL_KEY_STORE_TYPE: PEM
+    SERVER_SSL_KEY_STORE: /etc/tls/tls.crt
+    SERVER_SSL_KEY_STORE_KEY: /etc/tls/tls.key
+    SERVER_SSL_TRUST_STORE_TYPE: PEM
+    SERVER_SSL_TRUST_STORE: /etc/tls/ca.crt
+    SERVER_SSL_CLIENT_AUTH: need
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://squadron-postgresql:5432/squadron_review?sslmode=verify-full&sslrootcert=/etc/tls/ca.crt&sslcert=/etc/tls/tls.crt&sslkey=/etc/tls/tls.key"
+    NATS_URL: tls://squadron-nats:4222
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-review-tls
+
+notification:
+  env:
+    SERVER_SSL_ENABLED: "true"
+    SERVER_SSL_KEY_STORE_TYPE: PEM
+    SERVER_SSL_KEY_STORE: /etc/tls/tls.crt
+    SERVER_SSL_KEY_STORE_KEY: /etc/tls/tls.key
+    SERVER_SSL_TRUST_STORE_TYPE: PEM
+    SERVER_SSL_TRUST_STORE: /etc/tls/ca.crt
+    SERVER_SSL_CLIENT_AUTH: need
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://squadron-postgresql:5432/squadron_notification?sslmode=verify-full&sslrootcert=/etc/tls/ca.crt&sslcert=/etc/tls/tls.crt&sslkey=/etc/tls/tls.key"
+    NATS_URL: tls://squadron-nats:4222
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-notification-tls
+
+ui:
+  env:
+    # Nginx TLS configuration (configured via ConfigMap, not Spring Boot)
+    NGINX_SSL_CERTIFICATE: /etc/tls/tls.crt
+    NGINX_SSL_CERTIFICATE_KEY: /etc/tls/tls.key
+  extraVolumeMounts:
+    - name: tls-certs
+      mountPath: /etc/tls
+      readOnly: true
+  extraVolumes:
+    - name: tls-certs
+      secret:
+        secretName: squadron-ui-tls

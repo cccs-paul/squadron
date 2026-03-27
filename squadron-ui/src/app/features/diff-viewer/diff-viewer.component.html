@@ -1,0 +1,133 @@
+<div class="diff-viewer">
+  <div class="diff-viewer__header">
+    <h2 class="diff-viewer__title">Code Changes</h2>
+    <div class="diff-viewer__stats">
+      <span class="diff-viewer__stat diff-viewer__stat--additions">+{{ totalAdditions() }}</span>
+      <span class="diff-viewer__stat diff-viewer__stat--deletions">-{{ totalDeletions() }}</span>
+      <span class="diff-viewer__stat">{{ fileCount() }} files changed</span>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="diff-viewer__loading">Loading diff...</div>
+  } @else if (error()) {
+    <div class="diff-viewer__error">{{ error() }}</div>
+  } @else if (diff()) {
+    <div class="diff-viewer__file-list">
+      @for (file of diff()!.files; track file.filename) {
+        <div class="diff-file" [class.diff-file--expanded]="isExpanded(file.filename)">
+          <div class="diff-file__header" (click)="toggleFile(file.filename)">
+            <span class="diff-file__status" [class]="'diff-file__status--' + getStatusClass(file.status)">
+              {{ getStatusIcon(file.status) }}
+            </span>
+            <span class="diff-file__name">{{ file.filename }}</span>
+            <span class="diff-file__changes">
+              <span class="diff-file__additions">+{{ file.additions }}</span>
+              <span class="diff-file__deletions">-{{ file.deletions }}</span>
+            </span>
+            <span class="diff-file__toggle">{{ isExpanded(file.filename) ? '▼' : '▶' }}</span>
+          </div>
+          @if (isExpanded(file.filename)) {
+            <div class="diff-file__content">
+              <table class="diff-table">
+                <tbody>
+                  @for (line of parsePatch(file.patch); track $index) {
+                    <tr class="diff-line" [class]="'diff-line--' + line.type">
+                      <td class="line-num line-num--old">
+                        @if (line.type !== 'hunk-header') {
+                          @if (line.oldLineNum !== undefined) {
+                            @if (reviewId() && line.type === 'deletion') {
+                              <span class="line-num__clickable" (click)="startComment(file.filename, line.oldLineNum!)">{{ line.oldLineNum }}</span>
+                            } @else {
+                              {{ line.oldLineNum }}
+                            }
+                          }
+                        }
+                      </td>
+                      <td class="line-num line-num--new">
+                        @if (line.type !== 'hunk-header') {
+                          @if (line.newLineNum !== undefined) {
+                            @if (reviewId() && (line.type === 'addition' || line.type === 'context')) {
+                              <span class="line-num__clickable" (click)="startComment(file.filename, line.newLineNum!)">{{ line.newLineNum }}</span>
+                            } @else {
+                              {{ line.newLineNum }}
+                            }
+                          }
+                        }
+                      </td>
+                      <td class="line-gutter">
+                        @switch (line.type) {
+                          @case ('addition') { + }
+                          @case ('deletion') { - }
+                          @case ('hunk-header') { }
+                          @default { &nbsp; }
+                        }
+                      </td>
+                      <td class="line-content">
+                        @if (line.type === 'hunk-header') {
+                          <span class="hunk-header-text">{{ line.content }}</span>
+                        } @else {
+                          {{ line.content }}
+                        }
+                      </td>
+                    </tr>
+                    <!-- Inline comments for this line -->
+                    @if (line.type !== 'hunk-header') {
+                      @for (comment of getCommentsForLine(file.filename, getEffectiveLineNum(line)); track comment.id) {
+                        <tr class="inline-comment" [class.inline-comment--resolved]="comment.resolved">
+                          <td colspan="4">
+                            <div class="inline-comment__content">
+                              <div class="inline-comment__badges">
+                                <span class="sq-badge" [class]="'sq-badge--' + severityClass(comment.severity)">{{ comment.severity }}</span>
+                                <span class="sq-badge sq-badge--neutral">{{ comment.category }}</span>
+                                @if (comment.resolved) {
+                                  <span class="sq-badge sq-badge--success">Resolved</span>
+                                }
+                              </div>
+                              <p class="inline-comment__body">{{ comment.body }}</p>
+                              <span class="inline-comment__author">{{ comment.authorName }} ({{ comment.authorType }})</span>
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                      <!-- Comment form -->
+                      @if (isCommenting(file.filename, getEffectiveLineNum(line))) {
+                        <tr class="comment-form-row">
+                          <td colspan="4">
+                            <div class="comment-form">
+                              <textarea
+                                class="sq-input comment-form__textarea"
+                                placeholder="Add a review comment..."
+                                [(ngModel)]="newCommentBody"
+                                rows="3"
+                              ></textarea>
+                              <div class="comment-form__controls">
+                                <select class="sq-input comment-form__select" [(ngModel)]="newCommentSeverity">
+                                  @for (s of severities; track s) {
+                                    <option [value]="s">{{ s }}</option>
+                                  }
+                                </select>
+                                <select class="sq-input comment-form__select" [(ngModel)]="newCommentCategory">
+                                  @for (c of categories; track c) {
+                                    <option [value]="c">{{ c }}</option>
+                                  }
+                                </select>
+                                <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="cancelComment()">Cancel</button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      } @empty {
+        <div class="diff-viewer__empty">No file changes found.</div>
+      }
+    </div>
+  }
+</div>

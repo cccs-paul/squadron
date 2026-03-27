@@ -1,0 +1,141 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: var(--sq-sidebar-width);
+  height: 100vh;
+  background: var(--sq-sidebar-bg);
+  color: var(--sq-sidebar-text);
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 200;
+  transition: width var(--sq-transition-slow);
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  &--collapsed {
+    width: 64px;
+
+    .sidebar__logo-text {
+      display: none;
+    }
+
+    .sidebar__section-title {
+      display: none;
+    }
+
+    .sidebar__link {
+      justify-content: center;
+      padding: 10px;
+    }
+  }
+
+  &__logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    height: var(--sq-header-height);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+  }
+
+  &__logo-img {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+
+  &__logo-text {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    letter-spacing: -0.02em;
+  }
+
+  &__nav {
+    flex: 1;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    & + & {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  &__section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.4);
+    padding: 4px 12px 8px;
+    white-space: nowrap;
+  }
+
+  &__link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: var(--sq-radius);
+    color: var(--sq-sidebar-text);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all var(--sq-transition);
+    white-space: nowrap;
+
+    &:hover {
+      background: var(--sq-sidebar-hover);
+      color: #fff;
+    }
+
+    &--active {
+      background: var(--sq-sidebar-active);
+      color: #fff;
+
+      .sidebar__icon {
+        color: var(--sq-accent-light, #67E8F9);
+      }
+    }
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+
+  &__label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform var(--sq-transition-slow);
+
+    &.sidebar--open {
+      transform: translateX(0);
+    }
+  }
+}

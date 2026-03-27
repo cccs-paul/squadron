@@ -1,0 +1,11 @@
+**/target/
+**/node_modules/
+**/.angular/
+**/.git/
+**/.idea/
+**/.vscode/
+**/coverage/
+**/*.md
+**/.gitignore
+**/deploy/
+**/*.iml

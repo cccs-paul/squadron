@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.3</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.squadron</groupId>
+    <artifactId>squadron-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Squadron</name>
+    <description>AI-powered software development workflow platform</description>
+
+    <modules>
+        <module>squadron-common</module>
+        <module>squadron-gateway</module>
+        <module>squadron-identity</module>
+        <module>squadron-config</module>
+        <module>squadron-orchestrator</module>
+        <module>squadron-platform</module>
+        <module>squadron-agent</module>
+        <module>squadron-workspace</module>
+        <module>squadron-git</module>
+        <module>squadron-review</module>
+        <module>squadron-notification</module>
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Spring ecosystem -->
+        <spring-cloud.version>2025.0.0</spring-cloud.version>
+        <spring-ai.version>1.0.0</spring-ai.version>
+        <spring-cloud-vault.version>4.2.1</spring-cloud-vault.version>
+
+        <!-- Infrastructure clients -->
+        <nats.version>2.21.1</nats.version>
+        <kubernetes-client.version>19.0.3</kubernetes-client.version>
+        <docker-java.version>3.5.1</docker-java.version>
+        <keycloak.version>26.0.5</keycloak.version>
+        <nimbus-jose-jwt.version>9.47</nimbus-jose-jwt.version>
+        <unboundid-ldapsdk.version>7.0.2</unboundid-ldapsdk.version>
+
+        <!-- Database -->
+        <flyway.version>11.8.2</flyway.version>
+
+        <!-- API Documentation -->
+        <springdoc.version>2.8.6</springdoc.version>
+
+        <!-- Testing -->
+        <testcontainers.version>1.21.3</testcontainers.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Cloud BOM -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Spring AI BOM -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Testcontainers BOM -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Squadron internal modules -->
+            <dependency>
+                <groupId>com.squadron</groupId>
+                <artifactId>squadron-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- NATS -->
+            <dependency>
+                <groupId>io.nats</groupId>
+                <artifactId>jnats</artifactId>
+                <version>${nats.version}</version>
+            </dependency>
+
+            <!-- Kubernetes client -->
+            <dependency>
+                <groupId>io.kubernetes</groupId>
+                <artifactId>client-java</artifactId>
+                <version>${kubernetes-client.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.kubernetes</groupId>
+                <artifactId>client-java-extended</artifactId>
+                <version>${kubernetes-client.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.kubernetes</groupId>
+                <artifactId>client-java-spring-integration</artifactId>
+                <version>${kubernetes-client.version}</version>
+            </dependency>
+
+            <!-- Docker Java client -->
+            <dependency>
+                <groupId>com.github.docker-java</groupId>
+                <artifactId>docker-java</artifactId>
+                <version>${docker-java.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.docker-java</groupId>
+                <artifactId>docker-java-transport-httpclient5</artifactId>
+                <version>${docker-java.version}</version>
+            </dependency>
+
+            <!-- Keycloak -->
+            <dependency>
+                <groupId>org.keycloak</groupId>
+                <artifactId>keycloak-admin-client</artifactId>
+                <version>${keycloak.version}</version>
+            </dependency>
+
+            <!-- Nimbus JOSE+JWT (for self-issued JWTs) -->
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>${nimbus-jose-jwt.version}</version>
+            </dependency>
+
+            <!-- UnboundID LDAP SDK (for embedded LDAP in tests) -->
+            <dependency>
+                <groupId>com.unboundid</groupId>
+                <artifactId>unboundid-ldapsdk</artifactId>
+                <version>${unboundid-ldapsdk.version}</version>
+            </dependency>
+
+            <!-- Flyway -->
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-core</artifactId>
+                <version>${flyway.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-database-postgresql</artifactId>
+                <version>${flyway.version}</version>
+            </dependency>
+
+            <!-- OpenAPI / Swagger -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- Common dependencies for all modules -->
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <configuration>
+                        <excludes>
+                            <exclude>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <source>21</source>
+                        <target>21</target>
+                        <parameters>true</parameters>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+</project>

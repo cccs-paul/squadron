@@ -1,0 +1,115 @@
+<div class="page-header">
+  <div class="page-header__title">
+    <h1>Platform Connections</h1>
+    <p class="page-header__subtitle">Connect to Git and ticketing platforms</p>
+  </div>
+  <button class="btn btn--primary" (click)="openCreateModal()">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    Add Connection
+  </button>
+</div>
+
+@if (loading()) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading connections...</p>
+  </div>
+} @else {
+  <div class="connection-grid">
+    @for (conn of connections(); track conn.id) {
+      <div class="connection-card">
+        <div class="connection-card__header">
+          <div class="connection-card__platform">
+            <div class="connection-card__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <span class="connection-card__type">{{ platformIcon(conn.platformType) }}</span>
+              <h3>{{ conn.name }}</h3>
+            </div>
+          </div>
+          <span class="badge badge--{{ statusClass(conn.status) }}">{{ conn.status }}</span>
+        </div>
+
+        <div class="connection-card__body">
+          <div class="connection-card__detail">
+            <span class="connection-card__label">Base URL</span>
+            <span class="connection-card__value">{{ conn.baseUrl }}</span>
+          </div>
+          @if (conn.lastSyncAt) {
+            <div class="connection-card__detail">
+              <span class="connection-card__label">Last Synced</span>
+              <span class="connection-card__value">{{ conn.lastSyncAt | timeAgo }}</span>
+            </div>
+          }
+          <div class="connection-card__detail">
+            <span class="connection-card__label">Created</span>
+            <span class="connection-card__value">{{ conn.createdAt | timeAgo }}</span>
+          </div>
+        </div>
+
+        <div class="connection-card__actions">
+          <button class="btn btn--secondary btn--sm" (click)="testConnection(conn)" [disabled]="testingId() === conn.id">
+            @if (testingId() === conn.id) { Testing... } @else { Test }
+          </button>
+          <button class="btn btn--secondary btn--sm" (click)="syncConnection(conn)" [disabled]="syncingId() === conn.id">
+            @if (syncingId() === conn.id) { Syncing... } @else { Sync }
+          </button>
+          <button class="btn btn--secondary btn--sm" (click)="openEditModal(conn)">Edit</button>
+          <button class="btn btn--danger btn--sm" (click)="deleteConnection(conn)">Delete</button>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty-state">
+        <p>No platform connections configured. Add a connection to start importing tasks and syncing code.</p>
+      </div>
+    }
+  </div>
+}
+
+@if (showCreateModal()) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal__header">
+        <h2>{{ editingConnection() ? 'Edit Connection' : 'Add Platform Connection' }}</h2>
+        <button class="btn-icon" (click)="closeModal()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input class="form-input" type="text" [(ngModel)]="formName" placeholder="e.g. GitHub - Organization" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Platform</label>
+          <select class="form-input" [(ngModel)]="formType">
+            @for (type of platformTypes; track type) {
+              <option [value]="type">{{ platformIcon(type) }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Base URL</label>
+          <input class="form-input" type="url" [(ngModel)]="formBaseUrl" placeholder="https://api.github.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Access Token</label>
+          <input class="form-input" type="password" [(ngModel)]="formToken" placeholder="Enter token..." />
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" (click)="closeModal()">Cancel</button>
+        <button class="btn btn--primary" (click)="saveConnection()" [disabled]="!formName || !formBaseUrl">
+          {{ editingConnection() ? 'Update' : 'Create' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

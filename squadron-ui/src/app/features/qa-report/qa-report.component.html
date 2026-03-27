@@ -1,0 +1,165 @@
+@if (loading()) {
+  <div class="loading">Loading QA report...</div>
+} @else {
+  @if (report(); as r) {
+  <div class="qa-report">
+    <div class="qa-report__header">
+      <a [routerLink]="['/tasks', r.taskId]" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Task
+      </a>
+      <div class="qa-report__title-bar">
+        <h1>QA Report</h1>
+        <div class="qa-report__badges">
+          <span class="sq-badge" [class]="'sq-badge--' + verdictClass(r.verdict)">{{ r.verdict }}</span>
+          <span class="sq-badge" [class]="r.gateResult === 'PASSED' ? 'sq-badge--success' : 'sq-badge--error'">
+            Gate: {{ r.gateResult }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa-report__cards">
+      <!-- Coverage Card -->
+      <div class="sq-card coverage-card">
+        <div class="card-header"><h3>Code Coverage</h3></div>
+        <div class="card-body">
+          <div class="coverage-value">{{ r.coveragePercentage }}%</div>
+          <div class="coverage-bar">
+            <div class="coverage-bar__fill" [style.width.%]="r.coveragePercentage" [style.background]="coverageBarColor()"></div>
+          </div>
+          <p class="coverage-label">
+            @if (r.coveragePercentage >= 80) {
+              Coverage meets threshold
+            } @else if (r.coveragePercentage >= 60) {
+              Coverage below recommended threshold
+            } @else {
+              Coverage critically low
+            }
+          </p>
+        </div>
+      </div>
+
+      <!-- Test Results Card -->
+      <div class="sq-card test-results-card">
+        <div class="card-header"><h3>Test Results</h3></div>
+        <div class="card-body">
+          <div class="test-summary">
+            <span class="test-summary__rate">{{ passRate() }}%</span>
+            <span class="test-summary__label">pass rate ({{ totalTests() }} total)</span>
+          </div>
+          <div class="test-bars">
+            <div class="test-bar-row">
+              <span class="test-bar-label">Passed</span>
+              <div class="test-bar">
+                <div class="test-bar__fill test-bar__fill--passed" [style.width.%]="totalTests() > 0 ? (r.testsPassed / totalTests()) * 100 : 0"></div>
+              </div>
+              <span class="test-bar-count">{{ r.testsPassed }}</span>
+            </div>
+            <div class="test-bar-row">
+              <span class="test-bar-label">Failed</span>
+              <div class="test-bar">
+                <div class="test-bar__fill test-bar__fill--failed" [style.width.%]="totalTests() > 0 ? (r.testsFailed / totalTests()) * 100 : 0"></div>
+              </div>
+              <span class="test-bar-count">{{ r.testsFailed }}</span>
+            </div>
+            <div class="test-bar-row">
+              <span class="test-bar-label">Skipped</span>
+              <div class="test-bar">
+                <div class="test-bar__fill test-bar__fill--skipped" [style.width.%]="totalTests() > 0 ? (r.testsSkipped / totalTests()) * 100 : 0"></div>
+              </div>
+              <span class="test-bar-count">{{ r.testsSkipped }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Card -->
+    <div class="sq-card summary-card">
+      <div class="card-header"><h3>Summary</h3></div>
+      <div class="card-body">
+        <p class="summary-text">{{ r.summary }}</p>
+      </div>
+    </div>
+
+    <!-- Findings Section -->
+    <div class="findings-section">
+      <h2>Findings ({{ r.findings.length }})</h2>
+
+      @if (criticalFindings().length > 0) {
+        <div class="findings-group">
+          <h3 class="findings-group__title findings-group__title--critical">Critical ({{ criticalFindings().length }})</h3>
+          @for (finding of criticalFindings(); track finding.message) {
+            <div class="finding sq-card">
+              <div class="finding__header">
+                <div class="finding__badges">
+                  <span class="sq-badge sq-badge--error">{{ finding.severity }}</span>
+                  <span class="sq-badge sq-badge--neutral">{{ finding.type }}</span>
+                </div>
+                @if (finding.filePath) {
+                  <span class="finding__file">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    {{ finding.filePath }}@if (finding.lineNumber) {<span class="line-num">:{{ finding.lineNumber }}</span>}
+                  </span>
+                }
+              </div>
+              <p class="finding__message">{{ finding.message }}</p>
+            </div>
+          }
+        </div>
+      }
+
+      @if (majorFindings().length > 0) {
+        <div class="findings-group">
+          <h3 class="findings-group__title findings-group__title--major">Major ({{ majorFindings().length }})</h3>
+          @for (finding of majorFindings(); track finding.message) {
+            <div class="finding sq-card">
+              <div class="finding__header">
+                <div class="finding__badges">
+                  <span class="sq-badge sq-badge--warning">{{ finding.severity }}</span>
+                  <span class="sq-badge sq-badge--neutral">{{ finding.type }}</span>
+                </div>
+                @if (finding.filePath) {
+                  <span class="finding__file">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    {{ finding.filePath }}@if (finding.lineNumber) {<span class="line-num">:{{ finding.lineNumber }}</span>}
+                  </span>
+                }
+              </div>
+              <p class="finding__message">{{ finding.message }}</p>
+            </div>
+          }
+        </div>
+      }
+
+      @if (minorFindings().length > 0) {
+        <div class="findings-group">
+          <h3 class="findings-group__title findings-group__title--minor">Minor / Info ({{ minorFindings().length }})</h3>
+          @for (finding of minorFindings(); track finding.message) {
+            <div class="finding sq-card">
+              <div class="finding__header">
+                <div class="finding__badges">
+                  <span class="sq-badge" [class]="'sq-badge--' + severityClass(finding.severity)">{{ finding.severity }}</span>
+                  <span class="sq-badge sq-badge--neutral">{{ finding.type }}</span>
+                </div>
+                @if (finding.filePath) {
+                  <span class="finding__file">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    {{ finding.filePath }}@if (finding.lineNumber) {<span class="line-num">:{{ finding.lineNumber }}</span>}
+                  </span>
+                }
+              </div>
+              <p class="finding__message">{{ finding.message }}</p>
+            </div>
+          }
+        </div>
+      }
+
+      @if (r.findings.length === 0) {
+        <div class="no-findings">No findings reported</div>
+      }
+    </div>
+  </div>
+  }
+}

@@ -1,0 +1,13 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "squadron-gateway.fullname" . }}
+  labels:
+    {{- include "squadron-gateway.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "squadron-gateway.selectorLabels" . | nindent 6 }}
+{{- end }}

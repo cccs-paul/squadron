@@ -1,0 +1,20 @@
+.review-list {
+  max-width: 1100px; margin: 0 auto; animation: sq-fade-in 300ms ease;
+  &__header {
+    display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px;
+    h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+    p { font-size: 14px; color: var(--sq-text-secondary); margin-top: 2px; }
+  }
+}
+.review-table { overflow-x: auto; }
+.clickable-row { cursor: pointer; }
+.pr-info { display: flex; flex-direction: column; gap: 2px; }
+.pr-number { font-weight: 600; font-family: var(--sq-font-mono); font-size: 13px; }
+.pr-repo { font-size: 12px; color: var(--sq-text-tertiary); }
+.task-title { font-size: 13px; font-weight: 500; }
+.changes { display: flex; gap: 8px; font-size: 13px; font-family: var(--sq-font-mono);
+  &--add { color: var(--sq-success); }
+  &--remove { color: var(--sq-error); }
+}
+.date { font-size: 13px; color: var(--sq-text-tertiary); }
+.empty-row { text-align: center; color: var(--sq-text-tertiary); padding: 40px 16px !important; }

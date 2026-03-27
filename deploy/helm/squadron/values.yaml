@@ -1,0 +1,56 @@
+# Squadron Umbrella Chart - Global Values
+# Override subchart values using the subchart key prefix.
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+  postgresql:
+    host: squadron-postgresql
+    port: 5432
+    username: squadron
+    password: squadron
+  redis:
+    host: squadron-redis
+    port: 6379
+  nats:
+    url: nats://squadron-nats:4222
+  keycloak:
+    url: http://squadron-keycloak:8080
+    clientSecret: change-me-in-production
+  identity:
+    jwksUri: http://squadron-identity:8081/api/auth/jwks
+  encryptionKey: change-me-in-production
+  domain: squadron.local
+
+# Subchart toggles
+gateway:
+  enabled: true
+identity:
+  enabled: true
+config:
+  enabled: true
+orchestrator:
+  enabled: true
+platform:
+  enabled: true
+agent:
+  enabled: true
+workspace:
+  enabled: true
+git:
+  enabled: true
+review:
+  enabled: true
+notification:
+  enabled: true
+ui:
+  enabled: true
+postgresql:
+  enabled: true
+redis:
+  enabled: true
+nats:
+  enabled: true
+keycloak:
+  enabled: true

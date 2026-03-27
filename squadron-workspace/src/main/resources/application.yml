@@ -1,0 +1,48 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: squadron-workspace
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/squadron_workspace}
+    username: ${SPRING_DATASOURCE_USERNAME:squadron}
+    password: ${SPRING_DATASOURCE_PASSWORD:squadron}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  # Keycloak JWT config retained as fallback; Squadron JWT is primary via squadron.security.jwt.jwks-uri
+  # security:
+  #   oauth2:
+  #     resourceserver:
+  #       jwt:
+  #         issuer-uri: ${KEYCLOAK_URL:http://localhost:8080}/realms/squadron
+  #         jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8080}/realms/squadron/protocol/openid-connect/certs
+
+squadron:
+  nats:
+    url: ${NATS_URL:nats://localhost:4222}
+  security:
+    jwt:
+      jwks-uri: ${SQUADRON_JWKS_URI:http://localhost:8081/api/auth/jwks}
+  workspace:
+    provider: ${WORKSPACE_PROVIDER:kubernetes}
+    kubernetes:
+      namespace: ${WORKSPACE_K8S_NAMESPACE:squadron-workspaces}
+      image: ${WORKSPACE_BASE_IMAGE:ubuntu:22.04}
+    docker:
+      host: ${DOCKER_HOST:unix:///var/run/docker.sock}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

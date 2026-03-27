@@ -1,0 +1,531 @@
+# =============================================================================
+# Squadron - cert-manager Certificate Resources
+# =============================================================================
+# Defines Certificate resources for each Squadron service. cert-manager will
+# automatically request certificates from Vault via the ClusterIssuer and
+# store them as Kubernetes Secrets that pods mount as volumes.
+#
+# Each certificate includes:
+#   - Service DNS name (short, namespace-qualified, and FQDN)
+#   - EC P-256 key for performance
+#   - 720h (30 day) duration with 480h (20 day) renewal window
+#   - Stored in a TLS Secret mounted by the service pod
+#
+# Usage:
+#   kubectl apply -f deploy/vault/cert-manager/certificates.yaml
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Gateway
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-gateway-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-gateway
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-gateway-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-gateway
+  duration: 720h    # 30 days
+  renewBefore: 480h # Renew 20 days before expiry
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-gateway
+    - squadron-gateway.squadron
+    - squadron-gateway.squadron.svc
+    - squadron-gateway.squadron.svc.cluster.local
+  ipAddresses:
+    - 127.0.0.1
+
+---
+# ---------------------------------------------------------------------------
+# Identity
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-identity-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-identity
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-identity-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-identity
+  duration: 720h
+  renewBefore: 480h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-identity
+    - squadron-identity.squadron
+    - squadron-identity.squadron.svc
+    - squadron-identity.squadron.svc.cluster.local
+  ipAddresses:
+    - 127.0.0.1
+
+---
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-config-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-config
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-config-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-config
+  duration: 720h
+  renewBefore: 480h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-config
+    - squadron-config.squadron
+    - squadron-config.squadron.svc
+    - squadron-config.squadron.svc.cluster.local
+  ipAddresses:
+    - 127.0.0.1
+
+---
+# ---------------------------------------------------------------------------
+# Orchestrator
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-orchestrator-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-orchestrator
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-orchestrator-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-orchestrator
+  duration: 720h
+  renewBefore: 480h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-orchestrator
+    - squadron-orchestrator.squadron
+    - squadron-orchestrator.squadron.svc
+    - squadron-orchestrator.squadron.svc.cluster.local
+  ipAddresses:
+    - 127.0.0.1
+
+---
+# ---------------------------------------------------------------------------
+# Platform
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-platform-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-platform
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-platform-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-platform
+  duration: 720h
+  renewBefore: 480h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-platform
+    - squadron-platform.squadron
+    - squadron-platform.squadron.svc
+    - squadron-platform.squadron.svc.cluster.local
+  ipAddresses:
+    - 127.0.0.1
+
+---
+# ---------------------------------------------------------------------------
+# Agent
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-agent-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-agent
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-agent-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-agent
+  duration: 720h
+  renewBefore: 480h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-agent
+    - squadron-agent.squadron
+    - squadron-agent.squadron.svc
+    - squadron-agent.squadron.svc.cluster.local
+  ipAddresses:
+    - 127.0.0.1
+
+---
+# ---------------------------------------------------------------------------
+# Workspace
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-workspace-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-workspace
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-workspace-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-workspace
+  duration: 720h
+  renewBefore: 480h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-workspace
+    - squadron-workspace.squadron
+    - squadron-workspace.squadron.svc
+    - squadron-workspace.squadron.svc.cluster.local
+  ipAddresses:
+    - 127.0.0.1
+
+---
+# ---------------------------------------------------------------------------
+# Git
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-git-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-git
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-git-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-git
+  duration: 720h
+  renewBefore: 480h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-git
+    - squadron-git.squadron
+    - squadron-git.squadron.svc
+    - squadron-git.squadron.svc.cluster.local
+  ipAddresses:
+    - 127.0.0.1
+
+---
+# ---------------------------------------------------------------------------
+# Review
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-review-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-review
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-review-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-review
+  duration: 720h
+  renewBefore: 480h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-review
+    - squadron-review.squadron
+    - squadron-review.squadron.svc
+    - squadron-review.squadron.svc.cluster.local
+  ipAddresses:
+    - 127.0.0.1
+
+---
+# ---------------------------------------------------------------------------
+# Notification
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-notification-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-notification
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-notification-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-notification
+  duration: 720h
+  renewBefore: 480h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-notification
+    - squadron-notification.squadron
+    - squadron-notification.squadron.svc
+    - squadron-notification.squadron.svc.cluster.local
+  ipAddresses:
+    - 127.0.0.1
+
+---
+# ---------------------------------------------------------------------------
+# UI (Nginx terminates TLS)
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-ui-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-ui
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-ui-tls
+  issuerRef:
+    name: squadron-vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-ui
+  duration: 720h
+  renewBefore: 480h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+  dnsNames:
+    - squadron-ui
+    - squadron-ui.squadron
+    - squadron-ui.squadron.svc
+    - squadron-ui.squadron.svc.cluster.local
+    - squadron.local
+    - "*.squadron.local"
+
+---
+# ---------------------------------------------------------------------------
+# PostgreSQL (infrastructure issuer)
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-postgresql-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-postgresql
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-postgresql-tls
+  issuerRef:
+    name: squadron-vault-infra-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-postgresql
+  duration: 2160h   # 90 days for infra
+  renewBefore: 720h # Renew 30 days before expiry
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-postgresql
+    - squadron-postgresql.squadron
+    - squadron-postgresql.squadron.svc
+    - squadron-postgresql.squadron.svc.cluster.local
+
+---
+# ---------------------------------------------------------------------------
+# Redis (infrastructure issuer)
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-redis-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-redis
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-redis-tls
+  issuerRef:
+    name: squadron-vault-infra-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-redis
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-redis
+    - squadron-redis.squadron
+    - squadron-redis.squadron.svc
+    - squadron-redis.squadron.svc.cluster.local
+
+---
+# ---------------------------------------------------------------------------
+# NATS (infrastructure issuer)
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-nats-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-nats
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-nats-tls
+  issuerRef:
+    name: squadron-vault-infra-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-nats
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-nats
+    - squadron-nats.squadron
+    - squadron-nats.squadron.svc
+    - squadron-nats.squadron.svc.cluster.local
+
+---
+# ---------------------------------------------------------------------------
+# Keycloak (infrastructure issuer)
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: squadron-keycloak-tls
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: squadron-keycloak
+    app.kubernetes.io/component: tls
+spec:
+  secretName: squadron-keycloak-tls
+  issuerRef:
+    name: squadron-vault-infra-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: squadron-keycloak
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - squadron-keycloak
+    - squadron-keycloak.squadron
+    - squadron-keycloak.squadron.svc
+    - squadron-keycloak.squadron.svc.cluster.local

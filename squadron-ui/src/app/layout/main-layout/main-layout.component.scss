@@ -1,0 +1,28 @@
+.main-layout {
+  margin-left: var(--sq-sidebar-width);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left var(--sq-transition-slow);
+
+  &--collapsed {
+    margin-left: 64px;
+  }
+
+  &__content {
+    flex: 1;
+    padding: 24px;
+    background: var(--sq-bg);
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-layout {
+    margin-left: 0;
+
+    &--collapsed {
+      margin-left: 0;
+    }
+  }
+}

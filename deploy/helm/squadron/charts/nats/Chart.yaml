@@ -1,0 +1,6 @@
+apiVersion: v2
+name: squadron-nats
+description: Squadron NATS Message Broker with JetStream
+type: application
+version: 0.1.0
+appVersion: "2"

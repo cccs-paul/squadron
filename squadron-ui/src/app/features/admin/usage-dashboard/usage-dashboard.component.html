@@ -1,0 +1,79 @@
+<div class="usage-dashboard">
+  <div class="usage-dashboard__header">
+    <h2>Token Usage</h2>
+    <p class="usage-dashboard__subtitle">Monitor AI agent token consumption and costs</p>
+  </div>
+
+  @if (loading()) {
+    <div class="usage-dashboard__loading">
+      <div class="spinner"></div>
+      <p>Loading usage data...</p>
+    </div>
+  } @else {
+    @if (summary(); as s) {
+      <div class="usage-dashboard__summary">
+        <div class="usage-dashboard__card">
+          <h3>Total Tokens</h3>
+          <span class="usage-dashboard__value">{{ formatTokens(s.totalTokens) }}</span>
+        </div>
+        <div class="usage-dashboard__card">
+          <h3>Input Tokens</h3>
+          <span class="usage-dashboard__value">{{ formatTokens(s.totalInputTokens) }}</span>
+        </div>
+        <div class="usage-dashboard__card">
+          <h3>Output Tokens</h3>
+          <span class="usage-dashboard__value">{{ formatTokens(s.totalOutputTokens) }}</span>
+        </div>
+        <div class="usage-dashboard__card">
+          <h3>Total Cost</h3>
+          <span class="usage-dashboard__value">{{ formatCost(s.totalCost) }}</span>
+        </div>
+      </div>
+
+      <div class="usage-dashboard__agents">
+        <h3>Usage by Agent Type</h3>
+        @if (agentBreakdown().length) {
+          <table class="usage-dashboard__table">
+            <thead>
+              <tr>
+                <th>Agent Type</th>
+                <th>Tokens</th>
+                <th>Cost</th>
+                <th>Invocations</th>
+                <th>Distribution</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (agent of agentBreakdown(); track agent.agentType) {
+                <tr>
+                  <td>
+                    <span class="usage-dashboard__agent-badge">{{ agent.agentType }}</span>
+                  </td>
+                  <td>{{ formatTokens(agent.totalTokens) }}</td>
+                  <td>{{ formatCost(agent.totalCost) }}</td>
+                  <td>{{ agent.invocations }}</td>
+                  <td>
+                    <div class="usage-dashboard__bar-container">
+                      <div
+                        class="usage-dashboard__bar"
+                        [style.width.%]="getBarWidth(agent.totalTokens)"
+                      ></div>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <div class="usage-dashboard__empty">
+            <p>No agent usage data available.</p>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="usage-dashboard__empty">
+        <p>No usage data available for this tenant.</p>
+      </div>
+    }
+  }
+</div>

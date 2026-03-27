@@ -1,0 +1,181 @@
+<div class="agent-config">
+  <div class="agent-config__header">
+    <h2>Agent Configuration</h2>
+    <p class="agent-config__subtitle">Configure AI agent settings for your workspace</p>
+  </div>
+
+  @if (saveSuccess()) {
+    <div class="alert alert--success">Configuration saved successfully</div>
+  }
+
+  @if (saveError(); as err) {
+    <div class="alert alert--error">{{ err }}</div>
+  }
+
+  @if (loading()) {
+    <div class="agent-config__loading">
+      <div class="spinner"></div>
+      <p>Loading configuration...</p>
+    </div>
+  } @else {
+    <div class="agent-config__sections">
+      <!-- Model Settings -->
+      <section class="agent-config__section">
+        <div class="agent-config__section-header">
+          <h3>Model Settings</h3>
+          <p>Default AI model configuration for all agent types</p>
+        </div>
+        <div class="agent-config__section-body">
+          <div class="agent-config__field">
+            <label class="agent-config__label">Provider</label>
+            <select class="agent-config__select" [(ngModel)]="provider">
+              @for (p of providers; track p) {
+                <option [value]="p">{{ p }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="agent-config__field">
+            <label class="agent-config__label">Model Name</label>
+            <input
+              class="agent-config__input"
+              type="text"
+              [(ngModel)]="modelName"
+              placeholder="gpt-4"
+            />
+          </div>
+
+          <div class="agent-config__field">
+            <label class="agent-config__label">Temperature: {{ temperature }}</label>
+            <input
+              class="agent-config__range"
+              type="range"
+              [(ngModel)]="temperature"
+              min="0"
+              max="1"
+              step="0.1"
+            />
+            <div class="agent-config__range-labels">
+              <span>Precise (0.0)</span>
+              <span>Creative (1.0)</span>
+            </div>
+          </div>
+
+          <div class="agent-config__field">
+            <label class="agent-config__label">Max Tokens</label>
+            <input
+              class="agent-config__input"
+              type="number"
+              [(ngModel)]="maxTokens"
+              min="1"
+              max="128000"
+              placeholder="4096"
+            />
+            @if (!validateMaxTokens()) {
+              <span class="agent-config__error-hint">Must be between 1 and 128,000</span>
+            }
+          </div>
+
+          <div class="agent-config__field">
+            <label class="agent-config__label">System Prompt</label>
+            <textarea
+              class="agent-config__textarea"
+              [(ngModel)]="systemPrompt"
+              rows="4"
+              placeholder="Optional system prompt for all agents..."
+            ></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- Agent Overrides -->
+      <section class="agent-config__section">
+        <div class="agent-config__section-header">
+          <h3>Per-Agent Overrides</h3>
+          <p>Override default settings for specific agent types</p>
+        </div>
+        <div class="agent-config__section-body">
+          @for (type of getOverrideTypes(); track type) {
+            <div class="agent-config__override">
+              <div class="agent-config__override-header">
+                <span class="agent-config__override-badge">{{ type }}</span>
+                <button class="agent-config__remove-btn" (click)="removeOverride(type)">Remove</button>
+              </div>
+              <div class="agent-config__override-fields">
+                <div class="agent-config__field">
+                  <label class="agent-config__label">Provider</label>
+                  <select class="agent-config__select" [(ngModel)]="agentOverrides[type].provider">
+                    @for (p of providers; track p) {
+                      <option [value]="p">{{ p }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="agent-config__field">
+                  <label class="agent-config__label">Model</label>
+                  <input
+                    class="agent-config__input"
+                    type="text"
+                    [(ngModel)]="agentOverrides[type].modelName"
+                  />
+                </div>
+                <div class="agent-config__field">
+                  <label class="agent-config__label">Temperature: {{ agentOverrides[type].temperature }}</label>
+                  <input
+                    class="agent-config__range"
+                    type="range"
+                    [(ngModel)]="agentOverrides[type].temperature"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                  />
+                </div>
+                <div class="agent-config__field">
+                  <label class="agent-config__label">Max Tokens</label>
+                  <input
+                    class="agent-config__input"
+                    type="number"
+                    [(ngModel)]="agentOverrides[type].maxTokens"
+                    min="1"
+                    max="128000"
+                  />
+                </div>
+              </div>
+            </div>
+          }
+
+          @if (getAvailableAgentTypes().length) {
+            <div class="agent-config__add-override">
+              <select class="agent-config__select" [(ngModel)]="selectedOverrideType">
+                <option value="">Select agent type...</option>
+                @for (type of getAvailableAgentTypes(); track type) {
+                  <option [value]="type">{{ type }}</option>
+                }
+              </select>
+              <button
+                class="btn btn--secondary"
+                (click)="addOverride(selectedOverrideType)"
+                [disabled]="!selectedOverrideType"
+              >
+                Add Override
+              </button>
+            </div>
+          }
+        </div>
+      </section>
+
+      <div class="agent-config__actions">
+        <button
+          class="btn btn--primary"
+          (click)="saveConfig()"
+          [disabled]="saving()"
+        >
+          @if (saving()) {
+            Saving...
+          } @else {
+            Save Configuration
+          }
+        </button>
+      </div>
+    </div>
+  }
+</div>

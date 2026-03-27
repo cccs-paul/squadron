@@ -1,0 +1,33 @@
+image:
+  repository: nats
+  tag: "2-alpine"
+  pullPolicy: IfNotPresent
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+service:
+  type: ClusterIP
+  clientPort: 4222
+  monitorPort: 8222
+
+jetstream:
+  enabled: true
+  maxMemory: 256Mi
+  maxStorage: 5Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

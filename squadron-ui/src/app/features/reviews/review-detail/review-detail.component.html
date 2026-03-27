@@ -1,0 +1,89 @@
+@if (loading()) {
+  <div class="loading">Loading review...</div>
+} @else {
+  @if (review(); as r) {
+  <div class="review-detail">
+    <div class="review-detail__header">
+      <a routerLink="/reviews" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Reviews
+      </a>
+    </div>
+
+    <div class="review-detail__title-bar">
+      <div>
+        <h1>PR #{{ r.pullRequestNumber }} - {{ r.taskTitle }}</h1>
+        <p class="repo-name">{{ r.repositoryName }}</p>
+      </div>
+      <div class="action-buttons">
+        @if (r.status === 'PENDING' || r.status === 'IN_PROGRESS') {
+          <button class="sq-btn sq-btn--success" (click)="approveReview()">Approve</button>
+          <button class="sq-btn sq-btn--danger" (click)="rejectReview()">Reject</button>
+        }
+      </div>
+    </div>
+
+    <div class="review-detail__stats">
+      <div class="stat-item"><span class="stat-label">Files changed</span><span class="stat-val">{{ r.filesChanged }}</span></div>
+      <div class="stat-item"><span class="stat-label">Lines added</span><span class="stat-val stat-val--add">+{{ r.linesAdded }}</span></div>
+      <div class="stat-item"><span class="stat-label">Lines removed</span><span class="stat-val stat-val--remove">-{{ r.linesRemoved }}</span></div>
+      <div class="stat-item"><span class="stat-label">Comments</span><span class="stat-val">{{ r.comments.length }}</span></div>
+      <div class="stat-item"><span class="stat-label">Unresolved</span><span class="stat-val" [class.stat-val--remove]="unresolvedCount() > 0">{{ unresolvedCount() }}</span></div>
+      <div class="stat-item"><span class="stat-label">Resolved</span><span class="stat-val stat-val--add">{{ resolvedCount() }}</span></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="review-tabs">
+      <button class="review-tab" [class.review-tab--active]="activeTab() === 'diff'" (click)="setTab('diff')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Diff
+        @if (hasDiff()) { <span class="review-tab__badge">{{ r.filesChanged }}</span> }
+      </button>
+      <button class="review-tab" [class.review-tab--active]="activeTab() === 'comments'" (click)="setTab('comments')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Comments
+        <span class="review-tab__badge">{{ r.comments.length }}</span>
+      </button>
+    </div>
+
+    <!-- Diff Tab -->
+    @if (activeTab() === 'diff') {
+      <div class="diff-tab-content sq-card">
+        <sq-diff-viewer [taskId]="r.taskId" [comments]="r.comments" [reviewId]="r.id" />
+      </div>
+    }
+
+    <!-- Comments Tab -->
+    @if (activeTab() === 'comments') {
+      <div class="comments-section sq-card">
+        <div class="card-header"><h3>Review Comments</h3></div>
+        <div class="comments-list">
+          @for (comment of r.comments; track comment.id) {
+            <div class="comment" [class.comment--resolved]="comment.resolved">
+              <div class="comment__header">
+                <div class="comment__file">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  {{ comment.filePath }}
+                  @if (comment.lineNumber) { <span class="line-num">:{{ comment.lineNumber }}</span> }
+                </div>
+                <div class="comment__badges">
+                  <span class="sq-badge" [class]="'sq-badge--' + severityClass(comment.severity)">{{ comment.severity }}</span>
+                  <span class="sq-badge sq-badge--neutral">{{ comment.category }}</span>
+                  @if (comment.resolved) { <span class="sq-badge sq-badge--success">Resolved</span> }
+                </div>
+              </div>
+              <p class="comment__body">{{ comment.body }}</p>
+              <div class="comment__footer">
+                <span>{{ comment.authorName }} ({{ comment.authorType }})</span>
+                <span>{{ comment.createdAt | timeAgo }}</span>
+              </div>
+            </div>
+          } @empty {
+            <div class="no-comments">No comments yet</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+  }
+}

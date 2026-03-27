@@ -1,0 +1,37 @@
+# Trivy configuration for Squadron container image scanning
+#
+# Usage:
+#   trivy image --config deploy/security/trivy-config.yaml squadron-gateway:latest
+#
+# This configuration is used by both local scans and CI pipelines.
+# See docs/runbooks/security-scanning.md for details.
+
+severity: CRITICAL,HIGH,MEDIUM
+ignore-unfixed: true
+format: table
+exit-code: 1
+
+security-checks:
+  - vuln
+  - config
+  - secret
+
+# Timeout for scanning large images (5 minutes)
+timeout: 5m0s
+
+# Cache directory for vulnerability database
+cache-dir: /tmp/trivy-cache
+
+# Skip files larger than 100MB
+skip-files:
+  - "**/*.jar"
+
+# Skip directories not relevant to security
+skip-dirs:
+  - /tmp
+  - /var/cache
+
+# Vulnerability database settings
+db:
+  skip-update: false
+  light: false

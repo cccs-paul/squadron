@@ -1,0 +1,238 @@
+# =============================================================================
+# Squadron - Security Scanning CI Pipeline
+#
+# Runs on push to main and on pull requests.
+#
+# Jobs:
+#   1. dependency-check  - OWASP Dependency-Check (Maven)
+#   2. container-scan    - Trivy container image scanning
+#   3. secret-scan       - Gitleaks secret detection
+#
+# All jobs produce SARIF output for the GitHub Security tab.
+# =============================================================================
+name: Security Scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Monday at 06:00 UTC to catch new CVEs
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  JAVA_VERSION: "21"
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  # ===========================================================================
+  # Job 1: OWASP Dependency-Check
+  # ===========================================================================
+  dependency-check:
+    name: OWASP Dependency Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Cache OWASP NVD database
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp
+          key: owasp-nvd-${{ github.run_id }}
+          restore-keys: |
+            owasp-nvd-
+
+      - name: Run OWASP Dependency-Check
+        run: |
+          mvn org.owasp:dependency-check-maven:check \
+            -DsuppressionFile=deploy/security/dependency-check-suppression.xml \
+            -Dformat=ALL \
+            -DfailBuildOnCVSS=9 \
+            -DassemblyAnalyzerEnabled=false \
+            --no-transfer-progress \
+            -q
+
+      - name: Upload OWASP Dependency-Check SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: target/dependency-check-report.sarif
+          category: owasp-dependency-check
+
+      - name: Upload HTML report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: "**/target/dependency-check-report.html"
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 2: Trivy Container Scanning
+  # ===========================================================================
+  container-scan:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: []  # Runs in parallel with other jobs
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - squadron-gateway
+          - squadron-identity
+          - squadron-config
+          - squadron-orchestrator
+          - squadron-platform
+          - squadron-agent
+          - squadron-workspace
+          - squadron-git
+          - squadron-review
+          - squadron-notification
+          - squadron-ui
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        if: matrix.image != 'squadron-ui'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Build Docker image (${{ matrix.image }})
+        run: |
+          if [[ "${{ matrix.image }}" == "squadron-ui" ]]; then
+            docker build -t squadron/${{ matrix.image }}:${{ env.IMAGE_TAG }} \
+              -f squadron-ui/Dockerfile squadron-ui/
+          else
+            MODULE="${{ matrix.image }}"
+            mvn package -pl "${MODULE}" -am -DskipTests --no-transfer-progress -q
+            docker build -t squadron/${{ matrix.image }}:${{ env.IMAGE_TAG }} \
+              -f "${MODULE}/Dockerfile" "${MODULE}/"
+          fi
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: squadron/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-${{ matrix.image }}.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+
+      - name: Upload Trivy SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.image }}.sarif
+          category: trivy-${{ matrix.image }}
+
+      - name: Run Trivy table output (for PR comment)
+        if: always()
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: squadron/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 0
+
+  # ===========================================================================
+  # Job 3: Secret Scanning with Gitleaks
+  # ===========================================================================
+  secret-scan:
+    name: Gitleaks Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for secret scanning
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        with:
+          args: detect --source . --report-format sarif --report-path gitleaks.sarif
+
+      - name: Upload Gitleaks SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+
+  # ===========================================================================
+  # Summary Job
+  # ===========================================================================
+  security-summary:
+    name: Security Scan Summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - dependency-check
+      - container-scan
+      - secret-scan
+
+    steps:
+      - name: Check results
+        run: |
+          echo "## Security Scan Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Check | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|--------|" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ needs.dependency-check.result }}" == "success" ]]; then
+            echo "| OWASP Dependency-Check | :white_check_mark: Passed |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| OWASP Dependency-Check | :x: Failed |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "${{ needs.container-scan.result }}" == "success" ]]; then
+            echo "| Trivy Container Scan | :white_check_mark: Passed |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Trivy Container Scan | :x: Failed |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "${{ needs.secret-scan.result }}" == "success" ]]; then
+            echo "| Gitleaks Secret Scan | :white_check_mark: Passed |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Gitleaks Secret Scan | :x: Failed |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "View detailed findings in the **Security** tab." >> "$GITHUB_STEP_SUMMARY"
+
+          # Fail if any critical job failed
+          if [[ "${{ needs.dependency-check.result }}" == "failure" ]] || \
+             [[ "${{ needs.container-scan.result }}" == "failure" ]] || \
+             [[ "${{ needs.secret-scan.result }}" == "failure" ]]; then
+            echo "::error::One or more security scans failed. See the Security tab for details."
+            exit 1
+          fi

@@ -1,0 +1,109 @@
+<div class="login-card">
+  <div class="login-card__header">
+    <img src="assets/logo.svg" alt="Squadron" class="login-card__logo" />
+    <h1 class="login-card__title">Squadron</h1>
+    <p class="login-card__subtitle">AI-Powered Development Workflow</p>
+  </div>
+
+  @if (error()) {
+    <div class="login-card__error">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+      {{ error() }}
+    </div>
+  }
+
+  <form class="login-card__form" (ngSubmit)="login()">
+    @if (tenants().length > 1) {
+      <div class="form-group">
+        <label class="sq-label" for="tenant">Organization</label>
+        <select id="tenant" class="sq-select" [(ngModel)]="selectedTenant" name="tenant">
+          <option value="">Select organization...</option>
+          @for (tenant of tenants(); track tenant.id) {
+            <option [value]="tenant.slug">{{ tenant.name }}</option>
+          }
+        </select>
+      </div>
+    }
+
+    <div class="form-group">
+      <label class="sq-label" for="username">Username or Email</label>
+      <div class="input-wrapper">
+        <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        <input
+          id="username"
+          type="text"
+          class="sq-input login-input"
+          placeholder="Enter your username"
+          [(ngModel)]="username"
+          name="username"
+          autocomplete="username"
+          [disabled]="loading()"
+        />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="sq-label" for="password">Password</label>
+      <div class="input-wrapper">
+        <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <input
+          id="password"
+          [type]="showPassword ? 'text' : 'password'"
+          class="sq-input login-input"
+          placeholder="Enter your password"
+          [(ngModel)]="password"
+          name="password"
+          autocomplete="current-password"
+          [disabled]="loading()"
+        />
+        <button type="button" class="password-toggle" (click)="togglePasswordVisibility()" tabindex="-1">
+          @if (showPassword) {
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          } @else {
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          }
+        </button>
+      </div>
+    </div>
+
+    <div class="form-group form-group--row">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" />
+        <span class="checkbox-custom"></span>
+        Remember me
+      </label>
+      <a href="#" class="forgot-link">Forgot password?</a>
+    </div>
+
+    <button type="submit" class="sq-btn sq-btn--primary login-btn" [disabled]="loading()">
+      @if (loading()) {
+        <span class="spinner"></span>
+        Signing in...
+      } @else {
+        Sign in
+      }
+    </button>
+  </form>
+
+  <div class="login-card__divider">
+    <span>or</span>
+  </div>
+
+  <button class="sq-btn sq-btn--secondary login-btn sso-btn" (click)="loginWithSso()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+    </svg>
+    Sign in with SSO
+  </button>
+</div>

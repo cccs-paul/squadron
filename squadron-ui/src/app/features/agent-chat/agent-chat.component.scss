@@ -1,0 +1,89 @@
+.agent-chat {
+  display: flex; flex-direction: column; height: calc(100vh - 104px);
+  background: var(--sq-surface); border: 1px solid var(--sq-border); border-radius: var(--sq-radius-md); overflow: hidden;
+
+  &__header {
+    display: flex; align-items: center; justify-content: space-between; padding: 14px 20px;
+    border-bottom: 1px solid var(--sq-border); flex-shrink: 0;
+  }
+  &__title { display: flex; align-items: center; gap: 10px;
+    h2 { font-size: 16px; font-weight: 600; }
+    svg { color: var(--sq-primary); }
+  }
+  &__meta { display: flex; align-items: center; gap: 16px; }
+  &__stats { display: flex; gap: 20px; }
+  &__body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  &__input {
+    display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--sq-border); flex-shrink: 0;
+  }
+}
+
+.stat { display: flex; align-items: center; gap: 6px; font-size: 13px;
+  &__label { color: var(--sq-text-tertiary); }
+  &__value { font-weight: 600; color: var(--sq-text);
+    &--active { color: var(--sq-success); }
+    &--waiting_input { color: var(--sq-warning); }
+    &--completed { color: var(--sq-text-tertiary); }
+    &--failed { color: var(--sq-error); }
+  }
+}
+
+.connection-indicator {
+  font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: var(--sq-radius-full);
+  text-transform: uppercase; letter-spacing: 0.5px;
+
+  &--connected { background: rgba(34, 197, 94, 0.12); color: var(--sq-success); }
+  &--connecting { background: rgba(234, 179, 8, 0.12); color: var(--sq-warning); }
+  &--disconnected { background: rgba(148, 163, 184, 0.12); color: var(--sq-text-tertiary); }
+  &--error { background: rgba(239, 68, 68, 0.12); color: var(--sq-error); }
+}
+
+.message {
+  display: flex; gap: 12px;
+  &--system { justify-content: center;
+    .message__content { background: var(--sq-bg); padding: 6px 14px; border-radius: var(--sq-radius-full); text-align: center; }
+    .message__body { font-size: 12px; color: var(--sq-text-tertiary); }
+    .message__header { display: none; }
+  }
+  &--agent .message__content { background: var(--sq-bg); }
+  &--user { flex-direction: row-reverse;
+    .message__content { background: var(--sq-primary-50); }
+    .message__header { flex-direction: row-reverse; }
+  }
+
+  &__avatar { flex-shrink: 0; margin-top: 2px; }
+  &__content { max-width: 680px; padding: 10px 14px; border-radius: var(--sq-radius-md); }
+  &__header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  &__author { font-size: 13px; font-weight: 600; color: var(--sq-text); }
+  &__time { font-size: 11px; color: var(--sq-text-tertiary); }
+  &__body {
+    font-size: 14px; color: var(--sq-text); line-height: 1.6;
+    :host ::ng-deep {
+      pre { background: #1E1B4B; color: #E0E7FF; padding: 12px; border-radius: var(--sq-radius); margin: 8px 0; overflow-x: auto; font-family: var(--sq-font-mono); font-size: 13px; line-height: 1.5; }
+      .inline-code { background: rgba(79, 70, 229, 0.1); color: var(--sq-primary-dark); padding: 1px 5px; border-radius: 3px; font-family: var(--sq-font-mono); font-size: 13px; }
+      strong { font-weight: 600; }
+    }
+  }
+  &__tokens { display: block; margin-top: 6px; font-size: 11px; color: var(--sq-text-tertiary); font-family: var(--sq-font-mono); }
+}
+
+.agent-icon, .system-icon {
+  width: 32px; height: 32px; border-radius: var(--sq-radius-full); display: flex; align-items: center; justify-content: center;
+}
+.agent-icon { background: linear-gradient(135deg, var(--sq-primary), var(--sq-accent)); color: #fff; }
+.system-icon { background: var(--sq-bg); color: var(--sq-text-tertiary); }
+
+.chat-input { flex: 1; height: 42px; }
+.send-btn { min-width: 42px; height: 42px; padding: 0; }
+
+.streaming-badge {
+  color: var(--sq-primary); font-style: italic;
+}
+
+.typing-indicator {
+  display: flex; gap: 4px; padding: 4px 0;
+  span { width: 8px; height: 8px; background: var(--sq-text-tertiary); border-radius: 50%; animation: sq-pulse 1.4s ease infinite;
+    &:nth-child(2) { animation-delay: 0.2s; }
+    &:nth-child(3) { animation-delay: 0.4s; }
+  }
+}

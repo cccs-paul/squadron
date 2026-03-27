@@ -1,0 +1,56 @@
+<div class="task-board">
+  <div class="task-board__header">
+    <div>
+      <h1 class="task-board__title">Task Board</h1>
+      <p class="task-board__subtitle">Drag and drop tasks between columns</p>
+    </div>
+    <div class="task-board__filters">
+      <input
+        type="text"
+        class="sq-input task-board__search"
+        placeholder="Search tasks..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+      />
+      <select class="sq-select" [ngModel]="filterPriority()" (ngModelChange)="filterPriority.set($event)">
+        <option value="">All Priorities</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="board">
+    @for (column of filteredColumns(); track column.state) {
+      <div class="board__column">
+        <div class="board__column-header">
+          <div class="board__column-title">
+            <span class="board__column-dot" [style.background]="column.color"></span>
+            {{ column.label }}
+            <span class="board__column-count">{{ column.tasks.length }}</span>
+          </div>
+        </div>
+        <div
+          class="board__column-body"
+          cdkDropList
+          [id]="'drop-list-' + column.state"
+          [cdkDropListData]="column.tasks"
+          [cdkDropListConnectedTo]="connectedDropLists()"
+          (cdkDropListDropped)="drop($event, column)"
+        >
+          @for (task of column.tasks; track task.id) {
+            <div cdkDrag [cdkDragData]="task">
+              <sq-task-card [task]="task" (cardClick)="openTask($event)" />
+            </div>
+          } @empty {
+            <div class="board__empty">
+              <p>No tasks</p>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

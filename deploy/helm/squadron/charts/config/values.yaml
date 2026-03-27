@@ -1,0 +1,89 @@
+replicaCount: 2
+
+image:
+  repository: squadron/squadron-config
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8082
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: squadron.local
+      paths:
+        - path: /api/config
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+env:
+  SPRING_PROFILES_ACTIVE: kubernetes
+  SERVER_PORT: "8082"
+  NATS_URL: nats://squadron-nats:4222
+  SPRING_DATASOURCE_URL: jdbc:postgresql://squadron-postgresql:5432/squadron_config
+  SPRING_DATASOURCE_USERNAME: squadron
+  SPRING_DATASOURCE_PASSWORD: squadron
+
+secretEnv: {}
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 5
+
+nodeSelector: {}
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - squadron-config
+          topologyKey: kubernetes.io/hostname

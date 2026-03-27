@@ -1,0 +1,88 @@
+# =============================================================================
+# Squadron - cert-manager ClusterIssuer for Vault PKI
+# =============================================================================
+# This ClusterIssuer connects cert-manager to the Vault intermediate CA,
+# enabling automatic certificate issuance and renewal for Squadron services.
+#
+# Prerequisites:
+#   - cert-manager installed: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+#   - Vault PKI configured: ./deploy/vault/setup-pki.sh
+#   - Vault Kubernetes auth configured with cert-manager role
+#
+# Usage:
+#   kubectl apply -f deploy/vault/cert-manager/cluster-issuer.yaml
+# =============================================================================
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: squadron-vault-issuer
+  labels:
+    app.kubernetes.io/name: squadron
+    app.kubernetes.io/component: pki
+    app.kubernetes.io/managed-by: cert-manager
+spec:
+  vault:
+    # Vault server address (adjust for your deployment)
+    server: https://vault.vault.svc.cluster.local:8200
+
+    # Path to the PKI sign endpoint for the squadron-service role
+    path: pki_int/sign/squadron-service
+
+    # CA bundle for verifying Vault's TLS certificate
+    # Option 1: Reference a ConfigMap or Secret containing Vault's CA cert
+    caBundle: ""  # Base64-encoded CA cert, or use caBundleSecretRef below
+
+    # Option 2: Reference a Secret containing Vault's CA certificate
+    # caBundleSecretRef:
+    #   name: vault-ca-bundle
+    #   key: ca.crt
+
+    auth:
+      kubernetes:
+        # Path where Kubernetes auth is mounted in Vault
+        mountPath: /v1/auth/kubernetes
+        # Vault role for cert-manager (created by setup-pki.sh)
+        role: cert-manager
+        # Service account used by cert-manager
+        secretRef:
+          name: cert-manager-vault-token
+          key: token
+
+---
+# =============================================================================
+# ClusterIssuer for infrastructure services (PostgreSQL, Redis, NATS, Keycloak)
+# Uses the squadron-infra role which may have different TTL/policies
+# =============================================================================
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: squadron-vault-infra-issuer
+  labels:
+    app.kubernetes.io/name: squadron
+    app.kubernetes.io/component: pki
+    app.kubernetes.io/managed-by: cert-manager
+spec:
+  vault:
+    server: https://vault.vault.svc.cluster.local:8200
+    path: pki_int/sign/squadron-infra
+    caBundle: ""
+    auth:
+      kubernetes:
+        mountPath: /v1/auth/kubernetes
+        role: cert-manager
+        secretRef:
+          name: cert-manager-vault-token
+          key: token
+
+---
+# =============================================================================
+# ServiceAccount token for cert-manager to authenticate with Vault
+# =============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cert-manager-vault-token
+  namespace: cert-manager
+  annotations:
+    kubernetes.io/service-account.name: cert-manager
+type: kubernetes.io/service-account-token

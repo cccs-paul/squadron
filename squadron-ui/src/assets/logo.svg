@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <defs>
+    <linearGradient id="primary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+    <linearGradient id="secondary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#22D3EE" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A5B4FC" />
+      <stop offset="100%" stop-color="#67E8F9" />
+    </linearGradient>
+    <!-- Soft glow behind formation -->
+    <radialGradient id="glow" cx="50%" cy="45%" r="35%">
+      <stop offset="0%" stop-color="#6366F1" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#6366F1" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Background glow -->
+  <circle cx="120" cy="108" r="90" fill="url(#glow)" />
+
+  <!-- Formation of five stylized birds/chevrons in V-pattern -->
+  <!-- The shapes resemble origami birds or swift arrows — non-military, collaborative -->
+
+  <!-- Leader — center front, largest -->
+  <g transform="translate(120, 72)">
+    <path d="M0 -18 L-14 12 L0 4 L14 12 Z" fill="url(#primary)" />
+    <path d="M0 4 L-14 12 L-8 12 L0 8 L8 12 L14 12 Z" fill="url(#secondary)" opacity="0.6" />
+  </g>
+
+  <!-- Left inner wing -->
+  <g transform="translate(82, 100)">
+    <path d="M0 -16 L-12 10 L0 3 L12 10 Z" fill="url(#primary)" opacity="0.9" />
+    <path d="M0 3 L-12 10 L-7 10 L0 6 L7 10 L12 10 Z" fill="url(#secondary)" opacity="0.5" />
+  </g>
+
+  <!-- Right inner wing -->
+  <g transform="translate(158, 100)">
+    <path d="M0 -16 L-12 10 L0 3 L12 10 Z" fill="url(#primary)" opacity="0.9" />
+    <path d="M0 3 L-12 10 L-7 10 L0 6 L7 10 L12 10 Z" fill="url(#secondary)" opacity="0.5" />
+  </g>
+
+  <!-- Left outer wing -->
+  <g transform="translate(50, 128)">
+    <path d="M0 -14 L-10 8 L0 2 L10 8 Z" fill="url(#secondary)" opacity="0.7" />
+    <path d="M0 2 L-10 8 L-6 8 L0 5 L6 8 L10 8 Z" fill="url(#accent)" opacity="0.4" />
+  </g>
+
+  <!-- Right outer wing -->
+  <g transform="translate(190, 128)">
+    <path d="M0 -14 L-10 8 L0 2 L10 8 Z" fill="url(#secondary)" opacity="0.7" />
+    <path d="M0 2 L-10 8 L-6 8 L0 5 L6 8 L10 8 Z" fill="url(#accent)" opacity="0.4" />
+  </g>
+
+  <!-- Subtle motion trails -->
+  <g opacity="0.2" stroke-linecap="round">
+    <line x1="120" y1="88" x2="120" y2="108" stroke="#6366F1" stroke-width="1.5" />
+    <line x1="82" y1="112" x2="82" y2="130" stroke="#6366F1" stroke-width="1.2" />
+    <line x1="158" y1="112" x2="158" y2="130" stroke="#6366F1" stroke-width="1.2" />
+    <line x1="50" y1="138" x2="50" y2="154" stroke="#818CF8" stroke-width="1" />
+    <line x1="190" y1="138" x2="190" y2="154" stroke="#818CF8" stroke-width="1" />
+  </g>
+
+  <!-- Text: SQUADRON -->
+  <text x="120" y="188" text-anchor="middle" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-size="22" font-weight="700" letter-spacing="4" fill="url(#primary)">SQUADRON</text>
+
+  <!-- Tagline -->
+  <text x="120" y="206" text-anchor="middle" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" font-size="8" font-weight="400" letter-spacing="2.5" fill="#94A3B8">AI-POWERED DEV WORKFLOWS</text>
+</svg>

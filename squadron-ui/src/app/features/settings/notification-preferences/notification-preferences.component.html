@@ -1,0 +1,146 @@
+<div class="notification-preferences">
+  <div class="notification-preferences__header">
+    <h2>Notification Preferences</h2>
+    <p class="notification-preferences__subtitle">Configure how you receive notifications</p>
+  </div>
+
+  @if (saveSuccess()) {
+    <div class="alert alert--success">Preferences saved successfully</div>
+  }
+
+  @if (saveError(); as err) {
+    <div class="alert alert--error">{{ err }}</div>
+  }
+
+  @if (loading()) {
+    <div class="notification-preferences__loading">
+      <div class="spinner"></div>
+      <p>Loading preferences...</p>
+    </div>
+  } @else {
+    <div class="notification-preferences__sections">
+      <!-- Channels Section -->
+      <section class="notification-preferences__section">
+        <div class="notification-preferences__section-header">
+          <h3>Notification Channels</h3>
+          <p>Enable or disable notification delivery methods</p>
+        </div>
+        <div class="notification-preferences__section-body">
+          <div class="notification-preferences__toggle-row">
+            <div>
+              <label class="notification-preferences__label">In-App Notifications</label>
+              <span class="notification-preferences__hint">Receive notifications within Squadron</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" [(ngModel)]="enableInApp" />
+              <span class="toggle__slider"></span>
+            </label>
+          </div>
+
+          <div class="notification-preferences__toggle-row">
+            <div>
+              <label class="notification-preferences__label">Email</label>
+              <span class="notification-preferences__hint">Receive email notifications</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" [(ngModel)]="enableEmail" />
+              <span class="toggle__slider"></span>
+            </label>
+          </div>
+
+          @if (enableEmail) {
+            <div class="notification-preferences__field">
+              <label class="notification-preferences__label">Email Address</label>
+              <input
+                class="notification-preferences__input"
+                type="email"
+                [(ngModel)]="emailAddress"
+                placeholder="you@example.com"
+              />
+            </div>
+          }
+
+          <div class="notification-preferences__toggle-row">
+            <div>
+              <label class="notification-preferences__label">Slack</label>
+              <span class="notification-preferences__hint">Send notifications to a Slack channel</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" [(ngModel)]="enableSlack" />
+              <span class="toggle__slider"></span>
+            </label>
+          </div>
+
+          @if (enableSlack) {
+            <div class="notification-preferences__field">
+              <label class="notification-preferences__label">Slack Webhook URL</label>
+              <input
+                class="notification-preferences__input"
+                type="url"
+                [(ngModel)]="slackWebhookUrl"
+                placeholder="https://hooks.slack.com/services/..."
+              />
+            </div>
+          }
+
+          <div class="notification-preferences__toggle-row">
+            <div>
+              <label class="notification-preferences__label">Microsoft Teams</label>
+              <span class="notification-preferences__hint">Send notifications to a Teams channel</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" [(ngModel)]="enableTeams" />
+              <span class="toggle__slider"></span>
+            </label>
+          </div>
+
+          @if (enableTeams) {
+            <div class="notification-preferences__field">
+              <label class="notification-preferences__label">Teams Webhook URL</label>
+              <input
+                class="notification-preferences__input"
+                type="url"
+                [(ngModel)]="teamsWebhookUrl"
+                placeholder="https://outlook.office.com/webhook/..."
+              />
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Muted Events Section -->
+      <section class="notification-preferences__section">
+        <div class="notification-preferences__section-header">
+          <h3>Muted Event Types</h3>
+          <p>Select event types you do not want to receive notifications for</p>
+        </div>
+        <div class="notification-preferences__section-body">
+          @for (eventType of eventTypes; track eventType) {
+            <label class="notification-preferences__checkbox-row">
+              <input
+                type="checkbox"
+                [checked]="isEventMuted(eventType)"
+                (change)="toggleMutedEvent(eventType)"
+              />
+              <span>{{ eventType }}</span>
+            </label>
+          }
+        </div>
+      </section>
+
+      <div class="notification-preferences__actions">
+        <button
+          class="btn btn--primary"
+          (click)="savePreferences()"
+          [disabled]="saving()"
+        >
+          @if (saving()) {
+            Saving...
+          } @else {
+            Save Preferences
+          }
+        </button>
+      </div>
+    </div>
+  }
+</div>

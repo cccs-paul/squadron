@@ -1,0 +1,7 @@
+<sq-sidebar [collapsed]="sidebarCollapsed" />
+<div class="main-layout" [class.main-layout--collapsed]="sidebarCollapsed">
+  <sq-header (menuToggle)="toggleSidebar()" />
+  <main class="main-layout__content">
+    <router-outlet />
+  </main>
+</div>

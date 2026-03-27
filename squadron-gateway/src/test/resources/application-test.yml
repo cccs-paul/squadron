@@ -1,0 +1,40 @@
+server:
+  port: 0
+  ssl:
+    enabled: false
+
+spring:
+  application:
+    name: squadron-gateway-test
+  main:
+    allow-bean-definition-overriding: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:9999/.well-known/jwks.json
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+squadron:
+  security:
+    auth-mode: squadron
+    jwt:
+      jwks-uri: http://localhost:9999/api/auth/jwks
+  gateway:
+    rate-limit: 100
+  cors:
+    allowed-origins: http://localhost:4200,https://localhost:4200
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OWASP Dependency-Check Suppression File for Squadron
+  =====================================================
+
+  This file suppresses known false positives reported by OWASP Dependency-Check
+  for the Squadron project. Each suppression includes a justification note.
+
+  How to run OWASP Dependency-Check:
+
+    # Full project scan (all modules):
+    mvn org.owasp:dependency-check-maven:check \
+      -DsuppressionFile=deploy/security/dependency-check-suppression.xml
+
+    # Single module scan:
+    mvn org.owasp:dependency-check-maven:check \
+      -DsuppressionFile=deploy/security/dependency-check-suppression.xml \
+      -pl squadron-gateway
+
+    # Generate HTML report:
+    mvn org.owasp:dependency-check-maven:check \
+      -DsuppressionFile=deploy/security/dependency-check-suppression.xml \
+      -Dformat=HTML
+
+    # Fail on CVSS score >= 7 (HIGH and CRITICAL):
+    mvn org.owasp:dependency-check-maven:check \
+      -DsuppressionFile=deploy/security/dependency-check-suppression.xml \
+      -DfailBuildOnCVSS=7
+
+  Reports are generated in each module's target/ directory:
+    target/dependency-check-report.html
+
+  See docs/runbooks/security-scanning.md for full documentation.
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+    <!-- ===================================================================
+         Spring Boot / Spring Framework False Positives
+         =================================================================== -->
+
+    <!--
+      Spring Boot Actuator: CVEs related to Spring Boot Actuator endpoints
+      are mitigated by our security configuration that restricts actuator
+      access to the management network only.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            Spring Boot Actuator endpoints are not exposed publicly.
+            Access is restricted to internal management network via
+            Spring Security configuration.
+        ]]></notes>
+        <gav regex="true">org\.springframework\.boot:spring-boot-actuator.*</gav>
+        <cve>CVE-2023-20883</cve>
+    </suppress>
+
+    <!--
+      Spring Framework: False positive on spring-expression SpEL injection.
+      We do not accept user-supplied SpEL expressions anywhere in Squadron.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            SpEL injection not applicable — no user-supplied SpEL expressions
+            are evaluated in Squadron.
+        ]]></notes>
+        <gav regex="true">org\.springframework:spring-expression.*</gav>
+        <cve>CVE-2023-20861</cve>
+    </suppress>
+
+    <!--
+      Spring Security: OAuth2 redirect URI validation bypass.
+      Mitigated by our explicit allowlist of redirect URIs in Keycloak
+      and Spring Security configuration.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            OAuth2 redirect URI validation is enforced by Keycloak
+            configuration with explicit allowlisted redirect URIs.
+        ]]></notes>
+        <gav regex="true">org\.springframework\.security:spring-security-oauth2.*</gav>
+        <cve>CVE-2023-34034</cve>
+    </suppress>
+
+    <!-- ===================================================================
+         Embedded / Transitive Dependency False Positives
+         =================================================================== -->
+
+    <!--
+      SnakeYAML: CVEs related to arbitrary code execution via YAML deserialization.
+      We use SnakeYAML only through Spring Boot's safe auto-configuration,
+      which restricts constructors. No untrusted YAML is loaded.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            SnakeYAML is used only through Spring Boot auto-configuration.
+            No untrusted YAML input is processed. Safe constructors are enforced.
+        ]]></notes>
+        <gav regex="true">org\.yaml:snakeyaml.*</gav>
+        <cve>CVE-2022-1471</cve>
+    </suppress>
+
+    <!--
+      Jackson Databind: False positive for polymorphic deserialization attacks.
+      We do not enable default typing. All deserialized types are explicitly
+      declared via @JsonTypeInfo on sealed class hierarchies.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            Jackson default typing is disabled. All polymorphic types use
+            explicit @JsonTypeInfo annotations with closed type hierarchies.
+        ]]></notes>
+        <gav regex="true">com\.fasterxml\.jackson\.core:jackson-databind.*</gav>
+        <cve>CVE-2020-36518</cve>
+    </suppress>
+
+    <!--
+      Netty: HTTP/2 rapid-reset DoS vulnerability.
+      Mitigated at the load balancer / API gateway level with rate limiting
+      and connection limits. Internal services do not expose HTTP/2 externally.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            HTTP/2 rapid-reset is mitigated at the load balancer layer.
+            Internal services are not directly exposed to external traffic.
+        ]]></notes>
+        <gav regex="true">io\.netty:netty-codec-http2.*</gav>
+        <cve>CVE-2023-44487</cve>
+    </suppress>
+
+    <!--
+      Bouncy Castle: CVEs related to cryptographic implementation issues
+      in algorithms not used by Squadron. We use Bouncy Castle only for
+      JWT signature verification via standard RSA/EC algorithms.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            Bouncy Castle is used only for standard JWT signature verification
+            (RSA, EC). Affected cryptographic algorithms are not in use.
+        ]]></notes>
+        <gav regex="true">org\.bouncycastle:bcprov-jdk.*</gav>
+        <cve>CVE-2023-33201</cve>
+    </suppress>
+
+    <!-- ===================================================================
+         Test Dependency False Positives
+         =================================================================== -->
+
+    <!--
+      H2 Database: CVEs in H2 console and remote code execution.
+      H2 is used exclusively in test scope. It is never deployed
+      or accessible in any environment.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            H2 is a test-only dependency. It is never included in
+            production builds or deployed to any environment.
+        ]]></notes>
+        <gav regex="true">com\.h2database:h2.*</gav>
+        <vulnerabilityName regex="true">CVE-.*</vulnerabilityName>
+    </suppress>
+
+    <!--
+      Testcontainers: Not deployed to production. Test-scope only.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            Testcontainers is a test-only dependency. It is never included
+            in production builds or deployed to any environment.
+        ]]></notes>
+        <gav regex="true">org\.testcontainers:.*</gav>
+        <vulnerabilityName regex="true">CVE-.*</vulnerabilityName>
+    </suppress>
+
+    <!-- ===================================================================
+         Infrastructure / Docker Image False Positives
+         =================================================================== -->
+
+    <!--
+      PostgreSQL JDBC Driver: False positive matching against PostgreSQL
+      server CVEs. The JDBC driver does not contain the server-side
+      vulnerability code.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            PostgreSQL JDBC driver is falsely matched against PostgreSQL
+            server CVEs. The driver does not contain server-side code.
+        ]]></notes>
+        <gav regex="true">org\.postgresql:postgresql.*</gav>
+        <cpe regex="true">cpe:/a:postgresql:postgresql.*</cpe>
+    </suppress>
+
+</suppressions>

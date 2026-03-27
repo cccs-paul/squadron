@@ -1,0 +1,93 @@
+replicaCount: 2
+
+image:
+  repository: squadron/squadron-gateway
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8443
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+  hosts:
+    - host: squadron.local
+      paths:
+        - path: /api
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+env:
+  SPRING_PROFILES_ACTIVE: kubernetes
+  SERVER_PORT: "8443"
+  NATS_URL: nats://squadron-nats:4222
+  REDIS_HOST: squadron-redis
+  REDIS_PORT: "6379"
+  AUTH_MODE: squadron
+  KEYCLOAK_URL: http://squadron-keycloak:8080
+  SQUADRON_JWKS_URI: http://squadron-identity:8081/api/auth/jwks
+
+secretEnv: {}
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 5
+
+nodeSelector: {}
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - squadron-gateway
+          topologyKey: kubernetes.io/hostname

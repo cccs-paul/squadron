@@ -1,0 +1,408 @@
+# Squadron - Docker Compose Development Environment
+#
+# Usage:
+#   docker compose up -d                  # Start all infrastructure + services
+#   docker compose up -d postgres redis nats keycloak mailpit  # Infrastructure only
+#   docker compose --profile services up -d  # Infrastructure + backend services
+#
+# Infrastructure ports:
+#   PostgreSQL: 5432
+#   Redis:      6379
+#   NATS:       4222 (client), 8222 (monitoring)
+#   Keycloak:   8080 (admin console)
+#   Mailpit:    1025 (SMTP), 8025 (web UI)
+#   PgBouncer:  6432
+#   Ollama:     11434 (REST API)
+
+version: "3.9"
+
+x-common-env: &common-env
+  SPRING_PROFILES_ACTIVE: docker
+  NATS_URL: nats://nats:4222
+  SPRING_DATASOURCE_USERNAME: squadron
+  SPRING_DATASOURCE_PASSWORD: squadron
+  KEYCLOAK_URL: http://keycloak:8080
+  KEYCLOAK_CLIENT_SECRET: change-me-in-production
+  SQUADRON_JWKS_URI: http://squadron-identity:8081/api/auth/jwks
+  SQUADRON_JWT_RSA_KEY: ""
+  SQUADRON_ENCRYPTION_KEY: dev-encryption-key-change-in-production
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  networks:
+    - squadron-net
+  depends_on:
+    postgres:
+      condition: service_healthy
+    nats:
+      condition: service_started
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+      reservations:
+        memory: 256M
+
+networks:
+  squadron-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  nats-data:
+  keycloak-data:
+  ollama-data:
+
+services:
+  # ===========================================================================
+  # Infrastructure
+  # ===========================================================================
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: squadron-postgres
+    environment:
+      POSTGRES_USER: squadron
+      POSTGRES_PASSWORD: squadron
+      POSTGRES_DB: squadron
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U squadron"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - squadron-net
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.23.1
+    container_name: squadron-pgbouncer
+    environment:
+      DATABASE_URL: postgres://squadron:squadron@postgres:5432/squadron
+      AUTH_TYPE: plain
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 200
+      DEFAULT_POOL_SIZE: 20
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+    ports:
+      - "6432:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - squadron-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: squadron-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - squadron-net
+
+  nats:
+    image: nats:2-alpine
+    container_name: squadron-nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats-data:/data
+    command: >
+      -js
+      --store_dir /data
+      -m 8222
+    healthcheck:
+      test: ["CMD", "nats-server", "--signal", "ldm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - squadron-net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.5
+    container_name: squadron-keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: squadron
+      KC_DB_PASSWORD: squadron
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    command: start-dev
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+    networks:
+      - squadron-net
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: squadron-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - squadron-net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: squadron-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      OLLAMA_HOST: 0.0.0.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - squadron-net
+
+  # Model puller — runs once to download the default model, then exits
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: squadron-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["ollama", "pull", "qwen2.5-coder:7b"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    restart: "no"
+    networks:
+      - squadron-net
+
+  # ===========================================================================
+  # Squadron Backend Services (use --profile services to start)
+  # ===========================================================================
+
+  squadron-gateway:
+    <<: *service-defaults
+    image: squadron/squadron-gateway:latest
+    build:
+      context: ../../
+      dockerfile: squadron-gateway/Dockerfile
+    container_name: squadron-gateway
+    profiles: ["services"]
+    ports:
+      - "8443:8443"
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8443
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AUTH_MODE: squadron
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
+  squadron-identity:
+    <<: *service-defaults
+    image: squadron/squadron-identity:latest
+    build:
+      context: ../../
+      dockerfile: squadron-identity/Dockerfile
+    container_name: squadron-identity
+    profiles: ["services"]
+    ports:
+      - "8081:8081"
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_identity
+
+  squadron-config:
+    <<: *service-defaults
+    image: squadron/squadron-config:latest
+    build:
+      context: ../../
+      dockerfile: squadron-config/Dockerfile
+    container_name: squadron-config
+    profiles: ["services"]
+    ports:
+      - "8082:8082"
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_config
+
+  squadron-orchestrator:
+    <<: *service-defaults
+    image: squadron/squadron-orchestrator:latest
+    build:
+      context: ../../
+      dockerfile: squadron-orchestrator/Dockerfile
+    container_name: squadron-orchestrator
+    profiles: ["services"]
+    ports:
+      - "8083:8083"
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_orchestrator
+
+  squadron-platform:
+    <<: *service-defaults
+    image: squadron/squadron-platform:latest
+    build:
+      context: ../../
+      dockerfile: squadron-platform/Dockerfile
+    container_name: squadron-platform
+    profiles: ["services"]
+    ports:
+      - "8084:8084"
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_platform
+
+  squadron-agent:
+    <<: *service-defaults
+    image: squadron/squadron-agent:latest
+    build:
+      context: ../../
+      dockerfile: squadron-agent/Dockerfile
+    container_name: squadron-agent
+    profiles: ["services"]
+    ports:
+      - "8085:8085"
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8085
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_agent
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-placeholder}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
+      SPRING_AI_OLLAMA_CHAT_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
+
+  squadron-workspace:
+    <<: *service-defaults
+    image: squadron/squadron-workspace:latest
+    build:
+      context: ../../
+      dockerfile: squadron-workspace/Dockerfile
+    container_name: squadron-workspace
+    profiles: ["services"]
+    ports:
+      - "8086:8086"
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_workspace
+      SQUADRON_WORKSPACE_PROVIDER: docker
+      SQUADRON_WORKSPACE_DOCKER_HOST: unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  squadron-git:
+    <<: *service-defaults
+    image: squadron/squadron-git:latest
+    build:
+      context: ../../
+      dockerfile: squadron-git/Dockerfile
+    container_name: squadron-git
+    profiles: ["services"]
+    ports:
+      - "8087:8087"
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8087
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_git
+
+  squadron-review:
+    <<: *service-defaults
+    image: squadron/squadron-review:latest
+    build:
+      context: ../../
+      dockerfile: squadron-review/Dockerfile
+    container_name: squadron-review
+    profiles: ["services"]
+    ports:
+      - "8088:8088"
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8088
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_review
+
+  squadron-notification:
+    <<: *service-defaults
+    image: squadron/squadron-notification:latest
+    build:
+      context: ../../
+      dockerfile: squadron-notification/Dockerfile
+    container_name: squadron-notification
+    profiles: ["services"]
+    ports:
+      - "8089:8089"
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8089
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_notification
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+
+  # ===========================================================================
+  # Frontend (use --profile frontend to start)
+  # ===========================================================================
+
+  squadron-ui:
+    image: squadron/squadron-ui:latest
+    build:
+      context: ../../squadron-ui
+      dockerfile: Dockerfile
+    container_name: squadron-ui
+    profiles: ["frontend"]
+    ports:
+      - "4200:80"
+    depends_on:
+      - squadron-gateway
+    networks:
+      - squadron-net

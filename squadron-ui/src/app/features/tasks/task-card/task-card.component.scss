@@ -1,0 +1,71 @@
+.task-card {
+  background: var(--sq-surface);
+  border: 1px solid var(--sq-border);
+  border-radius: var(--sq-radius-md);
+  padding: 14px;
+  cursor: pointer;
+  transition: all var(--sq-transition);
+  user-select: none;
+
+  &:hover {
+    box-shadow: var(--sq-shadow-sm);
+    border-color: var(--sq-primary-light);
+  }
+
+  &--dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  &__external-id {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--sq-text-tertiary);
+    font-family: var(--sq-font-mono);
+  }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--sq-text);
+    line-height: 1.4;
+    margin-bottom: 6px;
+  }
+
+  &__desc {
+    font-size: 12px;
+    color: var(--sq-text-secondary);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__labels {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+
+  &__label {
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 500;
+    background: var(--sq-bg);
+    color: var(--sq-text-secondary);
+    border-radius: var(--sq-radius-sm);
+  }
+}

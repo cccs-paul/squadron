@@ -1,0 +1,6 @@
+apiVersion: v2
+name: squadron-keycloak
+description: Squadron Keycloak Identity Provider
+type: application
+version: 0.1.0
+appVersion: "26.0.5"

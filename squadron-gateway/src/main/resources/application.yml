@@ -1,0 +1,36 @@
+server:
+  port: 8443
+  ssl:
+    enabled: false
+
+spring:
+  application:
+    name: squadron-gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+squadron:
+  security:
+    auth-mode: ${AUTH_MODE:squadron}
+    jwt:
+      jwks-uri: ${SQUADRON_JWKS_URI:http://localhost:8081/api/auth/jwks}
+  gateway:
+    rate-limit: ${RATE_LIMIT:100}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

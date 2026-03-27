@@ -1,0 +1,134 @@
+<div class="page-header">
+  <div class="page-header__title">
+    <h1>Permissions</h1>
+    <p class="page-header__subtitle">Control access to resources across your organization</p>
+  </div>
+  <button class="btn btn--primary" (click)="openGrantModal()">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    Grant Permission
+  </button>
+</div>
+
+<div class="filters">
+  <div class="filter-group">
+    <label>Resource Type</label>
+    <select [(ngModel)]="filterResource" (ngModelChange)="loadPermissions()">
+      <option value="">All Resources</option>
+      @for (rt of resourceTypes; track rt) {
+        <option [value]="rt">{{ rt }}</option>
+      }
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Grantee Type</label>
+    <select [(ngModel)]="filterGrantee" (ngModelChange)="loadPermissions()">
+      <option value="">All Grantees</option>
+      @for (gt of granteeTypes; track gt) {
+        <option [value]="gt">{{ gt.replace('_', ' ') }}</option>
+      }
+    </select>
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading permissions...</p>
+  </div>
+} @else {
+  <div class="table-container">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Grantee</th>
+          <th>Type</th>
+          <th>Resource</th>
+          <th>Access Level</th>
+          <th>Granted</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (perm of filteredPermissions; track perm.id) {
+          <tr>
+            <td>
+              <span class="grantee-name">{{ perm.granteeName }}</span>
+            </td>
+            <td>
+              <span class="badge badge--type">{{ perm.granteeType.replace('_', ' ') }}</span>
+            </td>
+            <td>
+              <span class="badge badge--resource">{{ perm.resourceType }}</span>
+            </td>
+            <td>
+              <span class="badge badge--{{ accessLevelClass(perm.accessLevel) }}">{{ perm.accessLevel }}</span>
+            </td>
+            <td class="text-muted">{{ perm.createdAt | timeAgo }}</td>
+            <td>
+              <button class="btn-icon btn-icon--danger" title="Revoke" (click)="revokePermission(perm)">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="empty-state">No permissions found matching filters</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+@if (showGrantModal()) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal__header">
+        <h2>Grant Permission</h2>
+        <button class="btn-icon" (click)="closeModal()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <div class="form-group">
+          <label class="form-label">Grantee Type</label>
+          <select class="form-input" [(ngModel)]="formGranteeType">
+            @for (gt of granteeTypes; track gt) {
+              <option [value]="gt">{{ gt.replace('_', ' ') }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Grantee Name</label>
+          <input class="form-input" type="text" [(ngModel)]="formGranteeName" placeholder="e.g. Jane Smith or Backend Team" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Resource Type</label>
+          <select class="form-input" [(ngModel)]="formResourceType">
+            @for (rt of resourceTypes; track rt) {
+              <option [value]="rt">{{ rt }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Access Level</label>
+          <select class="form-input" [(ngModel)]="formAccessLevel">
+            @for (al of accessLevels; track al) {
+              <option [value]="al">{{ al }}</option>
+            }
+          </select>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" (click)="closeModal()">Cancel</button>
+        <button class="btn btn--primary" (click)="grantPermission()" [disabled]="!formGranteeName">Grant</button>
+      </div>
+    </div>
+  </div>
+}

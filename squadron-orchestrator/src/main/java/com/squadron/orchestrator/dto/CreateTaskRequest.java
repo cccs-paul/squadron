@@ -1,0 +1,41 @@
+package com.squadron.orchestrator.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.UUID;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CreateTaskRequest {
+
+    @NotNull(message = "Tenant ID is required")
+    private UUID tenantId;
+
+    @NotNull(message = "Team ID is required")
+    private UUID teamId;
+
+    @NotNull(message = "Project ID is required")
+    private UUID projectId;
+
+    private String externalId;
+
+    private String externalUrl;
+
+    @NotBlank(message = "Task title is required")
+    private String title;
+
+    private String description;
+
+    private UUID assigneeId;
+
+    private String priority;
+
+    private String labels;
+}

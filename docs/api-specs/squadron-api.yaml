@@ -1,0 +1,1848 @@
+openapi: 3.1.0
+info:
+  title: Squadron API
+  description: |
+    Squadron is an AI-powered software development workflow platform that integrates
+    with ticketing systems and Git platforms to automate planning, coding, code review,
+    and QA using configurable AI agent squadrons.
+
+    All endpoints require authentication via Bearer JWT token unless otherwise noted.
+    Multi-tenancy is enforced via the `X-Tenant-Id` header.
+  version: 0.1.0
+  contact:
+    name: Squadron Team
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://localhost:8443
+    description: Local development (via API Gateway)
+  - url: https://squadron.example.com
+    description: Production
+
+# =============================================================================
+# Security Schemes
+# =============================================================================
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token obtained from the `/api/auth/login` endpoint.
+        Include in the `Authorization` header as `Bearer <token>`.
+
+  # ===========================================================================
+  # Common Parameters
+  # ===========================================================================
+
+  parameters:
+    tenantIdHeader:
+      name: X-Tenant-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Tenant ID for multi-tenancy isolation.
+
+    pageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Page number (zero-based).
+
+    sizeParam:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+      description: Page size.
+
+    pathId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Resource UUID.
+
+  # ===========================================================================
+  # Common Schemas
+  # ===========================================================================
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the request was successful.
+          examples: [true]
+        message:
+          type: string
+          description: Human-readable message.
+          examples: ["Operation completed successfully"]
+        data:
+          description: Response payload (varies by endpoint).
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp.
+      required: [success, message]
+
+    PagedResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items: {}
+          description: Page content.
+        page:
+          type: integer
+          description: Current page number.
+        size:
+          type: integer
+          description: Page size.
+        totalElements:
+          type: integer
+          format: int64
+          description: Total number of elements.
+        totalPages:
+          type: integer
+          description: Total number of pages.
+      required: [content, page, size, totalElements, totalPages]
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          examples: [false]
+        message:
+          type: string
+          examples: ["Resource not found"]
+        errorCode:
+          type: string
+          examples: ["NOT_FOUND"]
+        timestamp:
+          type: string
+          format: date-time
+      required: [success, message]
+
+    # ---- Auth Schemas -------------------------------------------------------
+
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          examples: ["developer@squadron.dev"]
+        password:
+          type: string
+          format: password
+          examples: ["s3cret"]
+      required: [username, password]
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token.
+        refreshToken:
+          type: string
+          description: Refresh token for obtaining new access tokens.
+        expiresIn:
+          type: integer
+          description: Token expiry in seconds.
+          examples: [3600]
+        tokenType:
+          type: string
+          examples: ["Bearer"]
+      required: [accessToken, refreshToken, expiresIn, tokenType]
+
+    RefreshRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required: [refreshToken]
+
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, TEAM_LEAD, DEVELOPER, QA, VIEWER]
+        teams:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    # ---- Task Schemas -------------------------------------------------------
+
+    TaskDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        externalId:
+          type: string
+          description: External ticket ID (e.g., JIRA key, GitHub issue number).
+          examples: ["PROJ-123"]
+        externalUrl:
+          type: string
+          format: uri
+          examples: ["https://jira.example.com/browse/PROJ-123"]
+        title:
+          type: string
+          examples: ["Implement user authentication flow"]
+        description:
+          type: string
+        assigneeId:
+          type: string
+          format: uuid
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        labels:
+          type: array
+          items:
+            type: string
+        state:
+          type: string
+          enum: [BACKLOG, PRIORITIZED, PLANNING, PROPOSE_CODE, REVIEW, QA, MERGE, DONE]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateTaskRequest:
+      type: object
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        labels:
+          type: array
+          items:
+            type: string
+      required: [tenantId, teamId, title]
+
+    TransitionRequest:
+      type: object
+      properties:
+        targetState:
+          type: string
+          enum: [BACKLOG, PRIORITIZED, PLANNING, PROPOSE_CODE, REVIEW, QA, MERGE, DONE]
+        reason:
+          type: string
+      required: [targetState]
+
+    # ---- Agent Schemas ------------------------------------------------------
+
+    ConversationDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        agentType:
+          type: string
+          enum: [PLANNING, CODING, REVIEW, QA]
+        provider:
+          type: string
+        model:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, COMPLETED, ABANDONED]
+        totalTokens:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateConversationRequest:
+      type: object
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        agentType:
+          type: string
+          enum: [PLANNING, CODING, REVIEW, QA]
+      required: [tenantId, taskId, agentType]
+
+    MessageDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [SYSTEM, USER, ASSISTANT, TOOL]
+        content:
+          type: string
+        toolCalls:
+          type: object
+          additionalProperties: true
+        tokenCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    SendMessageRequest:
+      type: object
+      properties:
+        content:
+          type: string
+      required: [content]
+
+    PlanDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        planContent:
+          type: string
+          description: Markdown-formatted implementation plan.
+        status:
+          type: string
+          enum: [DRAFT, APPROVED, SUPERSEDED]
+        approvedBy:
+          type: string
+          format: uuid
+        approvedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    SquadronConfigDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        config:
+          type: object
+          description: |
+            Agent configuration including provider, model, tokens, temperature per agent type.
+          properties:
+            planning_agent:
+              $ref: '#/components/schemas/AgentConfig'
+            coding_agent:
+              $ref: '#/components/schemas/AgentConfig'
+            review_agent:
+              $ref: '#/components/schemas/AgentConfig'
+            qa_agent:
+              $ref: '#/components/schemas/AgentConfig'
+            max_concurrent_agents:
+              type: integer
+            token_budget_daily:
+              type: integer
+
+    AgentConfig:
+      type: object
+      properties:
+        provider:
+          type: string
+          examples: ["claude-github", "openai", "ollama"]
+        model:
+          type: string
+          examples: ["claude-sonnet-4-20250514", "gpt-4o", "qwen2.5-coder:7b"]
+        max_tokens:
+          type: integer
+        temperature:
+          type: number
+          format: float
+        system_prompt_override:
+          type: string
+
+    UsageSummaryDto:
+      type: object
+      properties:
+        totalTokens:
+          type: integer
+          format: int64
+        totalCost:
+          type: number
+          format: double
+        totalInvocations:
+          type: integer
+          format: int64
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+
+    UsageByAgentDto:
+      type: object
+      properties:
+        agentType:
+          type: string
+        totalTokens:
+          type: integer
+          format: int64
+        totalCost:
+          type: number
+          format: double
+        invocations:
+          type: integer
+          format: int64
+
+    # ---- Git Schemas --------------------------------------------------------
+
+    PullRequestDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        externalId:
+          type: string
+          description: External PR identifier (platform-specific).
+        externalUrl:
+          type: string
+          format: uri
+        title:
+          type: string
+        description:
+          type: string
+        sourceBranch:
+          type: string
+        targetBranch:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, MERGED, CLOSED, DRAFT]
+        platform:
+          type: string
+          enum: [GITHUB, GITLAB, BITBUCKET]
+        createdAt:
+          type: string
+          format: date-time
+
+    BranchStrategyDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        strategyType:
+          type: string
+          enum: [GITFLOW, TRUNK_BASED, CUSTOM]
+        branchTemplate:
+          type: string
+          examples: ["feature/{slug}"]
+        defaultBranch:
+          type: string
+          examples: ["main"]
+        mergeMethod:
+          type: string
+          enum: [MERGE, SQUASH, REBASE]
+
+    MergeabilityDto:
+      type: object
+      properties:
+        mergeable:
+          type: boolean
+        conflicting:
+          type: boolean
+        reason:
+          type: string
+
+    # ---- Review Schemas -----------------------------------------------------
+
+    ReviewDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        reviewerId:
+          type: string
+          format: uuid
+        reviewerType:
+          type: string
+          enum: [HUMAN, AI]
+        status:
+          type: string
+          enum: [PENDING, APPROVED, CHANGES_REQUESTED, COMMENTED]
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewCommentDto'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ReviewCommentDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filePath:
+          type: string
+        lineNumber:
+          type: integer
+        body:
+          type: string
+        severity:
+          type: string
+          enum: [INFO, WARNING, ERROR, CRITICAL]
+        createdAt:
+          type: string
+          format: date-time
+
+    QAReportDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        overallCoverage:
+          type: number
+          format: double
+        lineCoverage:
+          type: number
+          format: double
+        branchCoverage:
+          type: number
+          format: double
+        testsPassed:
+          type: integer
+        testsFailed:
+          type: integer
+        testsSkipped:
+          type: integer
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/QAFinding'
+        passed:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    QAFinding:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [MISSING_TEST, LOW_COVERAGE, SECURITY, PERFORMANCE]
+        severity:
+          type: string
+          enum: [INFO, WARNING, ERROR, CRITICAL]
+        description:
+          type: string
+
+    # ---- Config Schemas -----------------------------------------------------
+
+    ConfigEntryDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        key:
+          type: string
+          examples: ["workflow.auto_advance", "review.min_approvals"]
+        value:
+          type: object
+          additionalProperties: true
+        scope:
+          type: string
+          enum: [DEFAULT, TENANT, TEAM, USER]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ---- Notification Schemas -----------------------------------------------
+
+    NotificationDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          enum: [IN_APP, EMAIL, SLACK, TEAMS]
+        eventType:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        read:
+          type: boolean
+        status:
+          type: string
+          enum: [PENDING, SENT, FAILED, DEAD_LETTER]
+        createdAt:
+          type: string
+          format: date-time
+
+    NotificationPreferenceDto:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        enabledChannels:
+          type: array
+          items:
+            type: string
+            enum: [IN_APP, EMAIL, SLACK, TEAMS]
+        slackWebhookUrl:
+          type: string
+          format: uri
+        teamsWebhookUrl:
+          type: string
+          format: uri
+        mutedEventTypes:
+          type: array
+          items:
+            type: string
+
+    # ---- Audit Schemas ------------------------------------------------------
+
+    AuditEventDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        action:
+          type: string
+          examples: ["TASK_CREATED", "STATE_TRANSITION", "REVIEW_SUBMITTED"]
+        resourceType:
+          type: string
+          examples: ["TASK", "REVIEW", "WORKSPACE"]
+        resourceId:
+          type: string
+          format: uuid
+        details:
+          type: object
+          additionalProperties: true
+        ipAddress:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+# =============================================================================
+# Paths
+# =============================================================================
+
+paths:
+  # ===========================================================================
+  # Auth API
+  # ===========================================================================
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate user
+      description: Authenticate with username and password. Returns JWT access and refresh tokens.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      description: Exchange a refresh token for a new access token.
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid or expired refresh token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/userinfo:
+    get:
+      tags: [Auth]
+      summary: Get current user info
+      description: Returns profile information for the authenticated user.
+      operationId: getUserInfo
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: User info retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+        '401':
+          description: Not authenticated.
+
+  # ===========================================================================
+  # Task API
+  # ===========================================================================
+
+  /api/tasks:
+    get:
+      tags: [Tasks]
+      summary: List tasks
+      description: Query tasks with optional filters. Supports pagination.
+      operationId: listTasks
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/sizeParam'
+        - name: tenantId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [BACKLOG, PRIORITIZED, PLANNING, PROPOSE_CODE, REVIEW, QA, MERGE, DONE]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        - name: assigneeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tasks retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TaskDto'
+
+    post:
+      tags: [Tasks]
+      summary: Create a task
+      description: Create a new task in the BACKLOG state.
+      operationId: createTask
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Task created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDto'
+        '400':
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/tasks/{id}:
+    get:
+      tags: [Tasks]
+      summary: Get task by ID
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Task retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDto'
+        '404':
+          description: Task not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Tasks]
+      summary: Update a task
+      operationId: updateTask
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '200':
+          description: Task updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDto'
+        '404':
+          description: Task not found.
+
+  /api/tasks/{id}/transition:
+    post:
+      tags: [Tasks]
+      summary: Transition task state
+      description: |
+        Move a task to a new workflow state. The transition must be valid
+        according to the workflow definition and all guard conditions must pass.
+      operationId: transitionTask
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionRequest'
+      responses:
+        '200':
+          description: Transition successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDto'
+        '400':
+          description: Invalid transition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Transition conflict (guard condition failed).
+
+  # ===========================================================================
+  # Agent API
+  # ===========================================================================
+
+  /api/agent/conversations:
+    post:
+      tags: [Agent]
+      summary: Create a conversation
+      description: Start a new AI agent conversation for a task.
+      operationId: createConversation
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Conversation created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDto'
+
+  /api/agent/conversations/{id}/messages:
+    get:
+      tags: [Agent]
+      summary: Get conversation messages
+      operationId: getMessages
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Messages retrieved.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MessageDto'
+
+    post:
+      tags: [Agent]
+      summary: Send a message
+      description: Send a user message to the AI agent in an existing conversation.
+      operationId: sendMessage
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '200':
+          description: Message sent and response received.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageDto'
+        '202':
+          description: Message accepted, response streaming.
+
+  /api/agent/conversations/{id}/stream:
+    get:
+      tags: [Agent]
+      summary: Stream conversation (SSE)
+      description: |
+        Server-Sent Events endpoint for real-time streaming of AI agent responses.
+        Returns `text/event-stream` content type.
+      operationId: streamConversation
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: SSE stream opened.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Stream of JSON-encoded StreamChunk events.
+        '204':
+          description: No active stream for this conversation.
+
+  /api/agent/plans/{taskId}:
+    get:
+      tags: [Agent]
+      summary: Get plans for a task
+      operationId: getPlans
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Plans retrieved.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanDto'
+
+  /api/agent/config:
+    get:
+      tags: [Agent]
+      summary: Get squadron configuration
+      description: |
+        Retrieve the effective squadron configuration for the current user,
+        resolved through the hierarchy: default -> tenant -> team -> user.
+      operationId: getSquadronConfig
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Configuration retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SquadronConfigDto'
+
+    post:
+      tags: [Agent]
+      summary: Save squadron configuration
+      operationId: saveSquadronConfig
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SquadronConfigDto'
+      responses:
+        '200':
+          description: Configuration saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SquadronConfigDto'
+
+  /api/agent/usage/summary:
+    get:
+      tags: [Agent]
+      summary: Get usage summary
+      description: Token usage and cost summary for a tenant/team/user over a time period.
+      operationId: getUsageSummary
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+        - name: tenantId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Usage summary retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageSummaryDto'
+
+  /api/agent/usage/by-agent:
+    get:
+      tags: [Agent]
+      summary: Get usage by agent type
+      operationId: getUsageByAgent
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+        - name: tenantId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Usage by agent type retrieved.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsageByAgentDto'
+
+  # ===========================================================================
+  # Git API
+  # ===========================================================================
+
+  /api/git/pull-requests:
+    get:
+      tags: [Git]
+      summary: List pull requests
+      operationId: listPullRequests
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/sizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [OPEN, MERGED, CLOSED, DRAFT]
+      responses:
+        '200':
+          description: Pull requests retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PullRequestDto'
+
+  /api/git/pull-requests/{id}:
+    get:
+      tags: [Git]
+      summary: Get pull request by ID
+      operationId: getPullRequest
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Pull request retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequestDto'
+        '404':
+          description: Pull request not found.
+
+  /api/git/pull-requests/task/{taskId}:
+    get:
+      tags: [Git]
+      summary: Get pull request by task ID
+      operationId: getPullRequestByTask
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Pull request retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequestDto'
+        '404':
+          description: No pull request found for this task.
+
+  /api/git/pull-requests/{id}/mergeability:
+    get:
+      tags: [Git]
+      summary: Check pull request mergeability
+      operationId: checkMergeability
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Mergeability status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MergeabilityDto'
+
+  /api/git/pull-requests/{id}/merge:
+    post:
+      tags: [Git]
+      summary: Merge a pull request
+      operationId: mergePullRequest
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Pull request merged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequestDto'
+        '409':
+          description: Merge conflict or not mergeable.
+
+  /api/git/branch-strategies:
+    get:
+      tags: [Git]
+      summary: List branch strategies
+      operationId: listBranchStrategies
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Branch strategies retrieved.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BranchStrategyDto'
+
+    post:
+      tags: [Git]
+      summary: Create a branch strategy
+      operationId: createBranchStrategy
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchStrategyDto'
+      responses:
+        '201':
+          description: Branch strategy created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchStrategyDto'
+
+  # ===========================================================================
+  # Review API
+  # ===========================================================================
+
+  /api/reviews:
+    get:
+      tags: [Reviews]
+      summary: List reviews
+      operationId: listReviews
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/sizeParam'
+        - name: taskId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: tenantId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, CHANGES_REQUESTED, COMMENTED]
+      responses:
+        '200':
+          description: Reviews retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ReviewDto'
+
+    post:
+      tags: [Reviews]
+      summary: Create a review
+      operationId: createReview
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tenantId:
+                  type: string
+                  format: uuid
+                taskId:
+                  type: string
+                  format: uuid
+                reviewerType:
+                  type: string
+                  enum: [HUMAN, AI]
+              required: [tenantId, taskId, reviewerType]
+      responses:
+        '201':
+          description: Review created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDto'
+
+  /api/reviews/{id}:
+    get:
+      tags: [Reviews]
+      summary: Get review by ID
+      operationId: getReview
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Review retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDto'
+        '404':
+          description: Review not found.
+
+  /api/reviews/{id}/comments:
+    post:
+      tags: [Reviews]
+      summary: Add a review comment
+      operationId: addReviewComment
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCommentDto'
+      responses:
+        '201':
+          description: Comment added.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewCommentDto'
+
+  /api/reviews/{id}/submit:
+    put:
+      tags: [Reviews]
+      summary: Submit review verdict
+      description: Submit the final review verdict (APPROVED, CHANGES_REQUESTED, or COMMENTED).
+      operationId: submitReview
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [APPROVED, CHANGES_REQUESTED, COMMENTED]
+              required: [status]
+      responses:
+        '200':
+          description: Review submitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDto'
+
+  /api/reviews/{id}/gate:
+    get:
+      tags: [Reviews]
+      summary: Check review gate
+      description: |
+        Check whether all review requirements are met for transitioning
+        the task to the next workflow state.
+      operationId: checkReviewGate
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Gate status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  passed:
+                    type: boolean
+                  humanApprovals:
+                    type: integer
+                  requiredApprovals:
+                    type: integer
+                  aiReviewComplete:
+                    type: boolean
+                  reasons:
+                    type: array
+                    items:
+                      type: string
+
+  /api/reviews/qa-reports:
+    post:
+      tags: [Reviews]
+      summary: Submit QA report
+      operationId: submitQAReport
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QAReportDto'
+      responses:
+        '201':
+          description: QA report submitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QAReportDto'
+
+  /api/reviews/qa-reports/{taskId}:
+    get:
+      tags: [Reviews]
+      summary: Get QA report for a task
+      operationId: getQAReport
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: QA report retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QAReportDto'
+        '404':
+          description: No QA report found for this task.
+
+  # ===========================================================================
+  # Config API
+  # ===========================================================================
+
+  /api/config:
+    get:
+      tags: [Config]
+      summary: Get configuration entries
+      description: |
+        Retrieve configuration entries. The response reflects the effective
+        configuration after hierarchical resolution (default -> tenant -> team -> user).
+      operationId: getConfig
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+        - name: key
+          in: query
+          schema:
+            type: string
+          description: Filter by configuration key prefix.
+        - name: scope
+          in: query
+          schema:
+            type: string
+            enum: [DEFAULT, TENANT, TEAM, USER]
+      responses:
+        '200':
+          description: Configuration entries retrieved.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConfigEntryDto'
+
+    post:
+      tags: [Config]
+      summary: Create or update a configuration entry
+      operationId: saveConfig
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigEntryDto'
+      responses:
+        '200':
+          description: Configuration saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigEntryDto'
+
+  /api/config/{id}:
+    delete:
+      tags: [Config]
+      summary: Delete a configuration entry
+      operationId: deleteConfig
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '204':
+          description: Configuration entry deleted.
+        '404':
+          description: Configuration entry not found.
+
+  # ===========================================================================
+  # Notification API
+  # ===========================================================================
+
+  /api/notifications:
+    get:
+      tags: [Notifications]
+      summary: Get notifications for the current user
+      operationId: getNotifications
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/sizeParam'
+        - name: unreadOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Notifications retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NotificationDto'
+
+  /api/notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      summary: Mark notification as read
+      operationId: markAsRead
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Notification marked as read.
+        '404':
+          description: Notification not found.
+
+  /api/notifications/preferences:
+    get:
+      tags: [Notifications]
+      summary: Get notification preferences
+      operationId: getNotificationPreferences
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Preferences retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferenceDto'
+
+    put:
+      tags: [Notifications]
+      summary: Update notification preferences
+      operationId: updateNotificationPreferences
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferenceDto'
+      responses:
+        '200':
+          description: Preferences updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferenceDto'
+
+  # ===========================================================================
+  # Audit API
+  # ===========================================================================
+
+  /api/audit:
+    get:
+      tags: [Audit]
+      summary: Query audit events
+      description: |
+        Query the audit trail. Requires ADMIN or TEAM_LEAD role.
+        Supports filtering by resource type, action, user, and time range.
+      operationId: queryAuditEvents
+      parameters:
+        - $ref: '#/components/parameters/tenantIdHeader'
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/sizeParam'
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: resourceId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Audit events retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PagedResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditEventDto'
+        '403':
+          description: Insufficient permissions.
+
+  /api/audit/{id}:
+    get:
+      tags: [Audit]
+      summary: Get audit event by ID
+      operationId: getAuditEvent
+      parameters:
+        - $ref: '#/components/parameters/pathId'
+        - $ref: '#/components/parameters/tenantIdHeader'
+      responses:
+        '200':
+          description: Audit event retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventDto'
+        '404':
+          description: Audit event not found.
+
+# =============================================================================
+# Tags
+# =============================================================================
+
+tags:
+  - name: Auth
+    description: Authentication and authorization endpoints.
+  - name: Tasks
+    description: Task lifecycle management and workflow state transitions.
+  - name: Agent
+    description: AI agent conversations, plans, configuration, and usage tracking.
+  - name: Git
+    description: Git operations, pull requests, and branch strategies.
+  - name: Reviews
+    description: Code reviews, comments, QA reports, and review gates.
+  - name: Config
+    description: Hierarchical configuration management.
+  - name: Notifications
+    description: User notification management and preferences.
+  - name: Audit
+    description: Audit trail and event queries.

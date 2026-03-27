@@ -1,0 +1,49 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: squadron-identity
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/squadron_identity}
+    username: ${SPRING_DATASOURCE_USERNAME:squadron}
+    password: ${SPRING_DATASOURCE_PASSWORD:squadron}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_URL:http://localhost:8080}/realms/squadron
+          jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8080}/realms/squadron/protocol/openid-connect/certs
+
+squadron:
+  nats:
+    url: ${NATS_URL:nats://localhost:4222}
+  keycloak:
+    server-url: ${KEYCLOAK_URL:http://localhost:8080}
+    realm: squadron
+    client-id: squadron-backend
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:change-me}
+  security:
+    encryption-key: ${SQUADRON_ENCRYPTION_KEY:}
+    jwt:
+      issuer: squadron
+      access-token-ttl: PT1H
+      refresh-token-ttl: P7D
+      rsa-key-json: ${SQUADRON_JWT_RSA_KEY:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

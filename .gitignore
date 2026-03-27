@@ -1,0 +1,107 @@
+# ===== Java / Maven =====
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ===== IDE =====
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.Spotlight-V100
+.Trashes
+
+# ===== Spring Boot =====
+*.log
+logs/
+spring-shell.log
+
+# ===== Angular (squadron-ui) =====
+squadron-ui/node_modules/
+squadron-ui/dist/
+squadron-ui/.angular/
+squadron-ui/coverage/
+squadron-ui/.sass-cache/
+squadron-ui/tmp/
+squadron-ui/.env
+squadron-ui/.env.local
+
+# ===== Node.js =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp
+.pnp.js
+
+# ===== Build Artifacts =====
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.war
+*.ear
+*.class
+
+# ===== Secrets / Credentials =====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+credentials.json
+secrets.yml
+secrets.yaml
+vault-token
+
+# ===== Database =====
+*.sql.bak
+*.dump
+
+# ===== Docker =====
+docker-compose.override.yml
+
+# ===== Terraform =====
+deploy/terraform/.terraform/
+deploy/terraform/*.tfstate
+deploy/terraform/*.tfstate.backup
+deploy/terraform/.terraform.lock.hcl
+deploy/terraform/*.tfvars
+!deploy/terraform/*.tfvars.example
+
+# ===== Helm =====
+deploy/helm/charts/*.tgz
+
+# ===== Coverage Reports =====
+coverage/
+*.lcov
+jacoco.exec

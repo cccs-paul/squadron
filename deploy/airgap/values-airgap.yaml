@@ -1,0 +1,302 @@
+# =============================================================================
+# Squadron - Air-Gap Helm Values Override
+#
+# This values file overrides the default Helm chart values for deployment
+# in air-gapped (disconnected) environments.
+#
+# Usage:
+#   helm install squadron ./deploy/helm/squadron -f deploy/airgap/values-airgap.yaml
+#   helm upgrade squadron ./deploy/helm/squadron -f deploy/airgap/values-airgap.yaml
+#
+# Prerequisites:
+#   - All images loaded into the internal registry (see load-images.sh)
+#   - Internal DNS configured for registry.internal
+#   - PostgreSQL, Redis, NATS, and Keycloak available in the air-gapped network
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Global settings
+# ---------------------------------------------------------------------------
+global:
+  # Air-gap mode flag — services use this to disable external network calls
+  airgap: true
+
+  # Internal container registry (no external pulls)
+  imageRegistry: registry.internal:5000
+  imagePullPolicy: IfNotPresent
+
+  # Disable all external chart dependency pulls
+  externalDependencies:
+    enabled: false
+
+  # Internal DNS domain
+  domain: squadron.internal
+
+  # TLS configuration (use internal CA)
+  tls:
+    enabled: true
+    issuer: internal-ca
+    # Path to internal CA certificate bundle (mounted via secret)
+    caBundlePath: /etc/ssl/certs/internal-ca.pem
+
+# ---------------------------------------------------------------------------
+# Image overrides — all point to the internal registry
+# ---------------------------------------------------------------------------
+gateway:
+  image:
+    repository: registry.internal:5000/squadron/squadron-gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+
+identity:
+  image:
+    repository: registry.internal:5000/squadron/squadron-identity
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+
+config:
+  image:
+    repository: registry.internal:5000/squadron/squadron-config
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+
+orchestrator:
+  image:
+    repository: registry.internal:5000/squadron/squadron-orchestrator
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+
+platform:
+  image:
+    repository: registry.internal:5000/squadron/squadron-platform
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+
+agent:
+  image:
+    repository: registry.internal:5000/squadron/squadron-agent
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 3
+  # AI/LLM configuration for air-gap (local Ollama)
+  ai:
+    provider: ollama
+    ollama:
+      baseUrl: http://ollama.squadron.internal:11434
+      model: llama3.1:70b
+      embeddingModel: nomic-embed-text
+    # Disable external AI API calls
+    openai:
+      enabled: false
+    anthropic:
+      enabled: false
+    azure:
+      enabled: false
+
+workspace:
+  image:
+    repository: registry.internal:5000/squadron/squadron-workspace
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+
+git:
+  image:
+    repository: registry.internal:5000/squadron/squadron-git
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+
+review:
+  image:
+    repository: registry.internal:5000/squadron/squadron-review
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+
+notification:
+  image:
+    repository: registry.internal:5000/squadron/squadron-notification
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+
+ui:
+  image:
+    repository: registry.internal:5000/squadron/squadron-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  # Disable external CDN / analytics
+  env:
+    SQUADRON_TELEMETRY_ENABLED: "false"
+    SQUADRON_EXTERNAL_ASSETS: "false"
+
+# ---------------------------------------------------------------------------
+# Infrastructure — using internal registry images
+# ---------------------------------------------------------------------------
+postgresql:
+  image:
+    repository: registry.internal:5000/infra/postgres-17
+    tag: latest
+  # Or use an external PostgreSQL instance in the air-gapped network:
+  # external:
+  #   enabled: true
+  #   host: postgres.squadron.internal
+  #   port: 5432
+  #   database: squadron
+  #   username: squadron
+  #   existingSecret: squadron-db-credentials
+
+redis:
+  image:
+    repository: registry.internal:5000/infra/redis-7-alpine
+    tag: latest
+  # Or use an external Redis instance:
+  # external:
+  #   enabled: true
+  #   host: redis.squadron.internal
+  #   port: 6379
+  #   existingSecret: squadron-redis-credentials
+
+nats:
+  image:
+    repository: registry.internal:5000/infra/nats-2-alpine
+    tag: latest
+  jetstream:
+    enabled: true
+    memStorage: 1Gi
+    fileStorage: 10Gi
+
+keycloak:
+  image:
+    repository: registry.internal:5000/infra/keycloak-26.0
+    tag: latest
+  # Disable external identity provider federation in air-gap mode
+  extraEnv:
+    - name: KC_FEATURES
+      value: "admin-fine-grained-authz"
+    # Disable external OIDC/SAML federation
+    - name: SQUADRON_EXTERNAL_IDP_ENABLED
+      value: "false"
+
+ollama:
+  image:
+    repository: registry.internal:5000/infra/ollama-latest
+    tag: latest
+  # GPU resource allocation for local AI inference
+  resources:
+    limits:
+      nvidia.com/gpu: 1
+    requests:
+      memory: 32Gi
+      cpu: 8
+  persistence:
+    enabled: true
+    size: 100Gi
+    storageClass: local-storage
+  # Pre-loaded models (must be included in the air-gap bundle)
+  models:
+    - llama3.1:70b
+    - nomic-embed-text
+
+# ---------------------------------------------------------------------------
+# Air-gap-specific environment variables
+# ---------------------------------------------------------------------------
+env:
+  # Disable all external network calls
+  SQUADRON_AIRGAP_MODE: "true"
+
+  # Disable telemetry and update checks
+  SQUADRON_TELEMETRY_ENABLED: "false"
+  SQUADRON_UPDATE_CHECK_ENABLED: "false"
+
+  # Disable external webhook deliveries
+  SQUADRON_WEBHOOKS_EXTERNAL_ENABLED: "false"
+
+  # Use internal NTP server if available
+  # SQUADRON_NTP_SERVER: "ntp.squadron.internal"
+
+  # Internal certificate authority
+  SQUADRON_CA_CERT_PATH: "/etc/ssl/certs/internal-ca.pem"
+
+  # Proxy settings (disable — no proxy in air-gap)
+  HTTP_PROXY: ""
+  HTTPS_PROXY: ""
+  NO_PROXY: "*"
+  JAVA_TOOL_OPTIONS: "-Dhttp.proxyHost= -Dhttps.proxyHost="
+
+# ---------------------------------------------------------------------------
+# Ingress — internal only
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: squadron.internal
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: squadron-tls
+      hosts:
+        - squadron.internal
+
+# ---------------------------------------------------------------------------
+# Network policies — restrict egress to internal network only
+# ---------------------------------------------------------------------------
+networkPolicy:
+  enabled: true
+  egressRules:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow internal network only (RFC 1918 ranges)
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+        - ipBlock:
+            cidr: 172.16.0.0/12
+        - ipBlock:
+            cidr: 192.168.0.0/16
+    # Block all external egress
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+
+# ---------------------------------------------------------------------------
+# Monitoring — internal Prometheus/Grafana
+# ---------------------------------------------------------------------------
+monitoring:
+  prometheus:
+    enabled: true
+    # Use internal Prometheus instance
+    server:
+      image:
+        repository: registry.internal:5000/infra/prometheus
+        tag: v2.51.0
+  grafana:
+    enabled: true
+    image:
+      repository: registry.internal:5000/infra/grafana
+      tag: "10.4.0"
+    # Disable external plugin downloads
+    env:
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ""
+      GF_INSTALL_PLUGINS: ""

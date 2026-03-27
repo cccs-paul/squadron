@@ -1,0 +1,148 @@
+.notification-bell {
+  position: relative;
+}
+
+.bell-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  border-radius: var(--sq-radius);
+  color: var(--sq-text-secondary);
+  cursor: pointer;
+  transition: all var(--sq-transition);
+
+  &:hover {
+    background: var(--sq-bg);
+    color: var(--sq-text);
+  }
+}
+
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  color: #fff;
+  background: var(--sq-error);
+  border-radius: var(--sq-radius-full);
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
+  background: var(--sq-surface);
+  border: 1px solid var(--sq-border);
+  border-radius: var(--sq-radius-md);
+  box-shadow: var(--sq-shadow-lg);
+  z-index: 1000;
+  animation: sq-slide-up 200ms ease;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--sq-border);
+
+    h4 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+  }
+
+  &__list {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  &__empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--sq-text-tertiary);
+    font-size: 14px;
+  }
+}
+
+.mark-all {
+  background: none;
+  border: none;
+  color: var(--sq-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--sq-font);
+
+  &:hover {
+    color: var(--sq-primary-dark);
+  }
+}
+
+.notification-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background var(--sq-transition);
+
+  &:hover {
+    background: var(--sq-bg);
+  }
+
+  &--unread {
+    background: var(--sq-primary-50);
+
+    &:hover {
+      background: var(--sq-primary-100);
+    }
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 6px;
+    flex-shrink: 0;
+    background: transparent;
+
+    &--visible {
+      background: var(--sq-primary);
+    }
+  }
+
+  &__content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sq-text);
+    margin-bottom: 2px;
+  }
+
+  &__message {
+    font-size: 12px;
+    color: var(--sq-text-secondary);
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+
+  &__time {
+    font-size: 11px;
+    color: var(--sq-text-tertiary);
+  }
+}
