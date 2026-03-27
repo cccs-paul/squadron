@@ -117,7 +117,7 @@ public class ReviewService {
         event.setTenantId(review.getTenantId());
         event.setSource("squadron-review");
 
-        natsEventPublisher.publish("squadron.review.updated", event);
+        natsEventPublisher.publish("squadron.reviews.updated", event);
     }
 
     private ReviewDto toDto(Review review, List<ReviewComment> comments) {

@@ -377,6 +377,10 @@ public class CodingAgentService {
                 : "squadron.agent.coding.failed";
 
         natsEventPublisher.publishAsync(subject, event);
+
+        // Also publish to aggregated subject for notification service
+        natsEventPublisher.publishAsync("squadron.agents.completed", event);
+
         log.info("Published coding {} event for task {} (summary: {})",
                 success ? "completed" : "failed", taskId,
                 summary != null && summary.length() > 100

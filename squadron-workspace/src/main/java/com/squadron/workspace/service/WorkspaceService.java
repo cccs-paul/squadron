@@ -31,7 +31,7 @@ import java.util.UUID;
 public class WorkspaceService {
 
     private static final Logger log = LoggerFactory.getLogger(WorkspaceService.class);
-    private static final String NATS_SUBJECT = "squadron.workspace.lifecycle";
+    private static final String NATS_SUBJECT = "squadron.workspaces.lifecycle";
     private static final Set<String> EXEC_ALLOWED_STATUSES = Set.of("READY", "ACTIVE");
 
     private final WorkspaceRepository workspaceRepository;

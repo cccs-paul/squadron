@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets;
 public class QAAgentListener {
 
     private static final Logger log = LoggerFactory.getLogger(QAAgentListener.class);
-    static final String STATE_CHANGED_SUBJECT = "squadron.orchestrator.task.state-changed";
+    static final String STATE_CHANGED_SUBJECT = "squadron.tasks.state-changed";
 
     private final Connection natsConnection;
     private final ObjectMapper objectMapper;

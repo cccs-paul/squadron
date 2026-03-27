@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 public class WorkflowEngine {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowEngine.class);
-    private static final String NATS_SUBJECT = "squadron.orchestrator.task.state-changed";
+    private static final String NATS_SUBJECT = "squadron.tasks.state-changed";
 
     private final WorkflowDefinitionRepository workflowDefinitionRepository;
     private final TaskWorkflowRepository taskWorkflowRepository;

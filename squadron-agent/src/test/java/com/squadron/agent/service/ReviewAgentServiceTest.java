@@ -132,8 +132,9 @@ class ReviewAgentServiceTest {
         verify(reviewClient).submitReview(eq(reviewId), eq("APPROVED"), anyString(), anyList());
 
         ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
-        verify(natsEventPublisher).publishAsync(subjectCaptor.capture(), any(AgentCompletedEvent.class));
-        assertEquals("squadron.agent.review.completed", subjectCaptor.getValue());
+        verify(natsEventPublisher, times(2)).publishAsync(subjectCaptor.capture(), any(AgentCompletedEvent.class));
+        assertEquals("squadron.agent.review.completed", subjectCaptor.getAllValues().get(0));
+        assertEquals("squadron.agents.completed", subjectCaptor.getAllValues().get(1));
     }
 
     @Test
@@ -225,10 +226,10 @@ class ReviewAgentServiceTest {
         ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<AgentCompletedEvent> eventCaptor =
                 ArgumentCaptor.forClass(AgentCompletedEvent.class);
-        verify(natsEventPublisher).publishAsync(subjectCaptor.capture(), eventCaptor.capture());
+        verify(natsEventPublisher, times(2)).publishAsync(subjectCaptor.capture(), eventCaptor.capture());
 
-        assertEquals("squadron.agent.review.failed", subjectCaptor.getValue());
-        assertFalse(eventCaptor.getValue().isSuccess());
+        assertEquals("squadron.agent.review.failed", subjectCaptor.getAllValues().get(0));
+        assertFalse(eventCaptor.getAllValues().get(0).isSuccess());
     }
 
     // ---------------------------------------------------------------------------

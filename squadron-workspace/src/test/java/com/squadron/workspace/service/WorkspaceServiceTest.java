@@ -95,7 +95,7 @@ class WorkspaceServiceTest {
 
         verify(workspaceRepository, times(2)).save(any(Workspace.class));
         verify(workspaceProvider).createContainer(any());
-        verify(natsEventPublisher).publish(eq("squadron.workspace.lifecycle"), any());
+        verify(natsEventPublisher).publish(eq("squadron.workspaces.lifecycle"), any());
     }
 
     @Test
@@ -148,7 +148,7 @@ class WorkspaceServiceTest {
         assertEquals("TERMINATED", workspace.getStatus());
         assertNotNull(workspace.getTerminatedAt());
         verify(workspaceProvider).destroyContainer("pod-abc123");
-        verify(natsEventPublisher).publish(eq("squadron.workspace.lifecycle"), any());
+        verify(natsEventPublisher).publish(eq("squadron.workspaces.lifecycle"), any());
     }
 
     @Test

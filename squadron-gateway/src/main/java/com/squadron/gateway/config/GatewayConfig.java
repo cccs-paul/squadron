@@ -11,6 +11,12 @@ public class GatewayConfig {
     @Bean
     public RouteLocator squadronRoutes(RouteLocatorBuilder builder) {
         return builder.routes()
+                .route("websocket-agent", r -> r
+                        .path("/ws/agent/**")
+                        .uri("lb://squadron-agent"))
+                .route("websocket-notifications", r -> r
+                        .path("/ws/notifications/**")
+                        .uri("lb://squadron-notification"))
                 .route("auth-service", r -> r
                         .path("/api/auth/**")
                         .uri("lb://squadron-identity"))

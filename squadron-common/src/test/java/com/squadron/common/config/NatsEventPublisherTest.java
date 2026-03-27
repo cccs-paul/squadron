@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.common.event.SquadronEvent;
 import com.squadron.common.event.TaskStateChangedEvent;
 import io.nats.client.Connection;
+import io.nats.client.JetStream;
+import io.nats.client.api.PublishAck;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +27,12 @@ class NatsEventPublisherTest {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private JetStream jetStream;
+
+    @Mock
+    private PublishAck publishAck;
 
     private NatsEventPublisher publisher;
 
@@ -116,5 +124,73 @@ class NatsEventPublisherTest {
         publisher.publish("custom.subject.name", event);
 
         verify(natsConnection).publish(eq("custom.subject.name"), any(byte[].class));
+    }
+
+    // --- JetStream integration tests ---
+
+    @Test
+    void should_publishViaJetStream_when_jetStreamAvailable() throws Exception {
+        publisher.setJetStream(jetStream);
+
+        SquadronEvent event = new SquadronEvent();
+        event.setEventType("JS_EVENT");
+        byte[] serialized = "{\"eventType\":\"JS_EVENT\"}".getBytes();
+        when(objectMapper.writeValueAsBytes(event)).thenReturn(serialized);
+        when(jetStream.publish(eq("squadron.tasks.state-changed"), eq(serialized))).thenReturn(publishAck);
+        when(publishAck.getStream()).thenReturn("TASKS");
+        when(publishAck.getSeqno()).thenReturn(42L);
+
+        publisher.publish("squadron.tasks.state-changed", event);
+
+        verify(jetStream).publish(eq("squadron.tasks.state-changed"), eq(serialized));
+        verify(natsConnection, never()).publish(anyString(), any(byte[].class));
+    }
+
+    @Test
+    void should_fallBackToCoreNats_when_jetStreamPublishFails() throws Exception {
+        publisher.setJetStream(jetStream);
+
+        SquadronEvent event = new SquadronEvent();
+        event.setEventType("FALLBACK_EVENT");
+        byte[] serialized = "{\"eventType\":\"FALLBACK_EVENT\"}".getBytes();
+        when(objectMapper.writeValueAsBytes(event)).thenReturn(serialized);
+        when(jetStream.publish(anyString(), any(byte[].class)))
+                .thenThrow(new RuntimeException("JetStream not available for subject"));
+
+        publisher.publish("squadron.events.test", event);
+
+        // Should fall back to core NATS
+        verify(natsConnection).publish(eq("squadron.events.test"), eq(serialized));
+    }
+
+    @Test
+    void should_useCoreNats_when_jetStreamNotSet() throws Exception {
+        // jetStream is not set (null by default)
+        SquadronEvent event = new SquadronEvent();
+        event.setEventType("CORE_EVENT");
+        byte[] serialized = "{}".getBytes();
+        when(objectMapper.writeValueAsBytes(event)).thenReturn(serialized);
+
+        publisher.publish("squadron.events.test", event);
+
+        verify(natsConnection).publish(eq("squadron.events.test"), eq(serialized));
+    }
+
+    @Test
+    void should_publishAsyncViaJetStream_when_jetStreamAvailable() throws Exception {
+        publisher.setJetStream(jetStream);
+
+        SquadronEvent event = new SquadronEvent();
+        event.setEventType("JS_ASYNC");
+        byte[] serialized = "{}".getBytes();
+        when(objectMapper.writeValueAsBytes(event)).thenReturn(serialized);
+        when(jetStream.publish(anyString(), any(byte[].class))).thenReturn(publishAck);
+        when(publishAck.getStream()).thenReturn("TASKS");
+        when(publishAck.getSeqno()).thenReturn(1L);
+
+        CompletableFuture<Void> future = publisher.publishAsync("squadron.tasks.state-changed", event);
+        future.join();
+
+        verify(jetStream, timeout(1000)).publish(eq("squadron.tasks.state-changed"), eq(serialized));
     }
 }

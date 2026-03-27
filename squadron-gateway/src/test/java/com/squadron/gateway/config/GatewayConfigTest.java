@@ -74,7 +74,7 @@ class GatewayConfigTest {
 
         List<Route> routes = routeLocator.getRoutes().collectList().block();
         assertThat(routes).isNotNull();
-        assertThat(routes).hasSize(10);
+        assertThat(routes).hasSize(12);
     }
 
     @Test
@@ -173,6 +173,8 @@ class GatewayConfigTest {
 
         List<String> routeIds = routes.stream().map(Route::getId).toList();
         assertThat(routeIds).containsExactlyInAnyOrder(
+                "websocket-agent",
+                "websocket-notifications",
                 "auth-service",
                 "identity-service",
                 "config-service",
@@ -194,6 +196,26 @@ class GatewayConfigTest {
         assertThat(identityRoute).isNotNull();
         // identity-service has a stripPrefix filter
         assertThat(identityRoute.getFilters()).isNotEmpty();
+    }
+
+    @Test
+    void should_defineWebsocketAgentRoute_with_correctUri() {
+        List<Route> routes = getRoutes();
+
+        Route route = findRoute(routes, "websocket-agent");
+        assertThat(route).isNotNull();
+        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-agent");
+        assertThat(route.getFilters()).isEmpty();
+    }
+
+    @Test
+    void should_defineWebsocketNotificationsRoute_with_correctUri() {
+        List<Route> routes = getRoutes();
+
+        Route route = findRoute(routes, "websocket-notifications");
+        assertThat(route).isNotNull();
+        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-notification");
+        assertThat(route.getFilters()).isEmpty();
     }
 
     @Test

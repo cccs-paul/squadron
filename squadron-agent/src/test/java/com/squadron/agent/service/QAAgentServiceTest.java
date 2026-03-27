@@ -113,11 +113,11 @@ class QAAgentServiceTest {
         ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<AgentCompletedEvent> eventCaptor =
                 ArgumentCaptor.forClass(AgentCompletedEvent.class);
-        verify(natsEventPublisher).publishAsync(subjectCaptor.capture(), eventCaptor.capture());
+        verify(natsEventPublisher, times(2)).publishAsync(subjectCaptor.capture(), eventCaptor.capture());
 
-        assertEquals("squadron.agent.qa.completed", subjectCaptor.getValue());
-        assertTrue(eventCaptor.getValue().isSuccess());
-        assertEquals("QA", eventCaptor.getValue().getAgentType());
+        assertEquals("squadron.agent.qa.completed", subjectCaptor.getAllValues().get(0));
+        assertTrue(eventCaptor.getAllValues().get(0).isSuccess());
+        assertEquals("QA", eventCaptor.getAllValues().get(0).getAgentType());
     }
 
     @Test
@@ -145,10 +145,10 @@ class QAAgentServiceTest {
         ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<AgentCompletedEvent> eventCaptor =
                 ArgumentCaptor.forClass(AgentCompletedEvent.class);
-        verify(natsEventPublisher).publishAsync(subjectCaptor.capture(), eventCaptor.capture());
+        verify(natsEventPublisher, times(2)).publishAsync(subjectCaptor.capture(), eventCaptor.capture());
 
-        assertEquals("squadron.agent.qa.failed", subjectCaptor.getValue());
-        assertFalse(eventCaptor.getValue().isSuccess());
+        assertEquals("squadron.agent.qa.failed", subjectCaptor.getAllValues().get(0));
+        assertFalse(eventCaptor.getAllValues().get(0).isSuccess());
     }
 
     @Test
@@ -166,10 +166,10 @@ class QAAgentServiceTest {
         ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<AgentCompletedEvent> eventCaptor =
                 ArgumentCaptor.forClass(AgentCompletedEvent.class);
-        verify(natsEventPublisher).publishAsync(subjectCaptor.capture(), eventCaptor.capture());
+        verify(natsEventPublisher, times(2)).publishAsync(subjectCaptor.capture(), eventCaptor.capture());
 
-        assertEquals("squadron.agent.qa.failed", subjectCaptor.getValue());
-        assertFalse(eventCaptor.getValue().isSuccess());
+        assertEquals("squadron.agent.qa.failed", subjectCaptor.getAllValues().get(0));
+        assertFalse(eventCaptor.getAllValues().get(0).isSuccess());
     }
 
     // ---------------------------------------------------------------------------
