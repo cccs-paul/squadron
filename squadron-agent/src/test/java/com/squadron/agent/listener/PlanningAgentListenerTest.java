@@ -7,21 +7,19 @@ import com.squadron.agent.dto.ChatResponse;
 import com.squadron.agent.entity.TaskPlan;
 import com.squadron.agent.service.AgentService;
 import com.squadron.agent.service.PlanService;
+import com.squadron.common.config.JetStreamSubscriber;
 import com.squadron.common.event.TaskStateChangedEvent;
-import io.nats.client.Connection;
-import io.nats.client.Dispatcher;
 import io.nats.client.Message;
-import io.nats.client.MessageHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,10 +30,7 @@ import static org.mockito.Mockito.*;
 class PlanningAgentListenerTest {
 
     @Mock
-    private Connection natsConnection;
-
-    @Mock
-    private Dispatcher dispatcher;
+    private JetStreamSubscriber jetStreamSubscriber;
 
     @Mock
     private AgentService agentService;
@@ -46,25 +41,24 @@ class PlanningAgentListenerTest {
     @Mock
     private Message message;
 
-    @Captor
-    private ArgumentCaptor<MessageHandler> handlerCaptor;
-
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private PlanningAgentListener listener;
 
     @BeforeEach
     void setUp() {
-        listener = new PlanningAgentListener(natsConnection, objectMapper, agentService, planService);
+        listener = new PlanningAgentListener(jetStreamSubscriber, objectMapper, agentService, planService);
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void should_subscribeOnPostConstruct() {
-        when(natsConnection.createDispatcher(any(MessageHandler.class))).thenReturn(dispatcher);
-
         listener.subscribe();
 
-        verify(natsConnection).createDispatcher(any(MessageHandler.class));
-        verify(dispatcher).subscribe(PlanningAgentListener.STATE_CHANGED_SUBJECT);
+        verify(jetStreamSubscriber).subscribe(
+                eq(PlanningAgentListener.STATE_CHANGED_SUBJECT),
+                eq(PlanningAgentListener.DURABLE_NAME),
+                eq(PlanningAgentListener.QUEUE_GROUP),
+                any(Consumer.class));
     }
 
     @Test
@@ -103,7 +97,7 @@ class PlanningAgentListenerTest {
 
         verify(agentService).chat(any(ChatRequest.class), eq(tenantId), eq(triggeredBy));
         ArgumentCaptor<ChatRequest> requestCaptor = ArgumentCaptor.forClass(ChatRequest.class);
-        verify(agentService).chat(requestCaptor.capture(), eq(tenantId), eq(triggeredBy));
+        verify(agentService, atLeastOnce()).chat(requestCaptor.capture(), eq(tenantId), eq(triggeredBy));
         ChatRequest capturedRequest = requestCaptor.getValue();
         assertEquals(taskId, capturedRequest.getTaskId());
         assertEquals("PLANNING", capturedRequest.getAgentType());
@@ -197,16 +191,6 @@ class PlanningAgentListenerTest {
         assertDoesNotThrow(() -> listener.handleMessage(message));
         verifyNoInteractions(agentService);
         verifyNoInteractions(planService);
-    }
-
-    @Test
-    void should_unsubscribeOnPreDestroy() {
-        when(natsConnection.createDispatcher(any(MessageHandler.class))).thenReturn(dispatcher);
-
-        listener.subscribe();
-        listener.unsubscribe();
-
-        verify(natsConnection).closeDispatcher(dispatcher);
     }
 
     @Test

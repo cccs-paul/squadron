@@ -3,34 +3,30 @@ package com.squadron.agent.listener;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.squadron.agent.service.QAAgentService;
+import com.squadron.common.config.JetStreamSubscriber;
 import com.squadron.common.event.TaskStateChangedEvent;
-import io.nats.client.Connection;
-import io.nats.client.Dispatcher;
 import io.nats.client.Message;
-import io.nats.client.MessageHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class QAAgentListenerTest {
 
     @Mock
-    private Connection natsConnection;
-
-    @Mock
-    private Dispatcher dispatcher;
+    private JetStreamSubscriber jetStreamSubscriber;
 
     @Mock
     private QAAgentService qaAgentService;
@@ -38,35 +34,24 @@ class QAAgentListenerTest {
     @Mock
     private Message message;
 
-    @Captor
-    private ArgumentCaptor<MessageHandler> handlerCaptor;
-
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private QAAgentListener listener;
 
     @BeforeEach
     void setUp() {
-        listener = new QAAgentListener(natsConnection, objectMapper, qaAgentService);
+        listener = new QAAgentListener(jetStreamSubscriber, objectMapper, qaAgentService);
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void should_subscribeOnPostConstruct() {
-        when(natsConnection.createDispatcher(any(MessageHandler.class))).thenReturn(dispatcher);
-
         listener.subscribe();
 
-        verify(natsConnection).createDispatcher(any(MessageHandler.class));
-        verify(dispatcher).subscribe(QAAgentListener.STATE_CHANGED_SUBJECT);
-    }
-
-    @Test
-    void should_unsubscribeOnPreDestroy() {
-        when(natsConnection.createDispatcher(any(MessageHandler.class))).thenReturn(dispatcher);
-
-        listener.subscribe();
-        listener.unsubscribe();
-
-        verify(natsConnection).closeDispatcher(dispatcher);
+        verify(jetStreamSubscriber).subscribe(
+                eq(QAAgentListener.STATE_CHANGED_SUBJECT),
+                eq(QAAgentListener.DURABLE_NAME),
+                eq(QAAgentListener.QUEUE_GROUP),
+                any(Consumer.class));
     }
 
     @Test
@@ -160,13 +145,6 @@ class QAAgentListenerTest {
 
         assertDoesNotThrow(() -> listener.handleMessage(message));
         verify(qaAgentService).executeQA(any(TaskStateChangedEvent.class));
-    }
-
-    @Test
-    void should_notUnsubscribe_when_dispatcherIsNull() {
-        // No subscribe() call, so dispatcher is null
-        assertDoesNotThrow(() -> listener.unsubscribe());
-        verify(natsConnection, never()).closeDispatcher(any());
     }
 
     @Test

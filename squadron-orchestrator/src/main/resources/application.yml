@@ -30,6 +30,8 @@ spring:
 squadron:
   nats:
     url: ${NATS_URL:nats://localhost:4222}
+  platform:
+    service-url: ${PLATFORM_SERVICE_URL:http://localhost:8084}
   security:
     jwt:
       jwks-uri: ${SQUADRON_JWKS_URI:http://localhost:8081/api/auth/jwks}

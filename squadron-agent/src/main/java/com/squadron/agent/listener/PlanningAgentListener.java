@@ -6,35 +6,39 @@ import com.squadron.agent.dto.ChatResponse;
 import com.squadron.agent.entity.TaskPlan;
 import com.squadron.agent.service.AgentService;
 import com.squadron.agent.service.PlanService;
+import com.squadron.common.config.JetStreamSubscriber;
 import com.squadron.common.event.TaskStateChangedEvent;
-import io.nats.client.Connection;
-import io.nats.client.Dispatcher;
 import io.nats.client.Message;
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Listens for task state-change events on NATS and triggers the planning agent
+ * when a task transitions to the {@code PLANNING} state.
+ * Uses JetStream durable subscriptions for at-least-once delivery.
+ */
 @Component
 public class PlanningAgentListener {
 
     private static final Logger log = LoggerFactory.getLogger(PlanningAgentListener.class);
     static final String STATE_CHANGED_SUBJECT = "squadron.tasks.state-changed";
+    static final String DURABLE_NAME = "planning-agent-listener";
+    static final String QUEUE_GROUP = "squadron-agent";
 
-    private final Connection natsConnection;
+    private final JetStreamSubscriber jetStreamSubscriber;
     private final ObjectMapper objectMapper;
     private final AgentService agentService;
     private final PlanService planService;
-    private Dispatcher dispatcher;
 
-    public PlanningAgentListener(Connection natsConnection,
+    public PlanningAgentListener(JetStreamSubscriber jetStreamSubscriber,
                                   ObjectMapper objectMapper,
                                   AgentService agentService,
                                   PlanService planService) {
-        this.natsConnection = natsConnection;
+        this.jetStreamSubscriber = jetStreamSubscriber;
         this.objectMapper = objectMapper;
         this.agentService = agentService;
         this.planService = planService;
@@ -42,17 +46,9 @@ public class PlanningAgentListener {
 
     @PostConstruct
     public void subscribe() {
-        dispatcher = natsConnection.createDispatcher(this::handleMessage);
-        dispatcher.subscribe(STATE_CHANGED_SUBJECT);
-        log.info("Subscribed to {} for planning agent triggers", STATE_CHANGED_SUBJECT);
-    }
-
-    @PreDestroy
-    public void unsubscribe() {
-        if (dispatcher != null) {
-            natsConnection.closeDispatcher(dispatcher);
-            log.info("Unsubscribed from {}", STATE_CHANGED_SUBJECT);
-        }
+        jetStreamSubscriber.subscribe(STATE_CHANGED_SUBJECT, DURABLE_NAME, QUEUE_GROUP, this::handleMessage);
+        log.info("Subscribed to {} for planning agent triggers (durable={}, queue={})",
+                STATE_CHANGED_SUBJECT, DURABLE_NAME, QUEUE_GROUP);
     }
 
     void handleMessage(Message message) {

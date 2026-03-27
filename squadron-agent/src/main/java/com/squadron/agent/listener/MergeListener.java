@@ -2,12 +2,10 @@ package com.squadron.agent.listener;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.agent.service.MergeService;
+import com.squadron.common.config.JetStreamSubscriber;
 import com.squadron.common.event.TaskStateChangedEvent;
-import io.nats.client.Connection;
-import io.nats.client.Dispatcher;
 import io.nats.client.Message;
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -17,39 +15,33 @@ import java.nio.charset.StandardCharsets;
 /**
  * Listens for task state-change events on NATS and triggers the merge service
  * when a task transitions to the {@code MERGE} state.
+ * Uses JetStream durable subscriptions for at-least-once delivery.
  */
 @Component
 public class MergeListener {
 
     private static final Logger log = LoggerFactory.getLogger(MergeListener.class);
     static final String STATE_CHANGED_SUBJECT = "squadron.tasks.state-changed";
+    static final String DURABLE_NAME = "merge-listener";
+    static final String QUEUE_GROUP = "squadron-agent";
 
-    private final Connection natsConnection;
+    private final JetStreamSubscriber jetStreamSubscriber;
     private final ObjectMapper objectMapper;
     private final MergeService mergeService;
-    private Dispatcher dispatcher;
 
-    public MergeListener(Connection natsConnection,
+    public MergeListener(JetStreamSubscriber jetStreamSubscriber,
                          ObjectMapper objectMapper,
                          MergeService mergeService) {
-        this.natsConnection = natsConnection;
+        this.jetStreamSubscriber = jetStreamSubscriber;
         this.objectMapper = objectMapper;
         this.mergeService = mergeService;
     }
 
     @PostConstruct
     public void subscribe() {
-        dispatcher = natsConnection.createDispatcher(this::handleMessage);
-        dispatcher.subscribe(STATE_CHANGED_SUBJECT);
-        log.info("Subscribed to {} for merge triggers", STATE_CHANGED_SUBJECT);
-    }
-
-    @PreDestroy
-    public void unsubscribe() {
-        if (dispatcher != null) {
-            natsConnection.closeDispatcher(dispatcher);
-            log.info("Unsubscribed from {}", STATE_CHANGED_SUBJECT);
-        }
+        jetStreamSubscriber.subscribe(STATE_CHANGED_SUBJECT, DURABLE_NAME, QUEUE_GROUP, this::handleMessage);
+        log.info("Subscribed to {} for merge triggers (durable={}, queue={})",
+                STATE_CHANGED_SUBJECT, DURABLE_NAME, QUEUE_GROUP);
     }
 
     void handleMessage(Message message) {

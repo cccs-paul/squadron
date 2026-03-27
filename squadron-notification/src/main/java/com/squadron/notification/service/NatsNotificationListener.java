@@ -1,5 +1,6 @@
 package com.squadron.notification.service;
 
+import com.squadron.common.config.JetStreamSubscriber;
 import com.squadron.common.event.AgentCompletedEvent;
 import com.squadron.common.event.ReviewUpdatedEvent;
 import com.squadron.common.event.SquadronEvent;
@@ -8,8 +9,7 @@ import com.squadron.common.util.JsonUtils;
 import com.squadron.notification.dto.SendNotificationRequest;
 import com.squadron.notification.entity.NotificationPreference;
 import com.squadron.notification.repository.NotificationPreferenceRepository;
-import io.nats.client.Connection;
-import io.nats.client.Dispatcher;
+import io.nats.client.Message;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,55 +24,70 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class NatsNotificationListener {
 
-    private final Connection natsConnection;
+    private final JetStreamSubscriber jetStreamSubscriber;
     private final NotificationService notificationService;
     private final NotificationPreferenceRepository preferenceRepository;
 
+    static final String TASK_STATE_CHANGED_SUBJECT = "squadron.tasks.state-changed";
+    static final String REVIEWS_UPDATED_SUBJECT = "squadron.reviews.updated";
+    static final String AGENTS_COMPLETED_SUBJECT = "squadron.agents.completed";
+    static final String GIT_EVENTS_SUBJECT = "squadron.git.events";
+
     @PostConstruct
     public void setupSubscriptions() {
-        Dispatcher dispatcher = natsConnection.createDispatcher();
+        jetStreamSubscriber.subscribe(TASK_STATE_CHANGED_SUBJECT,
+                "notification-task-state", "squadron-notification", this::handleTaskStateChangedMessage);
 
-        dispatcher.subscribe("squadron.tasks.state-changed", message -> {
-            try {
-                String json = new String(message.getData(), StandardCharsets.UTF_8);
-                TaskStateChangedEvent event = JsonUtils.fromJson(json, TaskStateChangedEvent.class);
-                handleTaskStateChanged(event);
-            } catch (Exception e) {
-                log.error("Failed to process task state changed event: {}", e.getMessage(), e);
-            }
-        });
+        jetStreamSubscriber.subscribe(REVIEWS_UPDATED_SUBJECT,
+                "notification-review-updated", "squadron-notification", this::handleReviewUpdatedMessage);
 
-        dispatcher.subscribe("squadron.reviews.updated", message -> {
-            try {
-                String json = new String(message.getData(), StandardCharsets.UTF_8);
-                ReviewUpdatedEvent event = JsonUtils.fromJson(json, ReviewUpdatedEvent.class);
-                handleReviewUpdated(event);
-            } catch (Exception e) {
-                log.error("Failed to process review updated event: {}", e.getMessage(), e);
-            }
-        });
+        jetStreamSubscriber.subscribe(AGENTS_COMPLETED_SUBJECT,
+                "notification-agent-completed", "squadron-notification", this::handleAgentCompletedMessage);
 
-        dispatcher.subscribe("squadron.agents.completed", message -> {
-            try {
-                String json = new String(message.getData(), StandardCharsets.UTF_8);
-                AgentCompletedEvent event = JsonUtils.fromJson(json, AgentCompletedEvent.class);
-                handleAgentCompleted(event);
-            } catch (Exception e) {
-                log.error("Failed to process agent completed event: {}", e.getMessage(), e);
-            }
-        });
+        jetStreamSubscriber.subscribe(GIT_EVENTS_SUBJECT,
+                "notification-git-events", "squadron-notification", this::handleGitEventMessage);
 
-        dispatcher.subscribe("squadron.git.events", message -> {
-            try {
-                String json = new String(message.getData(), StandardCharsets.UTF_8);
-                SquadronEvent event = JsonUtils.fromJson(json, SquadronEvent.class);
-                handleGitEvent(event);
-            } catch (Exception e) {
-                log.error("Failed to process git event: {}", e.getMessage(), e);
-            }
-        });
+        log.info("NATS notification listeners registered for task, review, agent, and git events (durable)");
+    }
 
-        log.info("NATS notification listeners registered for task, review, agent, and git events");
+    void handleTaskStateChangedMessage(Message message) {
+        try {
+            String json = new String(message.getData(), StandardCharsets.UTF_8);
+            TaskStateChangedEvent event = JsonUtils.fromJson(json, TaskStateChangedEvent.class);
+            handleTaskStateChanged(event);
+        } catch (Exception e) {
+            log.error("Failed to process task state changed event: {}", e.getMessage(), e);
+        }
+    }
+
+    void handleReviewUpdatedMessage(Message message) {
+        try {
+            String json = new String(message.getData(), StandardCharsets.UTF_8);
+            ReviewUpdatedEvent event = JsonUtils.fromJson(json, ReviewUpdatedEvent.class);
+            handleReviewUpdated(event);
+        } catch (Exception e) {
+            log.error("Failed to process review updated event: {}", e.getMessage(), e);
+        }
+    }
+
+    void handleAgentCompletedMessage(Message message) {
+        try {
+            String json = new String(message.getData(), StandardCharsets.UTF_8);
+            AgentCompletedEvent event = JsonUtils.fromJson(json, AgentCompletedEvent.class);
+            handleAgentCompleted(event);
+        } catch (Exception e) {
+            log.error("Failed to process agent completed event: {}", e.getMessage(), e);
+        }
+    }
+
+    void handleGitEventMessage(Message message) {
+        try {
+            String json = new String(message.getData(), StandardCharsets.UTF_8);
+            SquadronEvent event = JsonUtils.fromJson(json, SquadronEvent.class);
+            handleGitEvent(event);
+        } catch (Exception e) {
+            log.error("Failed to process git event: {}", e.getMessage(), e);
+        }
     }
 
     private void handleTaskStateChanged(TaskStateChangedEvent event) {

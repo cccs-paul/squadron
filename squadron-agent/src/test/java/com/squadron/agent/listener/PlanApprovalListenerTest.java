@@ -2,11 +2,9 @@ package com.squadron.agent.listener;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.squadron.common.config.JetStreamSubscriber;
 import com.squadron.common.event.AgentCompletedEvent;
-import io.nats.client.Connection;
-import io.nats.client.Dispatcher;
 import io.nats.client.Message;
-import io.nats.client.MessageHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +17,7 @@ import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,10 +29,7 @@ import static org.mockito.Mockito.*;
 class PlanApprovalListenerTest {
 
     @Mock
-    private Connection natsConnection;
-
-    @Mock
-    private Dispatcher dispatcher;
+    private JetStreamSubscriber jetStreamSubscriber;
 
     @Mock
     private WebClient webClient;
@@ -58,17 +54,19 @@ class PlanApprovalListenerTest {
 
     @BeforeEach
     void setUp() {
-        listener = new PlanApprovalListener(natsConnection, objectMapper, webClient);
+        listener = new PlanApprovalListener(jetStreamSubscriber, objectMapper, webClient);
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void should_subscribeOnPostConstruct() {
-        when(natsConnection.createDispatcher(any(MessageHandler.class))).thenReturn(dispatcher);
-
         listener.subscribe();
 
-        verify(natsConnection).createDispatcher(any(MessageHandler.class));
-        verify(dispatcher).subscribe(PlanApprovalListener.PLAN_APPROVED_SUBJECT);
+        verify(jetStreamSubscriber).subscribe(
+                eq(PlanApprovalListener.PLAN_APPROVED_SUBJECT),
+                eq(PlanApprovalListener.DURABLE_NAME),
+                eq(PlanApprovalListener.QUEUE_GROUP),
+                any(Consumer.class));
     }
 
     @Test
@@ -151,22 +149,5 @@ class PlanApprovalListenerTest {
         // Should not throw
         assertDoesNotThrow(() -> listener.handleMessage(message));
         verifyNoInteractions(webClient);
-    }
-
-    @Test
-    void should_unsubscribeOnPreDestroy() {
-        when(natsConnection.createDispatcher(any(MessageHandler.class))).thenReturn(dispatcher);
-
-        listener.subscribe();
-        listener.unsubscribe();
-
-        verify(natsConnection).closeDispatcher(dispatcher);
-    }
-
-    @Test
-    void should_handleNullDispatcherOnPreDestroy() {
-        // No subscribe called, dispatcher is null
-        assertDoesNotThrow(() -> listener.unsubscribe());
-        verify(natsConnection, never()).closeDispatcher(any());
     }
 }
