@@ -58,4 +58,30 @@ public class NatsEventPublisher {
     public CompletableFuture<Void> publishAsync(String subject, SquadronEvent event) {
         return CompletableFuture.runAsync(() -> publish(subject, event));
     }
+
+    /**
+     * Publishes raw bytes to the given subject, using JetStream if available
+     * with fallback to core NATS. This is useful for publishing non-SquadronEvent
+     * payloads (e.g., audit events) while still benefiting from JetStream
+     * durable delivery.
+     *
+     * @param subject the NATS subject to publish to
+     * @param data    the raw byte payload
+     */
+    public void publishRaw(String subject, byte[] data) {
+        if (jetStream != null) {
+            try {
+                PublishAck ack = jetStream.publish(subject, data);
+                log.debug("Published raw data to JetStream subject {} (stream: {}, seq: {})",
+                        subject, ack.getStream(), ack.getSeqno());
+                return;
+            } catch (Exception e) {
+                log.debug("JetStream publish failed for subject {}, falling back to core NATS: {}",
+                        subject, e.getMessage());
+            }
+        }
+
+        natsConnection.publish(subject, data);
+        log.debug("Published raw data to core NATS subject {}", subject);
+    }
 }

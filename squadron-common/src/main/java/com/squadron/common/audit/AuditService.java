@@ -1,7 +1,7 @@
 package com.squadron.common.audit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.nats.client.Connection;
+import com.squadron.common.config.NatsEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,16 +22,16 @@ public class AuditService {
 
     private final AuditProperties properties;
     private final ObjectMapper objectMapper;
-    private final Connection natsConnection;
+    private final NatsEventPublisher natsEventPublisher;
     private final AuditQueryService auditQueryService;
 
     public AuditService(AuditProperties properties,
                         ObjectMapper objectMapper,
-                        Connection natsConnection,
+                        NatsEventPublisher natsEventPublisher,
                         AuditQueryService auditQueryService) {
         this.properties = properties;
         this.objectMapper = objectMapper;
-        this.natsConnection = natsConnection;
+        this.natsEventPublisher = natsEventPublisher;
         this.auditQueryService = auditQueryService;
     }
 
@@ -75,10 +75,10 @@ public class AuditService {
         }
 
         // Publish to NATS if enabled
-        if (properties.isPublishToNats() && natsConnection != null) {
+        if (properties.isPublishToNats() && natsEventPublisher != null) {
             try {
                 byte[] data = objectMapper.writeValueAsBytes(event);
-                natsConnection.publish(properties.getNatsSubject(), data);
+                natsEventPublisher.publishRaw(properties.getNatsSubject(), data);
             } catch (Exception e) {
                 log.warn("Failed to publish audit event to NATS: {}", e.getMessage());
             }

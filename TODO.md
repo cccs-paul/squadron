@@ -1,26 +1,27 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-03-27
-**Current Status:** Phase 1-5 implementation largely complete. Inter-service communication infrastructure in progress.
+**Current Status:** All 11 modules fully implemented with tests. Inter-service communication infrastructure complete (OpenFeign + JetStream). All NATS listeners migrated to durable JetStream subscriptions. Ready for Phase 6 (integration testing) and Phase 7 (deployment).
 
 ---
 
 ## Completed Modules
 
-### squadron-common (60 src / 61 test)
+### squadron-common (60 src / 65 test)
 - [x] DTOs (TaskDto, TenantDto, TeamDto, UserDto, ProjectDto, etc.)
 - [x] Events (TaskStateChanged, AgentInvoked, AgentCompleted, ReviewUpdated, etc.)
 - [x] Security (TenantContext, TenantFilter, JwtService, TokenEncryption, AccessLevel)
 - [x] Exceptions (Global handler, custom exceptions)
-- [x] NATS config (NatsConfig, NatsEventPublisher)
+- [x] NATS config (NatsConfig, NatsEventPublisher with JetStream support, JetStreamConfig, JetStreamSubscriber)
+- [x] Feign config (FeignConfig, FeignErrorDecoder)
 - [x] Jackson config
 - [x] Resilience (CircuitBreaker, RetryHelper, ResilientClient)
-- [x] Audit system (AuditService, AuditAspect, AuditController, etc.)
+- [x] Audit system (AuditService using NatsEventPublisher, AuditAspect, AuditController, etc.)
 - [x] Utilities (JsonUtils, SlugUtils)
 - [x] All tests passing
 
 ### squadron-gateway (8 src / 8 test)
-- [x] GatewayConfig with service routes
+- [x] GatewayConfig with service routes + WebSocket routes
 - [x] SecurityConfig (JWT validation)
 - [x] CorsConfig
 - [x] Filters (RequestLogging, TenantHeader, RateLimit)
@@ -41,6 +42,7 @@
 - [x] State transitions with validation
 - [x] TaskSyncService
 - [x] DefaultWorkflowInitializer
+- [x] PlatformServiceClient (Feign)
 - [x] Flyway migration (V1)
 - [x] All tests passing
 
@@ -52,7 +54,8 @@
 - [x] Squadron config management
 - [x] Token usage tracking
 - [x] WebSocket controller
-- [x] Listeners (Planning, Coding, Review, QA, Merge, PlanApproval)
+- [x] Listeners migrated to JetStreamSubscriber (Planning, Coding, Review, QA, Merge, PlanApproval)
+- [x] Feign clients (OrchestratorClient, GitServiceClient, ReviewServiceClient, WorkspaceServiceClient)
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
@@ -101,7 +104,7 @@
 
 ### squadron-notification (24 src / 24 test)
 - [x] Notification channels (Email, Slack, Teams, InApp)
-- [x] NATS event listeners
+- [x] NATS event listeners migrated to JetStreamSubscriber (4 durable subscriptions)
 - [x] Notification preferences
 - [x] Retry service
 - [x] Flyway migrations (V1, V2)
@@ -122,38 +125,34 @@
 
 ---
 
-## In-Progress Work (Interrupted)
+## Completed Inter-Service Communication
 
-### Inter-Service Communication Infrastructure
-- [x] Feign client interfaces (OrchestratorClient, GitServiceClient, ReviewServiceClient, WorkspaceServiceClient, PlatformServiceClient)
+### OpenFeign Clients
 - [x] FeignConfig + FeignErrorDecoder in squadron-common
-- [x] @EnableFeignClients on squadron-agent and squadron-orchestrator
-- [x] OpenFeign dependency in POMs
-- [x] JetStreamConfig (stream creation for 10 durable streams)
-- [x] JetStreamSubscriber utility
-- [x] NatsEventPublisher upgraded for JetStream
-- [x] NATS subject naming standardization (squadron.tasks.*, squadron.agents.*, etc.)
-- [x] Agent services dual-publish to squadron.agents.completed
-- [x] Gateway WebSocket routes added
-- [x] Tests for all new/modified code
-- [ ] **Compile and verify all changes work together**
-- [ ] **Run tests to confirm everything passes**
-- [ ] **Commit staged changes** (prior batch: tests, health endpoint, UI updates)
-- [ ] **Commit inter-service communication work**
-- [ ] Migrate agent listeners to use JetStreamSubscriber (durable subscriptions)
-- [ ] Add Feign URL properties to application.yml files
-- [ ] Migrate other module listeners to JetStreamSubscriber
+- [x] OrchestratorClient (squadron-agent -> squadron-orchestrator)
+- [x] GitServiceClient (squadron-agent -> squadron-git)
+- [x] ReviewServiceClient (squadron-agent -> squadron-review)
+- [x] WorkspaceServiceClient (squadron-agent -> squadron-workspace)
+- [x] PlatformServiceClient (squadron-orchestrator -> squadron-platform)
+- [x] Feign URL properties configured in all application.yml files
+
+### NATS JetStream
+- [x] JetStreamConfig (10 durable streams: TASKS, AGENTS, WORKSPACES, REVIEWS, GIT_EVENTS, NOTIFICATIONS, CONFIG, PLATFORM, AUDIT, COVERAGE)
+- [x] JetStreamSubscriber utility (durable subscribe with ack/nak, fallback to core NATS)
+- [x] NatsEventPublisher upgraded (JetStream-first publish with core NATS fallback, plus publishRaw for non-event payloads)
+- [x] All 7 NATS listeners migrated to JetStreamSubscriber
+- [x] AuditService migrated to use NatsEventPublisher.publishRaw() instead of raw Connection.publish()
+- [x] NATS subject naming standardized (squadron.tasks.*, squadron.agents.*, etc.)
 
 ---
 
 ## Remaining Work
 
 ### Phase 6: Integration & Polish
-- [ ] Migrate all NATS listeners to JetStreamSubscriber for durable delivery
-- [ ] Add Feign service URL properties to all application.yml files
-- [ ] End-to-end workflow testing (task lifecycle)
+- [ ] End-to-end workflow testing (task lifecycle across services)
 - [ ] Error handling improvements (circuit breakers on Feign clients)
 - [ ] WebSocket integration testing
+- [ ] Cross-service event flow validation
 
 ### Phase 7: Deployment & Hardening
 - [ ] Helm charts for all services
@@ -170,7 +169,7 @@
 
 | Module | Sources | Tests | Status |
 |--------|:-------:|:-----:|--------|
-| squadron-common | 60 | 61 | Complete |
+| squadron-common | 60 | 65 | Complete |
 | squadron-gateway | 8 | 8 | Complete |
 | squadron-identity | 42 | 42 | Complete |
 | squadron-orchestrator | 32 | 32 | Complete |
@@ -181,5 +180,5 @@
 | squadron-review | 26 | 27 | Complete |
 | squadron-config | 11 | 11 | Complete |
 | squadron-notification | 24 | 24 | Complete |
-| **TOTAL** | **360** | **364** | |
+| **TOTAL** | **360** | **368** | |
 | squadron-ui | 30 components | 47 specs | Complete |

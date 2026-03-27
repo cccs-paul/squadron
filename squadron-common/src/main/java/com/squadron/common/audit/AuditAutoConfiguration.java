@@ -1,7 +1,7 @@
 package com.squadron.common.audit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.nats.client.Connection;
+import com.squadron.common.config.NatsEventPublisher;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -27,9 +27,9 @@ public class AuditAutoConfiguration {
     @ConditionalOnMissingBean
     public AuditService auditService(AuditProperties properties,
                                      ObjectMapper objectMapper,
-                                     Connection natsConnection,
+                                     NatsEventPublisher natsEventPublisher,
                                      AuditQueryService auditQueryService) {
-        return new AuditService(properties, objectMapper, natsConnection, auditQueryService);
+        return new AuditService(properties, objectMapper, natsEventPublisher, auditQueryService);
     }
 
     @Bean

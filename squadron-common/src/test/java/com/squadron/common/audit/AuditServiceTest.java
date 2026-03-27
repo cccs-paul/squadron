@@ -2,16 +2,14 @@ package com.squadron.common.audit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import io.nats.client.Connection;
+import com.squadron.common.config.NatsEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,7 +21,7 @@ import static org.mockito.Mockito.*;
 class AuditServiceTest {
 
     @Mock
-    private Connection natsConnection;
+    private NatsEventPublisher natsEventPublisher;
 
     private ObjectMapper objectMapper;
     private AuditProperties properties;
@@ -36,7 +34,7 @@ class AuditServiceTest {
         objectMapper.registerModule(new JavaTimeModule());
         properties = new AuditProperties();
         auditQueryService = new AuditQueryService();
-        auditService = new AuditService(properties, objectMapper, natsConnection, auditQueryService);
+        auditService = new AuditService(properties, objectMapper, natsEventPublisher, auditQueryService);
     }
 
     @Test
@@ -55,7 +53,7 @@ class AuditServiceTest {
 
         auditService.logEvent(event);
 
-        verify(natsConnection).publish(eq("squadron.audit.events"), any(byte[].class));
+        verify(natsEventPublisher).publishRaw(eq("squadron.audit.events"), any(byte[].class));
         assertEquals(1, auditQueryService.size());
     }
 
@@ -67,7 +65,7 @@ class AuditServiceTest {
         auditService.logEvent(tenantId, userId, "CONFIG_UPDATED", "CONFIG",
                 "config-1", AuditAction.UPDATE, "{\"key\":\"value\"}");
 
-        verify(natsConnection).publish(eq("squadron.audit.events"), any(byte[].class));
+        verify(natsEventPublisher).publishRaw(eq("squadron.audit.events"), any(byte[].class));
         assertEquals(1, auditQueryService.size());
     }
 
@@ -81,7 +79,7 @@ class AuditServiceTest {
 
         auditService.logEvent(event);
 
-        verifyNoInteractions(natsConnection);
+        verifyNoInteractions(natsEventPublisher);
         assertEquals(0, auditQueryService.size());
     }
 
@@ -96,7 +94,7 @@ class AuditServiceTest {
 
         auditService.logEvent(event);
 
-        verifyNoInteractions(natsConnection);
+        verifyNoInteractions(natsEventPublisher);
         // Should still be stored locally
         assertEquals(1, auditQueryService.size());
     }
@@ -105,7 +103,7 @@ class AuditServiceTest {
     void should_handleNullEvent_gracefully() {
         auditService.logEvent((AuditEvent) null);
 
-        verifyNoInteractions(natsConnection);
+        verifyNoInteractions(natsEventPublisher);
         assertEquals(0, auditQueryService.size());
     }
 
@@ -119,7 +117,7 @@ class AuditServiceTest {
 
         auditService.logEvent(event);
 
-        verifyNoInteractions(natsConnection);
+        verifyNoInteractions(natsEventPublisher);
         assertEquals(0, auditQueryService.size());
     }
 
@@ -134,7 +132,7 @@ class AuditServiceTest {
 
         auditService.logEvent(event);
 
-        verify(natsConnection).publish(eq("squadron.audit.events"), any(byte[].class));
+        verify(natsEventPublisher).publishRaw(eq("squadron.audit.events"), any(byte[].class));
         assertEquals(1, auditQueryService.size());
     }
 
@@ -173,8 +171,8 @@ class AuditServiceTest {
 
     @Test
     void should_handleNatsFailure_gracefully() {
-        doThrow(new RuntimeException("NATS down")).when(natsConnection)
-                .publish(anyString(), any(byte[].class));
+        doThrow(new RuntimeException("NATS down")).when(natsEventPublisher)
+                .publishRaw(anyString(), any(byte[].class));
 
         AuditEvent event = AuditEvent.builder()
                 .action("TEST")
@@ -199,11 +197,11 @@ class AuditServiceTest {
 
         auditService.logEvent(event);
 
-        verify(natsConnection).publish(eq("custom.audit.subject"), any(byte[].class));
+        verify(natsEventPublisher).publishRaw(eq("custom.audit.subject"), any(byte[].class));
     }
 
     @Test
-    void should_handleNullNatsConnection_gracefully() {
+    void should_handleNullNatsEventPublisher_gracefully() {
         AuditService serviceWithoutNats = new AuditService(properties, objectMapper, null, auditQueryService);
         AuditEvent event = AuditEvent.builder()
                 .action("TEST")

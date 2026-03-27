@@ -1,6 +1,7 @@
 package com.squadron.common.audit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.squadron.common.config.NatsEventPublisher;
 import io.nats.client.Connection;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -27,6 +28,11 @@ class AuditAutoConfigurationTest {
         @Bean
         public Connection natsConnection() {
             return mock(Connection.class);
+        }
+
+        @Bean
+        public NatsEventPublisher natsEventPublisher(Connection natsConnection, ObjectMapper objectMapper) {
+            return new NatsEventPublisher(natsConnection, objectMapper);
         }
     }
 

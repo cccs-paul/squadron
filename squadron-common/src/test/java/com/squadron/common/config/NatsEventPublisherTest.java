@@ -193,4 +193,52 @@ class NatsEventPublisherTest {
 
         verify(jetStream, timeout(1000)).publish(eq("squadron.tasks.state-changed"), eq(serialized));
     }
+
+    // --- publishRaw tests ---
+
+    @Test
+    void should_publishRawViaCoreNats_when_jetStreamNotSet() {
+        byte[] data = "{\"audit\":\"event\"}".getBytes();
+
+        publisher.publishRaw("squadron.audit.events", data);
+
+        verify(natsConnection).publish(eq("squadron.audit.events"), eq(data));
+    }
+
+    @Test
+    void should_publishRawViaJetStream_when_jetStreamAvailable() throws Exception {
+        publisher.setJetStream(jetStream);
+
+        byte[] data = "{\"audit\":\"event\"}".getBytes();
+        when(jetStream.publish(eq("squadron.audit.events"), eq(data))).thenReturn(publishAck);
+        when(publishAck.getStream()).thenReturn("AUDIT");
+        when(publishAck.getSeqno()).thenReturn(7L);
+
+        publisher.publishRaw("squadron.audit.events", data);
+
+        verify(jetStream).publish(eq("squadron.audit.events"), eq(data));
+        verify(natsConnection, never()).publish(anyString(), any(byte[].class));
+    }
+
+    @Test
+    void should_fallBackToCoreNats_when_jetStreamPublishRawFails() throws Exception {
+        publisher.setJetStream(jetStream);
+
+        byte[] data = "{\"audit\":\"event\"}".getBytes();
+        when(jetStream.publish(anyString(), any(byte[].class)))
+                .thenThrow(new RuntimeException("JetStream unavailable"));
+
+        publisher.publishRaw("squadron.audit.events", data);
+
+        verify(natsConnection).publish(eq("squadron.audit.events"), eq(data));
+    }
+
+    @Test
+    void should_useCorrectSubject_when_publishRawCalled() {
+        byte[] data = "{}".getBytes();
+
+        publisher.publishRaw("custom.raw.subject", data);
+
+        verify(natsConnection).publish(eq("custom.raw.subject"), eq(data));
+    }
 }
