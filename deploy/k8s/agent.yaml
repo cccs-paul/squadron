@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squadron-agent-config
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: agent
+    app.kubernetes.io/part-of: squadron
+data:
+  SPRING_PROFILES_ACTIVE: prod
+  SERVER_PORT: "8085"
+  SPRING_DATASOURCE_URL: jdbc:postgresql://squadron-postgresql:5432/squadron_agent
+  NATS_URL: nats://squadron-nats:4222
+  ORCHESTRATOR_URL: http://squadron-orchestrator:8083
+  GIT_SERVICE_URL: http://squadron-git:8087
+  REVIEW_SERVICE_URL: http://squadron-review:8088
+  WORKSPACE_SERVICE_URL: http://squadron-workspace:8086
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: squadron-agent
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: agent
+    app.kubernetes.io/part-of: squadron
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agent
+        app.kubernetes.io/part-of: squadron
+    spec:
+      serviceAccountName: squadron-agent
+      containers:
+        - name: agent
+          image: squadron/agent:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8085
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: SERVER_PORT
+              value: "8085"
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://squadron-postgresql:5432/squadron_agent
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: squadron-postgresql-credentials
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: squadron-postgresql-credentials
+                  key: password
+            - name: NATS_URL
+              value: nats://squadron-nats:4222
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: squadron-ai-credentials
+                  key: openai-api-key
+          envFrom:
+            - configMapRef:
+                name: squadron-agent-config
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: squadron-agent
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: agent
+    app.kubernetes.io/part-of: squadron
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8085
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: agent

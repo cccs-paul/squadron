@@ -21,6 +21,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import com.squadron.orchestrator.client.PlatformServiceClient;
+import com.squadron.orchestrator.client.ResilientPlatformServiceClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -55,7 +58,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         properties = {
                 "spring.main.allow-bean-definition-overriding=true",
                 "spring.jpa.hibernate.ddl-auto=none",
-                "spring.flyway.enabled=true"
+                "spring.flyway.enabled=true",
+                "squadron.platform.service-url=http://localhost:19999"
         }
 )
 @Testcontainers
@@ -66,13 +70,20 @@ class WorkflowEndToEndTest {
             .withDatabaseName("squadron_orchestrator_e2e");
 
     @Container
-    @SuppressWarnings("resource")
     static GenericContainer<?> natsContainer = new GenericContainer<>("nats:latest")
             .withExposedPorts(4222)
             .withCommand("-js");
 
     private static final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private PlatformServiceClient platformServiceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ResilientPlatformServiceClient resilientPlatformServiceClient;
 
     @Autowired
     private ProjectService projectService;

@@ -13,8 +13,12 @@ import com.squadron.notification.repository.NotificationPreferenceRepository;
 import com.squadron.notification.service.NatsNotificationListener;
 import com.squadron.notification.service.NotificationService;
 import io.nats.client.Connection;
-import io.nats.client.Message;
+import io.nats.client.JetStream;
+import io.nats.client.JetStreamManagement;
 import io.nats.client.Nats;
+import io.nats.client.api.StreamConfiguration;
+import io.nats.client.api.StorageType;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,12 +34,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -54,8 +56,9 @@ import static org.mockito.Mockito.when;
  * </ul>
  * Also validates notification preference filtering (muted event types).
  * <p>
- * Uses a real NATS server (via Testcontainers) with mocked notification service
- * and preference repository to isolate event routing from delivery logic.
+ * Uses a real NATS server (via Testcontainers) with JetStream durable subscriptions
+ * and mocked notification service / preference repository to isolate event routing
+ * from delivery logic.
  */
 @ExtendWith(MockitoExtension.class)
 @Testcontainers
@@ -78,6 +81,7 @@ class NotificationEventFlowTest {
 
     private Connection publisherConnection;
     private Connection subscriberConnection;
+    private JetStream publisherJetStream;
     private JetStreamSubscriber jetStreamSubscriber;
     private NatsNotificationListener listener;
 
@@ -87,10 +91,48 @@ class NotificationEventFlowTest {
         publisherConnection = Nats.connect(natsUrl);
         subscriberConnection = Nats.connect(natsUrl);
 
+        // Create JetStream streams covering the 4 event subjects
+        JetStreamManagement jsm = subscriberConnection.jetStreamManagement();
+
+        createOrReplaceStream(jsm, "TASKS", "squadron.tasks.>");
+        createOrReplaceStream(jsm, "REVIEWS", "squadron.reviews.>");
+        createOrReplaceStream(jsm, "AGENTS", "squadron.agents.>");
+        createOrReplaceStream(jsm, "GIT_EVENTS", "squadron.git.>");
+
+        // Enable JetStream on the subscriber
+        JetStream subscriberJs = subscriberConnection.jetStream();
         jetStreamSubscriber = new JetStreamSubscriber(subscriberConnection);
+        jetStreamSubscriber.setJetStream(subscriberJs);
+
+        // Create JetStream for publisher
+        publisherJetStream = publisherConnection.jetStream();
 
         listener = new NatsNotificationListener(
                 jetStreamSubscriber, notificationService, preferenceRepository);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (subscriberConnection != null) {
+            try { subscriberConnection.close(); } catch (Exception ignored) {}
+        }
+        if (publisherConnection != null) {
+            try { publisherConnection.close(); } catch (Exception ignored) {}
+        }
+    }
+
+    private void createOrReplaceStream(JetStreamManagement jsm, String streamName, String... subjects) throws Exception {
+        try {
+            jsm.deleteStream(streamName);
+        } catch (Exception ignored) {
+            // Stream may not exist yet
+        }
+        StreamConfiguration config = StreamConfiguration.builder()
+                .name(streamName)
+                .subjects(subjects)
+                .storageType(StorageType.Memory)
+                .build();
+        jsm.addStream(config);
     }
 
     // ========================================================================
@@ -488,16 +530,15 @@ class NotificationEventFlowTest {
     void should_handleMalformedEvent_gracefully() throws Exception {
         listener.setupSubscriptions();
 
-        // Publish invalid JSON to each subject
-        publisherConnection.publish("squadron.tasks.state-changed",
+        // Publish invalid JSON to each subject via JetStream
+        publisherJetStream.publish("squadron.tasks.state-changed",
                 "not json".getBytes(StandardCharsets.UTF_8));
-        publisherConnection.publish("squadron.reviews.updated",
+        publisherJetStream.publish("squadron.reviews.updated",
                 "{ broken }}}".getBytes(StandardCharsets.UTF_8));
-        publisherConnection.publish("squadron.agents.completed",
-                new byte[0]);
-        publisherConnection.publish("squadron.git.events",
+        publisherJetStream.publish("squadron.agents.completed",
+                "{}".getBytes(StandardCharsets.UTF_8));
+        publisherJetStream.publish("squadron.git.events",
                 "null".getBytes(StandardCharsets.UTF_8));
-        publisherConnection.flush(Duration.ofSeconds(1));
 
         Thread.sleep(2000);
 
@@ -588,7 +629,6 @@ class NotificationEventFlowTest {
 
     private void publishEvent(String subject, Object event) throws Exception {
         byte[] data = objectMapper.writeValueAsBytes(event);
-        publisherConnection.publish(subject, data);
-        publisherConnection.flush(Duration.ofSeconds(1));
+        publisherJetStream.publish(subject, data);
     }
 }

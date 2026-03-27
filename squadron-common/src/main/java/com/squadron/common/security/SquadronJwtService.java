@@ -7,6 +7,7 @@ import com.nimbusds.jose.jwk.gen.*;
 import com.nimbusds.jwt.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +27,7 @@ public class SquadronJwtService {
     private final Duration accessTokenTtl;
     private final Duration refreshTokenTtl;
 
+    @Autowired
     public SquadronJwtService(
             @Value("${squadron.security.jwt.issuer:squadron}") String issuer,
             @Value("${squadron.security.jwt.access-token-ttl:PT1H}") Duration accessTokenTtl,

@@ -1,5 +1,6 @@
 package com.squadron.common.security;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +21,7 @@ public class TokenEncryptionService {
 
     private final SecretKey secretKey;
 
+    @Autowired
     public TokenEncryptionService(@Value("${squadron.security.encryption-key:#{null}}") String base64Key) {
         if (base64Key != null && !base64Key.isBlank()) {
             byte[] keyBytes = Base64.getDecoder().decode(base64Key);

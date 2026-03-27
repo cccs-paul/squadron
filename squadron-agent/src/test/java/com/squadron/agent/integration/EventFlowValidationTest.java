@@ -18,8 +18,13 @@ import com.squadron.common.config.JetStreamSubscriber;
 import com.squadron.common.event.AgentCompletedEvent;
 import com.squadron.common.event.TaskStateChangedEvent;
 import io.nats.client.Connection;
+import io.nats.client.JetStream;
+import io.nats.client.JetStreamManagement;
 import io.nats.client.Message;
 import io.nats.client.Nats;
+import io.nats.client.api.StreamConfiguration;
+import io.nats.client.api.StorageType;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -94,10 +99,24 @@ class EventFlowValidationTest {
         publisherConnection = Nats.connect(natsUrl);
         subscriberConnection = Nats.connect(natsUrl);
 
-        // Create real JetStreamSubscriber backed by the NATS container
+        // Create JetStream stream covering the event subjects
+        JetStreamManagement jsm = subscriberConnection.jetStreamManagement();
+        try {
+            jsm.deleteStream("TASKS");
+        } catch (Exception ignored) {
+            // Stream may not exist yet
+        }
+        StreamConfiguration streamConfig = StreamConfiguration.builder()
+                .name("TASKS")
+                .subjects("squadron.tasks.>")
+                .storageType(StorageType.Memory)
+                .build();
+        jsm.addStream(streamConfig);
+
+        // Create JetStreamSubscriber with JetStream enabled
+        JetStream js = subscriberConnection.jetStream();
         jetStreamSubscriber = new JetStreamSubscriber(subscriberConnection);
-        // JetStream may not be fully available immediately, so we rely on the fallback
-        // to core NATS dispatchers which is sufficient for event routing validation.
+        jetStreamSubscriber.setJetStream(js);
 
         // Instantiate all listeners with real NATS subscriber + mocked services
         planningAgentListener = new PlanningAgentListener(
@@ -114,6 +133,20 @@ class EventFlowValidationTest {
 
         mergeListener = new MergeListener(
                 jetStreamSubscriber, objectMapper, mergeService);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (subscriberConnection != null) {
+            try {
+                subscriberConnection.close();
+            } catch (Exception ignored) {}
+        }
+        if (publisherConnection != null) {
+            try {
+                publisherConnection.close();
+            } catch (Exception ignored) {}
+        }
     }
 
     // ========================================================================
@@ -333,8 +366,9 @@ class EventFlowValidationTest {
         planningAgentListener.subscribe();
         codingAgentListener.subscribe();
 
-        // Publish invalid JSON
-        publisherConnection.publish("squadron.tasks.state-changed",
+        // Publish invalid JSON via JetStream
+        JetStream js = publisherConnection.jetStream();
+        js.publish("squadron.tasks.state-changed",
                 "{ this is not valid json }}}".getBytes(StandardCharsets.UTF_8));
 
         // Wait for processing
@@ -349,8 +383,9 @@ class EventFlowValidationTest {
     void should_handleEmptyEventData_gracefully() throws Exception {
         codingAgentListener.subscribe();
 
-        // Publish empty data
-        publisherConnection.publish("squadron.tasks.state-changed",
+        // Publish empty data via JetStream
+        JetStream js = publisherConnection.jetStream();
+        js.publish("squadron.tasks.state-changed",
                 new byte[0]);
 
         Thread.sleep(2000);
@@ -414,7 +449,9 @@ class EventFlowValidationTest {
 
     private void publishEvent(String subject, Object event) throws Exception {
         byte[] data = objectMapper.writeValueAsBytes(event);
-        publisherConnection.publish(subject, data);
+        // Publish via JetStream so durable subscribers receive the message
+        JetStream js = publisherConnection.jetStream();
+        js.publish(subject, data);
         publisherConnection.flush(java.time.Duration.ofSeconds(1));
     }
 }

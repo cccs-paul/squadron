@@ -7,6 +7,7 @@ import io.nats.client.Message;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -31,6 +32,7 @@ public class PlanApprovalListener {
     private final ObjectMapper objectMapper;
     private final WebClient webClient;
 
+    @Autowired
     public PlanApprovalListener(JetStreamSubscriber jetStreamSubscriber,
                                  ObjectMapper objectMapper,
                                  @Value("${squadron.orchestrator.url:http://localhost:8083}") String orchestratorUrl) {

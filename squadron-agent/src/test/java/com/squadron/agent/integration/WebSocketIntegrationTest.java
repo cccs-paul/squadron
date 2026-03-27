@@ -1,5 +1,13 @@
 package com.squadron.agent.integration;
 
+import com.squadron.agent.client.GitServiceClient;
+import com.squadron.agent.client.OrchestratorClient;
+import com.squadron.agent.client.ResilientGitServiceClient;
+import com.squadron.agent.client.ResilientOrchestratorClient;
+import com.squadron.agent.client.ResilientReviewServiceClient;
+import com.squadron.agent.client.ResilientWorkspaceServiceClient;
+import com.squadron.agent.client.ReviewServiceClient;
+import com.squadron.agent.client.WorkspaceServiceClient;
 import com.squadron.agent.config.WebSocketConfig;
 import com.squadron.agent.controller.AgentWebSocketController;
 import com.squadron.agent.dto.ChatRequest;
@@ -8,9 +16,21 @@ import com.squadron.agent.entity.Conversation;
 import com.squadron.agent.entity.ConversationMessage;
 import com.squadron.agent.provider.AgentProvider;
 import com.squadron.agent.provider.AgentProviderRegistry;
+import com.squadron.agent.service.AgentService;
+import com.squadron.agent.service.CodingAgentService;
 import com.squadron.agent.service.ConversationService;
+import com.squadron.agent.service.MergeService;
+import com.squadron.agent.service.PlanService;
+import com.squadron.agent.service.QAAgentService;
+import com.squadron.agent.service.ReviewAgentService;
 import com.squadron.agent.service.SquadronConfigService;
 import com.squadron.agent.service.SystemPromptBuilder;
+import com.squadron.agent.service.TokenUsageService;
+import com.squadron.agent.tool.ToolExecutionEngine;
+import com.squadron.agent.tool.ToolRegistry;
+import com.squadron.agent.tool.builtin.GitClient;
+import com.squadron.agent.tool.builtin.ReviewClient;
+import com.squadron.agent.tool.builtin.WorkspaceClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,14 +90,18 @@ import static org.mockito.Mockito.when;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "spring.main.allow-bean-definition-overriding=true",
-                "spring.jpa.hibernate.ddl-auto=create-drop",
+                "spring.jpa.hibernate.ddl-auto=none",
                 "spring.flyway.enabled=false",
-                "spring.datasource.url=jdbc:h2:mem:ws_test;DB_CLOSE_DELAY=-1",
+                "spring.datasource.url=jdbc:h2:mem:ws_test;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
                 "spring.datasource.driver-class-name=org.h2.Driver",
                 "spring.ai.openai.api-key=test-key",
                 "spring.ai.ollama.base-url=http://localhost:11434",
                 "spring.ai.ollama.init.timeout=0s",
-                "spring.ai.ollama.init.pull-model-strategy=never"
+                "spring.ai.ollama.init.pull-model-strategy=never",
+                "squadron.orchestrator.url=http://localhost:19998",
+                "squadron.git.url=http://localhost:19997",
+                "squadron.review.url=http://localhost:19996",
+                "squadron.workspace.url=http://localhost:19995"
         }
 )
 @Testcontainers
@@ -106,6 +130,86 @@ class WebSocketIntegrationTest {
 
     @MockBean
     private AgentProvider agentProvider;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private GitServiceClient gitServiceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private OrchestratorClient orchestratorClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ReviewServiceClient reviewServiceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private WorkspaceServiceClient workspaceServiceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ResilientGitServiceClient resilientGitServiceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ResilientOrchestratorClient resilientOrchestratorClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ResilientReviewServiceClient resilientReviewServiceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ResilientWorkspaceServiceClient resilientWorkspaceServiceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private WorkspaceClient workspaceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private GitClient gitClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ReviewClient reviewClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ToolRegistry toolRegistry;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ToolExecutionEngine toolExecutionEngine;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private AgentService agentService;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private CodingAgentService codingAgentService;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ReviewAgentService reviewAgentService;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private QAAgentService qaAgentService;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private MergeService mergeService;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private PlanService planService;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private TokenUsageService tokenUsageService;
 
     private WebSocketStompClient stompClient;
     private StompSession stompSession;

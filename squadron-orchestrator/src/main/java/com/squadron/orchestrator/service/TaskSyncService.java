@@ -7,6 +7,7 @@ import com.squadron.orchestrator.entity.Task;
 import com.squadron.orchestrator.repository.TaskRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class TaskSyncService {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public TaskSyncService(TaskRepository taskRepository,
                            @Value("${squadron.platform.service-url:http://localhost:8084}") String platformServiceUrl,
                            ObjectMapper objectMapper) {
