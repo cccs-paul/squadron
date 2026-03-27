@@ -14,8 +14,6 @@
 #   PgBouncer:  6432
 #   Ollama:     11434 (REST API)
 
-version: "3.9"
-
 x-common-env: &common-env
   SPRING_PROFILES_ACTIVE: docker
   NATS_URL: nats://nats:4222
@@ -28,7 +26,7 @@ x-common-env: &common-env
   SQUADRON_ENCRYPTION_KEY: dev-encryption-key-change-in-production
 
 x-service-defaults: &service-defaults
-  restart: unless-stopped
+  restart: "no"
   networks:
     - squadron-net
   depends_on:
@@ -62,6 +60,7 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: squadron-postgres
+    restart: "no"
     environment:
       POSTGRES_USER: squadron
       POSTGRES_PASSWORD: squadron
@@ -82,6 +81,7 @@ services:
   pgbouncer:
     image: edoburu/pgbouncer:1.23.1
     container_name: squadron-pgbouncer
+    restart: "no"
     environment:
       DATABASE_URL: postgres://squadron:squadron@postgres:5432/squadron
       AUTH_TYPE: plain
@@ -101,6 +101,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: squadron-redis
+    restart: "no"
     ports:
       - "6379:6379"
     volumes:
@@ -117,6 +118,7 @@ services:
   nats:
     image: nats:2-alpine
     container_name: squadron-nats
+    restart: "no"
     ports:
       - "4222:4222"
       - "8222:8222"
@@ -138,6 +140,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.5
     container_name: squadron-keycloak
+    restart: "no"
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
@@ -170,6 +173,7 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     container_name: squadron-mailpit
+    restart: "no"
     ports:
       - "1025:1025"
       - "8025:8025"
@@ -179,6 +183,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: squadron-ollama
+    restart: "no"
     ports:
       - "11434:11434"
     volumes:
@@ -399,6 +404,7 @@ services:
       context: ../../squadron-ui
       dockerfile: Dockerfile
     container_name: squadron-ui
+    restart: "no"
     profiles: ["frontend"]
     ports:
       - "4200:80"

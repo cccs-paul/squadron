@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { LoginComponent } from './login.component';
 import { AuthService } from '../../../core/auth/auth.service';
+import { HealthService, HealthStatus } from '../../../core/services/health.service';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { FormsModule } from '@angular/forms';
@@ -9,7 +10,23 @@ describe('LoginComponent', () => {
   let component: LoginComponent;
   let fixture: ComponentFixture<LoginComponent>;
   let authServiceSpy: jasmine.SpyObj<AuthService>;
+  let healthServiceSpy: jasmine.SpyObj<HealthService>;
   let routerSpy: jasmine.SpyObj<Router>;
+
+  const mockHealthStatus: HealthStatus = {
+    status: 'UP',
+    timestamp: new Date().toISOString(),
+    services: {
+      gateway: { status: 'UP' },
+      orchestrator: { status: 'UP' },
+      agent: { status: 'DOWN' },
+    },
+    infrastructure: {
+      postgresql: { status: 'UP' },
+      redis: { status: 'DEGRADED' },
+      nats: { status: 'UP' },
+    },
+  };
 
   beforeEach(async () => {
     authServiceSpy = jasmine.createSpyObj('AuthService', [
@@ -18,15 +35,18 @@ describe('LoginComponent', () => {
       'loginWithOidc',
       'getAvailableTenants',
     ]);
+    healthServiceSpy = jasmine.createSpyObj('HealthService', ['getHealthStatus']);
     routerSpy = jasmine.createSpyObj('Router', ['navigate']);
 
     authServiceSpy.isAuthenticated.and.returnValue(false);
     authServiceSpy.getAvailableTenants.and.returnValue(of([]));
+    healthServiceSpy.getHealthStatus.and.returnValue(of(mockHealthStatus));
 
     await TestBed.configureTestingModule({
       imports: [LoginComponent, FormsModule],
       providers: [
         { provide: AuthService, useValue: authServiceSpy },
+        { provide: HealthService, useValue: healthServiceSpy },
         { provide: Router, useValue: routerSpy },
       ],
     }).compileComponents();
@@ -137,5 +157,117 @@ describe('LoginComponent', () => {
     component.login();
     // Loading gets set true then navigates; verify it was called
     expect(authServiceSpy.login).toHaveBeenCalled();
+  });
+
+  // Health panel tests
+
+  it('should call health service on init', () => {
+    expect(healthServiceSpy.getHealthStatus).toHaveBeenCalled();
+  });
+
+  it('should set healthStatus signal after health check completes', () => {
+    expect(component.healthStatus()).toEqual(mockHealthStatus);
+    expect(component.healthLoading()).toBeFalse();
+  });
+
+  it('should toggle health panel visibility', () => {
+    expect(component.showHealthPanel).toBeFalse();
+    component.toggleHealthPanel();
+    expect(component.showHealthPanel).toBeTrue();
+    component.toggleHealthPanel();
+    expect(component.showHealthPanel).toBeFalse();
+  });
+
+  it('should return correct CSS class for UP status', () => {
+    expect(component.getStatusColor('UP')).toBe('health-dot--up');
+  });
+
+  it('should return correct CSS class for DOWN status', () => {
+    expect(component.getStatusColor('DOWN')).toBe('health-dot--down');
+  });
+
+  it('should return correct CSS class for DEGRADED status', () => {
+    expect(component.getStatusColor('DEGRADED')).toBe('health-dot--degraded');
+  });
+
+  it('should return unknown CSS class for unrecognized status', () => {
+    expect(component.getStatusColor('SOMETHING_ELSE')).toBe('health-dot--unknown');
+  });
+
+  it('should handle case-insensitive status values', () => {
+    expect(component.getStatusColor('up')).toBe('health-dot--up');
+    expect(component.getStatusColor('down')).toBe('health-dot--down');
+    expect(component.getStatusColor('degraded')).toBe('health-dot--degraded');
+  });
+
+  it('should refresh health when refreshHealth is called', () => {
+    healthServiceSpy.getHealthStatus.calls.reset();
+    component.refreshHealth();
+    expect(healthServiceSpy.getHealthStatus).toHaveBeenCalledTimes(1);
+    expect(component.healthLoading()).toBeFalse();
+  });
+
+  it('should handle health service error gracefully', () => {
+    healthServiceSpy.getHealthStatus.and.returnValue(throwError(() => new Error('Network error')));
+    component.refreshHealth();
+    expect(component.healthLoading()).toBeFalse();
+  });
+
+  it('should not call health service when already authenticated', () => {
+    healthServiceSpy.getHealthStatus.calls.reset();
+    authServiceSpy.isAuthenticated.and.returnValue(true);
+    component.ngOnInit();
+    expect(healthServiceSpy.getHealthStatus).not.toHaveBeenCalled();
+  });
+
+  it('should display health items in expanded panel', () => {
+    component.showHealthPanel = true;
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const healthItems = compiled.querySelectorAll('.health-item');
+    // 3 services + 3 infrastructure = 6
+    expect(healthItems.length).toBe(6);
+  });
+
+  it('should display correct status dots for each service', () => {
+    component.showHealthPanel = true;
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const dots = compiled.querySelectorAll('.health-item .health-dot');
+
+    // gateway: UP, orchestrator: UP, agent: DOWN, postgresql: UP, redis: DEGRADED, nats: UP
+    expect(dots[0].classList.contains('health-dot--up')).toBeTrue();     // gateway
+    expect(dots[1].classList.contains('health-dot--up')).toBeTrue();     // orchestrator
+    expect(dots[2].classList.contains('health-dot--down')).toBeTrue();   // agent
+    expect(dots[3].classList.contains('health-dot--up')).toBeTrue();     // postgresql
+    expect(dots[4].classList.contains('health-dot--degraded')).toBeTrue(); // redis
+    expect(dots[5].classList.contains('health-dot--up')).toBeTrue();     // nats
+  });
+
+  it('should not display health content when panel is collapsed', () => {
+    component.showHealthPanel = false;
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const content = compiled.querySelector('.health-panel__content');
+    expect(content).toBeNull();
+  });
+
+  it('should show empty message when healthStatus is null', () => {
+    component.healthStatus.set(null);
+    component.showHealthPanel = true;
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const empty = compiled.querySelector('.health-panel__empty');
+    expect(empty).toBeTruthy();
+    expect(empty?.textContent?.trim()).toBe('Unable to reach backend services');
+  });
+
+  it('should return object keys correctly', () => {
+    const obj = { a: 1, b: 2, c: 3 };
+    expect(component.objectKeys(obj as any)).toEqual(['a', 'b', 'c']);
   });
 });

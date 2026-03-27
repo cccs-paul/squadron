@@ -9,14 +9,35 @@
       <stop offset="100%" stop-color="#22D3EE" />
     </linearGradient>
   </defs>
-  <!-- Leader -->
-  <path d="M32 12 L24 30 L32 24 L40 30 Z" fill="url(#p)" />
-  <!-- Left inner -->
-  <path d="M20 28 L13 43 L20 38 L27 43 Z" fill="url(#p)" opacity="0.85" />
-  <!-- Right inner -->
-  <path d="M44 28 L37 43 L44 38 L51 43 Z" fill="url(#p)" opacity="0.85" />
-  <!-- Left outer -->
-  <path d="M9 44 L3 56 L9 52 L15 56 Z" fill="url(#s)" opacity="0.6" />
-  <!-- Right outer -->
-  <path d="M55 44 L49 56 L55 52 L61 56 Z" fill="url(#s)" opacity="0.6" />
+
+  <!--
+    Constellation layout scaled to 64x64:
+    Lead:        (32, 14)  r=5.5
+    Inner left:  (17, 30)  r=4
+    Inner right: (47, 30)  r=4
+    Outer left:  (6, 46)   r=3
+    Outer right: (58, 46)  r=3
+  -->
+
+  <!-- Connecting lines -->
+  <g stroke="url(#s)" fill="none" stroke-linecap="round">
+    <line x1="32" y1="14" x2="17" y2="30" stroke-width="1.2" opacity="0.35" />
+    <line x1="32" y1="14" x2="47" y2="30" stroke-width="1.2" opacity="0.35" />
+    <line x1="17" y1="30" x2="6" y2="46" stroke-width="1" opacity="0.25" />
+    <line x1="47" y1="30" x2="58" y2="46" stroke-width="1" opacity="0.25" />
+    <line x1="17" y1="30" x2="47" y2="30" stroke-width="1" opacity="0.2" />
+    <line x1="32" y1="14" x2="6" y2="46" stroke-width="0.7" opacity="0.1" />
+    <line x1="32" y1="14" x2="58" y2="46" stroke-width="0.7" opacity="0.1" />
+  </g>
+
+  <!-- Outer left node -->
+  <circle cx="6" cy="46" r="3" fill="url(#s)" opacity="0.7" />
+  <!-- Outer right node -->
+  <circle cx="58" cy="46" r="3" fill="url(#s)" opacity="0.7" />
+  <!-- Inner left node -->
+  <circle cx="17" cy="30" r="4" fill="url(#p)" opacity="0.9" />
+  <!-- Inner right node -->
+  <circle cx="47" cy="30" r="4" fill="url(#p)" opacity="0.9" />
+  <!-- Lead node -->
+  <circle cx="32" cy="14" r="5.5" fill="url(#p)" />
 </svg>

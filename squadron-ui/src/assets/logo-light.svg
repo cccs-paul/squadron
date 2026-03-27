@@ -15,22 +15,17 @@
       <stop offset="0%" stop-color="#A5B4FC" />
       <stop offset="100%" stop-color="#67E8F9" />
     </linearGradient>
-    <!-- Soft glow behind constellation -->
+    <!-- Soft glow behind constellation (lighter for dark bg) -->
     <radialGradient id="glow" cx="50%" cy="42%" r="32%">
-      <stop offset="0%" stop-color="#6366F1" stop-opacity="0.18" />
-      <stop offset="50%" stop-color="#06B6D4" stop-opacity="0.06" />
+      <stop offset="0%" stop-color="#818CF8" stop-opacity="0.22" />
+      <stop offset="50%" stop-color="#22D3EE" stop-opacity="0.08" />
       <stop offset="100%" stop-color="#06B6D4" stop-opacity="0" />
     </radialGradient>
     <!-- Node inner highlight for shine effect -->
     <radialGradient id="nodeShine" cx="35%" cy="30%" r="60%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.4" />
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.45" />
       <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
     </radialGradient>
-    <!-- Gradient for text -->
-    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#6366F1" />
-      <stop offset="100%" stop-color="#06B6D4" />
-    </linearGradient>
   </defs>
 
   <!-- Background glow -->
@@ -48,39 +43,39 @@
   <!-- Connecting lines between nodes -->
   <g stroke="url(#secondary)" fill="none" stroke-linecap="round">
     <!-- Lead to inner left -->
-    <line x1="120" y1="60" x2="80" y2="100" stroke-width="1.2" opacity="0.35" />
+    <line x1="120" y1="60" x2="80" y2="100" stroke-width="1.2" opacity="0.4" />
     <!-- Lead to inner right -->
-    <line x1="120" y1="60" x2="160" y2="100" stroke-width="1.2" opacity="0.35" />
+    <line x1="120" y1="60" x2="160" y2="100" stroke-width="1.2" opacity="0.4" />
     <!-- Inner left to outer left -->
-    <line x1="80" y1="100" x2="48" y2="130" stroke-width="1" opacity="0.25" />
+    <line x1="80" y1="100" x2="48" y2="130" stroke-width="1" opacity="0.3" />
     <!-- Inner right to outer right -->
-    <line x1="160" y1="100" x2="192" y2="130" stroke-width="1" opacity="0.25" />
+    <line x1="160" y1="100" x2="192" y2="130" stroke-width="1" opacity="0.3" />
     <!-- Inner left to inner right (cross link) -->
-    <line x1="80" y1="100" x2="160" y2="100" stroke-width="1" opacity="0.2" />
+    <line x1="80" y1="100" x2="160" y2="100" stroke-width="1" opacity="0.22" />
     <!-- Lead to outer left (long link) -->
-    <line x1="120" y1="60" x2="48" y2="130" stroke-width="0.8" opacity="0.12" />
+    <line x1="120" y1="60" x2="48" y2="130" stroke-width="0.8" opacity="0.14" />
     <!-- Lead to outer right (long link) -->
-    <line x1="120" y1="60" x2="192" y2="130" stroke-width="0.8" opacity="0.12" />
+    <line x1="120" y1="60" x2="192" y2="130" stroke-width="0.8" opacity="0.14" />
     <!-- Outer left to inner right (cross mesh) -->
-    <line x1="48" y1="130" x2="160" y2="100" stroke-width="0.6" opacity="0.08" />
+    <line x1="48" y1="130" x2="160" y2="100" stroke-width="0.6" opacity="0.1" />
     <!-- Outer right to inner left (cross mesh) -->
-    <line x1="192" y1="130" x2="80" y2="100" stroke-width="0.6" opacity="0.08" />
+    <line x1="192" y1="130" x2="80" y2="100" stroke-width="0.6" opacity="0.1" />
   </g>
 
   <!-- Outer left node (smallest) -->
-  <circle cx="48" cy="130" r="7" fill="url(#secondary)" opacity="0.7" />
+  <circle cx="48" cy="130" r="7" fill="url(#secondary)" opacity="0.75" />
   <circle cx="48" cy="130" r="7" fill="url(#nodeShine)" />
 
   <!-- Outer right node (smallest) -->
-  <circle cx="192" cy="130" r="7" fill="url(#secondary)" opacity="0.7" />
+  <circle cx="192" cy="130" r="7" fill="url(#secondary)" opacity="0.75" />
   <circle cx="192" cy="130" r="7" fill="url(#nodeShine)" />
 
   <!-- Inner left node (medium) -->
-  <circle cx="80" cy="100" r="9" fill="url(#primary)" opacity="0.9" />
+  <circle cx="80" cy="100" r="9" fill="url(#primary)" opacity="0.95" />
   <circle cx="80" cy="100" r="9" fill="url(#nodeShine)" />
 
   <!-- Inner right node (medium) -->
-  <circle cx="160" cy="100" r="9" fill="url(#primary)" opacity="0.9" />
+  <circle cx="160" cy="100" r="9" fill="url(#primary)" opacity="0.95" />
   <circle cx="160" cy="100" r="9" fill="url(#nodeShine)" />
 
   <!-- Lead node (largest) -->
@@ -88,18 +83,18 @@
   <circle cx="120" cy="60" r="12" fill="url(#nodeShine)" />
 
   <!-- Small pulse rings on lead node for emphasis -->
-  <circle cx="120" cy="60" r="18" fill="none" stroke="url(#accent)" stroke-width="0.8" opacity="0.15" />
-  <circle cx="120" cy="60" r="24" fill="none" stroke="url(#accent)" stroke-width="0.5" opacity="0.08" />
+  <circle cx="120" cy="60" r="18" fill="none" stroke="url(#accent)" stroke-width="0.8" opacity="0.2" />
+  <circle cx="120" cy="60" r="24" fill="none" stroke="url(#accent)" stroke-width="0.5" opacity="0.1" />
 
-  <!-- Text: SQUADRON -->
+  <!-- Text: SQUADRON (white for dark backgrounds) -->
   <text x="120" y="186" text-anchor="middle"
         font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif"
         font-size="22" font-weight="700" letter-spacing="4"
-        fill="url(#textGrad)">SQUADRON</text>
+        fill="#FFFFFF">SQUADRON</text>
 
-  <!-- Tagline -->
+  <!-- Tagline (lighter for dark backgrounds) -->
   <text x="120" y="204" text-anchor="middle"
         font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif"
         font-size="8" font-weight="400" letter-spacing="2.5"
-        fill="#94A3B8">AI-POWERED DEV WORKFLOWS</text>
+        fill="#CBD5E1">AI-POWERED DEV WORKFLOWS</text>
 </svg>

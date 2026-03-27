@@ -1,6 +1,6 @@
 <div class="login-card">
   <div class="login-card__header">
-    <img src="assets/logo.svg" alt="Squadron" class="login-card__logo" />
+    <img src="assets/logo-light.svg" alt="Squadron" class="login-card__logo" />
     <h1 class="login-card__title">Squadron</h1>
     <p class="login-card__subtitle">AI-Powered Development Workflow</p>
   </div>
@@ -106,4 +106,77 @@
     </svg>
     Sign in with SSO
   </button>
+
+  <div class="health-panel">
+    <button type="button" class="health-panel__toggle" (click)="toggleHealthPanel()">
+      <span class="health-panel__toggle-left">
+        @if (healthLoading()) {
+          <span class="spinner spinner--small"></span>
+        } @else if (healthStatus()) {
+          <span class="health-dot" [class]="getStatusColor(healthStatus()!.status)"></span>
+        } @else {
+          <span class="health-dot health-dot--unknown"></span>
+        }
+        <span class="health-panel__label">System Status</span>
+      </span>
+      <svg
+        class="health-panel__chevron"
+        [class.health-panel__chevron--open]="showHealthPanel"
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </button>
+
+    @if (showHealthPanel) {
+      <div class="health-panel__content">
+        @if (healthStatus(); as hs) {
+          @if (hs.services && objectKeys(hs.services).length > 0) {
+            <div class="health-panel__section">
+              <span class="health-panel__section-title">Services</span>
+              <div class="health-panel__grid">
+                @for (key of objectKeys(hs.services); track key) {
+                  <div class="health-item">
+                    <span class="health-dot" [class]="getStatusColor(hs.services[key].status)"></span>
+                    <span class="health-item__name">{{ key }}</span>
+                    <span class="health-item__status">{{ hs.services[key].status }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          @if (hs.infrastructure && objectKeys(hs.infrastructure).length > 0) {
+            <div class="health-panel__section">
+              <span class="health-panel__section-title">Infrastructure</span>
+              <div class="health-panel__grid">
+                @for (key of objectKeys(hs.infrastructure); track key) {
+                  <div class="health-item">
+                    <span class="health-dot" [class]="getStatusColor(hs.infrastructure[key].status)"></span>
+                    <span class="health-item__name">{{ key }}</span>
+                    <span class="health-item__status">{{ hs.infrastructure[key].status }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        } @else {
+          <div class="health-panel__empty">Unable to reach backend services</div>
+        }
+
+        <button type="button" class="health-panel__refresh" (click)="refreshHealth()" [disabled]="healthLoading()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+    }
+  </div>
 </div>

@@ -28,6 +28,21 @@ squadron:
       jwks-uri: ${SQUADRON_JWKS_URI:http://localhost:8081/api/auth/jwks}
   gateway:
     rate-limit: ${RATE_LIMIT:100}
+  health:
+    services:
+      gateway: ${HEALTH_GATEWAY_URL:http://localhost:8443}
+      identity: ${HEALTH_IDENTITY_URL:http://localhost:8081}
+      config: ${HEALTH_CONFIG_URL:http://localhost:8082}
+      orchestrator: ${HEALTH_ORCHESTRATOR_URL:http://localhost:8083}
+      platform: ${HEALTH_PLATFORM_URL:http://localhost:8084}
+      agent: ${HEALTH_AGENT_URL:http://localhost:8085}
+      workspace: ${HEALTH_WORKSPACE_URL:http://localhost:8086}
+      git: ${HEALTH_GIT_URL:http://localhost:8087}
+      review: ${HEALTH_REVIEW_URL:http://localhost:8088}
+      notification: ${HEALTH_NOTIFICATION_URL:http://localhost:8089}
+    infrastructure:
+      nats-url: ${NATS_URL:nats://localhost:4222}
+      keycloak-url: ${KEYCLOAK_HEALTH_URL:}
 
 management:
   endpoints:

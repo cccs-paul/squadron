@@ -2,6 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
+import { HealthService, HealthStatus } from '../../../core/services/health.service';
 
 @Component({
   selector: 'sq-login',
@@ -13,6 +14,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 export class LoginComponent implements OnInit {
   private authService = inject(AuthService);
   private router = inject(Router);
+  private healthService = inject(HealthService);
 
   username = '';
   password = '';
@@ -23,6 +25,10 @@ export class LoginComponent implements OnInit {
   loading = signal(false);
   showPassword = false;
 
+  healthStatus = signal<HealthStatus | null>(null);
+  healthLoading = signal(false);
+  showHealthPanel = false;
+
   ngOnInit(): void {
     if (this.authService.isAuthenticated()) {
       this.router.navigate(['/dashboard']);
@@ -32,6 +38,7 @@ export class LoginComponent implements OnInit {
       next: (tenants) => this.tenants.set(tenants),
       error: () => {}, // Tenants endpoint may not be available yet
     });
+    this.refreshHealth();
   }
 
   login(): void {
@@ -72,5 +79,39 @@ export class LoginComponent implements OnInit {
 
   togglePasswordVisibility(): void {
     this.showPassword = !this.showPassword;
+  }
+
+  refreshHealth(): void {
+    this.healthLoading.set(true);
+    this.healthService.getHealthStatus().subscribe({
+      next: (status) => {
+        this.healthStatus.set(status);
+        this.healthLoading.set(false);
+      },
+      error: () => {
+        this.healthLoading.set(false);
+      },
+    });
+  }
+
+  toggleHealthPanel(): void {
+    this.showHealthPanel = !this.showHealthPanel;
+  }
+
+  getStatusColor(status: string): string {
+    switch (status?.toUpperCase()) {
+      case 'UP':
+        return 'health-dot--up';
+      case 'DOWN':
+        return 'health-dot--down';
+      case 'DEGRADED':
+        return 'health-dot--degraded';
+      default:
+        return 'health-dot--unknown';
+    }
+  }
+
+  objectKeys(obj: Record<string, unknown>): string[] {
+    return Object.keys(obj);
   }
 }
