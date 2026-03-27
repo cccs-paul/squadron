@@ -1,0 +1,62 @@
+# =============================================================================
+# Squadron Agent Service - Production Profile
+# =============================================================================
+# Activate with: --spring.profiles.active=prod
+# All sensitive values must be provided via environment variables.
+# OPENAI_API_KEY must be set in the environment -- no placeholder is used.
+
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:gpt-4o}
+          temperature: 0.2
+          max-tokens: 16384
+    retry:
+      max-attempts: 3
+      backoff:
+        initial-interval: 1000
+        multiplier: 2.0
+        max-interval: 10000
+
+server:
+  tomcat:
+    max-threads: 200
+    accept-count: 100
+    max-connections: 8192
+
+logging:
+  level:
+    root: WARN
+    com.squadron: INFO
+    org.springframework: WARN
+    org.hibernate.SQL: WARN
+    org.springframework.ai: WARN
+
+management:
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true

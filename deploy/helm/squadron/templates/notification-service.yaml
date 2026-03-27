@@ -1,0 +1,18 @@
+{{- if .Values.notification.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: squadron-notification
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "notification") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.notification.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "squadron.selectorLabels" (dict "root" . "service" "notification") | nindent 4 }}
+{{- end }}

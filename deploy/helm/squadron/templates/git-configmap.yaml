@@ -1,0 +1,14 @@
+{{- if .Values.git.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squadron-git-config
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "git") | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: prod
+  SERVER_PORT: {{ .Values.git.port | quote }}
+  SPRING_DATASOURCE_URL: {{ include "squadron.jdbcUrl" (dict "dbName" .Values.git.database.name) }}
+  NATS_URL: nats://squadron-nats:4222
+{{- end }}

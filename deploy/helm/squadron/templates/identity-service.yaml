@@ -1,0 +1,18 @@
+{{- if .Values.identity.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: squadron-identity
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "identity") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.identity.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "squadron.selectorLabels" (dict "root" . "service" "identity") | nindent 4 }}
+{{- end }}

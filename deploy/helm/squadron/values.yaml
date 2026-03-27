@@ -1,56 +1,302 @@
-# Squadron Umbrella Chart - Global Values
-# Override subchart values using the subchart key prefix.
+##
+## Squadron Platform - Helm Values
+##
 
 global:
+  namespace: squadron
   imageRegistry: ""
   imagePullSecrets: []
   storageClass: ""
-  postgresql:
-    host: squadron-postgresql
-    port: 5432
-    username: squadron
-    password: squadron
-  redis:
-    host: squadron-redis
-    port: 6379
-  nats:
-    url: nats://squadron-nats:4222
-  keycloak:
-    url: http://squadron-keycloak:8080
-    clientSecret: change-me-in-production
-  identity:
-    jwksUri: http://squadron-identity:8081/api/auth/jwks
-  encryptionKey: change-me-in-production
-  domain: squadron.local
 
-# Subchart toggles
+# ---------------------------------------------------------------------------
+# Service: gateway
+# ---------------------------------------------------------------------------
 gateway:
   enabled: true
+  replicas: 2
+  image:
+    repository: squadron/gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8443
+  serviceType: LoadBalancer
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  env: {}
+
+# ---------------------------------------------------------------------------
+# Service: identity
+# ---------------------------------------------------------------------------
 identity:
   enabled: true
+  replicas: 2
+  image:
+    repository: squadron/identity
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8081
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  database:
+    name: squadron_identity
+  env: {}
+
+# ---------------------------------------------------------------------------
+# Service: config
+# ---------------------------------------------------------------------------
 config:
   enabled: true
+  replicas: 2
+  image:
+    repository: squadron/config
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8082
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  database:
+    name: squadron_config
+  env: {}
+
+# ---------------------------------------------------------------------------
+# Service: orchestrator
+# ---------------------------------------------------------------------------
 orchestrator:
   enabled: true
+  replicas: 2
+  image:
+    repository: squadron/orchestrator
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8083
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  database:
+    name: squadron_orchestrator
+  env: {}
+
+# ---------------------------------------------------------------------------
+# Service: platform
+# ---------------------------------------------------------------------------
 platform:
   enabled: true
+  replicas: 2
+  image:
+    repository: squadron/platform
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8084
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  database:
+    name: squadron_platform
+  env: {}
+
+# ---------------------------------------------------------------------------
+# Service: agent
+# ---------------------------------------------------------------------------
 agent:
   enabled: true
+  replicas: 2
+  image:
+    repository: squadron/agent
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8085
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  database:
+    name: squadron_agent
+  env: {}
+
+# ---------------------------------------------------------------------------
+# Service: workspace
+# ---------------------------------------------------------------------------
 workspace:
   enabled: true
+  replicas: 2
+  image:
+    repository: squadron/workspace
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8086
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  database:
+    name: squadron_workspace
+  env: {}
+
+# ---------------------------------------------------------------------------
+# Service: git
+# ---------------------------------------------------------------------------
 git:
   enabled: true
+  replicas: 2
+  image:
+    repository: squadron/git
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8087
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  database:
+    name: squadron_git
+  env: {}
+
+# ---------------------------------------------------------------------------
+# Service: review
+# ---------------------------------------------------------------------------
 review:
   enabled: true
+  replicas: 2
+  image:
+    repository: squadron/review
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8088
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  database:
+    name: squadron_review
+  env: {}
+
+# ---------------------------------------------------------------------------
+# Service: notification
+# ---------------------------------------------------------------------------
 notification:
   enabled: true
-ui:
-  enabled: true
+  replicas: 2
+  image:
+    repository: squadron/notification
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8089
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  database:
+    name: squadron_notification
+  env: {}
+
+# ---------------------------------------------------------------------------
+# Infrastructure: PostgreSQL
+# ---------------------------------------------------------------------------
 postgresql:
   enabled: true
-redis:
-  enabled: true
+  image: postgres:17
+  storage: 50Gi
+  username: squadron
+  password: squadron
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+# ---------------------------------------------------------------------------
+# Infrastructure: NATS
+# ---------------------------------------------------------------------------
 nats:
   enabled: true
+  image: nats:latest
+  jetstream:
+    enabled: true
+    storage: 10Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ---------------------------------------------------------------------------
+# Infrastructure: Redis
+# ---------------------------------------------------------------------------
+redis:
+  enabled: true
+  image: redis:7
+  storage: 5Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ---------------------------------------------------------------------------
+# Infrastructure: Keycloak
+# ---------------------------------------------------------------------------
 keycloak:
   enabled: true
+  image: quay.io/keycloak/keycloak:26.0
+  adminUser: admin
+  adminPassword: admin
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# ---------------------------------------------------------------------------
+# Monitoring
+# ---------------------------------------------------------------------------
+monitoring:
+  enabled: true
+  serviceMonitor:
+    interval: 30s
+    path: /actuator/prometheus

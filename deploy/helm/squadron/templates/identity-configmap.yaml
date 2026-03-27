@@ -1,0 +1,15 @@
+{{- if .Values.identity.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squadron-identity-config
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "identity") | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: prod
+  SERVER_PORT: {{ .Values.identity.port | quote }}
+  SPRING_DATASOURCE_URL: {{ include "squadron.jdbcUrl" (dict "dbName" .Values.identity.database.name) }}
+  NATS_URL: nats://squadron-nats:4222
+  KEYCLOAK_URL: http://squadron-keycloak:8080
+{{- end }}

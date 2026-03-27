@@ -4,6 +4,8 @@ import com.squadron.common.dto.ApiResponse;
 import com.squadron.orchestrator.dto.CreateProjectRequest;
 import com.squadron.orchestrator.entity.Project;
 import com.squadron.orchestrator.service.ProjectService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/projects")
+@Tag(name = "Projects", description = "Project management for grouping tasks")
 public class ProjectController {
 
     private final ProjectService projectService;
@@ -32,6 +35,7 @@ public class ProjectController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead')")
+    @Operation(summary = "Create a new project")
     public ResponseEntity<ApiResponse<Project>> createProject(@Valid @RequestBody CreateProjectRequest request) {
         Project project = projectService.createProject(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(project));
@@ -53,6 +57,7 @@ public class ProjectController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
+    @Operation(summary = "Get a project by ID")
     public ResponseEntity<ApiResponse<Project>> getProject(@PathVariable UUID id) {
         Project project = projectService.getProject(id);
         return ResponseEntity.ok(ApiResponse.success(project));

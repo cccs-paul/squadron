@@ -1,0 +1,19 @@
+{{- if .Values.orchestrator.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squadron-orchestrator-config
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "orchestrator") | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: prod
+  SERVER_PORT: {{ .Values.orchestrator.port | quote }}
+  SPRING_DATASOURCE_URL: {{ include "squadron.jdbcUrl" (dict "dbName" .Values.orchestrator.database.name) }}
+  NATS_URL: nats://squadron-nats:4222
+  SQUADRON_PLATFORM_URL: http://squadron-platform:8084
+  SQUADRON_AGENT_URL: http://squadron-agent:8085
+  SQUADRON_WORKSPACE_URL: http://squadron-workspace:8086
+  SQUADRON_GIT_URL: http://squadron-git:8087
+  SQUADRON_REVIEW_URL: http://squadron-review:8088
+{{- end }}

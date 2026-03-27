@@ -36,17 +36,18 @@
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
-### squadron-orchestrator (32 src / 32 test)
+### squadron-orchestrator (33 src / 33 test)
 - [x] Custom PostgreSQL state machine (WorkflowEngine)
 - [x] Task/Project/Workflow CRUD
 - [x] State transitions with validation
 - [x] TaskSyncService
 - [x] DefaultWorkflowInitializer
 - [x] PlatformServiceClient (Feign)
+- [x] ResilientPlatformServiceClient (circuit breaker + retry wrapper)
 - [x] Flyway migration (V1)
 - [x] All tests passing
 
-### squadron-agent (74 src / 72 test)
+### squadron-agent (78 src / 76 test)
 - [x] Agent providers (OpenAI-compatible, Ollama)
 - [x] Tool system (ToolRegistry, ToolExecutionEngine, built-in tools)
 - [x] Services (Agent, Planning, Coding, Review, QA, Merge, Coverage)
@@ -56,6 +57,7 @@
 - [x] WebSocket controller
 - [x] Listeners migrated to JetStreamSubscriber (Planning, Coding, Review, QA, Merge, PlanApproval)
 - [x] Feign clients (OrchestratorClient, GitServiceClient, ReviewServiceClient, WorkspaceServiceClient)
+- [x] Resilient Feign wrappers (circuit breaker + retry for all 4 Feign clients)
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
@@ -135,6 +137,7 @@
 - [x] WorkspaceServiceClient (squadron-agent -> squadron-workspace)
 - [x] PlatformServiceClient (squadron-orchestrator -> squadron-platform)
 - [x] Feign URL properties configured in all application.yml files
+- [x] Resilient wrappers with circuit breaker + retry for all 5 Feign clients
 
 ### NATS JetStream
 - [x] JetStreamConfig (10 durable streams: TASKS, AGENTS, WORKSPACES, REVIEWS, GIT_EVENTS, NOTIFICATIONS, CONFIG, PLATFORM, AUDIT, COVERAGE)
@@ -150,7 +153,7 @@
 
 ### Phase 6: Integration & Polish
 - [ ] End-to-end workflow testing (task lifecycle across services)
-- [ ] Error handling improvements (circuit breakers on Feign clients)
+- [x] Error handling improvements (circuit breakers on Feign clients)
 - [ ] WebSocket integration testing
 - [ ] Cross-service event flow validation
 
@@ -172,13 +175,13 @@
 | squadron-common | 60 | 65 | Complete |
 | squadron-gateway | 8 | 8 | Complete |
 | squadron-identity | 42 | 42 | Complete |
-| squadron-orchestrator | 32 | 32 | Complete |
-| squadron-agent | 74 | 72 | Complete |
+| squadron-orchestrator | 33 | 33 | Complete |
+| squadron-agent | 78 | 76 | Complete |
 | squadron-workspace | 16 | 16 | Complete |
 | squadron-platform | 33 | 35 | Complete |
 | squadron-git | 34 | 36 | Complete |
 | squadron-review | 26 | 27 | Complete |
 | squadron-config | 11 | 11 | Complete |
 | squadron-notification | 24 | 24 | Complete |
-| **TOTAL** | **360** | **368** | |
+| **TOTAL** | **365** | **377** | |
 | squadron-ui | 30 components | 47 specs | Complete |

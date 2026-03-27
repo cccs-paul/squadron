@@ -1,0 +1,18 @@
+{{- if .Values.config.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: squadron-config
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "config") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.config.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "squadron.selectorLabels" (dict "root" . "service" "config") | nindent 4 }}
+{{- end }}

@@ -1,0 +1,193 @@
+# Default deny all ingress traffic in the squadron namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: squadron-default-deny
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: squadron
+  policyTypes:
+    - Ingress
+---
+# Allow gateway to reach all backend services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: squadron-allow-gateway-to-backends
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: squadron
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+---
+# Allow backend services to reach PostgreSQL
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: squadron-allow-backends-to-postgresql
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: squadron
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Allow backend services to reach NATS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: squadron-allow-backends-to-nats
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nats
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: squadron
+      ports:
+        - protocol: TCP
+          port: 4222
+        - protocol: TCP
+          port: 8222
+---
+# Allow gateway to reach Redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: squadron-allow-gateway-to-redis
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# Allow agent to reach orchestrator, git, review, workspace (Feign clients)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: squadron-allow-agent-feign
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - orchestrator
+          - git
+          - review
+          - workspace
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: agent
+---
+# Allow orchestrator to reach platform (Feign client)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: squadron-allow-orchestrator-to-platform
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: platform
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: orchestrator
+---
+# Allow identity and keycloak to communicate
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: squadron-allow-identity-keycloak
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: identity
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# Allow external ingress to gateway (LoadBalancer)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: squadron-allow-external-to-gateway
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8443

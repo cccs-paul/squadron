@@ -1,0 +1,14 @@
+{{- if .Values.platform.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squadron-platform-config
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "platform") | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: prod
+  SERVER_PORT: {{ .Values.platform.port | quote }}
+  SPRING_DATASOURCE_URL: {{ include "squadron.jdbcUrl" (dict "dbName" .Values.platform.database.name) }}
+  NATS_URL: nats://squadron-nats:4222
+{{- end }}

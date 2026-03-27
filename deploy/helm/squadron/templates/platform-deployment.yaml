@@ -1,0 +1,78 @@
+{{- if .Values.platform.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: squadron-platform
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "platform") | nindent 4 }}
+spec:
+  replicas: {{ .Values.platform.replicas }}
+  selector:
+    matchLabels:
+      {{- include "squadron.selectorLabels" (dict "root" . "service" "platform") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "squadron.serviceLabels" (dict "root" . "service" "platform") | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      serviceAccountName: {{ include "squadron.serviceAccountName" (dict "service" "platform") }}
+      containers:
+        - name: platform
+          image: {{ include "squadron.image" (dict "root" . "image" .Values.platform.image) }}
+          imagePullPolicy: {{ .Values.platform.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.platform.port }}
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: SERVER_PORT
+              value: {{ .Values.platform.port | quote }}
+            - name: SPRING_DATASOURCE_URL
+              value: {{ include "squadron.jdbcUrl" (dict "dbName" .Values.platform.database.name) }}
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: squadron-postgresql-credentials
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: squadron-postgresql-credentials
+                  key: password
+            - name: NATS_URL
+              value: nats://squadron-nats:4222
+            {{- range $key, $value := .Values.platform.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: squadron-platform-config
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.platform.resources | nindent 12 }}
+{{- end }}

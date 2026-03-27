@@ -12,6 +12,9 @@ import com.squadron.orchestrator.entity.TaskStateHistory;
 import com.squadron.orchestrator.entity.TaskWorkflow;
 import com.squadron.orchestrator.service.TaskService;
 import com.squadron.orchestrator.service.TaskSyncService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +37,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/tasks")
+@Tag(name = "Tasks", description = "Task management and lifecycle")
 public class TaskController {
 
     private final TaskService taskService;
@@ -46,6 +50,12 @@ public class TaskController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
+    @Operation(summary = "Create a new task", description = "Creates a task and initializes its workflow")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Task created"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<ApiResponse<Task>> createTask(@Valid @RequestBody CreateTaskRequest request,
                                                          @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
@@ -55,6 +65,7 @@ public class TaskController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
+    @Operation(summary = "Get a task by ID")
     public ResponseEntity<ApiResponse<Task>> getTask(@PathVariable UUID id) {
         Task task = taskService.getTask(id);
         return ResponseEntity.ok(ApiResponse.success(task));
@@ -83,6 +94,7 @@ public class TaskController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
+    @Operation(summary = "Update an existing task")
     public ResponseEntity<ApiResponse<Task>> updateTask(@PathVariable UUID id,
                                                          @Valid @RequestBody CreateTaskRequest request) {
         Task task = taskService.updateTask(id, request);
@@ -91,6 +103,7 @@ public class TaskController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
+    @Operation(summary = "Delete a task")
     public ResponseEntity<Void> deleteTask(@PathVariable UUID id) {
         taskService.deleteTask(id);
         return ResponseEntity.noContent().build();
@@ -98,6 +111,12 @@ public class TaskController {
 
     @PostMapping("/{id}/transition")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
+    @Operation(summary = "Transition a task to a new state", description = "Advances the task through its workflow state machine")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Transition successful"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid transition"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Task not found")
+    })
     public ResponseEntity<ApiResponse<TaskWorkflow>> transitionTask(@PathVariable UUID id,
                                                                      @Valid @RequestBody TransitionRequest request,
                                                                      @AuthenticationPrincipal Jwt jwt) {
@@ -146,6 +165,7 @@ public class TaskController {
 
     @PostMapping("/sync")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead')")
+    @Operation(summary = "Sync tasks from external platform", description = "Imports tasks from connected ticketing platform")
     public ResponseEntity<ApiResponse<TaskSyncResult>> syncTasks(@Valid @RequestBody TaskSyncRequest request) {
         TaskSyncResult result = taskSyncService.syncTasks(request);
         return ResponseEntity.ok(ApiResponse.success(result));

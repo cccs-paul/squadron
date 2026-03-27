@@ -1,0 +1,130 @@
+{{- if .Values.postgresql.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: squadron-postgresql
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "postgresql") | nindent 4 }}
+spec:
+  serviceName: squadron-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "squadron.selectorLabels" (dict "root" . "service" "postgresql") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "squadron.serviceLabels" (dict "root" . "service" "postgresql") | nindent 8 }}
+    spec:
+      containers:
+        - name: postgresql
+          image: {{ .Values.postgresql.image }}
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: squadron-postgresql-credentials
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: squadron-postgresql-credentials
+                  key: password
+            - name: POSTGRES_DB
+              value: squadron
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U $POSTGRES_USER
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U $POSTGRES_USER
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.postgresql.resources | nindent 12 }}
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: squadron-postgresql-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgresql.storage }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squadron-postgresql-init
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "postgresql") | nindent 4 }}
+data:
+  01-init-databases.sql: |
+    -- Create databases for each Squadron service
+    CREATE DATABASE squadron_identity;
+    CREATE DATABASE squadron_config;
+    CREATE DATABASE squadron_orchestrator;
+    CREATE DATABASE squadron_platform;
+    CREATE DATABASE squadron_agent;
+    CREATE DATABASE squadron_workspace;
+    CREATE DATABASE squadron_git;
+    CREATE DATABASE squadron_review;
+    CREATE DATABASE squadron_notification;
+    CREATE DATABASE keycloak;
+
+    -- Grant privileges
+    GRANT ALL PRIVILEGES ON DATABASE squadron_identity TO squadron;
+    GRANT ALL PRIVILEGES ON DATABASE squadron_config TO squadron;
+    GRANT ALL PRIVILEGES ON DATABASE squadron_orchestrator TO squadron;
+    GRANT ALL PRIVILEGES ON DATABASE squadron_platform TO squadron;
+    GRANT ALL PRIVILEGES ON DATABASE squadron_agent TO squadron;
+    GRANT ALL PRIVILEGES ON DATABASE squadron_workspace TO squadron;
+    GRANT ALL PRIVILEGES ON DATABASE squadron_git TO squadron;
+    GRANT ALL PRIVILEGES ON DATABASE squadron_review TO squadron;
+    GRANT ALL PRIVILEGES ON DATABASE squadron_notification TO squadron;
+    GRANT ALL PRIVILEGES ON DATABASE keycloak TO squadron;
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: squadron-postgresql-credentials
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "postgresql") | nindent 4 }}
+type: Opaque
+stringData:
+  username: {{ .Values.postgresql.username }}
+  password: {{ .Values.postgresql.password }}
+{{- end }}

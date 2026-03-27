@@ -1,8 +1,6 @@
-{{- if .Values.createNamespace | default false }}
 apiVersion: v1
 kind: Namespace
 metadata:
   name: {{ include "squadron.namespace" . }}
   labels:
     {{- include "squadron.labels" . | nindent 4 }}
-{{- end }}

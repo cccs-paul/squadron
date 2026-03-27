@@ -1,0 +1,57 @@
+# =============================================================================
+# Squadron Notification Service - Production Profile
+# =============================================================================
+# Activate with: --spring.profiles.active=prod
+# All sensitive values must be provided via environment variables.
+
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+  mail:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+server:
+  tomcat:
+    max-threads: 200
+    accept-count: 100
+    max-connections: 8192
+
+logging:
+  level:
+    root: WARN
+    com.squadron: INFO
+    org.springframework: WARN
+    org.hibernate.SQL: WARN
+
+management:
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true

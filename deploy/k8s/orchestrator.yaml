@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squadron-orchestrator-config
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: orchestrator
+    app.kubernetes.io/part-of: squadron
+data:
+  SPRING_PROFILES_ACTIVE: prod
+  SERVER_PORT: "8083"
+  SPRING_DATASOURCE_URL: jdbc:postgresql://squadron-postgresql:5432/squadron_orchestrator
+  NATS_URL: nats://squadron-nats:4222
+  SQUADRON_PLATFORM_URL: http://squadron-platform:8084
+  SQUADRON_AGENT_URL: http://squadron-agent:8085
+  SQUADRON_WORKSPACE_URL: http://squadron-workspace:8086
+  SQUADRON_GIT_URL: http://squadron-git:8087
+  SQUADRON_REVIEW_URL: http://squadron-review:8088
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: squadron-orchestrator
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: orchestrator
+    app.kubernetes.io/part-of: squadron
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: orchestrator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: orchestrator
+        app.kubernetes.io/part-of: squadron
+    spec:
+      serviceAccountName: squadron-orchestrator
+      containers:
+        - name: orchestrator
+          image: squadron/orchestrator:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8083
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: SERVER_PORT
+              value: "8083"
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://squadron-postgresql:5432/squadron_orchestrator
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: squadron-postgresql-credentials
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: squadron-postgresql-credentials
+                  key: password
+            - name: NATS_URL
+              value: nats://squadron-nats:4222
+          envFrom:
+            - configMapRef:
+                name: squadron-orchestrator-config
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: squadron-orchestrator
+  namespace: squadron
+  labels:
+    app.kubernetes.io/name: orchestrator
+    app.kubernetes.io/part-of: squadron
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8083
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: orchestrator

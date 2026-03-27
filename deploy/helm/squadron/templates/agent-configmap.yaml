@@ -1,0 +1,18 @@
+{{- if .Values.agent.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squadron-agent-config
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "agent") | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: prod
+  SERVER_PORT: {{ .Values.agent.port | quote }}
+  SPRING_DATASOURCE_URL: {{ include "squadron.jdbcUrl" (dict "dbName" .Values.agent.database.name) }}
+  NATS_URL: nats://squadron-nats:4222
+  SQUADRON_ORCHESTRATOR_URL: http://squadron-orchestrator:8083
+  SQUADRON_GIT_URL: http://squadron-git:8087
+  SQUADRON_REVIEW_URL: http://squadron-review:8088
+  SQUADRON_WORKSPACE_URL: http://squadron-workspace:8086
+{{- end }}

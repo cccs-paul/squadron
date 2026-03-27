@@ -1,6 +1,0 @@
-apiVersion: v2
-name: squadron-redis
-description: Squadron Redis Cache
-type: application
-version: 0.1.0
-appVersion: "7"

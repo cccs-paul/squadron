@@ -1,0 +1,18 @@
+{{- if .Values.agent.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: squadron-agent
+  namespace: {{ include "squadron.namespace" . }}
+  labels:
+    {{- include "squadron.serviceLabels" (dict "root" . "service" "agent") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.agent.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "squadron.selectorLabels" (dict "root" . "service" "agent") | nindent 4 }}
+{{- end }}

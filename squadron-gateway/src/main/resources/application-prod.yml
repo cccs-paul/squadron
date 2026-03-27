@@ -1,0 +1,37 @@
+# =============================================================================
+# Squadron Gateway - Production Profile
+# =============================================================================
+# Activate with: --spring.profiles.active=prod
+# All sensitive values must be provided via environment variables.
+# The gateway uses Spring Cloud Gateway (reactive WebFlux), not Tomcat.
+
+server:
+  ssl:
+    enabled: true
+    key-store: ${SSL_KEYSTORE_PATH}
+    key-store-password: ${SSL_KEYSTORE_PASSWORD}
+    key-store-type: PKCS12
+
+logging:
+  level:
+    root: WARN
+    com.squadron: INFO
+    org.springframework: WARN
+    org.springframework.cloud.gateway: WARN
+    reactor.netty: WARN
+
+management:
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
