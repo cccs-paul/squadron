@@ -241,6 +241,12 @@ services:
         condition: service_healthy
       nats:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8443/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   squadron-identity:
     <<: *service-defaults
@@ -256,6 +262,12 @@ services:
       <<: *common-env
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_identity
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8081/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   squadron-config:
     <<: *service-defaults
@@ -271,6 +283,12 @@ services:
       <<: *common-env
       SERVER_PORT: 8082
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_config
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8082/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   squadron-orchestrator:
     <<: *service-defaults
@@ -286,6 +304,12 @@ services:
       <<: *common-env
       SERVER_PORT: 8083
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_orchestrator
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8083/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   squadron-platform:
     <<: *service-defaults
@@ -301,6 +325,12 @@ services:
       <<: *common-env
       SERVER_PORT: 8084
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_platform
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8084/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   squadron-agent:
     <<: *service-defaults
@@ -321,6 +351,12 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
       SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
       SPRING_AI_OLLAMA_CHAT_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8085/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   squadron-workspace:
     <<: *service-defaults
@@ -340,6 +376,12 @@ services:
       SQUADRON_WORKSPACE_DOCKER_HOST: unix:///var/run/docker.sock
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8086/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   squadron-git:
     <<: *service-defaults
@@ -355,6 +397,12 @@ services:
       <<: *common-env
       SERVER_PORT: 8087
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_git
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8087/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   squadron-review:
     <<: *service-defaults
@@ -370,6 +418,12 @@ services:
       <<: *common-env
       SERVER_PORT: 8088
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_review
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8088/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   squadron-notification:
     <<: *service-defaults
@@ -387,6 +441,12 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_notification
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8089/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   # ===========================================================================
   # Frontend (use --profile frontend to start)
@@ -403,6 +463,13 @@ services:
     ports:
       - "4200:80"
     depends_on:
-      - squadron-gateway
+      squadron-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:80/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     networks:
       - squadron-net

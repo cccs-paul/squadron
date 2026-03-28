@@ -411,31 +411,33 @@ start_services() {
     log_info "Starting all backend services and frontend..."
     run_compose --profile services --profile frontend up -d --no-build 2>/dev/null
 
-    log_info "Waiting for services to start (this may take 30-60 seconds)..."
-    sleep 10
+    log_info "Waiting for backend services to become healthy..."
 
-    # Check each service
-    local all_healthy=true
+    local failed=()
     for service in "${BACKEND_SERVICES[@]}"; do
-        if run_compose ps --format '{{.Name}}' 2>/dev/null | grep -q "$service"; then
-            log_success "  $service running"
+        log_info "  Waiting for ${service}..."
+        if wait_for_healthy "$service" 180; then
+            log_success "  ${service} is healthy"
         else
-            log_warn "  $service not running"
-            all_healthy=false
+            failed+=("$service")
         fi
     done
 
-    if run_compose ps --format '{{.Name}}' 2>/dev/null | grep -q "squadron-ui"; then
-        log_success "  squadron-ui running"
+    # Wait for the UI (nginx starts fast once gateway is healthy)
+    log_info "  Waiting for squadron-ui..."
+    if wait_for_healthy "squadron-ui" 60; then
+        log_success "  squadron-ui is healthy"
     else
-        log_warn "  squadron-ui not running"
+        failed+=("squadron-ui")
     fi
 
-    if [ "$all_healthy" = true ]; then
-        log_success "All services started"
-    else
-        log_warn "Some services may still be starting. Check: $(basename "$0") --status"
+    if [ ${#failed[@]} -gt 0 ]; then
+        log_error "The following services failed to start: ${failed[*]}"
+        log_error "Check logs with: $(basename "$0") --logs <service>"
+        exit 1
     fi
+
+    log_success "All Squadron services are up and healthy"
 }
 
 pull_ollama_model() {
@@ -501,6 +503,8 @@ print_access_info() {
     echo -e "${BOLD}${GREEN}=================================================${NC}"
     echo -e "${BOLD}${GREEN}  Squadron is running! (with Test LDAP)${NC}"
     echo -e "${BOLD}${GREEN}=================================================${NC}"
+    echo ""
+    echo -e "  ${BOLD}${GREEN}>>> Open in your browser: ${CYAN}http://localhost:4200${NC} ${BOLD}${GREEN}<<<${NC}"
     echo ""
     echo -e "${BOLD}Access Points:${NC}"
     echo -e "  ${CYAN}UI:${NC}           http://localhost:4200"
