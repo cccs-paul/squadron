@@ -141,22 +141,32 @@ check_prerequisites() {
 
     if ! command -v docker &>/dev/null; then
         missing+=("docker")
+    else
+        log_info "  docker: $(docker --version 2>/dev/null | head -1)"
     fi
 
     if ! command -v docker compose &>/dev/null && ! command -v docker-compose &>/dev/null; then
         missing+=("docker-compose")
+    else
+        log_info "  compose: $($(compose_cmd) version 2>/dev/null | head -1)"
     fi
 
     if ! command -v java &>/dev/null; then
         missing+=("java (JDK 21)")
+    else
+        log_info "  java: $(java -version 2>&1 | head -1)"
     fi
 
     if ! command -v mvn &>/dev/null; then
         missing+=("maven")
+    else
+        log_info "  maven: $(mvn --version 2>/dev/null | head -1)"
     fi
 
     if ! command -v node &>/dev/null; then
         missing+=("node (Node.js 22+)")
+    else
+        log_info "  node: $(node --version 2>/dev/null)"
     fi
 
     if [ ${#missing[@]} -gt 0 ]; then
@@ -177,6 +187,16 @@ check_prerequisites() {
         log_error "Docker daemon is not running. Please start Docker first."
         exit 1
     fi
+
+    # Show available disk space
+    local disk_avail
+    disk_avail=$(df -h . 2>/dev/null | awk 'NR==2 {print $4}')
+    log_info "  disk available: ${disk_avail:-unknown}"
+
+    # Show available memory
+    local mem_avail
+    mem_avail=$(free -h 2>/dev/null | awk '/^Mem:/ {print $7}')
+    log_info "  memory available: ${mem_avail:-unknown}"
 
     log_success "All prerequisites met"
 }
@@ -209,8 +229,13 @@ build_maven() {
     fi
 
     log_info "Running: mvn $mvn_args"
+    local build_start
+    build_start=$(date +%s)
     if mvn $mvn_args -f "${SCRIPT_DIR}/pom.xml"; then
-        log_success "Maven build completed"
+        local build_end
+        build_end=$(date +%s)
+        local build_elapsed=$(( build_end - build_start ))
+        log_success "Maven build completed in ${build_elapsed}s"
     else
         log_error "Maven build failed!"
         exit 1
@@ -238,21 +263,27 @@ build_angular() {
 build_docker_images() {
     log_step "Building Docker images"
 
+    local built=0
+    local skipped=0
+    local total_services=${#BACKEND_SERVICES[@]}
+
     # Build backend service images
     for service in "${BACKEND_SERVICES[@]}"; do
         local module="${service#squadron-}"  # Remove prefix
         local dockerfile="${SCRIPT_DIR}/squadron-${module}/Dockerfile"
         if [ -f "$dockerfile" ]; then
-            log_info "Building ${service}..."
-            docker build -t "squadron/${service}:latest" \
+            built=$((built + 1))
+            log_info "Building ${service} (${built}/${total_services})..."
+            if docker build -t "squadron/${service}:latest" \
                 -f "$dockerfile" \
-                "${SCRIPT_DIR}" \
-                --quiet 2>/dev/null || {
+                "${SCRIPT_DIR}" 2>&1 | tail -5; then
+                log_success "  ${service}:latest"
+            else
                 log_error "Failed to build ${service}"
                 exit 1
-            }
-            log_success "  ${service}:latest"
+            fi
         else
+            skipped=$((skipped + 1))
             log_warn "  Dockerfile not found: $dockerfile (skipping)"
         fi
     done
@@ -261,17 +292,17 @@ build_docker_images() {
     local ui_dockerfile="${SCRIPT_DIR}/squadron-ui/Dockerfile"
     if [ -f "$ui_dockerfile" ]; then
         log_info "Building squadron-ui..."
-        docker build -t "squadron/squadron-ui:latest" \
+        if docker build -t "squadron/squadron-ui:latest" \
             -f "$ui_dockerfile" \
-            "${SCRIPT_DIR}/squadron-ui" \
-            --quiet 2>/dev/null || {
+            "${SCRIPT_DIR}/squadron-ui" 2>&1 | tail -5; then
+            log_success "  squadron-ui:latest"
+        else
             log_error "Failed to build squadron-ui"
             exit 1
-        }
-        log_success "  squadron-ui:latest"
+        fi
     fi
 
-    log_success "All Docker images built"
+    log_success "All Docker images built (${built} services, ${skipped} skipped)"
 }
 
 # =============================================================================
@@ -299,37 +330,49 @@ wait_for_healthy() {
     local service="$1"
     local max_wait="${2:-180}"
     local waited=0
+    local last_status=""
 
     while true; do
         local status
         status=$(get_health_status "$service")
+
+        # Print status changes so the user sees progress
+        if [ "$status" != "$last_status" ] && [ -n "$status" ]; then
+            log_info "    ${service}: ${status} (${waited}s elapsed)"
+            last_status="$status"
+        fi
 
         case "$status" in
             healthy)
                 return 0
                 ;;
             unhealthy)
-                log_error "$service is unhealthy. Showing recent logs:"
-                run_compose logs --tail=15 "$service" 2>/dev/null || true
+                log_error "${service} is unhealthy after ${waited}s. Showing recent logs:"
+                run_compose logs --tail=20 "$service" || true
                 return 1
                 ;;
             "")
                 # Container not running at all
                 if [ $waited -ge 15 ]; then
-                    log_error "$service container is not running."
-                    run_compose logs --tail=10 "$service" 2>/dev/null || true
+                    log_error "${service} container is not running after ${waited}s."
+                    run_compose logs --tail=15 "$service" || true
                     return 1
                 fi
                 ;;
             none|starting)
                 # Still starting or no healthcheck, keep waiting
+                if [ $((waited % 30)) -eq 0 ] && [ $waited -gt 0 ]; then
+                    log_info "    ${service}: still ${status}... (${waited}s / ${max_wait}s)"
+                fi
                 ;;
         esac
 
         sleep 3
         waited=$((waited + 3))
         if [ $waited -ge $max_wait ]; then
-            log_warn "$service did not become healthy within ${max_wait}s (status: ${status:-unknown})"
+            log_error "${service} did not become healthy within ${max_wait}s (last status: ${status:-unknown})"
+            log_error "Showing recent logs for ${service}:"
+            run_compose logs --tail=20 "$service" || true
             return 1
         fi
     done
@@ -341,7 +384,13 @@ wait_for_healthy() {
 
 stop_previous() {
     log_step "Stopping any previously running containers"
-    if run_compose --profile services --profile frontend down --remove-orphans 2>/dev/null; then
+    local running
+    running=$(run_compose --profile services --profile frontend ps -q 2>/dev/null | wc -l)
+    if [ "$running" -gt 0 ]; then
+        log_info "Found ${running} existing container(s) -- stopping..."
+        run_compose --profile services --profile frontend down --remove-orphans 2>&1 | while IFS= read -r line; do
+            [[ -n "$line" ]] && log_info "  $line"
+        done
         log_success "Previous containers stopped"
     else
         log_info "No previous containers to stop"
@@ -352,10 +401,16 @@ start_infrastructure() {
     log_step "Starting infrastructure services"
 
     log_info "Pulling images (this may take a while on first run)..."
-    run_compose pull --quiet "${INFRA_SERVICES[@]}" 2>/dev/null || true
+    for svc in "${INFRA_SERVICES[@]}"; do
+        log_info "  Pulling ${svc}..."
+        run_compose pull "$svc" 2>&1 | tail -1 || true
+    done
+    log_success "Image pull complete"
 
     log_info "Starting PostgreSQL, Redis, NATS, Keycloak, Mailpit, PgBouncer, Ollama, OpenLDAP..."
-    run_compose up -d --no-build "${INFRA_SERVICES[@]}" 2>/dev/null
+    run_compose up -d --no-build "${INFRA_SERVICES[@]}" 2>&1 | while IFS= read -r line; do
+        [[ -n "$line" ]] && log_info "  $line"
+    done
 
     log_info "Waiting for infrastructure to become healthy..."
 
@@ -369,7 +424,7 @@ start_infrastructure() {
             timeout=120
         fi
 
-        log_info "  Waiting for ${service}..."
+        log_info "  Waiting for ${service} (timeout: ${timeout}s)..."
         if wait_for_healthy "$service" "$timeout"; then
             log_success "  ${service} is healthy"
         else
@@ -385,7 +440,7 @@ start_infrastructure() {
             local state
             state=$(docker inspect --format='{{.State.Status}}' "$container_id" 2>/dev/null) || true
             if [ "$state" = "running" ]; then
-                log_success "  ${service} is running"
+                log_success "  ${service} is running (no healthcheck -- verified via container state)"
             else
                 log_warn "  ${service} is not running (state: ${state:-unknown})"
                 failed+=("$service")
@@ -409,15 +464,20 @@ start_services() {
     log_step "Starting Squadron services"
 
     log_info "Starting all backend services and frontend..."
-    run_compose --profile services --profile frontend up -d --no-build 2>/dev/null
+    run_compose --profile services --profile frontend up -d --no-build 2>&1 | while IFS= read -r line; do
+        [[ -n "$line" ]] && log_info "  $line"
+    done
 
     log_info "Waiting for backend services to become healthy..."
 
     local failed=()
+    local succeeded=0
+    local total=${#BACKEND_SERVICES[@]}
     for service in "${BACKEND_SERVICES[@]}"; do
-        log_info "  Waiting for ${service}..."
+        log_info "  Waiting for ${service} ($((succeeded+1))/${total})..."
         if wait_for_healthy "$service" 180; then
-            log_success "  ${service} is healthy"
+            succeeded=$((succeeded + 1))
+            log_success "  ${service} is healthy (${succeeded}/${total} services up)"
         else
             failed+=("$service")
         fi
@@ -438,6 +498,10 @@ start_services() {
     fi
 
     log_success "All Squadron services are up and healthy"
+
+    # Print a summary table of all running containers
+    log_step "Container Summary"
+    run_compose --profile services --profile frontend ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 }
 
 pull_ollama_model() {
@@ -473,13 +537,17 @@ pull_ollama_model() {
 
 stop_all() {
     log_step "Stopping all Squadron services (including test LDAP)"
-    run_compose --profile services --profile frontend down --remove-orphans 2>/dev/null
+    run_compose --profile services --profile frontend down --remove-orphans 2>&1 | while IFS= read -r line; do
+        [[ -n "$line" ]] && log_info "  $line"
+    done
     log_success "All services stopped"
 }
 
 clean_all() {
     log_step "Cleaning up all containers, volumes, and data"
-    run_compose --profile services --profile frontend down -v --remove-orphans 2>/dev/null
+    run_compose --profile services --profile frontend down -v --remove-orphans 2>&1 | while IFS= read -r line; do
+        [[ -n "$line" ]] && log_info "  $line"
+    done
     log_success "Clean complete -- all data removed"
 }
 
@@ -656,6 +724,8 @@ main() {
     fi
 
     # Banner
+    local start_time
+    start_time=$(date +%s)
     echo ""
     echo -e "${BOLD}${CYAN}"
     echo "  ███████╗ ██████╗ ██╗   ██╗ █████╗ ██████╗ ██████╗  ██████╗ ███╗   ██╗"
@@ -709,8 +779,15 @@ main() {
     fi
 
     # Print access info
+    local end_time
+    end_time=$(date +%s)
+    local elapsed=$(( end_time - start_time ))
+    local minutes=$(( elapsed / 60 ))
+    local seconds=$(( elapsed % 60 ))
+
     if [ "$infra_only" = false ]; then
         print_access_info
+        log_success "Total startup time: ${minutes}m ${seconds}s"
     else
         echo ""
         echo -e "${BOLD}${GREEN}Infrastructure is running! (with Test LDAP)${NC}"
@@ -735,6 +812,7 @@ main() {
         echo ""
         echo -e "Run services with: ${BOLD}mvn spring-boot:run${NC} from each module directory"
         echo ""
+        log_success "Total startup time: ${minutes}m ${seconds}s"
     fi
 }
 
