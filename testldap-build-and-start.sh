@@ -204,7 +204,7 @@ build_maven() {
 
     local mvn_args="clean package -q"
     if [ "$skip_tests" = "true" ]; then
-        mvn_args="$mvn_args -DskipTests"
+        mvn_args="$mvn_args -Dmaven.test.skip=true"
         log_info "Skipping tests (--skip-tests)"
     fi
 
