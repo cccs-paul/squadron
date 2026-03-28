@@ -6,6 +6,7 @@ import org.springdoc.core.properties.SwaggerUiConfigProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import jakarta.annotation.PostConstruct;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -20,8 +21,14 @@ import java.util.Set;
 @Configuration
 public class OpenApiConfig {
 
-    @Bean
-    public Set<SwaggerUrl> swaggerUrls() {
+    private final SwaggerUiConfigProperties swaggerUiConfigProperties;
+
+    public OpenApiConfig(SwaggerUiConfigProperties swaggerUiConfigProperties) {
+        this.swaggerUiConfigProperties = swaggerUiConfigProperties;
+    }
+
+    @PostConstruct
+    void configureSwaggerUrls() {
         Set<SwaggerUrl> urls = new LinkedHashSet<>();
         urls.add(new SwaggerUrl("identity", "/services/identity/api-docs", "Identity Service"));
         urls.add(new SwaggerUrl("config", "/services/config/api-docs", "Config Service"));
@@ -32,14 +39,7 @@ public class OpenApiConfig {
         urls.add(new SwaggerUrl("git", "/services/git/api-docs", "Git Service"));
         urls.add(new SwaggerUrl("review", "/services/review/api-docs", "Review Service"));
         urls.add(new SwaggerUrl("notification", "/services/notification/api-docs", "Notification Service"));
-        return urls;
-    }
-
-    @Bean
-    public SwaggerUiConfigProperties swaggerUiConfigProperties(Set<SwaggerUrl> swaggerUrls) {
-        SwaggerUiConfigProperties properties = new SwaggerUiConfigProperties();
-        properties.setUrls(swaggerUrls);
-        return properties;
+        swaggerUiConfigProperties.setUrls(urls);
     }
 
     @Bean

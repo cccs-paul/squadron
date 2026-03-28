@@ -2,6 +2,7 @@ package com.squadron.orchestrator.client;
 
 import com.squadron.common.resilience.ResilientClient;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,6 +19,7 @@ public class ResilientPlatformServiceClient {
     private final PlatformServiceClient delegate;
     private final ResilientClient resilientClient;
 
+    @Autowired
     public ResilientPlatformServiceClient(PlatformServiceClient delegate) {
         this.delegate = delegate;
         this.resilientClient = ResilientClient.withDefaults("platform-service");

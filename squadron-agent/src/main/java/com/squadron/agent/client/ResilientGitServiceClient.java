@@ -2,6 +2,7 @@ package com.squadron.agent.client;
 
 import com.squadron.common.resilience.ResilientClient;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -17,6 +18,7 @@ public class ResilientGitServiceClient {
     private final GitServiceClient delegate;
     private final ResilientClient resilientClient;
 
+    @Autowired
     public ResilientGitServiceClient(GitServiceClient delegate) {
         this.delegate = delegate;
         this.resilientClient = ResilientClient.withDefaults("git-service");

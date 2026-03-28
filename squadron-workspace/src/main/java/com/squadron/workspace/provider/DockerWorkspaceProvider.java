@@ -21,6 +21,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -41,6 +42,7 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
 
     private final DockerClient dockerClient;
 
+    @Autowired
     public DockerWorkspaceProvider(
             @Value("${squadron.workspace.docker.host:unix:///var/run/docker.sock}") String dockerHost) {
         DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()

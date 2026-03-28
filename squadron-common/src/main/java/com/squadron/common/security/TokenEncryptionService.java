@@ -10,6 +10,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -22,9 +23,9 @@ public class TokenEncryptionService {
     private final SecretKey secretKey;
 
     @Autowired
-    public TokenEncryptionService(@Value("${squadron.security.encryption-key:#{null}}") String base64Key) {
-        if (base64Key != null && !base64Key.isBlank()) {
-            byte[] keyBytes = Base64.getDecoder().decode(base64Key);
+    public TokenEncryptionService(@Value("${squadron.security.encryption-key:#{null}}") String encryptionKey) {
+        if (encryptionKey != null && !encryptionKey.isBlank()) {
+            byte[] keyBytes = deriveKeyBytes(encryptionKey);
             this.secretKey = new SecretKeySpec(keyBytes, "AES");
         } else {
             // Generate a random key for development/testing - NOT for production
@@ -37,6 +38,28 @@ public class TokenEncryptionService {
     // Constructor for testing with a specific key
     public TokenEncryptionService(SecretKey secretKey) {
         this.secretKey = secretKey;
+    }
+
+    /**
+     * Derive a 32-byte AES-256 key from the provided encryption key string.
+     * If the string is valid Base64 and decodes to exactly 16, 24, or 32 bytes,
+     * use it directly. Otherwise, SHA-256 hash the raw string to get a 32-byte key.
+     */
+    private static byte[] deriveKeyBytes(String encryptionKey) {
+        try {
+            byte[] decoded = Base64.getDecoder().decode(encryptionKey);
+            if (decoded.length == 16 || decoded.length == 24 || decoded.length == 32) {
+                return decoded;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Not valid Base64; fall through to SHA-256 derivation
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return digest.digest(encryptionKey.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new SecurityException("Failed to derive encryption key", e);
+        }
     }
 
     public String encrypt(String plaintext) {

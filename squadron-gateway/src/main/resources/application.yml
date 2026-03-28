@@ -13,9 +13,11 @@ spring:
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: false
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
   data:
     redis:
       host: ${REDIS_HOST:localhost}
