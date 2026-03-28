@@ -38,7 +38,29 @@ COMPOSE_DIR="${SCRIPT_DIR}/deploy/docker"
 COMPOSE_FILE="${COMPOSE_DIR}/docker-compose.yml"
 COMPOSE_LDAP_FILE="${COMPOSE_DIR}/docker-compose-testldap.yml"
 
-# Service list
+# Infrastructure services to start (order matters for health checks)
+INFRA_SERVICES=(
+    postgres
+    redis
+    nats
+    keycloak
+    mailpit
+    pgbouncer
+    ollama
+    openldap-test
+)
+
+# Services that have Docker healthchecks defined and must become healthy
+HEALTHCHECK_SERVICES=(
+    postgres
+    redis
+    nats
+    keycloak
+    ollama
+    openldap-test
+)
+
+# Backend service list
 BACKEND_SERVICES=(
     "squadron-gateway"
     "squadron-identity"
@@ -61,7 +83,6 @@ log_success() { echo -e "${GREEN}[OK]${NC}    $*"; }
 log_warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 log_error()   { echo -e "${RED}[ERROR]${NC} $*"; }
 log_step()    { echo -e "\n${BOLD}${CYAN}==> $*${NC}"; }
-log_ldap()    { echo -e "${MAGENTA}[LDAP]${NC}  $*"; }
 
 usage() {
     cat <<EOF
@@ -254,73 +275,141 @@ build_docker_images() {
 }
 
 # =============================================================================
+# Container Health Functions
+# =============================================================================
+
+# Get the health status of a container by service name.
+# Returns: healthy, unhealthy, starting, none (no healthcheck), or empty (not running).
+get_health_status() {
+    local service="$1"
+    local container_id
+    container_id=$(run_compose ps -q "$service" 2>/dev/null) || true
+    if [ -z "$container_id" ]; then
+        echo ""
+        return
+    fi
+    local status
+    status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id" 2>/dev/null) || true
+    echo "$status"
+}
+
+# Wait for a single service to become healthy.
+# Uses the Docker-native healthcheck defined in docker-compose.yml.
+wait_for_healthy() {
+    local service="$1"
+    local max_wait="${2:-180}"
+    local waited=0
+
+    while true; do
+        local status
+        status=$(get_health_status "$service")
+
+        case "$status" in
+            healthy)
+                return 0
+                ;;
+            unhealthy)
+                log_error "$service is unhealthy. Showing recent logs:"
+                run_compose logs --tail=15 "$service" 2>/dev/null || true
+                return 1
+                ;;
+            "")
+                # Container not running at all
+                if [ $waited -ge 15 ]; then
+                    log_error "$service container is not running."
+                    run_compose logs --tail=10 "$service" 2>/dev/null || true
+                    return 1
+                fi
+                ;;
+            none|starting)
+                # Still starting or no healthcheck, keep waiting
+                ;;
+        esac
+
+        sleep 3
+        waited=$((waited + 3))
+        if [ $waited -ge $max_wait ]; then
+            log_warn "$service did not become healthy within ${max_wait}s (status: ${status:-unknown})"
+            return 1
+        fi
+    done
+}
+
+# =============================================================================
 # Compose Functions
 # =============================================================================
+
+stop_previous() {
+    log_step "Stopping any previously running containers"
+    if run_compose --profile services --profile frontend down --remove-orphans 2>/dev/null; then
+        log_success "Previous containers stopped"
+    else
+        log_info "No previous containers to stop"
+    fi
+}
 
 start_infrastructure() {
     log_step "Starting infrastructure services"
 
-    log_info "Starting PostgreSQL, Redis, NATS, Keycloak, Mailpit, Ollama, OpenLDAP..."
-    run_compose up -d postgres redis nats keycloak mailpit pgbouncer ollama openldap-test
+    log_info "Pulling images (this may take a while on first run)..."
+    run_compose pull --quiet "${INFRA_SERVICES[@]}" 2>/dev/null || true
 
-    log_info "Waiting for infrastructure to be healthy..."
-    local max_wait=120
-    local waited=0
+    log_info "Starting PostgreSQL, Redis, NATS, Keycloak, Mailpit, PgBouncer, Ollama, OpenLDAP..."
+    run_compose up -d --no-build "${INFRA_SERVICES[@]}" 2>/dev/null
 
-    # Wait for PostgreSQL
-    while ! run_compose exec -T postgres pg_isready -U squadron -q 2>/dev/null; do
-        sleep 2
-        waited=$((waited + 2))
-        if [ $waited -ge $max_wait ]; then
-            log_error "PostgreSQL failed to start within ${max_wait}s"
-            exit 1
+    log_info "Waiting for infrastructure to become healthy..."
+
+    local failed=()
+    for service in "${HEALTHCHECK_SERVICES[@]}"; do
+        local timeout=180
+        # Keycloak and Ollama are slow to start
+        if [ "$service" = "keycloak" ]; then
+            timeout=240
+        elif [ "$service" = "ollama" ]; then
+            timeout=120
+        fi
+
+        log_info "  Waiting for ${service}..."
+        if wait_for_healthy "$service" "$timeout"; then
+            log_success "  ${service} is healthy"
+        else
+            failed+=("$service")
         fi
     done
-    log_success "  PostgreSQL ready"
 
-    # Wait for Redis
-    waited=0
-    while ! run_compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; do
-        sleep 2
-        waited=$((waited + 2))
-        if [ $waited -ge $max_wait ]; then
-            log_error "Redis failed to start within ${max_wait}s"
-            exit 1
+    # PgBouncer and Mailpit don't have healthchecks; verify they're running
+    for service in pgbouncer mailpit; do
+        local container_id
+        container_id=$(run_compose ps -q "$service" 2>/dev/null) || true
+        if [ -n "$container_id" ]; then
+            local state
+            state=$(docker inspect --format='{{.State.Status}}' "$container_id" 2>/dev/null) || true
+            if [ "$state" = "running" ]; then
+                log_success "  ${service} is running"
+            else
+                log_warn "  ${service} is not running (state: ${state:-unknown})"
+                failed+=("$service")
+            fi
+        else
+            log_warn "  ${service} container was not created"
+            failed+=("$service")
         fi
     done
-    log_success "  Redis ready"
 
-    # NATS starts quickly, just give it a moment
-    sleep 3
-    log_success "  NATS ready"
-
-    # Wait for OpenLDAP
-    log_ldap "Waiting for test OpenLDAP to be ready..."
-    waited=0
-    while ! run_compose exec -T openldap-test ldapsearch -H ldap://localhost:10389 -x \
-        -b "dc=planetexpress,dc=com" \
-        -D "cn=admin,dc=planetexpress,dc=com" \
-        -w GoodNewsEveryone \
-        "(objectClass=organization)" dn 2>/dev/null | grep -q "planetexpress"; do
-        sleep 2
-        waited=$((waited + 2))
-        if [ $waited -ge $max_wait ]; then
-            log_warn "OpenLDAP may still be starting. Continuing anyway..."
-            break
-        fi
-    done
-    if [ $waited -lt $max_wait ]; then
-        log_success "  OpenLDAP ready (dc=planetexpress,dc=com)"
+    if [ ${#failed[@]} -gt 0 ]; then
+        log_error "The following services failed to start: ${failed[*]}"
+        log_error "Check logs with: $(basename "$0") --logs <service>"
+        exit 1
     fi
 
-    log_success "Infrastructure is up and healthy"
+    log_success "All infrastructure services are up and healthy"
 }
 
 start_services() {
     log_step "Starting Squadron services"
 
     log_info "Starting all backend services and frontend..."
-    run_compose --profile services --profile frontend up -d
+    run_compose --profile services --profile frontend up -d --no-build 2>/dev/null
 
     log_info "Waiting for services to start (this may take 30-60 seconds)..."
     sleep 10
@@ -382,14 +471,14 @@ pull_ollama_model() {
 
 stop_all() {
     log_step "Stopping all Squadron services (including test LDAP)"
-    run_compose --profile services --profile frontend down
+    run_compose --profile services --profile frontend down --remove-orphans 2>/dev/null
     log_success "All services stopped"
 }
 
 clean_all() {
     log_step "Cleaning up all containers, volumes, and data"
-    run_compose --profile services --profile frontend down -v --remove-orphans
-    log_success "Clean complete — all data removed"
+    run_compose --profile services --profile frontend down -v --remove-orphans 2>/dev/null
+    log_success "Clean complete -- all data removed"
 }
 
 show_status() {
@@ -470,10 +559,9 @@ setup_ollama_gpu() {
 
     # Check for NVIDIA GPU
     if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
-        log_success "NVIDIA GPU detected — Ollama will use GPU acceleration"
+        log_success "NVIDIA GPU detected -- Ollama will use GPU acceleration"
     else
-        log_warn "No NVIDIA GPU detected — Ollama will run on CPU"
-        log_warn "To suppress GPU config errors, use: $(basename "$0") --no-gpu"
+        log_info "No NVIDIA GPU detected -- Ollama will run on CPU"
     fi
 }
 
@@ -584,6 +672,9 @@ main() {
 
     # Prerequisites check
     check_prerequisites
+
+    # Stop any previously running containers from this project
+    stop_previous
 
     # Build phase
     if [ "$skip_build" = false ]; then
