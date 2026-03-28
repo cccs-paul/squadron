@@ -19,11 +19,11 @@ import { TruncatePipe } from '../../../shared/pipes/truncate.pipe';
       </div>
       <h4 class="task-card__title">{{ task().title }}</h4>
       @if (task().description) {
-        <p class="task-card__desc">{{ task().description | truncate:100 }}</p>
+        <p class="task-card__desc">{{ task().description! | truncate:100 }}</p>
       }
       <div class="task-card__footer">
         <div class="task-card__labels">
-          @for (label of task().labels?.slice(0, 3); track label) {
+          @for (label of task().labels.slice(0, 3); track label) {
             <span class="task-card__label">{{ label }}</span>
           }
         </div>

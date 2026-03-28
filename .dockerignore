@@ -1,4 +1,6 @@
 **/target/
+# Re-include JAR files needed for Docker image builds
+!*/target/*.jar
 **/node_modules/
 **/.angular/
 **/.git/
@@ -7,5 +9,4 @@
 **/coverage/
 **/*.md
 **/.gitignore
-**/deploy/
 **/*.iml
