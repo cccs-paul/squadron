@@ -55,7 +55,8 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
     }
 
     // Visible for testing
-    DockerWorkspaceProvider(DockerClient dockerClient) {
+    @SuppressWarnings("unused")
+    private DockerWorkspaceProvider(DockerClient dockerClient) {
         this.dockerClient = dockerClient;
     }
 

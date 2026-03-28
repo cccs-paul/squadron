@@ -29,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
 import java.util.Map;
 import java.util.UUID;
 
@@ -46,8 +47,11 @@ class DockerWorkspaceProviderTest {
     private DockerWorkspaceProvider provider;
 
     @BeforeEach
-    void setUp() {
-        provider = new DockerWorkspaceProvider(dockerClient);
+    void setUp() throws Exception {
+        Constructor<DockerWorkspaceProvider> ctor = DockerWorkspaceProvider.class
+                .getDeclaredConstructor(DockerClient.class);
+        ctor.setAccessible(true);
+        provider = ctor.newInstance(dockerClient);
     }
 
     @Test

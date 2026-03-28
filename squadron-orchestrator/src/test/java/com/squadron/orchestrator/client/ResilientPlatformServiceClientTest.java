@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Constructor;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -27,11 +28,14 @@ class ResilientPlatformServiceClientTest {
     private CircuitBreaker circuitBreaker;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         circuitBreaker = CircuitBreaker.of("platform-service-test", 2, Duration.ofSeconds(30));
         RetryHelper retryHelper = RetryHelper.of(2, Duration.ofMillis(1), 2.0);
         ResilientClient client = ResilientClient.of(circuitBreaker, retryHelper);
-        resilientClient = new ResilientPlatformServiceClient(delegate, client);
+        Constructor<ResilientPlatformServiceClient> ctor = ResilientPlatformServiceClient.class
+                .getDeclaredConstructor(PlatformServiceClient.class, ResilientClient.class);
+        ctor.setAccessible(true);
+        resilientClient = ctor.newInstance(delegate, client);
     }
 
     @Test

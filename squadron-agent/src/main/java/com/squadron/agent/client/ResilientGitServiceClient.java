@@ -28,7 +28,8 @@ public class ResilientGitServiceClient {
     /**
      * Constructor for testing with a custom ResilientClient.
      */
-    ResilientGitServiceClient(GitServiceClient delegate, ResilientClient resilientClient) {
+    @SuppressWarnings("unused")
+    private ResilientGitServiceClient(GitServiceClient delegate, ResilientClient resilientClient) {
         this.delegate = delegate;
         this.resilientClient = resilientClient;
     }

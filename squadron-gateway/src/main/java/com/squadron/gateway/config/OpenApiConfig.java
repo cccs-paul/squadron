@@ -6,6 +6,8 @@ import org.springdoc.core.properties.SwaggerUiConfigProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
 import jakarta.annotation.PostConstruct;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -21,11 +23,8 @@ import java.util.Set;
 @Configuration
 public class OpenApiConfig {
 
-    private final SwaggerUiConfigProperties swaggerUiConfigProperties;
-
-    public OpenApiConfig(SwaggerUiConfigProperties swaggerUiConfigProperties) {
-        this.swaggerUiConfigProperties = swaggerUiConfigProperties;
-    }
+    @Autowired
+    private SwaggerUiConfigProperties swaggerUiConfigProperties;
 
     @PostConstruct
     void configureSwaggerUrls() {

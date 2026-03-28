@@ -29,7 +29,8 @@ public class ResilientPlatformServiceClient {
     /**
      * Constructor for testing with a custom ResilientClient.
      */
-    ResilientPlatformServiceClient(PlatformServiceClient delegate, ResilientClient resilientClient) {
+    @SuppressWarnings("unused")
+    private ResilientPlatformServiceClient(PlatformServiceClient delegate, ResilientClient resilientClient) {
         this.delegate = delegate;
         this.resilientClient = resilientClient;
     }
