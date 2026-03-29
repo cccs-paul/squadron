@@ -13,10 +13,17 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -33,9 +40,18 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.flyway.enabled=true",
         "spring.flyway.locations=classpath:db/migration"
 })
+@ImportAutoConfiguration(FlywayAutoConfiguration.class)
 @ActiveProfiles("integration")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@ContextConfiguration(classes = RepositoryIntegrationTest.TestConfig.class)
 class RepositoryIntegrationTest {
+
+    @Configuration
+    @SpringBootApplication(scanBasePackages = "com.squadron.identity")
+    @EntityScan("com.squadron.identity.entity")
+    @EnableJpaRepositories("com.squadron.identity.repository")
+    static class TestConfig {
+    }
 
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17")
             .withDatabaseName("squadron_identity_test");

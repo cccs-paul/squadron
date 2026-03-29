@@ -88,7 +88,6 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<ApiResponse<Void>> response = handler.handleValidation(ex);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-      ));
         assertNotNull(response.getBody());
         String message = response.getBody().getMessage();
         assertTrue(message.contains("name"));
@@ -111,7 +110,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void should_haveRestControllerAdviceAnnotation_when_checked() {
-        assertTrue(IdentityExceptionHandler.class.isAnnotationPresent(
+        assertTrue(GlobalExceptionHandler.class.isAnnotationPresent(
                 org.springframework.web.bind.annotation.RestControllerAdvice.class));
     }
 }
