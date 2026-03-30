@@ -77,6 +77,21 @@ public class AuthController {
     }
 
     /**
+     * List available tenants (public, for login UI org selector).
+     */
+    @GetMapping("/tenants")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAvailableTenants() {
+        List<Map<String, Object>> tenants = tenantService.listActiveTenants().stream()
+                .map(t -> Map.<String, Object>of(
+                        "id", t.getId().toString(),
+                        "name", t.getName(),
+                        "slug", t.getSlug()
+                ))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(tenants));
+    }
+
+    /**
      * List available auth providers for a tenant (public, for login UI).
      */
     @GetMapping("/providers/{tenantSlug}")

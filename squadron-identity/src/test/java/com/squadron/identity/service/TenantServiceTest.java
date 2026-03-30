@@ -147,4 +147,26 @@ class TenantServiceTest {
         assertEquals(1, results.size());
         assertEquals("test-org", results.get(0).getSlug());
     }
+
+    @Test
+    void should_listActiveTenants_when_called() {
+        when(tenantRepository.findByStatus("ACTIVE")).thenReturn(List.of(tenant));
+
+        List<TenantDto> results = tenantService.listActiveTenants();
+
+        assertEquals(1, results.size());
+        assertEquals("test-org", results.get(0).getSlug());
+        assertEquals("ACTIVE", results.get(0).getStatus());
+        verify(tenantRepository).findByStatus("ACTIVE");
+    }
+
+    @Test
+    void should_returnEmptyList_when_noActiveTenants() {
+        when(tenantRepository.findByStatus("ACTIVE")).thenReturn(List.of());
+
+        List<TenantDto> results = tenantService.listActiveTenants();
+
+        assertTrue(results.isEmpty());
+        verify(tenantRepository).findByStatus("ACTIVE");
+    }
 }

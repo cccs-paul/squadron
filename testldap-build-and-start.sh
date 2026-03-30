@@ -211,7 +211,7 @@ compose_cmd() {
 }
 
 run_compose() {
-    $(compose_cmd) -f "${COMPOSE_FILE}" -f "${COMPOSE_LDAP_FILE}" "$@"
+    $(compose_cmd) -f "${COMPOSE_FILE}" -f "${COMPOSE_LDAP_FILE}" --profile services --profile frontend "$@"
 }
 
 # =============================================================================
@@ -583,7 +583,7 @@ print_access_info() {
     echo -e "  ${CYAN}Ollama:${NC}       http://localhost:11434"
     echo ""
     echo -e "${BOLD}Service Ports:${NC}"
-    echo -e "  Identity:      8081    Config:        8082"
+    echo -e "  Identity:      18081   Config:        8082"
     echo -e "  Orchestrator:  8083    Platform:      8084"
     echo -e "  Agent:         8085    Workspace:     8086"
     echo -e "  Git:           8087    Review:        8088"

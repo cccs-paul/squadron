@@ -234,6 +234,26 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       AUTH_MODE: squadron
+      SQUADRON_JWKS_URI: http://squadron-identity:8081/api/auth/jwks
+      ROUTE_IDENTITY_URI: http://squadron-identity:8081
+      ROUTE_CONFIG_URI: http://squadron-config:8082
+      ROUTE_ORCHESTRATOR_URI: http://squadron-orchestrator:8083
+      ROUTE_PLATFORM_URI: http://squadron-platform:8084
+      ROUTE_AGENT_URI: http://squadron-agent:8085
+      ROUTE_WORKSPACE_URI: http://squadron-workspace:8086
+      ROUTE_GIT_URI: http://squadron-git:8087
+      ROUTE_REVIEW_URI: http://squadron-review:8088
+      ROUTE_NOTIFICATION_URI: http://squadron-notification:8089
+      HEALTH_GATEWAY_URL: http://localhost:8443
+      HEALTH_IDENTITY_URL: http://squadron-identity:8081
+      HEALTH_CONFIG_URL: http://squadron-config:8082
+      HEALTH_ORCHESTRATOR_URL: http://squadron-orchestrator:8083
+      HEALTH_PLATFORM_URL: http://squadron-platform:8084
+      HEALTH_AGENT_URL: http://squadron-agent:8085
+      HEALTH_WORKSPACE_URL: http://squadron-workspace:8086
+      HEALTH_GIT_URL: http://squadron-git:8087
+      HEALTH_REVIEW_URL: http://squadron-review:8088
+      HEALTH_NOTIFICATION_URL: http://squadron-notification:8089
     depends_on:
       postgres:
         condition: service_healthy
@@ -257,7 +277,7 @@ services:
     container_name: squadron-identity
     profiles: ["services"]
     ports:
-      - "8081:8081"
+      - "18081:8081"
     environment:
       <<: *common-env
       SERVER_PORT: 8081
@@ -466,7 +486,7 @@ services:
       squadron-gateway:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:80/ || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:80/ || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 10

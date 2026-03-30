@@ -55,6 +55,7 @@ public class User {
     @Column(name = "roles", columnDefinition = "jsonb")
     private Set<String> roles;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String settings;
 

@@ -2,6 +2,7 @@ package com.squadron.agent.tool.builtin;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class ReviewClient {
 
     private final WebClient webClient;
 
+    @Autowired
     public ReviewClient(@Value("${squadron.review.url:http://localhost:8088}") String reviewUrl) {
         this.webClient = WebClient.builder()
                 .baseUrl(reviewUrl)

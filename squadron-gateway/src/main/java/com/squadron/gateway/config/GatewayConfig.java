@@ -1,5 +1,6 @@
 package com.squadron.gateway.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
@@ -8,54 +9,81 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class GatewayConfig {
 
+    @Value("${squadron.routes.identity-uri:http://localhost:8081}")
+    private String identityUri;
+
+    @Value("${squadron.routes.config-uri:http://localhost:8082}")
+    private String configUri;
+
+    @Value("${squadron.routes.orchestrator-uri:http://localhost:8083}")
+    private String orchestratorUri;
+
+    @Value("${squadron.routes.platform-uri:http://localhost:8084}")
+    private String platformUri;
+
+    @Value("${squadron.routes.agent-uri:http://localhost:8085}")
+    private String agentUri;
+
+    @Value("${squadron.routes.workspace-uri:http://localhost:8086}")
+    private String workspaceUri;
+
+    @Value("${squadron.routes.git-uri:http://localhost:8087}")
+    private String gitUri;
+
+    @Value("${squadron.routes.review-uri:http://localhost:8088}")
+    private String reviewUri;
+
+    @Value("${squadron.routes.notification-uri:http://localhost:8089}")
+    private String notificationUri;
+
     @Bean
     public RouteLocator squadronRoutes(RouteLocatorBuilder builder) {
         return builder.routes()
                 .route("websocket-agent", r -> r
                         .path("/ws/agent/**")
-                        .uri("lb://squadron-agent"))
+                        .uri(agentUri))
                 .route("websocket-notifications", r -> r
                         .path("/ws/notifications/**")
-                        .uri("lb://squadron-notification"))
+                        .uri(notificationUri))
                 .route("auth-service", r -> r
                         .path("/api/auth/**")
-                        .uri("lb://squadron-identity"))
+                        .uri(identityUri))
                 .route("identity-service", r -> r
                         .path("/api/identity/**")
                         .filters(f -> f.stripPrefix(2))
-                        .uri("lb://squadron-identity"))
+                        .uri(identityUri))
                 .route("config-service", r -> r
                         .path("/api/config/**")
                         .filters(f -> f.stripPrefix(2))
-                        .uri("lb://squadron-config"))
+                        .uri(configUri))
                 .route("orchestrator-service", r -> r
                         .path("/api/tasks/**")
                         .filters(f -> f.stripPrefix(2))
-                        .uri("lb://squadron-orchestrator"))
+                        .uri(orchestratorUri))
                 .route("platform-service", r -> r
                         .path("/api/platforms/**")
                         .filters(f -> f.stripPrefix(2))
-                        .uri("lb://squadron-platform"))
+                        .uri(platformUri))
                 .route("agent-service", r -> r
                         .path("/api/agents/**")
                         .filters(f -> f.stripPrefix(2))
-                        .uri("lb://squadron-agent"))
+                        .uri(agentUri))
                 .route("workspace-service", r -> r
                         .path("/api/workspaces/**")
                         .filters(f -> f.stripPrefix(2))
-                        .uri("lb://squadron-workspace"))
+                        .uri(workspaceUri))
                 .route("git-service", r -> r
                         .path("/api/git/**")
                         .filters(f -> f.stripPrefix(2))
-                        .uri("lb://squadron-git"))
+                        .uri(gitUri))
                 .route("review-service", r -> r
                         .path("/api/reviews/**")
                         .filters(f -> f.stripPrefix(2))
-                        .uri("lb://squadron-review"))
+                        .uri(reviewUri))
                 .route("notification-service", r -> r
                         .path("/api/notifications/**")
                         .filters(f -> f.stripPrefix(2))
-                        .uri("lb://squadron-notification"))
+                        .uri(notificationUri))
                 .build();
     }
 }

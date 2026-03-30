@@ -2,6 +2,7 @@ package com.squadron.agent.tool.builtin;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
@@ -25,6 +26,7 @@ public class WorkspaceClient {
 
     private final WebClient webClient;
 
+    @Autowired
     public WorkspaceClient(@Value("${squadron.workspace.url:http://localhost:8085}") String workspaceUrl) {
         this.webClient = WebClient.builder()
                 .baseUrl(workspaceUrl)

@@ -96,18 +96,20 @@ public class LdapAuthProvider implements AuthProvider {
             }
 
             // Step 3: Bind as the user to verify password
-            String fullUserDn;
+            // Note: userDn from findUserDn is already a full DN (from getNameInNamespace())
+            String bindDnForUser;
             if (DIRECTORY_TYPE_AD.equals(directoryType) && !adDomain.isEmpty()) {
                 // AD: bind with userPrincipalName
-                fullUserDn = username.contains("@") ? username : username + "@" + adDomain;
+                bindDnForUser = username.contains("@") ? username : username + "@" + adDomain;
             } else {
-                // OpenLDAP: bind with the full DN
-                fullUserDn = userDn + (baseDn.isEmpty() ? "" : "," + baseDn);
+                // OpenLDAP: bind with the full DN (already includes base)
+                bindDnForUser = userDn;
             }
 
-            LdapContextSource userContextSource = createContextSource(url, baseDn, fullUserDn, password);
+            // Use empty base for user bind since bindDnForUser is already the full DN
+            LdapContextSource userContextSource = createContextSource(url, "", bindDnForUser, password);
             try {
-                userContextSource.getContext(fullUserDn, password);
+                userContextSource.getContext(bindDnForUser, password);
             } catch (Exception e) {
                 throw new AuthenticationException("Invalid credentials for user: " + username);
             }
@@ -127,7 +129,8 @@ public class LdapAuthProvider implements AuthProvider {
             String email = userAttributes.getOrDefault("mail", username);
             String displayName = userAttributes.getOrDefault("displayName",
                     userAttributes.getOrDefault("cn", username));
-            String externalId = userDn + (baseDn.isEmpty() ? "" : "," + baseDn);
+            // userDn is already a full DN from getNameInNamespace()
+            String externalId = userDn;
 
             return AuthenticationResult.builder()
                     .externalId(externalId)

@@ -204,4 +204,33 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.length()").value(0));
     }
+
+    @Test
+    void should_returnTenants_when_tenantsEndpointCalled() throws Exception {
+        UUID tenantId1 = UUID.randomUUID();
+        UUID tenantId2 = UUID.randomUUID();
+        TenantDto tenant1 = TenantDto.builder().id(tenantId1).name("Planet Express").slug("planet-express").build();
+        TenantDto tenant2 = TenantDto.builder().id(tenantId2).name("Mom Corp").slug("mom-corp").build();
+        when(tenantService.listActiveTenants()).thenReturn(List.of(tenant1, tenant2));
+
+        mockMvc.perform(get("/api/auth/tenants"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].name").value("Planet Express"))
+                .andExpect(jsonPath("$.data[0].slug").value("planet-express"))
+                .andExpect(jsonPath("$.data[0].id").value(tenantId1.toString()))
+                .andExpect(jsonPath("$.data[1].name").value("Mom Corp"))
+                .andExpect(jsonPath("$.data[1].slug").value("mom-corp"));
+    }
+
+    @Test
+    void should_returnEmptyList_when_noActiveTenants() throws Exception {
+        when(tenantService.listActiveTenants()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/auth/tenants"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
 }

@@ -10,6 +10,7 @@ import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
@@ -44,6 +45,17 @@ class GatewayConfigTest {
     @BeforeEach
     void setUp() {
         gatewayConfig = new GatewayConfig();
+        // Set all route URIs via reflection (simulating @Value injection)
+        ReflectionTestUtils.setField(gatewayConfig, "identityUri", "http://squadron-identity:8081");
+        ReflectionTestUtils.setField(gatewayConfig, "configUri", "http://squadron-config:8082");
+        ReflectionTestUtils.setField(gatewayConfig, "orchestratorUri", "http://squadron-orchestrator:8083");
+        ReflectionTestUtils.setField(gatewayConfig, "platformUri", "http://squadron-platform:8084");
+        ReflectionTestUtils.setField(gatewayConfig, "agentUri", "http://squadron-agent:8085");
+        ReflectionTestUtils.setField(gatewayConfig, "workspaceUri", "http://squadron-workspace:8086");
+        ReflectionTestUtils.setField(gatewayConfig, "gitUri", "http://squadron-git:8087");
+        ReflectionTestUtils.setField(gatewayConfig, "reviewUri", "http://squadron-review:8088");
+        ReflectionTestUtils.setField(gatewayConfig, "notificationUri", "http://squadron-notification:8089");
+
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         context.register(MinimalGatewayBeans.class);
         context.refresh();
@@ -83,7 +95,7 @@ class GatewayConfigTest {
 
         Route authRoute = findRoute(routes, "auth-service");
         assertThat(authRoute).isNotNull();
-        assertThat(authRoute.getUri().toString()).isEqualTo("lb://squadron-identity");
+        assertThat(authRoute.getUri().toString()).isEqualTo("http://squadron-identity:8081");
     }
 
     @Test
@@ -92,7 +104,7 @@ class GatewayConfigTest {
 
         Route identityRoute = findRoute(routes, "identity-service");
         assertThat(identityRoute).isNotNull();
-        assertThat(identityRoute.getUri().toString()).isEqualTo("lb://squadron-identity");
+        assertThat(identityRoute.getUri().toString()).isEqualTo("http://squadron-identity:8081");
     }
 
     @Test
@@ -101,7 +113,7 @@ class GatewayConfigTest {
 
         Route route = findRoute(routes, "config-service");
         assertThat(route).isNotNull();
-        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-config");
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-config:8082");
     }
 
     @Test
@@ -110,7 +122,7 @@ class GatewayConfigTest {
 
         Route route = findRoute(routes, "orchestrator-service");
         assertThat(route).isNotNull();
-        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-orchestrator");
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-orchestrator:8083");
     }
 
     @Test
@@ -119,7 +131,7 @@ class GatewayConfigTest {
 
         Route route = findRoute(routes, "platform-service");
         assertThat(route).isNotNull();
-        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-platform");
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-platform:8084");
     }
 
     @Test
@@ -128,7 +140,7 @@ class GatewayConfigTest {
 
         Route route = findRoute(routes, "agent-service");
         assertThat(route).isNotNull();
-        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-agent");
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-agent:8085");
     }
 
     @Test
@@ -137,7 +149,7 @@ class GatewayConfigTest {
 
         Route route = findRoute(routes, "workspace-service");
         assertThat(route).isNotNull();
-        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-workspace");
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-workspace:8086");
     }
 
     @Test
@@ -146,7 +158,7 @@ class GatewayConfigTest {
 
         Route route = findRoute(routes, "git-service");
         assertThat(route).isNotNull();
-        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-git");
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-git:8087");
     }
 
     @Test
@@ -155,7 +167,7 @@ class GatewayConfigTest {
 
         Route route = findRoute(routes, "review-service");
         assertThat(route).isNotNull();
-        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-review");
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-review:8088");
     }
 
     @Test
@@ -164,7 +176,7 @@ class GatewayConfigTest {
 
         Route route = findRoute(routes, "notification-service");
         assertThat(route).isNotNull();
-        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-notification");
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-notification:8089");
     }
 
     @Test
@@ -204,7 +216,7 @@ class GatewayConfigTest {
 
         Route route = findRoute(routes, "websocket-agent");
         assertThat(route).isNotNull();
-        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-agent");
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-agent:8085");
         assertThat(route.getFilters()).isEmpty();
     }
 
@@ -214,7 +226,7 @@ class GatewayConfigTest {
 
         Route route = findRoute(routes, "websocket-notifications");
         assertThat(route).isNotNull();
-        assertThat(route.getUri().toString()).isEqualTo("lb://squadron-notification");
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-notification:8089");
         assertThat(route.getFilters()).isEmpty();
     }
 

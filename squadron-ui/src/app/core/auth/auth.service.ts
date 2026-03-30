@@ -1,9 +1,9 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, catchError, of, map, BehaviorSubject } from 'rxjs';
+import { Observable, tap, catchError, of, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AuthUser, LoginRequest, LoginResponse, TokenPair } from './auth.models';
+import { ApiResponse, AuthUser, LoginRequest, LoginResponse, TokenPair } from './auth.models';
 
 const TOKEN_KEY = 'sq_token';
 const REFRESH_KEY = 'sq_refresh';
@@ -18,7 +18,7 @@ export class AuthService {
 
   readonly user = this.currentUser.asReadonly();
   readonly isAuthenticated = this.isAuthenticatedSignal.asReadonly();
-  readonly isAdmin = computed(() => this.currentUser()?.roles?.includes('ADMIN') ?? false);
+  readonly isAdmin = computed(() => this.currentUser()?.roles?.includes('squadron-admin') ?? false);
 
   constructor(
     private http: HttpClient,
@@ -28,7 +28,8 @@ export class AuthService {
   }
 
   login(request: LoginRequest): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.apiUrl}/auth/login`, request).pipe(
+    return this.http.post<ApiResponse<LoginResponse>>(`${this.apiUrl}/auth/login`, request).pipe(
+      map((response) => response.data),
       tap((response) => this.handleAuthSuccess(response)),
       catchError((error) => {
         this.clearAuth();
@@ -43,8 +44,11 @@ export class AuthService {
 
   handleOidcCallback(code: string, state: string): Observable<LoginResponse> {
     return this.http
-      .post<LoginResponse>(`${this.apiUrl}/auth/oidc/callback`, { code, state })
-      .pipe(tap((response) => this.handleAuthSuccess(response)));
+      .post<ApiResponse<LoginResponse>>(`${this.apiUrl}/auth/oidc/callback`, { code, state })
+      .pipe(
+        map((response) => response.data),
+        tap((response) => this.handleAuthSuccess(response)),
+      );
   }
 
   refreshToken(): Observable<LoginResponse | null> {
@@ -54,8 +58,9 @@ export class AuthService {
       return of(null);
     }
     return this.http
-      .post<LoginResponse>(`${this.apiUrl}/auth/refresh`, { refreshToken })
+      .post<ApiResponse<LoginResponse>>(`${this.apiUrl}/auth/refresh`, { refreshToken })
       .pipe(
+        map((response) => response.data),
         tap((response) => this.handleAuthSuccess(response)),
         catchError(() => {
           this.clearAuth();
@@ -76,9 +81,11 @@ export class AuthService {
   }
 
   getAvailableTenants(): Observable<{ id: string; name: string; slug: string }[]> {
-    return this.http.get<{ id: string; name: string; slug: string }[]>(
-      `${this.apiUrl}/auth/tenants`,
-    );
+    return this.http
+      .get<ApiResponse<{ id: string; name: string; slug: string }[]>>(
+        `${this.apiUrl}/auth/tenants`,
+      )
+      .pipe(map((response) => response.data));
   }
 
   private handleAuthSuccess(response: LoginResponse): void {

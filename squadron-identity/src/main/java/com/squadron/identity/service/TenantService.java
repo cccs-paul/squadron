@@ -71,6 +71,13 @@ public class TenantService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<TenantDto> listActiveTenants() {
+        return tenantRepository.findByStatus("ACTIVE").stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
     private TenantDto toDto(Tenant tenant) {
         return TenantDto.builder()
                 .id(tenant.getId())

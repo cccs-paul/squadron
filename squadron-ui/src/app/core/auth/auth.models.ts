@@ -38,3 +38,10 @@ export interface TokenPair {
   refreshToken: string;
   expiresAt: number;
 }
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message: string;
+  timestamp: string;
+}
