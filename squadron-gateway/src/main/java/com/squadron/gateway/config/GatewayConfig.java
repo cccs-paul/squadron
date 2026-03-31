@@ -69,6 +69,9 @@ public class GatewayConfig {
                 .route("agent-dashboard", r -> r
                         .path("/api/agents/dashboard/**", "/api/agents/dashboard")
                         .uri(agentUri))
+                .route("agent-squadron", r -> r
+                        .path("/api/agents/squadron/**", "/api/agents/squadron")
+                        .uri(agentUri))
                 .route("agent-service", r -> r
                         .path("/api/agents/**")
                         .filters(f -> f.stripPrefix(2))

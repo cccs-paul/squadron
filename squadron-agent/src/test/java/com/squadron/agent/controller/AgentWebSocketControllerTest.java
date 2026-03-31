@@ -1,12 +1,14 @@
 package com.squadron.agent.controller;
 
 import com.squadron.agent.dto.AgentConfigDto;
+import com.squadron.agent.dto.AgentInterruptRequest;
 import com.squadron.agent.dto.ChatRequest;
 import com.squadron.agent.dto.StreamChunk;
 import com.squadron.agent.entity.Conversation;
 import com.squadron.agent.entity.ConversationMessage;
 import com.squadron.agent.provider.AgentProvider;
 import com.squadron.agent.provider.AgentProviderRegistry;
+import com.squadron.agent.service.AgentSessionManager;
 import com.squadron.agent.service.ConversationService;
 import com.squadron.agent.service.SquadronConfigService;
 import com.squadron.agent.service.SystemPromptBuilder;
@@ -54,12 +56,15 @@ class AgentWebSocketControllerTest {
     @Mock
     private AgentProvider agentProvider;
 
+    @Mock
+    private AgentSessionManager agentSessionManager;
+
     private AgentWebSocketController controller;
 
     @BeforeEach
     void setUp() {
         controller = new AgentWebSocketController(conversationService, configService,
-                providerRegistry, promptBuilder, messagingTemplate);
+                providerRegistry, promptBuilder, messagingTemplate, agentSessionManager);
     }
 
     @Test
@@ -115,6 +120,8 @@ class AgentWebSocketControllerTest {
         verify(messagingTemplate, atLeast(2)).convertAndSend(eq(destination), any(StreamChunk.class));
         verify(conversationService).startConversation(any(), eq(taskId), any(), eq("CODING"));
         verify(conversationService).addMessage(eq(conversationId), eq("USER"), eq("Implement this"), any());
+        // Verify stream registration
+        verify(agentSessionManager).registerStream(eq(conversationId), any());
     }
 
     @Test
@@ -220,6 +227,8 @@ class AgentWebSocketControllerTest {
         StreamChunk errorChunk = captor.getValue();
         assertEquals("error", errorChunk.getType());
         assertTrue(errorChunk.getContent().contains("Provider failure"));
+        // Verify stream cleanup on error
+        verify(agentSessionManager).removeStream(conversationId);
     }
 
     @Test
@@ -240,5 +249,58 @@ class AgentWebSocketControllerTest {
 
         // Should not send any messages since setup failed
         verify(messagingTemplate, never()).convertAndSend(anyString(), any(StreamChunk.class));
+    }
+
+    @Test
+    void should_handleInterrupt_when_streamIsActive() {
+        UUID convId = UUID.randomUUID();
+        AgentInterruptRequest request = new AgentInterruptRequest(convId, "USER_CANCEL");
+
+        when(agentSessionManager.cancelStream(convId)).thenReturn(true);
+
+        controller.handleInterrupt(request);
+
+        verify(agentSessionManager).cancelStream(convId);
+        String destination = "/topic/chat/" + convId;
+        ArgumentCaptor<StreamChunk> captor = ArgumentCaptor.forClass(StreamChunk.class);
+        verify(messagingTemplate).convertAndSend(eq(destination), captor.capture());
+
+        StreamChunk interruptChunk = captor.getValue();
+        assertEquals("interrupted", interruptChunk.getType());
+        assertEquals(convId, interruptChunk.getConversationId());
+        assertTrue(interruptChunk.getContent().contains("USER_CANCEL"));
+    }
+
+    @Test
+    void should_handleInterrupt_when_noActiveStream() {
+        UUID convId = UUID.randomUUID();
+        AgentInterruptRequest request = new AgentInterruptRequest(convId, "USER_CANCEL");
+
+        when(agentSessionManager.cancelStream(convId)).thenReturn(false);
+
+        controller.handleInterrupt(request);
+
+        verify(agentSessionManager).cancelStream(convId);
+        // Should not send any message when no active stream
+        verify(messagingTemplate, never()).convertAndSend(anyString(), any(StreamChunk.class));
+    }
+
+    @Test
+    void should_handleInterrupt_when_reasonIsNull() {
+        UUID convId = UUID.randomUUID();
+        AgentInterruptRequest request = new AgentInterruptRequest(convId, null);
+
+        when(agentSessionManager.cancelStream(convId)).thenReturn(true);
+
+        controller.handleInterrupt(request);
+
+        verify(agentSessionManager).cancelStream(convId);
+        String destination = "/topic/chat/" + convId;
+        ArgumentCaptor<StreamChunk> captor = ArgumentCaptor.forClass(StreamChunk.class);
+        verify(messagingTemplate).convertAndSend(eq(destination), captor.capture());
+
+        StreamChunk interruptChunk = captor.getValue();
+        assertEquals("interrupted", interruptChunk.getType());
+        assertEquals("Agent interrupted", interruptChunk.getContent());
     }
 }

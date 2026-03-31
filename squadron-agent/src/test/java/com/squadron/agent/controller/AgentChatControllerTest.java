@@ -2,12 +2,14 @@ package com.squadron.agent.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.agent.config.SecurityConfig;
+import com.squadron.agent.dto.AgentProgressDto;
 import com.squadron.agent.dto.ChatRequest;
 import com.squadron.agent.dto.ChatResponse;
 import com.squadron.agent.dto.StreamChunk;
 import com.squadron.agent.entity.Conversation;
 import com.squadron.agent.entity.ConversationMessage;
 import com.squadron.agent.service.AgentService;
+import com.squadron.agent.service.AgentSessionManager;
 import com.squadron.agent.service.ConversationService;
 import com.squadron.common.security.TenantContext;
 import org.junit.jupiter.api.AfterEach;
@@ -26,7 +28,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import reactor.core.publisher.Flux;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -60,6 +61,9 @@ class AgentChatControllerTest {
 
     @MockBean
     private ConversationService conversationService;
+
+    @MockBean
+    private AgentSessionManager agentSessionManager;
 
     @MockBean
     private JwtDecoder jwtDecoder;
@@ -389,5 +393,93 @@ class AgentChatControllerTest {
                 .andExpect(status().isOk());
 
         verify(agentService).chatStream(any(ChatRequest.class), any(UUID.class), any(UUID.class));
+    }
+
+    // --- New tests for progress and interrupt REST endpoints ---
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_getSessionProgress_when_progressExists() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+
+        AgentProgressDto progress = AgentProgressDto.builder()
+                .conversationId(conversationId)
+                .agentType("CODING")
+                .phase("CODING")
+                .currentStep("Writing implementation")
+                .completedSteps(3)
+                .totalSteps(7)
+                .build();
+
+        when(agentSessionManager.getProgress(conversationId)).thenReturn(progress);
+
+        mockMvc.perform(get("/api/agents/chat/sessions/{conversationId}/progress", conversationId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.conversationId").value(conversationId.toString()))
+                .andExpect(jsonPath("$.data.agentType").value("CODING"))
+                .andExpect(jsonPath("$.data.phase").value("CODING"))
+                .andExpect(jsonPath("$.data.currentStep").value("Writing implementation"))
+                .andExpect(jsonPath("$.data.completedSteps").value(3))
+                .andExpect(jsonPath("$.data.totalSteps").value(7));
+
+        verify(agentSessionManager).getProgress(conversationId);
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_getSessionProgress_when_noProgressExists() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+
+        when(agentSessionManager.getProgress(conversationId)).thenReturn(null);
+
+        mockMvc.perform(get("/api/agents/chat/sessions/{conversationId}/progress", conversationId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isEmpty());
+
+        verify(agentSessionManager).getProgress(conversationId);
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_interruptSession_when_streamIsActive() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+
+        when(agentSessionManager.cancelStream(conversationId)).thenReturn(true);
+
+        mockMvc.perform(post("/api/agents/chat/sessions/{conversationId}/interrupt", conversationId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(true));
+
+        verify(agentSessionManager).cancelStream(conversationId);
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_interruptSession_when_noActiveStream() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+
+        when(agentSessionManager.cancelStream(conversationId)).thenReturn(false);
+
+        mockMvc.perform(post("/api/agents/chat/sessions/{conversationId}/interrupt", conversationId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(false));
+
+        verify(agentSessionManager).cancelStream(conversationId);
+    }
+
+    @Test
+    void should_return401_when_accessingProgressUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/agents/chat/sessions/{conversationId}/progress", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void should_return401_when_interruptingUnauthenticated() throws Exception {
+        mockMvc.perform(post("/api/agents/chat/sessions/{conversationId}/interrupt", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
     }
 }

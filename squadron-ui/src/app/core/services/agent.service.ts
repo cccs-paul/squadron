@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { StreamChunk, ChatRequest } from '../models/agent.model';
+import { StreamChunk, ChatRequest, AgentProgress, AgentInterruptRequest } from '../models/agent.model';
 import type { WebSocketService } from './websocket.service';
 
 export interface AgentMessage {
@@ -62,7 +62,7 @@ export class AgentService extends ApiService {
 
   /**
    * Subscribe to streaming chunks for a specific conversation.
-   * Returns an Observable<StreamChunk> that emits each chunk, done, or error event.
+   * Returns an Observable<StreamChunk> that emits each chunk, done, error, or interrupted event.
    */
   subscribeToStream(conversationId: string, wsService: WebSocketService): Observable<StreamChunk> {
     return wsService.subscribe<StreamChunk>(`/topic/chat/${conversationId}`);
@@ -73,5 +73,37 @@ export class AgentService extends ApiService {
    */
   sendStreamingMessage(request: ChatRequest, wsService: WebSocketService): void {
     wsService.publish('/app/chat', request);
+  }
+
+  /**
+   * Get the current progress/TODO state for a running agent session.
+   * REST endpoint: GET /api/agents/sessions/{id}/progress
+   */
+  getProgress(sessionId: string): Observable<AgentProgress> {
+    return this.get<AgentProgress>(`/agents/sessions/${sessionId}/progress`);
+  }
+
+  /**
+   * Interrupt/cancel a running agent session.
+   * REST endpoint: POST /api/agents/sessions/{id}/interrupt
+   */
+  interruptAgent(sessionId: string, reason: AgentInterruptRequest['reason']): Observable<void> {
+    const request: AgentInterruptRequest = { conversationId: sessionId, reason };
+    return this.post<void>(`/agents/sessions/${sessionId}/interrupt`, request);
+  }
+
+  /**
+   * Subscribe to real-time progress updates for a conversation via WebSocket.
+   * Topic: /topic/progress/{conversationId}
+   */
+  subscribeToProgress(conversationId: string, wsService: WebSocketService): Observable<AgentProgress> {
+    return wsService.subscribe<AgentProgress>(`/topic/progress/${conversationId}`);
+  }
+
+  /**
+   * Send an interrupt request via WebSocket STOMP to /app/interrupt.
+   */
+  sendInterruptMessage(request: AgentInterruptRequest, wsService: WebSocketService): void {
+    wsService.publish('/app/interrupt', request);
   }
 }

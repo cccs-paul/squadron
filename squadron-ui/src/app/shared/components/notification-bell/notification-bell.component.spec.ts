@@ -5,15 +5,27 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of } from 'rxjs';
 import { NotificationBellComponent } from './notification-bell.component';
 import { NotificationService } from '../../../core/services/notification.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { Notification, NotificationType } from '../../../core/models/notification.model';
 
 describe('NotificationBellComponent', () => {
   let component: NotificationBellComponent;
   let fixture: ComponentFixture<NotificationBellComponent>;
   let notificationServiceSpy: jasmine.SpyObj<NotificationService>;
+  let authServiceSpy: jasmine.SpyObj<AuthService>;
 
   const unreadCountSignal = signal(0);
   const notificationsSignal = signal<Notification[]>([]);
+  const userSignal = signal<{ id: string; username: string; email: string; displayName: string; tenantId: string; tenantName: string; roles: string[]; permissions: string[] } | null>({
+    id: 'user-1',
+    username: 'fry',
+    email: 'fry@planetexpress.com',
+    displayName: 'Philip J. Fry',
+    tenantId: 't1',
+    tenantName: 'Planet Express',
+    roles: ['user'],
+    permissions: [],
+  });
 
   const mockNotifications: Notification[] = [
     {
@@ -51,11 +63,23 @@ describe('NotificationBellComponent', () => {
   beforeEach(async () => {
     unreadCountSignal.set(0);
     notificationsSignal.set([]);
+    userSignal.set({
+      id: 'user-1',
+      username: 'fry',
+      email: 'fry@planetexpress.com',
+      displayName: 'Philip J. Fry',
+      tenantId: 't1',
+      tenantName: 'Planet Express',
+      roles: ['user'],
+      permissions: [],
+    });
 
     notificationServiceSpy = jasmine.createSpyObj('NotificationService', [
       'getNotifications',
       'markAsRead',
       'markAllAsRead',
+      'connectWebSocket',
+      'disconnectWebSocket',
     ], {
       unreadCount: unreadCountSignal.asReadonly(),
       notifications: notificationsSignal.asReadonly(),
@@ -71,12 +95,17 @@ describe('NotificationBellComponent', () => {
     notificationServiceSpy.markAsRead.and.returnValue(of(undefined as any));
     notificationServiceSpy.markAllAsRead.and.returnValue(of(undefined as any));
 
+    authServiceSpy = jasmine.createSpyObj('AuthService', [], {
+      user: userSignal.asReadonly(),
+    });
+
     await TestBed.configureTestingModule({
       imports: [NotificationBellComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: NotificationService, useValue: notificationServiceSpy },
+        { provide: AuthService, useValue: authServiceSpy },
       ],
     }).compileComponents();
 
@@ -227,5 +256,29 @@ describe('NotificationBellComponent', () => {
     component.dropdownOpen = false;
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.dropdown')).toBeNull();
+  });
+
+  // --- WebSocket integration tests ---
+
+  it('should_connectWebSocket_when_userIsLoggedIn_onInit', () => {
+    // ngOnInit was already called by fixture.detectChanges() in beforeEach
+    expect(notificationServiceSpy.connectWebSocket).toHaveBeenCalledWith('user-1');
+  });
+
+  it('should_notConnectWebSocket_when_userIsNull_onInit', () => {
+    // Reset and create fresh component with null user
+    notificationServiceSpy.connectWebSocket.calls.reset();
+    userSignal.set(null);
+
+    const newFixture = TestBed.createComponent(NotificationBellComponent);
+    newFixture.detectChanges();
+
+    expect(notificationServiceSpy.connectWebSocket).not.toHaveBeenCalled();
+  });
+
+  it('should_disconnectWebSocket_when_componentDestroyed', () => {
+    component.ngOnDestroy();
+
+    expect(notificationServiceSpy.disconnectWebSocket).toHaveBeenCalled();
   });
 });

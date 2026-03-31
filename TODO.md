@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-03-31
-**Current Status:** All 11 modules fully implemented with tests. Phase 6 (integration testing) and Phase 7 (deployment & hardening) complete. Post-launch features added: project workflow mappings, agent dashboard redesign, ticket provider integration (Feature 1). All 19 containers healthy with test LDAP. All backend tests passing (BUILD SUCCESS). Angular build passing.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete: project workflow mappings, agent dashboard redesign, ticket provider integration (Feature 1), agent interaction UI (Feature 2), notification system (Feature 3), deployment documentation (Feature 4), user agent squadron configuration (Feature 5). All 19 containers healthy with test LDAP. All backend tests passing (BUILD SUCCESS). All 662 Angular tests passing (0 failures). Angular build passing.
 
 ---
 
@@ -20,13 +20,14 @@
 - [x] Utilities (JsonUtils, SlugUtils)
 - [x] All tests passing
 
-### squadron-gateway (9 src / 9 test)
+### squadron-gateway (10 src / 10 test)
 - [x] GatewayConfig with service routes + WebSocket routes
 - [x] SecurityConfig (JWT validation)
 - [x] CorsConfig
 - [x] Filters (RequestLogging, TenantHeader, RateLimit)
 - [x] HealthStatusController
-- [x] Agent dashboard route (14 routes total)
+- [x] Agent dashboard route (15 routes total)
+- [x] Agent squadron route (no stripPrefix, forwards full path)
 - [x] Platform-service route (no stripPrefix, forwards full path)
 - [x] All tests passing
 
@@ -50,7 +51,7 @@
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
-### squadron-agent (84 src / 83 test)
+### squadron-agent (90 src / 91 test)
 - [x] Agent providers (OpenAI-compatible, Ollama)
 - [x] Tool system (ToolRegistry, ToolExecutionEngine, built-in tools)
 - [x] Services (Agent, Planning, Coding, Review, QA, Merge, Coverage)
@@ -59,10 +60,11 @@
 - [x] Token usage tracking
 - [x] WebSocket controller
 - [x] Agent dashboard API (DTOs, service, controller, 17 tests)
+- [x] User agent squadron configuration (entity, DTO, repository, service, controller, migration, 28 tests)
 - [x] Listeners migrated to JetStreamSubscriber (Planning, Coding, Review, QA, Merge, PlanApproval)
 - [x] Feign clients (OrchestratorClient, GitServiceClient, ReviewServiceClient, WorkspaceServiceClient)
 - [x] Resilient Feign wrappers (circuit breaker + retry for all 4 Feign clients)
-- [x] Flyway migrations (V1, V2)
+- [x] Flyway migrations (V1, V2, V3)
 - [x] All tests passing
 
 ### squadron-workspace (16 src / 16 test)
@@ -118,15 +120,16 @@
 - [x] All tests passing
 
 ### squadron-ui (Angular 21)
-- [x] 30 components (dashboard, tasks, projects, reviews, agent-chat, etc.)
-- [x] 21 services (including agent-dashboard, platform services)
-- [x] 12 models (including agent dashboard interfaces)
+- [x] 32 components (dashboard, tasks, projects, reviews, agent-chat, squadron-config, etc.)
+- [x] 23 services (including agent-dashboard, user-squadron, platform services)
+- [x] 13 models (including agent dashboard, squadron config interfaces)
 - [x] Auth infrastructure (guard, interceptor, OIDC)
 - [x] Shared components (header, sidebar, avatar, notification-bell)
 - [x] Admin console (users, teams, security groups, permissions, etc.)
 - [x] Project workflow mapping settings page with platform connection integration
 - [x] Agent-focused dashboard redesign (active/idle agents, active work, timeline, type breakdown)
 - [x] Ticket provider integration UI (connection linking, remote status fetch, status-aware mappings)
+- [x] User agent squadron configuration UI (agent cards, add/edit/remove/reset, inline template)
 
 ### Infrastructure
 - [x] Docker Compose (docker-compose.yml)
@@ -201,24 +204,46 @@
 ## Remaining Features
 
 ### Feature 2: Agent Interaction UI (OpenCode-inspired)
-- [ ] Backend: Agent conversation WebSocket enhancements (live prompting, cancel/interrupt)
-- [ ] Backend: Agent TODO/progress tracking via NATS events
-- [ ] Frontend: Agent interaction page with live prompting during execution
-- [ ] Frontend: Cancel/interrupt capability for running agents
-- [ ] Frontend: Real-time TODO/progress visibility panel
-- [ ] Tests for all new backend + frontend components
+- [x] Backend: Agent conversation WebSocket enhancements (live prompting, cancel/interrupt)
+- [x] Backend: Agent TODO/progress tracking via NATS events
+- [x] Frontend: Agent interaction page with live prompting during execution
+- [x] Frontend: Cancel/interrupt capability for running agents
+- [x] Frontend: Real-time TODO/progress visibility panel
+- [x] Tests for all new backend + frontend components
+  - Backend: AgentSessionManager (14 tests), AgentProgressDto (8 tests), AgentInterruptRequest (6 tests)
+  - Backend: AgentWebSocketController (+3 tests), AgentChatController (+6 tests)
+  - Frontend: AgentService (16 tests), AgentChatComponent (25 tests)
 
 ### Feature 3: Notification System
-- [ ] Backend: NATS event listeners for significant events (agent completion, errors, interrupts)
-- [ ] Backend: Push events via WebSocket to UI
-- [ ] Frontend: Toast/popup notification component (slides from top-down)
-- [ ] Frontend: Notification preferences integration
-- [ ] Tests for all new backend + frontend components
+- [x] Backend: NATS event listeners for significant events (agent completion, errors, interrupts)
+- [x] Backend: Push events via WebSocket to UI (InAppNotificationChannel via STOMP)
+- [x] Frontend: Toast/popup notification component (slides from top-down)
+- [x] Frontend: Notification bell with live WebSocket connection
+- [x] Tests for all new backend + frontend components
+  - Frontend: NotificationService (21 tests), NotificationBellComponent (18 tests), NotificationToastComponent (8 tests)
 
 ### Feature 4: Deployment Documentation
-- [ ] Self-hosted deployment guide
-- [ ] On-premise deployment guide
-- [ ] Cloud/Azure AKS deployment guide
+- [x] Self-hosted deployment guide (docs/deployment/self-hosted.md — 1136 lines)
+- [x] On-premise deployment guide (docs/deployment/on-premise.md — 684 lines)
+- [x] Cloud/Azure AKS deployment guide (docs/deployment/azure-aks.md — 1543 lines)
+
+### Feature 5: User Agent Squadron Configuration
+- [x] Backend: UserAgentConfig entity (per-user, per-agent row with UUID, tenantId, userId, agentName, agentType, etc.)
+- [x] Backend: UserAgentConfigDto with Jakarta validation
+- [x] Backend: Flyway migration V3 (user_agent_configs table + indexes)
+- [x] Backend: UserAgentConfigRepository (JPA queries for tenant+user)
+- [x] Backend: UserAgentConfigService (auto-seeding 8 defaults, CRUD, validation, max count enforcement)
+- [x] Backend: UserAgentConfigController at /api/agents/squadron (GET, POST, PUT, DELETE, POST /reset, GET /limits)
+- [x] Backend: application.yml config squadron.agents.max-per-user
+- [x] Backend: 18 service tests + 10 controller tests (all passing)
+- [x] Gateway: agent-squadron route (no stripPrefix, before catch-all agent-service route)
+- [x] Gateway: GatewayConfigTest updated (15 routes, new test)
+- [x] Frontend: squadron-config.model.ts (UserAgentConfig, AGENT_TYPES, SquadronLimits)
+- [x] Frontend: UserSquadronService (extends ApiService, CRUD + unwrap ApiResponse.data)
+- [x] Frontend: SquadronConfigComponent (inline template+styles, signals, agent cards)
+- [x] Frontend: Route at /settings/squadron, sidebar nav item "My Squadron"
+- [x] Frontend: 9 service tests + 18 component tests (all passing)
+- [x] Tests: 662 Angular tests passing, all backend tests passing
 
 ---
 
@@ -227,15 +252,15 @@
 | Module | Sources | Tests | Status |
 |--------|:-------:|:-----:|--------|
 | squadron-common | 60 | 65 | Complete |
-| squadron-gateway | 9 | 9 | Complete |
+| squadron-gateway | 10 | 10 | Complete |
 | squadron-identity | 42 | 42 | Complete |
 | squadron-orchestrator | 36 | 35 | Complete |
-| squadron-agent | 84 | 83 | Complete |
+| squadron-agent | 90 | 91 | Complete |
 | squadron-workspace | 16 | 16 | Complete |
 | squadron-platform | 33 | 35 | Complete |
 | squadron-git | 34 | 36 | Complete |
 | squadron-review | 26 | 27 | Complete |
 | squadron-config | 11 | 11 | Complete |
 | squadron-notification | 24 | 24 | Complete |
-| **TOTAL** | **375** | **383** | |
-| squadron-ui | 31 components | 49 specs | Complete |
+| **TOTAL** | **382** | **392** | |
+| squadron-ui | 32 components | 52 specs | Complete |

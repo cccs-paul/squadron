@@ -1,6 +1,7 @@
 package com.squadron.agent.controller;
 
 import com.squadron.agent.dto.AgentConfigDto;
+import com.squadron.agent.dto.AgentInterruptRequest;
 import com.squadron.agent.dto.ChatRequest;
 import com.squadron.agent.dto.StreamChunk;
 import com.squadron.agent.entity.Conversation;
@@ -8,6 +9,7 @@ import com.squadron.agent.entity.ConversationMessage;
 import com.squadron.agent.provider.AgentProvider;
 import com.squadron.agent.provider.AgentProviderRegistry;
 import com.squadron.agent.provider.ChatMessage;
+import com.squadron.agent.service.AgentSessionManager;
 import com.squadron.agent.service.ConversationService;
 import com.squadron.agent.service.SquadronConfigService;
 import com.squadron.agent.service.SystemPromptBuilder;
@@ -16,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import reactor.core.Disposable;
 
 import java.util.List;
 import java.util.UUID;
@@ -31,17 +34,20 @@ public class AgentWebSocketController {
     private final AgentProviderRegistry providerRegistry;
     private final SystemPromptBuilder promptBuilder;
     private final SimpMessagingTemplate messagingTemplate;
+    private final AgentSessionManager agentSessionManager;
 
     public AgentWebSocketController(ConversationService conversationService,
                                      SquadronConfigService configService,
                                      AgentProviderRegistry providerRegistry,
                                      SystemPromptBuilder promptBuilder,
-                                     SimpMessagingTemplate messagingTemplate) {
+                                     SimpMessagingTemplate messagingTemplate,
+                                     AgentSessionManager agentSessionManager) {
         this.conversationService = conversationService;
         this.configService = configService;
         this.providerRegistry = providerRegistry;
         this.promptBuilder = promptBuilder;
         this.messagingTemplate = messagingTemplate;
+        this.agentSessionManager = agentSessionManager;
     }
 
     /**
@@ -87,7 +93,7 @@ public class AgentWebSocketController {
             AgentProvider provider = providerRegistry.getProvider(agentConfig.getProvider());
             StringBuilder fullResponse = new StringBuilder();
 
-            provider.chatStream(systemPrompt, history, request.getMessage(), agentConfig)
+            Disposable disposable = provider.chatStream(systemPrompt, history, request.getMessage(), agentConfig)
                     .subscribe(
                             chunk -> {
                                 fullResponse.append(chunk);
@@ -104,6 +110,7 @@ public class AgentWebSocketController {
                                         .content("Error: " + error.getMessage())
                                         .type("error")
                                         .build());
+                                agentSessionManager.removeStream(convId);
                             },
                             () -> {
                                 String completeResponse = fullResponse.toString();
@@ -116,10 +123,36 @@ public class AgentWebSocketController {
                                         .type("done")
                                         .tokenCount(estimatedTokens)
                                         .build());
+                                agentSessionManager.removeStream(convId);
                             }
                     );
+
+            agentSessionManager.registerStream(convId, disposable);
         } catch (Exception e) {
             log.error("Failed to handle WebSocket chat request", e);
+        }
+    }
+
+    /**
+     * Handles incoming STOMP messages at /app/interrupt to cancel an active agent stream.
+     * Sends an "interrupted" StreamChunk to /topic/chat/{conversationId}.
+     */
+    @MessageMapping("/interrupt")
+    public void handleInterrupt(AgentInterruptRequest request) {
+        UUID convId = request.getConversationId();
+        log.info("Received interrupt request for conversation {} (reason: {})", convId, request.getReason());
+
+        boolean cancelled = agentSessionManager.cancelStream(convId);
+        if (cancelled) {
+            String destination = "/topic/chat/" + convId;
+            messagingTemplate.convertAndSend(destination, StreamChunk.builder()
+                    .conversationId(convId)
+                    .content("Agent interrupted" + (request.getReason() != null ? ": " + request.getReason() : ""))
+                    .type("interrupted")
+                    .build());
+            log.info("Successfully interrupted conversation {}", convId);
+        } else {
+            log.warn("No active stream found for conversation {} to interrupt", convId);
         }
     }
 

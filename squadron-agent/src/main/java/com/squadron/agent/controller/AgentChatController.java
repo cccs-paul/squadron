@@ -1,11 +1,13 @@
 package com.squadron.agent.controller;
 
+import com.squadron.agent.dto.AgentProgressDto;
 import com.squadron.agent.dto.ChatRequest;
 import com.squadron.agent.dto.ChatResponse;
 import com.squadron.agent.dto.StreamChunk;
 import com.squadron.agent.entity.Conversation;
 import com.squadron.agent.entity.ConversationMessage;
 import com.squadron.agent.service.AgentService;
+import com.squadron.agent.service.AgentSessionManager;
 import com.squadron.agent.service.ConversationService;
 import com.squadron.common.dto.ApiResponse;
 import com.squadron.common.security.TenantContext;
@@ -31,10 +33,14 @@ public class AgentChatController {
 
     private final AgentService agentService;
     private final ConversationService conversationService;
+    private final AgentSessionManager agentSessionManager;
 
-    public AgentChatController(AgentService agentService, ConversationService conversationService) {
+    public AgentChatController(AgentService agentService,
+                               ConversationService conversationService,
+                               AgentSessionManager agentSessionManager) {
         this.agentService = agentService;
         this.conversationService = conversationService;
+        this.agentSessionManager = agentSessionManager;
     }
 
     /**
@@ -101,5 +107,29 @@ public class AgentChatController {
     public ResponseEntity<ApiResponse<Conversation>> closeConversation(@PathVariable UUID conversationId) {
         Conversation conversation = conversationService.closeConversation(conversationId);
         return ResponseEntity.ok(ApiResponse.success(conversation));
+    }
+
+    /**
+     * Returns the current progress for an active agent session.
+     */
+    @GetMapping("/sessions/{conversationId}/progress")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
+    public ResponseEntity<ApiResponse<AgentProgressDto>> getSessionProgress(
+            @PathVariable UUID conversationId) {
+        AgentProgressDto progress = agentSessionManager.getProgress(conversationId);
+        if (progress == null) {
+            return ResponseEntity.ok(ApiResponse.success(null));
+        }
+        return ResponseEntity.ok(ApiResponse.success(progress));
+    }
+
+    /**
+     * Interrupts an active agent session, cancelling the stream.
+     */
+    @PostMapping("/sessions/{conversationId}/interrupt")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
+    public ResponseEntity<ApiResponse<Boolean>> interruptSession(@PathVariable UUID conversationId) {
+        boolean cancelled = agentSessionManager.cancelStream(conversationId);
+        return ResponseEntity.ok(ApiResponse.success(cancelled));
     }
 }

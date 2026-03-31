@@ -84,8 +84,8 @@ describe('TenantService', () => {
   it('should_useCorrectBaseUrl_when_makingRequests', () => {
     service.getTenant().subscribe();
 
-    const req = httpTesting.expectOne(`http://localhost:8080/api/tenants/current`);
-    expect(req.request.url).toBe('http://localhost:8080/api/tenants/current');
+    const req = httpTesting.expectOne(`${apiUrl}/tenants/current`);
+    expect(req.request.url).toBe(`${apiUrl}/tenants/current`);
     req.flush({});
   });
 });

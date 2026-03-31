@@ -1,0 +1,203 @@
+<div class="project-config">
+  <div class="project-config__header">
+    <h2>Project Workflow Mappings</h2>
+    <p class="project-config__subtitle">
+      Link projects to external platforms and map Squadron workflow states to platform statuses
+    </p>
+  </div>
+
+  @if (loading()) {
+    <div class="project-config__loading">
+      <div class="spinner"></div>
+      <p>Loading projects...</p>
+    </div>
+  } @else if (loadError()) {
+    <div class="alert alert--error">{{ loadError() }}</div>
+  } @else {
+    <div class="project-config__list">
+      @for (ps of projectStates(); track ps.project.id; let i = $index) {
+        <div class="project-card" [class.project-card--expanded]="ps.expanded">
+          <button class="project-card__header" (click)="toggleProject(i)">
+            <div class="project-card__info">
+              <span class="project-card__name">{{ ps.project.name }}</span>
+              @if (ps.project.description) {
+                <span class="project-card__desc">{{ ps.project.description }}</span>
+              }
+            </div>
+            <div class="project-card__meta">
+              @if (ps.connectionName) {
+                <span class="project-card__platform-tag">{{ ps.connectionName }}</span>
+              }
+              <span class="project-card__badge">{{ ps.mappings.length }} mappings</span>
+              <span class="project-card__chevron" [class.project-card__chevron--open]="ps.expanded">
+                &#9662;
+              </span>
+            </div>
+          </button>
+
+          @if (ps.expanded) {
+            <div class="project-card__body">
+              @if (ps.saveSuccess) {
+                <div class="alert alert--success">Mappings saved successfully</div>
+              }
+              @if (ps.saveError) {
+                <div class="alert alert--error">{{ ps.saveError }}</div>
+              }
+              @if (ps.fetchError) {
+                <div class="alert alert--error">{{ ps.fetchError }}</div>
+              }
+
+              <!-- Platform Connection Section -->
+              <div class="connection-section">
+                <h3 class="connection-section__title">Platform Connection</h3>
+                <div class="connection-section__row">
+                  <div class="connection-section__field">
+                    <label class="connection-section__label">Connection</label>
+                    <select
+                      class="form-select"
+                      [ngModel]="ps.project.connectionId || ''"
+                      (ngModelChange)="updateProjectConnection(i, $event)"
+                    >
+                      <option value="">-- No connection --</option>
+                      @for (conn of connections(); track conn.id) {
+                        <option [value]="conn.id">
+                          {{ platformIcon(conn.platformType) }} - {{ conn.name }}
+                        </option>
+                      }
+                    </select>
+                  </div>
+                  <div class="connection-section__field">
+                    <label class="connection-section__label">External Project Key</label>
+                    <input
+                      class="form-input"
+                      type="text"
+                      [ngModel]="ps.project.externalProjectId || ''"
+                      (ngModelChange)="updateExternalProjectId(i, $event)"
+                      placeholder="e.g. SQ, my-org/my-repo"
+                    />
+                  </div>
+                  <div class="connection-section__action">
+                    <button
+                      class="btn btn--secondary"
+                      (click)="fetchRemoteStatuses(i)"
+                      [disabled]="!canFetchStatuses(ps)"
+                    >
+                      @if (ps.fetchingStatuses) {
+                        <span class="spinner spinner--inline"></span>
+                        Fetching...
+                      } @else {
+                        Fetch Statuses
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                @if (ps.remoteStatuses.length > 0) {
+                  <div class="connection-section__statuses">
+                    <span class="connection-section__statuses-label">Remote statuses:</span>
+                    <div class="connection-section__statuses-list">
+                      @for (status of ps.remoteStatuses; track status) {
+                        <span class="status-chip">{{ status }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <!-- Workflow Mappings Section -->
+              @if (ps.loading) {
+                <div class="project-config__loading project-config__loading--small">
+                  <div class="spinner spinner--small"></div>
+                  <p>Loading mappings...</p>
+                </div>
+              } @else {
+                <div class="mapping-section">
+                  <h3 class="mapping-section__title">Workflow Mappings</h3>
+
+                  <div class="mapping-table">
+                    <div class="mapping-table__header-row">
+                      <span class="mapping-table__col-label">Squadron State</span>
+                      <span class="mapping-table__col-label">External Status</span>
+                      <span class="mapping-table__col-action"></span>
+                    </div>
+
+                    @for (m of ps.mappings; track m.internalState; let mi = $index) {
+                      <div class="mapping-table__row">
+                        <select
+                          class="mapping-table__select"
+                          [ngModel]="m.internalState"
+                          (ngModelChange)="updateMappingState(i, mi, $event)"
+                        >
+                          @for (s of getAvailableStates(i, m.internalState); track s) {
+                            <option [value]="s">{{ formatState(s) }}</option>
+                          }
+                        </select>
+
+                        @if (ps.remoteStatuses.length > 0) {
+                          <select
+                            class="mapping-table__select"
+                            [ngModel]="m.externalStatus"
+                            (ngModelChange)="updateMappingStatus(i, mi, $event)"
+                          >
+                            <option value="">-- Select status --</option>
+                            @for (rs of ps.remoteStatuses; track rs) {
+                              <option [value]="rs">{{ rs }}</option>
+                            }
+                          </select>
+                        } @else {
+                          <input
+                            class="mapping-table__input"
+                            type="text"
+                            [ngModel]="m.externalStatus"
+                            (ngModelChange)="updateMappingStatus(i, mi, $event)"
+                            placeholder="e.g. In Progress, Code Review..."
+                          />
+                        }
+
+                        <button class="mapping-table__remove" (click)="removeMapping(i, mi)" title="Remove mapping">
+                          &times;
+                        </button>
+                      </div>
+                    }
+
+                    @if (ps.mappings.length === 0) {
+                      <div class="mapping-table__empty">
+                        No workflow mappings configured. Click "Add Mapping" to map Squadron
+                        states to external platform statuses.
+                      </div>
+                    }
+                  </div>
+
+                  <div class="project-card__actions">
+                    @if (ps.mappings.length < workflowStates().length) {
+                      <button class="btn btn--secondary" (click)="addMapping(i)">
+                        + Add Mapping
+                      </button>
+                    }
+                    <button
+                      class="btn btn--primary"
+                      (click)="saveMappings(i)"
+                      [disabled]="ps.saving"
+                    >
+                      @if (ps.saving) {
+                        Saving...
+                      } @else {
+                        Save Mappings
+                      }
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      @if (projectStates().length === 0) {
+        <div class="project-config__empty">
+          <p>No projects found. Create a project first to configure workflow mappings.</p>
+        </div>
+      }
+    </div>
+  }
+</div>

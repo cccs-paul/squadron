@@ -6,8 +6,39 @@ export interface StreamChunk {
   conversationId: string;
   messageId?: string;
   content?: string;
-  type: 'chunk' | 'done' | 'error';
+  type: 'chunk' | 'done' | 'error' | 'interrupted';
   tokenCount?: number;
+}
+
+/**
+ * Agent progress update received via WebSocket on /topic/progress/{conversationId}
+ * or via REST GET /api/agents/sessions/{id}/progress.
+ * Mirrors com.squadron.agent.dto.AgentProgressDto.
+ */
+export interface AgentProgress {
+  conversationId: string;
+  agentType: string;
+  phase: string;       // e.g. "PLANNING", "CODING", "REVIEWING", "TESTING"
+  currentStep: string; // e.g. "Analyzing codebase", "Writing tests"
+  completedSteps: number;
+  totalSteps: number;
+  items: ProgressItem[];
+}
+
+/** A single TODO/progress item within AgentProgress. */
+export interface ProgressItem {
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  priority: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Request to interrupt/cancel a running agent session.
+ * Mirrors com.squadron.agent.dto.AgentInterruptRequest.
+ */
+export interface AgentInterruptRequest {
+  conversationId: string;
+  reason: 'USER_CANCEL' | 'USER_PROMPT' | 'TIMEOUT';
 }
 
 /**

@@ -34,9 +34,10 @@ describe('HeaderComponent', () => {
       isAdmin: signal(false).asReadonly(),
     });
 
-    const notificationServiceSpy = jasmine.createSpyObj('NotificationService', ['getNotifications', 'markAsRead', 'markAllAsRead'], {
+    const notificationServiceSpy = jasmine.createSpyObj('NotificationService', ['getNotifications', 'markAsRead', 'markAllAsRead', 'connectWebSocket', 'disconnectWebSocket'], {
       unreadCount: signal(0),
       notifications: signal([]),
+      toasts: signal([]),
     });
 
     await TestBed.configureTestingModule({

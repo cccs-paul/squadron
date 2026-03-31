@@ -48,7 +48,7 @@ describe('ApiService', () => {
   });
 
   it('should_haveCorrectBaseUrl', () => {
-    expect((service as any).baseUrl).toBe('http://localhost:8080/api');
+    expect((service as any).baseUrl).toBe(environment.apiUrl);
   });
 
   it('should_makeGetRequest_when_calledWithPath', () => {

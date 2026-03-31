@@ -43,6 +43,8 @@ spring:
           num-predict: 4096
 
 squadron:
+  agents:
+    max-per-user: ${SQUADRON_MAX_AGENTS_PER_USER:8}
   nats:
     url: ${NATS_URL:nats://localhost:4222}
   orchestrator:

@@ -120,6 +120,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'settings/squadron',
+        loadComponent: () =>
+          import('./features/settings/squadron-config/squadron-config.component').then(
+            (m) => m.SquadronConfigComponent,
+          ),
+      },
+      {
         path: 'admin',
         canActivate: [adminGuard],
         loadChildren: () =>

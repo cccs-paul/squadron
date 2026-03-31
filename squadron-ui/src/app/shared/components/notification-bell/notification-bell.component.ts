@@ -1,5 +1,6 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { NotificationService } from '../../../core/services/notification.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { TimeAgoPipe } from '../../pipes/time-ago.pipe';
 import { TruncatePipe } from '../../pipes/truncate.pipe';
 
@@ -10,12 +11,25 @@ import { TruncatePipe } from '../../pipes/truncate.pipe';
   templateUrl: './notification-bell.component.html',
   styleUrl: './notification-bell.component.scss',
 })
-export class NotificationBellComponent {
+export class NotificationBellComponent implements OnInit, OnDestroy {
   private notificationService = inject(NotificationService);
+  private authService = inject(AuthService);
 
   readonly unreadCount = this.notificationService.unreadCount;
   readonly notifications = this.notificationService.notifications;
   dropdownOpen = false;
+
+  ngOnInit(): void {
+    // Connect to notification WebSocket for real-time updates
+    const user = this.authService.user();
+    if (user?.id) {
+      this.notificationService.connectWebSocket(user.id);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.notificationService.disconnectWebSocket();
+  }
 
   toggleDropdown(): void {
     this.dropdownOpen = !this.dropdownOpen;

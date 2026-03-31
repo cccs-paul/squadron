@@ -19,95 +19,144 @@
           </span>
         </div>
       }
+      @if (sending()) {
+        <button class="sq-btn sq-btn--danger cancel-btn" (click)="cancelAgent()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+          </svg>
+          Cancel
+        </button>
+      }
       <span class="connection-indicator" [class]="'connection-indicator--' + connectionState()">
         {{ connectionState() }}
       </span>
     </div>
   </div>
 
-  <div class="agent-chat__body" #chatBody>
-    @for (msg of messages(); track msg.id) {
-      <div class="message" [class]="'message--' + msg.role.toLowerCase()">
-        <div class="message__avatar">
-          @if (msg.role === 'AGENT') {
-            <div class="agent-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="3"/>
-              </svg>
-            </div>
-          } @else if (msg.role === 'USER') {
-            <sq-avatar name="You" [size]="32" />
-          } @else {
-            <div class="system-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
-              </svg>
-            </div>
-          }
+  <div class="agent-chat__main">
+    <!-- Progress Panel (sidebar) -->
+    @if (progress(); as p) {
+      <div class="progress-panel">
+        <div class="progress-panel__header">
+          <span class="progress-panel__phase">{{ p.phase }}</span>
+          <span class="progress-panel__agent-type">{{ p.agentType }}</span>
         </div>
-        <div class="message__content">
-          <div class="message__header">
-            <span class="message__author">
-              @switch (msg.role) {
-                @case ('AGENT') { AI Agent }
-                @case ('USER') { You }
-                @case ('SYSTEM') { System }
+        <div class="progress-panel__step">{{ p.currentStep }}</div>
+        <div class="progress-panel__bar">
+          <div class="progress-panel__bar-fill" [style.width]="(progressPercent * 100) + '%'"></div>
+        </div>
+        <div class="progress-panel__count">{{ p.completedSteps }}/{{ p.totalSteps }} steps</div>
+        <div class="progress-panel__items">
+          @for (item of p.items; track item.content) {
+            <div class="progress-item" [class]="'progress-item--' + item.status">
+              <span class="progress-item__icon">
+                @switch (item.status) {
+                  @case ('completed') { &#10003; }
+                  @case ('in_progress') { &#9654; }
+                  @case ('pending') { &#9675; }
+                }
+              </span>
+              <span class="progress-item__text">{{ item.content }}</span>
+              @if (item.priority === 'high') {
+                <span class="progress-item__priority">!</span>
               }
-            </span>
-            <span class="message__time">{{ msg.createdAt | timeAgo }}</span>
-          </div>
-          <div class="message__body" [innerHTML]="formatCodeBlocks(msg.content)"></div>
-          @if (msg.tokenUsage) {
-            <span class="message__tokens">{{ msg.tokenUsage | number }} tokens</span>
+            </div>
           }
         </div>
       </div>
     }
 
-    @if (streamingContent()) {
-      <div class="message message--agent">
-        <div class="message__avatar">
-          <div class="agent-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="3"/>
-            </svg>
+    <!-- Chat Area -->
+    <div class="agent-chat__chat-area">
+      <div class="agent-chat__body" #chatBody>
+        @for (msg of messages(); track msg.id) {
+          <div class="message" [class]="'message--' + msg.role.toLowerCase()">
+            <div class="message__avatar">
+              @if (msg.role === 'AGENT') {
+                <div class="agent-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="3"/>
+                  </svg>
+                </div>
+              } @else if (msg.role === 'USER') {
+                <sq-avatar name="You" [size]="32" />
+              } @else {
+                <div class="system-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                </div>
+              }
+            </div>
+            <div class="message__content">
+              <div class="message__header">
+                <span class="message__author">
+                  @switch (msg.role) {
+                    @case ('AGENT') { AI Agent }
+                    @case ('USER') { You }
+                    @case ('SYSTEM') { System }
+                  }
+                </span>
+                <span class="message__time">{{ msg.createdAt | timeAgo }}</span>
+              </div>
+              <div class="message__body" [innerHTML]="formatCodeBlocks(msg.content)"></div>
+              @if (msg.tokenUsage) {
+                <span class="message__tokens">{{ msg.tokenUsage | number }} tokens</span>
+              }
+            </div>
           </div>
-        </div>
-        <div class="message__content">
-          <div class="message__header">
-            <span class="message__author">AI Agent</span>
-            <span class="message__time streaming-badge">streaming...</span>
+        }
+
+        @if (streamingContent()) {
+          <div class="message message--agent">
+            <div class="message__avatar">
+              <div class="agent-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="3"/>
+                </svg>
+              </div>
+            </div>
+            <div class="message__content">
+              <div class="message__header">
+                <span class="message__author">AI Agent</span>
+                <span class="message__time streaming-badge">streaming...</span>
+              </div>
+              <div class="message__body" [innerHTML]="formatCodeBlocks(streamingContent())"></div>
+            </div>
           </div>
-          <div class="message__body" [innerHTML]="formatCodeBlocks(streamingContent())"></div>
-        </div>
-      </div>
-    }
+        }
 
-    @if (sending() && !streamingContent()) {
-      <div class="message message--agent">
-        <div class="message__avatar">
-          <div class="agent-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="3"/></svg></div>
-        </div>
-        <div class="message__content">
-          <div class="typing-indicator"><span></span><span></span><span></span></div>
-        </div>
-      </div>
-    }
-  </div>
+        @if (sending() && !streamingContent()) {
+          <div class="message message--agent">
+            <div class="message__avatar">
+              <div class="agent-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="3"/></svg></div>
+            </div>
+            <div class="message__content">
+              <div class="typing-indicator"><span></span><span></span><span></span></div>
+            </div>
+          </div>
+        }
 
-  <div class="agent-chat__input">
-    <input
-      type="text"
-      class="sq-input chat-input"
-      placeholder="Type a message..."
-      [(ngModel)]="newMessage"
-      (keyup.enter)="sendMessage()"
-      [disabled]="sending()"
-    />
-    <button class="sq-btn sq-btn--primary send-btn" (click)="sendMessage()" [disabled]="sending() || !newMessage.trim()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-      </svg>
-    </button>
+        @if (interrupted()) {
+          <div class="interrupted-banner">Agent was interrupted. You can send a new message to continue.</div>
+        }
+      </div>
+
+      <div class="agent-chat__input">
+        <input
+          type="text"
+          class="sq-input chat-input"
+          placeholder="Type a message..."
+          [(ngModel)]="newMessage"
+          (keyup.enter)="sendMessage()"
+          [disabled]="sending()"
+        />
+        <button class="sq-btn sq-btn--primary send-btn" (click)="sendMessage()" [disabled]="sending() || !newMessage.trim()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
   </div>
 </div>

@@ -10,8 +10,10 @@
     h2 { font-size: 16px; font-weight: 600; }
     svg { color: var(--sq-primary); }
   }
-  &__meta { display: flex; align-items: center; gap: 16px; }
+  &__meta { display: flex; align-items: center; gap: 12px; }
   &__stats { display: flex; gap: 20px; }
+  &__main { display: flex; flex: 1; overflow: hidden; }
+  &__chat-area { display: flex; flex-direction: column; flex: 1; min-width: 0; }
   &__body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
   &__input {
     display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--sq-border); flex-shrink: 0;
@@ -28,16 +30,55 @@
   }
 }
 
+.cancel-btn {
+  display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 12px;
+  height: 30px; border-radius: var(--sq-radius);
+}
+
 .connection-indicator {
   font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: var(--sq-radius-full);
   text-transform: uppercase; letter-spacing: 0.5px;
-
   &--connected { background: rgba(34, 197, 94, 0.12); color: var(--sq-success); }
   &--connecting { background: rgba(234, 179, 8, 0.12); color: var(--sq-warning); }
   &--disconnected { background: rgba(148, 163, 184, 0.12); color: var(--sq-text-tertiary); }
   &--error { background: rgba(239, 68, 68, 0.12); color: var(--sq-error); }
 }
 
+// --- Progress Panel (sidebar) ---
+.progress-panel {
+  width: 260px; flex-shrink: 0; border-right: 1px solid var(--sq-border);
+  padding: 16px; overflow-y: auto; background: var(--sq-bg);
+
+  &__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  &__phase { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--sq-primary); }
+  &__agent-type { font-size: 11px; color: var(--sq-text-tertiary); }
+  &__step { font-size: 13px; color: var(--sq-text); margin-bottom: 10px; line-height: 1.4; }
+  &__bar { height: 4px; background: var(--sq-border); border-radius: 2px; margin-bottom: 6px; overflow: hidden; }
+  &__bar-fill { height: 100%; background: var(--sq-primary); border-radius: 2px; transition: width 0.3s ease; }
+  &__count { font-size: 11px; color: var(--sq-text-tertiary); margin-bottom: 14px; }
+  &__items { display: flex; flex-direction: column; gap: 6px; }
+}
+
+.progress-item {
+  display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 4px 0;
+  &__icon { flex-shrink: 0; width: 16px; text-align: center; font-size: 12px; line-height: 18px; }
+  &__text { flex: 1; line-height: 18px; color: var(--sq-text); }
+  &__priority { font-size: 10px; font-weight: 700; color: var(--sq-error); }
+
+  &--completed {
+    .progress-item__icon { color: var(--sq-success); }
+    .progress-item__text { color: var(--sq-text-tertiary); text-decoration: line-through; }
+  }
+  &--in_progress {
+    .progress-item__icon { color: var(--sq-primary); }
+    .progress-item__text { font-weight: 500; }
+  }
+  &--pending {
+    .progress-item__icon { color: var(--sq-text-tertiary); }
+  }
+}
+
+// --- Messages ---
 .message {
   display: flex; gap: 12px;
   &--system { justify-content: center;
@@ -76,8 +117,11 @@
 .chat-input { flex: 1; height: 42px; }
 .send-btn { min-width: 42px; height: 42px; padding: 0; }
 
-.streaming-badge {
-  color: var(--sq-primary); font-style: italic;
+.streaming-badge { color: var(--sq-primary); font-style: italic; }
+
+.interrupted-banner {
+  text-align: center; padding: 8px 16px; background: rgba(234, 179, 8, 0.1);
+  color: var(--sq-warning); font-size: 13px; border-radius: var(--sq-radius); margin-top: 4px;
 }
 
 .typing-indicator {

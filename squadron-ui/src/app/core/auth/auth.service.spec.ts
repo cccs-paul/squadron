@@ -27,7 +27,7 @@ describe('AuthService', () => {
     ...mockUser,
     id: 'admin-1',
     username: 'admin',
-    roles: ['USER', 'ADMIN'],
+    roles: ['USER', 'squadron-admin'],
   };
 
   const mockLoginResponse: LoginResponse = {
@@ -42,6 +42,11 @@ describe('AuthService', () => {
     ...mockLoginResponse,
     user: mockAdminUser,
   };
+
+  /** Helper to wrap a response in the ApiResponse envelope the service expects. */
+  function apiResponse<T>(data: T) {
+    return { success: true, data, message: 'OK', timestamp: new Date().toISOString() };
+  }
 
   beforeEach(() => {
     // Clear localStorage before each test
@@ -86,7 +91,7 @@ describe('AuthService', () => {
       const req = httpTesting.expectOne(`${environment.apiUrl}/auth/login`);
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual(request);
-      req.flush(mockLoginResponse);
+      req.flush(apiResponse(mockLoginResponse));
 
       // Verify signals updated
       expect(service.isAuthenticated()).toBeTrue();
@@ -100,7 +105,7 @@ describe('AuthService', () => {
       service.login(request).subscribe();
 
       const req = httpTesting.expectOne(`${environment.apiUrl}/auth/login`);
-      req.flush(mockAdminLoginResponse);
+      req.flush(apiResponse(mockAdminLoginResponse));
 
       expect(service.isAdmin()).toBeTrue();
     });
@@ -111,7 +116,7 @@ describe('AuthService', () => {
       service.login(request).subscribe();
 
       const req = httpTesting.expectOne(`${environment.apiUrl}/auth/login`);
-      req.flush(mockLoginResponse);
+      req.flush(apiResponse(mockLoginResponse));
 
       expect(localStorage.getItem('sq_token')).toBe('access-token-123');
       expect(localStorage.getItem('sq_refresh')).toBe('refresh-token-456');
@@ -149,7 +154,7 @@ describe('AuthService', () => {
       const req = httpTesting.expectOne(`${environment.apiUrl}/auth/oidc/callback`);
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({ code: 'auth-code', state: 'state-123' });
-      req.flush(mockLoginResponse);
+      req.flush(apiResponse(mockLoginResponse));
 
       expect(service.isAuthenticated()).toBeTrue();
       expect(service.user()).toEqual(mockUser);
@@ -167,7 +172,7 @@ describe('AuthService', () => {
       const req = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({ refreshToken: 'old-refresh-token' });
-      req.flush(mockLoginResponse);
+      req.flush(apiResponse(mockLoginResponse));
 
       expect(service.isAuthenticated()).toBeTrue();
     });
@@ -256,7 +261,7 @@ describe('AuthService', () => {
 
       const req = httpTesting.expectOne(`${environment.apiUrl}/auth/tenants`);
       expect(req.request.method).toBe('GET');
-      req.flush(mockTenants);
+      req.flush({ success: true, data: mockTenants, message: 'OK', timestamp: new Date().toISOString() });
     });
   });
 

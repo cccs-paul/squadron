@@ -1,18 +1,18 @@
 import { Component, inject, OnInit, OnDestroy, signal, ElementRef, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, PercentPipe } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AgentService, AgentSession, AgentMessage } from '../../core/services/agent.service';
 import { WebSocketService, ConnectionState } from '../../core/services/websocket.service';
-import { StreamChunk, ChatRequest } from '../../core/models/agent.model';
+import { StreamChunk, ChatRequest, AgentProgress } from '../../core/models/agent.model';
 import { AvatarComponent } from '../../shared/components/avatar/avatar.component';
 import { TimeAgoPipe } from '../../shared/pipes/time-ago.pipe';
 
 @Component({
   selector: 'sq-agent-chat',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, AvatarComponent, TimeAgoPipe],
+  imports: [FormsModule, DecimalPipe, PercentPipe, AvatarComponent, TimeAgoPipe],
   templateUrl: './agent-chat.component.html',
   styleUrl: './agent-chat.component.scss',
 })
@@ -29,12 +29,26 @@ export class AgentChatComponent implements OnInit, OnDestroy {
   streamingContent = signal('');
   connectionState = signal<ConnectionState>('disconnected');
 
+  /** Agent progress/TODO tracking. */
+  progress = signal<AgentProgress | null>(null);
+
+  /** Whether the agent was interrupted. */
+  interrupted = signal(false);
+
   /** Tracks whether we're in streaming mode (WebSocket connected). */
   private streamingSub: Subscription | null = null;
+  private progressSub: Subscription | null = null;
   private conversationId: string | null = null;
   private taskId: string | null = null;
 
   @ViewChild('chatBody') chatBody!: ElementRef;
+
+  /** Progress bar percentage (0..1). */
+  get progressPercent(): number {
+    const p = this.progress();
+    if (!p || p.totalSteps === 0) return 0;
+    return p.completedSteps / p.totalSteps;
+  }
 
   ngOnInit(): void {
     this.taskId = this.route.snapshot.paramMap.get('taskId');
@@ -56,6 +70,21 @@ export class AgentChatComponent implements OnInit, OnDestroy {
             { id: '3', sessionId: 's1', role: 'USER', content: 'Yes, proceed with the plan. Make sure to use responsive design.', createdAt: new Date(Date.now() - 3400000).toISOString() },
             { id: '4', sessionId: 's1', role: 'AGENT', content: 'Starting implementation now. I\'ll begin with the dashboard layout component.\n\n```typescript\n@Component({\n  selector: \'sq-dashboard\',\n  template: `\n    <div class="dashboard">\n      <div class="stats-grid">...</div>\n      <div class="dashboard-grid">...</div>\n    </div>\n  `\n})\nexport class DashboardComponent {\n  // Implementation\n}\n```\n\nThe stat cards are complete. Moving on to the activity feed...', createdAt: new Date(Date.now() - 3000000).toISOString(), tokenUsage: 4500 },
           ]);
+          // Mock progress for demonstration
+          this.progress.set({
+            conversationId: 'mock',
+            agentType: 'CODING',
+            phase: 'CODING',
+            currentStep: 'Implementing dashboard components',
+            completedSteps: 2,
+            totalSteps: 4,
+            items: [
+              { content: 'Create dashboard layout', status: 'completed', priority: 'high' },
+              { content: 'Implement stat cards', status: 'completed', priority: 'high' },
+              { content: 'Add activity feed', status: 'in_progress', priority: 'medium' },
+              { content: 'Build chart component', status: 'pending', priority: 'medium' },
+            ],
+          });
         },
       });
     }
@@ -63,10 +92,11 @@ export class AgentChatComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.streamingSub?.unsubscribe();
+    this.progressSub?.unsubscribe();
     if (this.conversationId) {
       this.wsService.unsubscribe(`/topic/chat/${this.conversationId}`);
+      this.wsService.unsubscribe(`/topic/progress/${this.conversationId}`);
     }
-    // Don't disconnect the shared service — other components may use it
   }
 
   sendMessage(): void {
@@ -75,6 +105,7 @@ export class AgentChatComponent implements OnInit, OnDestroy {
     const content = this.newMessage.trim();
     this.newMessage = '';
     this.sending.set(true);
+    this.interrupted.set(false);
 
     const userMsg: AgentMessage = {
       id: crypto.randomUUID(), sessionId: sess?.id || 'mock', role: 'USER',
@@ -117,6 +148,21 @@ export class AgentChatComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Cancel/interrupt the currently running agent. */
+  cancelAgent(): void {
+    if (!this.conversationId) return;
+
+    // Prefer WebSocket if connected, fallback to REST
+    if (this.wsService.connectionState() === 'connected') {
+      this.agentService.sendInterruptMessage(
+        { conversationId: this.conversationId, reason: 'USER_CANCEL' },
+        this.wsService,
+      );
+    } else {
+      this.agentService.interruptAgent(this.conversationId, 'USER_CANCEL').subscribe();
+    }
+  }
+
   /** Connect to WebSocket and subscribe to the conversation's streaming topic. */
   private connectAndSubscribe(conversationId: string): void {
     this.wsService.connect();
@@ -127,10 +173,17 @@ export class AgentChatComponent implements OnInit, OnDestroy {
         next: (chunk: StreamChunk) => this.handleStreamChunk(chunk),
         error: (err) => console.error('Stream subscription error:', err),
       });
+
+    // Subscribe to progress updates
+    this.progressSub = this.agentService.subscribeToProgress(conversationId, this.wsService)
+      .subscribe({
+        next: (progress: AgentProgress) => this.progress.set(progress),
+        error: (err) => console.error('Progress subscription error:', err),
+      });
   }
 
   /** Handle an individual streaming chunk from the WebSocket. */
-  private handleStreamChunk(chunk: StreamChunk): void {
+  handleStreamChunk(chunk: StreamChunk): void {
     switch (chunk.type) {
       case 'chunk':
         this.streamingContent.update((c) => c + (chunk.content || ''));
@@ -153,6 +206,35 @@ export class AgentChatComponent implements OnInit, OnDestroy {
         }
         this.streamingContent.set('');
         this.sending.set(false);
+        this.scrollToBottom();
+        break;
+      }
+
+      case 'interrupted': {
+        // Agent was interrupted/cancelled
+        const partialContent = this.streamingContent();
+        if (partialContent) {
+          const partialMsg: AgentMessage = {
+            id: chunk.messageId || crypto.randomUUID(),
+            sessionId: this.conversationId || 'unknown',
+            role: 'AGENT',
+            content: partialContent,
+            tokenUsage: chunk.tokenCount,
+            createdAt: new Date().toISOString(),
+          };
+          this.messages.update((msgs) => [...msgs, partialMsg]);
+        }
+        this.streamingContent.set('');
+        this.sending.set(false);
+        this.interrupted.set(true);
+        const interruptMsg: AgentMessage = {
+          id: crypto.randomUUID(),
+          sessionId: this.conversationId || 'unknown',
+          role: 'SYSTEM',
+          content: chunk.content || 'Agent was interrupted by user.',
+          createdAt: new Date().toISOString(),
+        };
+        this.messages.update((msgs) => [...msgs, interruptMsg]);
         this.scrollToBottom();
         break;
       }

@@ -6,7 +6,7 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError, Subject } from 'rxjs';
-import { StreamChunk } from '../../core/models/agent.model';
+import { StreamChunk, AgentProgress } from '../../core/models/agent.model';
 
 describe('AgentChatComponent', () => {
   let component: AgentChatComponent;
@@ -14,10 +14,12 @@ describe('AgentChatComponent', () => {
   let agentServiceSpy: jasmine.SpyObj<AgentService>;
   let wsServiceSpy: jasmine.SpyObj<WebSocketService>;
   let streamSubject: Subject<StreamChunk>;
+  let progressSubject: Subject<AgentProgress>;
 
   beforeEach(async () => {
     agentServiceSpy = jasmine.createSpyObj('AgentService', [
       'getSession', 'sendMessage', 'subscribeToStream', 'sendStreamingMessage',
+      'getProgress', 'interruptAgent', 'subscribeToProgress', 'sendInterruptMessage',
     ]);
     wsServiceSpy = jasmine.createSpyObj('WebSocketService', [
       'connect', 'disconnect', 'subscribe', 'unsubscribe', 'publish', 'connectionState',
@@ -26,7 +28,9 @@ describe('AgentChatComponent', () => {
     wsServiceSpy.connectionState.and.returnValue('disconnected' as ConnectionState);
 
     streamSubject = new Subject<StreamChunk>();
+    progressSubject = new Subject<AgentProgress>();
     agentServiceSpy.subscribeToStream.and.returnValue(streamSubject.asObservable());
+    agentServiceSpy.subscribeToProgress.and.returnValue(progressSubject.asObservable());
 
     await TestBed.configureTestingModule({
       imports: [AgentChatComponent],
@@ -202,7 +206,6 @@ describe('AgentChatComponent', () => {
     };
     agentServiceSpy.getSession.and.returnValue(of(mockSession));
     fixture.detectChanges();
-    const initialCount = component.messages().length;
 
     streamSubject.next({ conversationId: 'conv-1', type: 'error', content: 'Rate limited' });
 
@@ -245,6 +248,7 @@ describe('AgentChatComponent', () => {
 
     component.ngOnDestroy();
     expect(wsServiceSpy.unsubscribe).toHaveBeenCalledWith('/topic/chat/conv-1');
+    expect(wsServiceSpy.unsubscribe).toHaveBeenCalledWith('/topic/progress/conv-1');
   });
 
   it('should_haveInitialStreamingContentEmpty', () => {
@@ -257,5 +261,193 @@ describe('AgentChatComponent', () => {
     agentServiceSpy.getSession.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
     expect(component.connectionState()).toBe('disconnected');
+  });
+
+  // --- New tests for Feature 2: Progress, Cancel, Interrupted ---
+
+  it('should_subscribeToProgress_when_sessionLoaded', () => {
+    const mockSession: AgentSession = {
+      id: 'conv-1', taskId: 'task-1', status: 'ACTIVE', totalTokens: 0,
+      messages: [], createdAt: new Date().toISOString(),
+    };
+    agentServiceSpy.getSession.and.returnValue(of(mockSession));
+    fixture.detectChanges();
+
+    expect(agentServiceSpy.subscribeToProgress).toHaveBeenCalledWith('conv-1', wsServiceSpy);
+  });
+
+  it('should_updateProgress_when_progressEventArrives', () => {
+    const mockSession: AgentSession = {
+      id: 'conv-1', taskId: 'task-1', status: 'ACTIVE', totalTokens: 0,
+      messages: [], createdAt: new Date().toISOString(),
+    };
+    agentServiceSpy.getSession.and.returnValue(of(mockSession));
+    fixture.detectChanges();
+
+    const mockProgress: AgentProgress = {
+      conversationId: 'conv-1',
+      agentType: 'CODING',
+      phase: 'CODING',
+      currentStep: 'Writing tests',
+      completedSteps: 2,
+      totalSteps: 4,
+      items: [
+        { content: 'Analyze code', status: 'completed', priority: 'high' },
+        { content: 'Create models', status: 'completed', priority: 'high' },
+        { content: 'Write tests', status: 'in_progress', priority: 'medium' },
+        { content: 'Deploy', status: 'pending', priority: 'low' },
+      ],
+    };
+    progressSubject.next(mockProgress);
+
+    expect(component.progress()).toEqual(mockProgress);
+    expect(component.progressPercent).toBe(0.5);
+  });
+
+  it('should_setMockProgress_when_sessionErrors', () => {
+    agentServiceSpy.getSession.and.returnValue(throwError(() => new Error('fail')));
+    fixture.detectChanges();
+
+    const p = component.progress();
+    expect(p).toBeTruthy();
+    expect(p!.phase).toBe('CODING');
+    expect(p!.items.length).toBe(4);
+  });
+
+  it('should_cancelAgentViaWebSocket_when_connected', () => {
+    const mockSession: AgentSession = {
+      id: 'conv-1', taskId: 'task-1', status: 'ACTIVE', totalTokens: 0,
+      messages: [], createdAt: new Date().toISOString(),
+    };
+    agentServiceSpy.getSession.and.returnValue(of(mockSession));
+    wsServiceSpy.connectionState.and.returnValue('connected' as ConnectionState);
+    fixture.detectChanges();
+
+    component.cancelAgent();
+    expect(agentServiceSpy.sendInterruptMessage).toHaveBeenCalledWith(
+      { conversationId: 'conv-1', reason: 'USER_CANCEL' },
+      wsServiceSpy,
+    );
+  });
+
+  it('should_cancelAgentViaRest_when_wsDisconnected', () => {
+    const mockSession: AgentSession = {
+      id: 'conv-1', taskId: 'task-1', status: 'ACTIVE', totalTokens: 0,
+      messages: [], createdAt: new Date().toISOString(),
+    };
+    agentServiceSpy.getSession.and.returnValue(of(mockSession));
+    wsServiceSpy.connectionState.and.returnValue('disconnected' as ConnectionState);
+    agentServiceSpy.interruptAgent.and.returnValue(of(undefined));
+    fixture.detectChanges();
+
+    component.cancelAgent();
+    expect(agentServiceSpy.interruptAgent).toHaveBeenCalledWith('conv-1', 'USER_CANCEL');
+  });
+
+  it('should_handleInterruptedChunk_when_agentInterrupted', () => {
+    const mockSession: AgentSession = {
+      id: 'conv-1', taskId: 'task-1', status: 'ACTIVE', totalTokens: 0,
+      messages: [], createdAt: new Date().toISOString(),
+    };
+    agentServiceSpy.getSession.and.returnValue(of(mockSession));
+    fixture.detectChanges();
+
+    // Simulate partial streaming then interrupt
+    streamSubject.next({ conversationId: 'conv-1', type: 'chunk', content: 'Partial output' });
+    expect(component.streamingContent()).toBe('Partial output');
+
+    streamSubject.next({ conversationId: 'conv-1', type: 'interrupted', content: 'Agent was interrupted by user.' });
+
+    expect(component.streamingContent()).toBe('');
+    expect(component.sending()).toBeFalse();
+    expect(component.interrupted()).toBeTrue();
+
+    // Partial content should be saved as AGENT message
+    const msgs = component.messages();
+    const agentMsg = msgs[msgs.length - 2]; // second-to-last (partial content)
+    expect(agentMsg.role).toBe('AGENT');
+    expect(agentMsg.content).toBe('Partial output');
+
+    // System message about interruption
+    const sysMsg = msgs[msgs.length - 1];
+    expect(sysMsg.role).toBe('SYSTEM');
+    expect(sysMsg.content).toContain('interrupted');
+  });
+
+  it('should_handleInterruptedChunk_withoutPartialContent', () => {
+    const mockSession: AgentSession = {
+      id: 'conv-1', taskId: 'task-1', status: 'ACTIVE', totalTokens: 0,
+      messages: [], createdAt: new Date().toISOString(),
+    };
+    agentServiceSpy.getSession.and.returnValue(of(mockSession));
+    fixture.detectChanges();
+
+    const initialCount = component.messages().length;
+    streamSubject.next({ conversationId: 'conv-1', type: 'interrupted', content: 'Agent was interrupted by user.' });
+
+    expect(component.interrupted()).toBeTrue();
+    // Only system message added (no partial AGENT message)
+    expect(component.messages().length).toBe(initialCount + 1);
+    expect(component.messages()[component.messages().length - 1].role).toBe('SYSTEM');
+  });
+
+  it('should_resetInterrupted_when_newMessageSent', () => {
+    agentServiceSpy.getSession.and.returnValue(throwError(() => new Error('fail')));
+    fixture.detectChanges();
+
+    component.interrupted.set(true);
+    component.newMessage = 'Continue working';
+    component.sendMessage();
+
+    expect(component.interrupted()).toBeFalse();
+  });
+
+  it('should_calculateProgressPercent_correctly', () => {
+    agentServiceSpy.getSession.and.returnValue(throwError(() => new Error('fail')));
+    fixture.detectChanges();
+
+    // With mock progress (2/4 steps)
+    expect(component.progressPercent).toBe(0.5);
+
+    // With zero total steps
+    component.progress.set({
+      conversationId: 'x', agentType: 'CODING', phase: 'CODING',
+      currentStep: 'Starting', completedSteps: 0, totalSteps: 0, items: [],
+    });
+    expect(component.progressPercent).toBe(0);
+
+    // With null progress
+    component.progress.set(null);
+    expect(component.progressPercent).toBe(0);
+  });
+
+  it('should_unsubscribeFromProgress_when_destroyed', () => {
+    const mockSession: AgentSession = {
+      id: 'conv-1', taskId: 'task-1', status: 'ACTIVE', totalTokens: 0,
+      messages: [], createdAt: new Date().toISOString(),
+    };
+    agentServiceSpy.getSession.and.returnValue(of(mockSession));
+    fixture.detectChanges();
+
+    component.ngOnDestroy();
+    expect(wsServiceSpy.unsubscribe).toHaveBeenCalledWith('/topic/progress/conv-1');
+  });
+
+  it('should_haveInitialProgressNull_when_sessionLoadsSuccessfully', () => {
+    const mockSession: AgentSession = {
+      id: 's1', taskId: 'task-1', status: 'ACTIVE', totalTokens: 0,
+      messages: [], createdAt: new Date().toISOString(),
+    };
+    agentServiceSpy.getSession.and.returnValue(of(mockSession));
+    fixture.detectChanges();
+
+    // Progress is null until a progress event arrives via WebSocket
+    expect(component.progress()).toBeNull();
+  });
+
+  it('should_haveInitialInterruptedFalse', () => {
+    agentServiceSpy.getSession.and.returnValue(throwError(() => new Error('fail')));
+    fixture.detectChanges();
+    expect(component.interrupted()).toBeFalse();
   });
 });

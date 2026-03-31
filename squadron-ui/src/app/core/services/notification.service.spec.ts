@@ -1,7 +1,8 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
-import { NotificationService } from './notification.service';
+import { NotificationService, ToastNotification } from './notification.service';
+import { Notification, NotificationType } from '../models/notification.model';
 import { environment } from '../../../environments/environment';
 
 describe('NotificationService', () => {
@@ -22,6 +23,7 @@ describe('NotificationService', () => {
 
   afterEach(() => {
     httpTesting.verify();
+    service.disconnectWebSocket();
   });
 
   it('should_beCreated', () => {
@@ -31,6 +33,10 @@ describe('NotificationService', () => {
   it('should_initializeSignalsWithDefaults', () => {
     expect(service.unreadCount()).toBe(0);
     expect(service.notifications()).toEqual([]);
+  });
+
+  it('should_initializeToastsWithEmptyArray', () => {
+    expect(service.toasts()).toEqual([]);
   });
 
   it('should_getNotifications_when_calledWithDefaults', () => {
@@ -235,5 +241,123 @@ describe('NotificationService', () => {
 
     expect(service.unreadCount()).toBe(0);
     expect(service.notifications().every((n: any) => n.read)).toBe(true);
+  });
+
+  // --- Toast tests ---
+
+  it('should_dismissToast_when_calledWithId', () => {
+    // Manually set toasts
+    (service as any).toasts.set([
+      { id: 't1', title: 'Toast 1', message: 'msg', type: 'info', createdAt: '' },
+      { id: 't2', title: 'Toast 2', message: 'msg', type: 'success', createdAt: '' },
+    ] as ToastNotification[]);
+
+    service.dismissToast('t1');
+
+    expect(service.toasts().length).toBe(1);
+    expect(service.toasts()[0].id).toBe('t2');
+  });
+
+  it('should_notChangeToasts_when_dismissingNonexistentId', () => {
+    (service as any).toasts.set([
+      { id: 't1', title: 'Toast 1', message: 'msg', type: 'info', createdAt: '' },
+    ] as ToastNotification[]);
+
+    service.dismissToast('nonexistent');
+
+    expect(service.toasts().length).toBe(1);
+  });
+
+  // --- mapBackendNotification tests ---
+
+  it('should_mapBackendNotification_when_backendFieldsProvided', () => {
+    const raw = {
+      id: 'abc-123',
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      subject: 'Task Assigned',
+      body: 'You have a new task',
+      eventType: 'TASK_ASSIGNED',
+      readAt: null,
+      createdAt: '2026-03-31T12:00:00Z',
+    };
+
+    const mapped = service.mapBackendNotification(raw);
+
+    expect(mapped.id).toBe('abc-123');
+    expect(mapped.title).toBe('Task Assigned');
+    expect(mapped.message).toBe('You have a new task');
+    expect(mapped.type).toBe('TASK_ASSIGNED');
+    expect(mapped.read).toBe(false);
+    expect(mapped.createdAt).toBe('2026-03-31T12:00:00Z');
+  });
+
+  it('should_mapBackendNotification_when_readAtIsSet', () => {
+    const raw = {
+      id: 'abc-124',
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      subject: 'Review Done',
+      body: 'Review completed',
+      eventType: 'REVIEW_COMPLETED',
+      readAt: '2026-03-31T13:00:00Z',
+      createdAt: '2026-03-31T12:00:00Z',
+    };
+
+    const mapped = service.mapBackendNotification(raw);
+
+    expect(mapped.read).toBe(true);
+    expect(mapped.type).toBe('REVIEW_COMPLETED');
+  });
+
+  it('should_mapBackendNotification_when_frontendFieldsProvided', () => {
+    // If the payload already has frontend-style fields (title/message/read)
+    const raw = {
+      id: 'abc-125',
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      title: 'Already Mapped',
+      message: 'Already mapped message',
+      eventType: 'SYSTEM',
+      read: true,
+      createdAt: '2026-03-31T12:00:00Z',
+    };
+
+    const mapped = service.mapBackendNotification(raw);
+
+    // Falls back to title since subject is missing
+    expect(mapped.title).toBe('Already Mapped');
+    expect(mapped.message).toBe('Already mapped message');
+    expect(mapped.read).toBe(true);
+  });
+
+  it('should_mapBackendNotification_withDefaults_when_fieldsAreMissing', () => {
+    const raw = { id: 'abc-126' };
+
+    const mapped = service.mapBackendNotification(raw);
+
+    expect(mapped.id).toBe('abc-126');
+    expect(mapped.title).toBe('New Notification');
+    expect(mapped.message).toBe('');
+    expect(mapped.type).toBe('SYSTEM');
+    expect(mapped.read).toBe(false);
+  });
+
+  // --- connectWebSocket / disconnectWebSocket tests ---
+
+  it('should_notThrow_when_disconnectWebSocketCalledWithoutConnection', () => {
+    expect(() => service.disconnectWebSocket()).not.toThrow();
+  });
+
+  it('should_exposeOnNotificationObservable', () => {
+    expect(service.onNotification$).toBeTruthy();
+    expect(typeof service.onNotification$.subscribe).toBe('function');
+  });
+
+  it('should_buildNotificationWsUrl_when_wsUrlStartsWithWs', () => {
+    // Access private method via type assertion
+    const url = (service as any).buildNotificationWsUrl();
+    // environment.wsUrl is 'ws://localhost:8443/ws' in dev
+    expect(url).toContain('/notifications/websocket');
   });
 });

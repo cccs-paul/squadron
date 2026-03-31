@@ -5,7 +5,7 @@ import { AgentService, AgentSession, AgentMessage } from './agent.service';
 import { WebSocketService } from './websocket.service';
 import { environment } from '../../../environments/environment';
 import { Subject } from 'rxjs';
-import { StreamChunk } from '../models/agent.model';
+import { StreamChunk, AgentProgress } from '../models/agent.model';
 
 describe('AgentService', () => {
   let service: AgentService;
@@ -170,5 +170,103 @@ describe('AgentService', () => {
 
     service.sendStreamingMessage(request, mockWs);
     expect(mockWs.publish).toHaveBeenCalledWith('/app/chat', request);
+  });
+
+  // --- New tests for Feature 2: Progress, Interrupt, and Progress Subscription ---
+
+  it('should_getProgress_when_calledWithSessionId', () => {
+    const mockProgress: AgentProgress = {
+      conversationId: 'sess-1',
+      agentType: 'CODING',
+      phase: 'CODING',
+      currentStep: 'Writing unit tests',
+      completedSteps: 3,
+      totalSteps: 5,
+      items: [
+        { content: 'Analyze requirements', status: 'completed', priority: 'high' },
+        { content: 'Create models', status: 'completed', priority: 'high' },
+        { content: 'Implement service', status: 'completed', priority: 'high' },
+        { content: 'Write unit tests', status: 'in_progress', priority: 'medium' },
+        { content: 'Write integration tests', status: 'pending', priority: 'medium' },
+      ],
+    };
+
+    service.getProgress('sess-1').subscribe((progress) => {
+      expect(progress).toEqual(mockProgress);
+      expect(progress.completedSteps).toBe(3);
+      expect(progress.items.length).toBe(5);
+    });
+
+    const req = httpTesting.expectOne(`${apiUrl}/agents/sessions/sess-1/progress`);
+    expect(req.request.method).toBe('GET');
+    req.flush(mockProgress);
+  });
+
+  it('should_interruptAgent_when_calledWithSessionIdAndReason', () => {
+    service.interruptAgent('sess-1', 'USER_CANCEL').subscribe();
+
+    const req = httpTesting.expectOne(`${apiUrl}/agents/sessions/sess-1/interrupt`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ conversationId: 'sess-1', reason: 'USER_CANCEL' });
+    req.flush(null);
+  });
+
+  it('should_interruptAgent_when_calledWithTimeoutReason', () => {
+    service.interruptAgent('sess-2', 'TIMEOUT').subscribe();
+
+    const req = httpTesting.expectOne(`${apiUrl}/agents/sessions/sess-2/interrupt`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ conversationId: 'sess-2', reason: 'TIMEOUT' });
+    req.flush(null);
+  });
+
+  it('should_subscribeToProgress_when_calledWithConversationId', () => {
+    const mockWs = jasmine.createSpyObj('WebSocketService', ['subscribe']);
+    const progressSubject = new Subject<AgentProgress>();
+    mockWs.subscribe.and.returnValue(progressSubject.asObservable());
+
+    const result = service.subscribeToProgress('conv-1', mockWs);
+    expect(mockWs.subscribe).toHaveBeenCalledWith('/topic/progress/conv-1');
+    expect(result).toBeDefined();
+
+    // Verify the observable emits progress updates
+    let received: AgentProgress | undefined;
+    result.subscribe((p) => (received = p));
+    const mockProgress: AgentProgress = {
+      conversationId: 'conv-1',
+      agentType: 'PLANNING',
+      phase: 'PLANNING',
+      currentStep: 'Analyzing task',
+      completedSteps: 1,
+      totalSteps: 3,
+      items: [{ content: 'Analyze task', status: 'completed', priority: 'high' }],
+    };
+    progressSubject.next(mockProgress);
+    expect(received).toEqual(mockProgress);
+  });
+
+  it('should_sendInterruptMessage_when_calledViaWebSocket', () => {
+    const mockWs = jasmine.createSpyObj('WebSocketService', ['publish']);
+
+    service.sendInterruptMessage({ conversationId: 'conv-1', reason: 'USER_CANCEL' }, mockWs);
+    expect(mockWs.publish).toHaveBeenCalledWith('/app/interrupt', {
+      conversationId: 'conv-1',
+      reason: 'USER_CANCEL',
+    });
+  });
+
+  it('should_handleInterruptedStreamChunkType', () => {
+    const mockWs = jasmine.createSpyObj('WebSocketService', ['subscribe']);
+    const streamSubject = new Subject<StreamChunk>();
+    mockWs.subscribe.and.returnValue(streamSubject.asObservable());
+
+    const result = service.subscribeToStream('conv-1', mockWs);
+    let received: StreamChunk | undefined;
+    result.subscribe((chunk) => (received = chunk));
+
+    streamSubject.next({ conversationId: 'conv-1', type: 'interrupted', content: 'Cancelled by user' });
+    expect(received).toBeDefined();
+    expect(received!.type).toBe('interrupted');
+    expect(received!.content).toBe('Cancelled by user');
   });
 });

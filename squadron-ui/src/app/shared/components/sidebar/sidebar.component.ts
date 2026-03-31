@@ -29,6 +29,7 @@ export class SidebarComponent {
     { label: 'Reviews', route: '/reviews', icon: 'reviews' },
     { label: 'Settings', route: '/settings', icon: 'settings' },
     { label: 'Project Config', route: '/settings/projects', icon: 'settings' },
+    { label: 'My Squadron', route: '/settings/squadron', icon: 'agents' },
   ];
 
   readonly adminItems: NavItem[] = [

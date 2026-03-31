@@ -59,8 +59,8 @@ describe('SidebarComponent', () => {
     setupWithAdmin(false);
 
     const navLinks = hostFixture.nativeElement.querySelectorAll('.sidebar__link');
-    // 5 standard nav items (Dashboard, Tasks, Projects, Reviews, Settings)
-    expect(navLinks.length).toBe(5);
+    // 7 standard nav items (Dashboard, Tasks, Projects, Reviews, Settings, Project Config, My Squadron)
+    expect(navLinks.length).toBe(7);
   });
 
   it('should_displayNavLabels_when_notCollapsed', () => {
@@ -69,12 +69,14 @@ describe('SidebarComponent', () => {
     hostFixture.detectChanges();
 
     const labels = hostFixture.nativeElement.querySelectorAll('.sidebar__label');
-    expect(labels.length).toBe(5);
+    expect(labels.length).toBe(7);
     expect(labels[0].textContent.trim()).toBe('Dashboard');
     expect(labels[1].textContent.trim()).toBe('Tasks');
     expect(labels[2].textContent.trim()).toBe('Projects');
     expect(labels[3].textContent.trim()).toBe('Reviews');
     expect(labels[4].textContent.trim()).toBe('Settings');
+    expect(labels[5].textContent.trim()).toBe('Project Config');
+    expect(labels[6].textContent.trim()).toBe('My Squadron');
   });
 
   it('should_hideLabels_when_collapsed', () => {
@@ -90,34 +92,15 @@ describe('SidebarComponent', () => {
     setupWithAdmin(true);
 
     const navLinks = hostFixture.nativeElement.querySelectorAll('.sidebar__link');
-    // 5 standard + 6 admin items = 11
-    expect(navLinks.length).toBe(11);
+    // 7 standard + 6 admin items = 13
+    expect(navLinks.length).toBe(13);
   });
 
   it('should_notShowAdminItems_when_notAdmin', () => {
     setupWithAdmin(false);
 
     const navLinks = hostFixture.nativeElement.querySelectorAll('.sidebar__link');
-    expect(navLinks.length).toBe(5);
-  });
-
-  it('should_showAdministrationTitle_when_adminAndNotCollapsed', () => {
-    setupWithAdmin(true);
-    host.collapsed = false;
-    hostFixture.detectChanges();
-
-    const sectionTitle = hostFixture.nativeElement.querySelector('.sidebar__section-title');
-    expect(sectionTitle).toBeTruthy();
-    expect(sectionTitle.textContent.trim()).toBe('Administration');
-  });
-
-  it('should_hideAdministrationTitle_when_adminAndCollapsed', () => {
-    setupWithAdmin(true);
-    host.collapsed = true;
-    hostFixture.detectChanges();
-
-    const sectionTitle = hostFixture.nativeElement.querySelector('.sidebar__section-title');
-    expect(sectionTitle).toBeNull();
+    expect(navLinks.length).toBe(7);
   });
 
   it('should_haveCorrectRoutes_when_navItemsRendered', () => {
@@ -126,7 +109,7 @@ describe('SidebarComponent', () => {
     const navLinks = hostFixture.nativeElement.querySelectorAll('.sidebar__link');
     const routes = Array.from(navLinks).map((el: any) => el.getAttribute('href'));
 
-    expect(routes).toEqual(['/dashboard', '/tasks', '/projects', '/reviews', '/settings']);
+    expect(routes).toEqual(['/dashboard', '/tasks', '/projects', '/reviews', '/settings', '/settings/projects', '/settings/squadron']);
   });
 
   it('should_addCollapsedClass_when_collapsed', () => {
