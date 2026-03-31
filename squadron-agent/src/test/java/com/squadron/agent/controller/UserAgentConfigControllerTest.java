@@ -80,8 +80,8 @@ class UserAgentConfigControllerTest {
     @WithMockUser(roles = {"developer"})
     void should_getMySquadron_when_authenticated() throws Exception {
         List<UserAgentConfig> agents = List.of(
-                buildAgent("Planner", "PLANNING", 0),
-                buildAgent("Coder", "CODING", 1)
+                buildAgent("Architect", "PLANNING", 0),
+                buildAgent("Maverick", "CODING", 1)
         );
 
         when(service.getUserSquadron(tenantId, userId)).thenReturn(agents);
@@ -90,9 +90,9 @@ class UserAgentConfigControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].agentName").value("Planner"))
+                .andExpect(jsonPath("$.data[0].agentName").value("Architect"))
                 .andExpect(jsonPath("$.data[0].agentType").value("PLANNING"))
-                .andExpect(jsonPath("$.data[1].agentName").value("Coder"));
+                .andExpect(jsonPath("$.data[1].agentName").value("Maverick"));
 
         verify(service).getUserSquadron(tenantId, userId);
     }
@@ -225,8 +225,8 @@ class UserAgentConfigControllerTest {
     @WithMockUser(roles = {"developer"})
     void should_resetToDefaults_when_authenticated() throws Exception {
         List<UserAgentConfig> defaults = List.of(
-                buildAgent("Planner", "PLANNING", 0),
-                buildAgent("Coder", "CODING", 1)
+                buildAgent("Architect", "PLANNING", 0),
+                buildAgent("Maverick", "CODING", 1)
         );
 
         when(service.resetToDefaults(tenantId, userId)).thenReturn(defaults);
@@ -235,7 +235,7 @@ class UserAgentConfigControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].agentName").value("Planner"));
+                .andExpect(jsonPath("$.data[0].agentName").value("Architect"));
 
         verify(service).resetToDefaults(tenantId, userId);
     }

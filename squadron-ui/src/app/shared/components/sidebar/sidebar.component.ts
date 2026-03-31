@@ -28,7 +28,7 @@ export class SidebarComponent {
     { label: 'Projects', route: '/projects', icon: 'projects' },
     { label: 'Reviews', route: '/reviews', icon: 'reviews' },
     { label: 'Settings', route: '/settings', icon: 'settings' },
-    { label: 'Project Config', route: '/settings/projects', icon: 'settings' },
+    { label: 'Providers', route: '/settings/projects', icon: 'platforms' },
     { label: 'My Squadron', route: '/settings/squadron', icon: 'agents' },
   ];
 

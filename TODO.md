@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-03-31
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete: project workflow mappings, agent dashboard redesign, ticket provider integration (Feature 1), agent interaction UI (Feature 2), notification system (Feature 3), deployment documentation (Feature 4), user agent squadron configuration (Feature 5). All 19 containers healthy with test LDAP. All backend tests passing (BUILD SUCCESS). All 662 Angular tests passing (0 failures). Angular build passing.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete: project workflow mappings, agent dashboard redesign, ticket provider integration (Feature 1), agent interaction UI (Feature 2), notification system (Feature 3), deployment documentation (Feature 4), user agent squadron configuration (Feature 5). Post-feature polish complete: auth interceptor token refresh (Feature 6), project config page redesign with providers-first flow (Feature 7), whimsical agent names (Feature 8). All 19 containers healthy with test LDAP. All backend tests passing (BUILD SUCCESS). All 684 Angular tests passing (0 failures). Angular build passing.
 
 ---
 
@@ -119,17 +119,18 @@
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
-### squadron-ui (Angular 21)
+### squadron-ui (Angular 21) — 684 tests passing
 - [x] 32 components (dashboard, tasks, projects, reviews, agent-chat, squadron-config, etc.)
 - [x] 23 services (including agent-dashboard, user-squadron, platform services)
 - [x] 13 models (including agent dashboard, squadron config interfaces)
-- [x] Auth infrastructure (guard, interceptor, OIDC)
+- [x] Auth infrastructure (guard, interceptor with token refresh on 401, OIDC)
 - [x] Shared components (header, sidebar, avatar, notification-bell)
 - [x] Admin console (users, teams, security groups, permissions, etc.)
-- [x] Project workflow mapping settings page with platform connection integration
+- [x] Project config redesigned: Providers tab (add/delete connections) + Projects tab (providers-first flow)
 - [x] Agent-focused dashboard redesign (active/idle agents, active work, timeline, type breakdown)
 - [x] Ticket provider integration UI (connection linking, remote status fetch, status-aware mappings)
 - [x] User agent squadron configuration UI (agent cards, add/edit/remove/reset, inline template)
+- [x] Whimsical default agent names (Architect, Maverick, Hawkeye, Gremlin, Stitch, Radar, Phoenix, Oracle)
 
 ### Infrastructure
 - [x] Docker Compose (docker-compose.yml)
@@ -243,7 +244,30 @@
 - [x] Frontend: SquadronConfigComponent (inline template+styles, signals, agent cards)
 - [x] Frontend: Route at /settings/squadron, sidebar nav item "My Squadron"
 - [x] Frontend: 9 service tests + 18 component tests (all passing)
-- [x] Tests: 662 Angular tests passing, all backend tests passing
+- [x] Tests: 684 Angular tests passing, all backend tests passing
+
+### Feature 6: Auth Interceptor Token Refresh
+- [x] Auth interceptor: On 401, attempt `refreshToken()` before logging out
+- [x] Auth interceptor: Retry original request with new token on successful refresh
+- [x] Auth interceptor: Skip refresh for `/auth/refresh` and `/auth/login` URLs (prevent infinite loops)
+- [x] Auth interceptor: 12 tests (was 9, added 3 refresh scenarios)
+
+### Feature 7: Project Config Page Redesign (Providers-First Flow)
+- [x] Sidebar: Renamed "Project Config" → "Providers", icon changed to 'platforms'
+- [x] Two-tab layout: Providers tab (default) + Projects tab
+- [x] Providers tab: List connections, add provider form with dynamic credential fields per platform/auth type
+- [x] Providers tab: AUTH_TYPE_OPTIONS mapping (JIRA: API Token/PAT, GitHub: PAT/App, GitLab: PAT/OAuth, Azure DevOps: PAT/OAuth, Bitbucket: App Password/OAuth)
+- [x] Projects tab: "Add provider first" guard when no connections exist
+- [x] Projects tab: New project form requires selecting a ticket provider connection
+- [x] Removed all mock/hardcoded project fallback data — empty lists on API error
+- [x] Frontend: CreateConnectionRequest interface in security.model.ts
+- [x] Frontend: PlatformService.createConnectionFromRequest() method
+- [x] Tests: 37 component tests (was 22), 10 platform service tests (was 8)
+
+### Feature 8: Whimsical Agent Names
+- [x] Backend: Default agent names changed (Planner→Architect, Coder→Maverick, Reviewer→Hawkeye, QA Tester→Gremlin, Merger→Stitch, Coverage Analyst→Radar, Coder 2→Phoenix, Reviewer 2→Oracle)
+- [x] Backend: UserAgentConfigService + controller tests updated
+- [x] Frontend: user-squadron.service.spec.ts + squadron-config.component.spec.ts updated
 
 ---
 

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { ApiService } from './api.service';
-import { PlatformConnection, PlatformConnectionType } from '../models/security.model';
+import { PlatformConnection, PlatformConnectionType, CreateConnectionRequest } from '../models/security.model';
 import { ApiResponse } from '../auth/auth.models';
 
 @Injectable({ providedIn: 'root' })
@@ -22,6 +22,12 @@ export class PlatformService extends ApiService {
 
   createConnection(connection: Partial<PlatformConnection>): Observable<PlatformConnection> {
     return this.post<PlatformConnection>('/platforms/connections', connection);
+  }
+
+  createConnectionFromRequest(request: CreateConnectionRequest): Observable<PlatformConnection> {
+    return this.post<ApiResponse<PlatformConnection>>('/platforms/connections', request).pipe(
+      map((response) => response.data),
+    );
   }
 
   updateConnection(id: string, connection: Partial<PlatformConnection>): Observable<PlatformConnection> {

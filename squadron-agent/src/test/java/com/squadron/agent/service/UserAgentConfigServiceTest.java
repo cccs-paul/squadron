@@ -49,8 +49,8 @@ class UserAgentConfigServiceTest {
     @Test
     void should_returnExistingAgents_when_userHasSquadron() {
         List<UserAgentConfig> agents = List.of(
-                buildAgent("Planner", "PLANNING", 0),
-                buildAgent("Coder", "CODING", 1)
+                buildAgent("Architect", "PLANNING", 0),
+                buildAgent("Maverick", "CODING", 1)
         );
         when(repository.findByTenantIdAndUserIdOrderByDisplayOrderAsc(tenantId, userId))
                 .thenReturn(agents);
@@ -58,7 +58,7 @@ class UserAgentConfigServiceTest {
         List<UserAgentConfig> result = service.getUserSquadron(tenantId, userId);
 
         assertEquals(2, result.size());
-        assertEquals("Planner", result.get(0).getAgentName());
+        assertEquals("Architect", result.get(0).getAgentName());
         verify(repository, never()).saveAll(anyList());
     }
 
@@ -73,11 +73,11 @@ class UserAgentConfigServiceTest {
         List<UserAgentConfig> result = service.getUserSquadron(tenantId, userId);
 
         assertEquals(8, result.size());
-        assertEquals("Planner", result.get(0).getAgentName());
+        assertEquals("Architect", result.get(0).getAgentName());
         assertEquals("PLANNING", result.get(0).getAgentType());
-        assertEquals("Coder", result.get(1).getAgentName());
+        assertEquals("Maverick", result.get(1).getAgentName());
         assertEquals("CODING", result.get(1).getAgentType());
-        assertEquals("Reviewer 2", result.get(7).getAgentName());
+        assertEquals("Oracle", result.get(7).getAgentName());
         assertEquals("REVIEW", result.get(7).getAgentType());
         verify(repository).saveAll(anyList());
     }
@@ -364,7 +364,7 @@ class UserAgentConfigServiceTest {
 
         verify(repository).deleteByTenantIdAndUserId(tenantId, userId);
         assertEquals(8, result.size());
-        assertEquals("Planner", result.get(0).getAgentName());
+        assertEquals("Architect", result.get(0).getAgentName());
     }
 
     // ============================================================

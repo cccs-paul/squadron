@@ -95,3 +95,13 @@ export enum ConnectionStatus {
   DISCONNECTED = 'DISCONNECTED',
   ERROR = 'ERROR',
 }
+
+export interface CreateConnectionRequest {
+  tenantId: string;
+  name: string;
+  platformType: string;
+  baseUrl: string;
+  authType: string;
+  credentials: Record<string, string>;
+  metadata?: Record<string, unknown>;
+}

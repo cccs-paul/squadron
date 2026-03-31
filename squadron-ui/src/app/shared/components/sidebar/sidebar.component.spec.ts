@@ -75,7 +75,7 @@ describe('SidebarComponent', () => {
     expect(labels[2].textContent.trim()).toBe('Projects');
     expect(labels[3].textContent.trim()).toBe('Reviews');
     expect(labels[4].textContent.trim()).toBe('Settings');
-    expect(labels[5].textContent.trim()).toBe('Project Config');
+    expect(labels[5].textContent.trim()).toBe('Providers');
     expect(labels[6].textContent.trim()).toBe('My Squadron');
   });
 

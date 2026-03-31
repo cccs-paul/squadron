@@ -14,7 +14,7 @@ describe('SquadronConfigComponent', () => {
   function mockAgent(overrides: Partial<UserAgentConfig> = {}): UserAgentConfig {
     return {
       id: 'agent-1',
-      agentName: 'Coder',
+      agentName: 'Maverick',
       agentType: 'CODING',
       displayOrder: 0,
       enabled: true,
@@ -33,8 +33,8 @@ describe('SquadronConfigComponent', () => {
     ]);
 
     serviceSpy.getMySquadron.and.returnValue(of([
-      mockAgent({ id: 'a1', agentName: 'Planner', agentType: 'PLANNING', displayOrder: 0 }),
-      mockAgent({ id: 'a2', agentName: 'Coder', agentType: 'CODING', displayOrder: 1 }),
+      mockAgent({ id: 'a1', agentName: 'Architect', agentType: 'PLANNING', displayOrder: 0 }),
+      mockAgent({ id: 'a2', agentName: 'Maverick', agentType: 'CODING', displayOrder: 1 }),
     ]));
     serviceSpy.getLimits.and.returnValue(of({ maxAgentsPerUser: 8 } as SquadronLimits));
 
@@ -74,8 +74,8 @@ describe('SquadronConfigComponent', () => {
 
   it('should_displayAgentNames_when_loaded', () => {
     const names = fixture.nativeElement.querySelectorAll('.squadron-config__agent-name');
-    expect(names[0].textContent.trim()).toBe('Planner');
-    expect(names[1].textContent.trim()).toBe('Coder');
+    expect(names[0].textContent.trim()).toBe('Architect');
+    expect(names[1].textContent.trim()).toBe('Maverick');
   });
 
   it('should_displayAgentTypeBadges_when_loaded', () => {
@@ -87,7 +87,7 @@ describe('SquadronConfigComponent', () => {
   it('should_startEditing_when_editClicked', () => {
     component.startEdit(component.agents()[0]);
     expect(component.editingId()).toBe('a1');
-    expect(component.editName).toBe('Planner');
+    expect(component.editName).toBe('Architect');
     expect(component.editType).toBe('PLANNING');
   });
 
@@ -100,18 +100,18 @@ describe('SquadronConfigComponent', () => {
   });
 
   it('should_saveAgent_when_saveClicked', () => {
-    const updated = mockAgent({ id: 'a1', agentName: 'Updated Planner', agentType: 'PLANNING' });
+    const updated = mockAgent({ id: 'a1', agentName: 'Updated Architect', agentType: 'PLANNING' });
     serviceSpy.updateAgent.and.returnValue(of(updated));
 
     component.startEdit(component.agents()[0]);
-    component.editName = 'Updated Planner';
+    component.editName = 'Updated Architect';
     component.saveAgent(component.agents()[0]);
 
     expect(serviceSpy.updateAgent).toHaveBeenCalledWith('a1', jasmine.objectContaining({
-      agentName: 'Updated Planner',
+      agentName: 'Updated Architect',
     }));
     expect(component.editingId()).toBeNull();
-    expect(component.agents()[0].agentName).toBe('Updated Planner');
+    expect(component.agents()[0].agentName).toBe('Updated Architect');
   });
 
   it('should_showError_when_saveFails', () => {

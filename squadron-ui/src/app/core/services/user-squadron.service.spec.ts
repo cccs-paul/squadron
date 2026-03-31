@@ -33,7 +33,7 @@ describe('UserSquadronService', () => {
   function mockAgent(overrides: Partial<UserAgentConfig> = {}): UserAgentConfig {
     return {
       id: 'agent-1',
-      agentName: 'Coder',
+      agentName: 'Maverick',
       agentType: 'CODING',
       displayOrder: 0,
       enabled: true,
@@ -47,13 +47,13 @@ describe('UserSquadronService', () => {
 
   it('should_getMySquadron_when_called', () => {
     const mockAgents: UserAgentConfig[] = [
-      mockAgent({ id: 'a1', agentName: 'Planner', agentType: 'PLANNING', displayOrder: 0 }),
-      mockAgent({ id: 'a2', agentName: 'Coder', agentType: 'CODING', displayOrder: 1 }),
+      mockAgent({ id: 'a1', agentName: 'Architect', agentType: 'PLANNING', displayOrder: 0 }),
+      mockAgent({ id: 'a2', agentName: 'Maverick', agentType: 'CODING', displayOrder: 1 }),
     ];
 
     service.getMySquadron().subscribe((agents) => {
       expect(agents.length).toBe(2);
-      expect(agents[0].agentName).toBe('Planner');
+      expect(agents[0].agentName).toBe('Architect');
       expect(agents[1].agentType).toBe('CODING');
     });
 
@@ -124,13 +124,13 @@ describe('UserSquadronService', () => {
 
   it('should_resetToDefaults_when_called', () => {
     const defaults: UserAgentConfig[] = [
-      mockAgent({ id: 'd1', agentName: 'Planner', agentType: 'PLANNING' }),
-      mockAgent({ id: 'd2', agentName: 'Coder', agentType: 'CODING' }),
+      mockAgent({ id: 'd1', agentName: 'Architect', agentType: 'PLANNING' }),
+      mockAgent({ id: 'd2', agentName: 'Maverick', agentType: 'CODING' }),
     ];
 
     service.resetToDefaults().subscribe((agents) => {
       expect(agents.length).toBe(2);
-      expect(agents[0].agentName).toBe('Planner');
+      expect(agents[0].agentName).toBe('Architect');
     });
 
     const req = httpTesting.expectOne(`${apiUrl}/agents/squadron/reset`);

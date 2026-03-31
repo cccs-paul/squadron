@@ -4,8 +4,30 @@ import { ProjectService } from '../../../core/services/project.service';
 import { PlatformService } from '../../../core/services/platform.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Project, WorkflowMapping } from '../../../core/models/project.model';
-import { PlatformConnection, PlatformConnectionType } from '../../../core/models/security.model';
+import {
+  PlatformConnection,
+  PlatformConnectionType,
+  CreateConnectionRequest,
+} from '../../../core/models/security.model';
 import { forkJoin } from 'rxjs';
+
+type TabId = 'providers' | 'projects';
+
+interface ProviderForm {
+  name: string;
+  platformType: string;
+  baseUrl: string;
+  authType: string;
+  credentials: Record<string, string>;
+}
+
+interface ProjectForm {
+  name: string;
+  description: string;
+  defaultBranch: string;
+  connectionId: string;
+  externalProjectId: string;
+}
 
 interface ProjectMappingState {
   project: Project;
@@ -21,6 +43,26 @@ interface ProjectMappingState {
   connectionName: string | null;
 }
 
+const AUTH_TYPE_OPTIONS: Record<string, { label: string; fields: { key: string; label: string; secret: boolean }[] }[]> = {
+  JIRA: [
+    { label: 'API Token', fields: [{ key: 'email', label: 'Email', secret: false }, { key: 'apiToken', label: 'API Token', secret: true }] },
+    { label: 'PAT', fields: [{ key: 'pat', label: 'Personal Access Token', secret: true }] },
+  ],
+  GITHUB: [
+    { label: 'PAT', fields: [{ key: 'pat', label: 'Personal Access Token', secret: true }] },
+    { label: 'App', fields: [{ key: 'appId', label: 'App ID', secret: false }, { key: 'privateKey', label: 'Private Key', secret: true }] },
+  ],
+  GITLAB: [
+    { label: 'PAT', fields: [{ key: 'pat', label: 'Personal Access Token', secret: true }] },
+  ],
+  AZURE_DEVOPS: [
+    { label: 'PAT', fields: [{ key: 'pat', label: 'Personal Access Token', secret: true }] },
+  ],
+  BITBUCKET: [
+    { label: 'App Password', fields: [{ key: 'username', label: 'Username', secret: false }, { key: 'password', label: 'App Password', secret: true }] },
+  ],
+};
+
 @Component({
   selector: 'sq-project-config',
   standalone: true,
@@ -35,9 +77,25 @@ export class ProjectConfigComponent implements OnInit {
 
   loading = signal(true);
   loadError = signal<string | null>(null);
+  activeTab = signal<TabId>('providers');
+
+  // Providers tab
+  connections = signal<PlatformConnection[]>([]);
+  showProviderForm = signal(false);
+  savingProvider = signal(false);
+  providerSaveError = signal<string | null>(null);
+  deletingConnectionId = signal<string | null>(null);
+  providerForm: ProviderForm = this.newProviderForm();
+
+  // Projects tab
   projectStates = signal<ProjectMappingState[]>([]);
   workflowStates = signal<string[]>([]);
-  connections = signal<PlatformConnection[]>([]);
+  showProjectForm = signal(false);
+  savingProject = signal(false);
+  projectSaveError = signal<string | null>(null);
+  projectForm: ProjectForm = this.newProjectForm();
+
+  readonly platformTypes = Object.values(PlatformConnectionType);
 
   ngOnInit(): void {
     this.loadData();
@@ -84,9 +142,147 @@ export class ProjectConfigComponent implements OnInit {
           'BACKLOG', 'PRIORITIZED', 'PLANNING', 'PROPOSE_CODE',
           'REVIEW', 'QA', 'MERGE', 'DONE',
         ]);
-        this.connections.set(this.getMockConnections());
-        this.projectStates.set(this.getMockProjectStates());
+        this.connections.set([]);
+        this.projectStates.set([]);
         this.loading.set(false);
+      },
+    });
+  }
+
+  setTab(tab: TabId): void {
+    this.activeTab.set(tab);
+  }
+
+  // --- Provider methods ---
+
+  getAuthTypeOptions(): { label: string; fields: { key: string; label: string; secret: boolean }[] }[] {
+    return AUTH_TYPE_OPTIONS[this.providerForm.platformType] ?? [];
+  }
+
+  getAuthFields(): { key: string; label: string; secret: boolean }[] {
+    const options = this.getAuthTypeOptions();
+    const selected = options.find((o) => o.label === this.providerForm.authType);
+    return selected?.fields ?? [];
+  }
+
+  onPlatformTypeChange(): void {
+    const options = this.getAuthTypeOptions();
+    this.providerForm.authType = options.length > 0 ? options[0].label : '';
+    this.providerForm.credentials = {};
+  }
+
+  onAuthTypeChange(): void {
+    this.providerForm.credentials = {};
+  }
+
+  toggleProviderForm(): void {
+    this.showProviderForm.set(!this.showProviderForm());
+    if (!this.showProviderForm()) {
+      this.providerForm = this.newProviderForm();
+      this.providerSaveError.set(null);
+    }
+  }
+
+  canSaveProvider(): boolean {
+    const f = this.providerForm;
+    if (!f.name.trim() || !f.platformType || !f.baseUrl.trim() || !f.authType) return false;
+    const fields = this.getAuthFields();
+    return fields.every((field) => (f.credentials[field.key] ?? '').trim().length > 0);
+  }
+
+  saveProvider(): void {
+    const user = this.authService.user();
+    if (!user) return;
+
+    this.savingProvider.set(true);
+    this.providerSaveError.set(null);
+
+    const request: CreateConnectionRequest = {
+      tenantId: user.tenantId,
+      name: this.providerForm.name.trim(),
+      platformType: this.providerForm.platformType,
+      baseUrl: this.providerForm.baseUrl.trim(),
+      authType: this.providerForm.authType,
+      credentials: { ...this.providerForm.credentials },
+    };
+
+    this.platformService.createConnectionFromRequest(request).subscribe({
+      next: (connection) => {
+        this.connections.set([...this.connections(), connection]);
+        this.savingProvider.set(false);
+        this.showProviderForm.set(false);
+        this.providerForm = this.newProviderForm();
+      },
+      error: () => {
+        this.providerSaveError.set('Failed to save provider. Please check your configuration and try again.');
+        this.savingProvider.set(false);
+      },
+    });
+  }
+
+  deleteConnection(id: string): void {
+    this.deletingConnectionId.set(id);
+    this.platformService.deleteConnection(id).subscribe({
+      next: () => {
+        this.connections.set(this.connections().filter((c) => c.id !== id));
+        this.deletingConnectionId.set(null);
+      },
+      error: () => {
+        this.deletingConnectionId.set(null);
+      },
+    });
+  }
+
+  // --- Project methods ---
+
+  toggleProjectForm(): void {
+    this.showProjectForm.set(!this.showProjectForm());
+    if (!this.showProjectForm()) {
+      this.projectForm = this.newProjectForm();
+      this.projectSaveError.set(null);
+    }
+  }
+
+  canSaveProject(): boolean {
+    const f = this.projectForm;
+    return f.name.trim().length > 0 && f.connectionId.length > 0;
+  }
+
+  saveProject(): void {
+    this.savingProject.set(true);
+    this.projectSaveError.set(null);
+
+    const project: Partial<Project> = {
+      name: this.projectForm.name.trim(),
+      description: this.projectForm.description.trim() || undefined,
+      defaultBranch: this.projectForm.defaultBranch.trim() || 'main',
+      connectionId: this.projectForm.connectionId,
+      externalProjectId: this.projectForm.externalProjectId.trim() || undefined,
+    };
+
+    this.projectService.createProject(project).subscribe({
+      next: (created) => {
+        const newState: ProjectMappingState = {
+          project: created,
+          expanded: false,
+          mappings: [],
+          remoteStatuses: [],
+          saving: false,
+          saveSuccess: false,
+          saveError: null,
+          loading: false,
+          fetchingStatuses: false,
+          fetchError: null,
+          connectionName: this.getConnectionName(created.connectionId, this.connections()),
+        };
+        this.projectStates.set([...this.projectStates(), newState]);
+        this.savingProject.set(false);
+        this.showProjectForm.set(false);
+        this.projectForm = this.newProjectForm();
+      },
+      error: () => {
+        this.projectSaveError.set('Failed to create project. Please try again.');
+        this.savingProject.set(false);
       },
     });
   }
@@ -125,7 +321,7 @@ export class ProjectConfigComponent implements OnInit {
     const project = state.project;
 
     if (!project.connectionId || !project.externalProjectId) {
-      state.fetchError = 'Project must be linked to a platform connection with an external project key.';
+      state.fetchError = 'Project must be linked to a provider with an external project key.';
       states[index] = state;
       this.projectStates.set(states);
       setTimeout(() => {
@@ -156,7 +352,6 @@ export class ProjectConfigComponent implements OnInit {
         const updated = [...this.projectStates()];
         const conn = this.connections().find((c) => c.id === project.connectionId);
         const platformType = conn?.platformType ?? 'UNKNOWN';
-        // Provide mock statuses based on platform type for demo
         const mockStatuses = this.getMockStatuses(platformType);
         updated[index] = {
           ...updated[index],
@@ -328,53 +523,11 @@ export class ProjectConfigComponent implements OnInit {
     }
   }
 
-  private getMockConnections(): PlatformConnection[] {
-    return [
-      {
-        id: 'pc-1', tenantId: '1', name: 'Jira Cloud - Production',
-        platformType: PlatformConnectionType.JIRA,
-        baseUrl: 'https://myorg.atlassian.net',
-        status: 'CONNECTED' as any, config: {},
-        createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-      },
-      {
-        id: 'pc-2', tenantId: '1', name: 'GitHub - Organization',
-        platformType: PlatformConnectionType.GITHUB,
-        baseUrl: 'https://api.github.com',
-        status: 'CONNECTED' as any, config: {},
-        createdAt: new Date(Date.now() - 86400000 * 20).toISOString(),
-      },
-    ];
+  private newProviderForm(): ProviderForm {
+    return { name: '', platformType: 'JIRA', baseUrl: '', authType: 'API Token', credentials: {} };
   }
 
-  private getMockProjectStates(): ProjectMappingState[] {
-    return [
-      {
-        project: {
-          id: '1', tenantId: '1', name: 'squadron-api',
-          description: 'Main backend API service', defaultBranch: 'main',
-          connectionId: 'pc-1', externalProjectId: 'SQ',
-          taskCount: 24, activeTaskCount: 8, members: [],
-          createdAt: new Date(Date.now() - 604800000).toISOString(),
-        },
-        expanded: false, mappings: [], remoteStatuses: [],
-        saving: false, saveSuccess: false, saveError: null,
-        loading: false, fetchingStatuses: false, fetchError: null,
-        connectionName: 'Jira Cloud - Production',
-      },
-      {
-        project: {
-          id: '2', tenantId: '1', name: 'squadron-ui',
-          description: 'Angular frontend application', defaultBranch: 'main',
-          connectionId: 'pc-2', externalProjectId: 'squadron-ui',
-          taskCount: 15, activeTaskCount: 5, members: [],
-          createdAt: new Date(Date.now() - 432000000).toISOString(),
-        },
-        expanded: false, mappings: [], remoteStatuses: [],
-        saving: false, saveSuccess: false, saveError: null,
-        loading: false, fetchingStatuses: false, fetchError: null,
-        connectionName: 'GitHub - Organization',
-      },
-    ];
+  private newProjectForm(): ProjectForm {
+    return { name: '', description: '', defaultBranch: 'main', connectionId: '', externalProjectId: '' };
   }
 }

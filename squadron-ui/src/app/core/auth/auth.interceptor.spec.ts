@@ -5,6 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { authInterceptor } from './auth.interceptor';
 import { environment } from '../../../environments/environment';
+import { of, throwError } from 'rxjs';
 
 describe('authInterceptor', () => {
   let httpClient: HttpClient;
@@ -15,7 +16,7 @@ describe('authInterceptor', () => {
   beforeEach(() => {
     localStorage.clear();
 
-    authServiceSpy = jasmine.createSpyObj('AuthService', ['getAccessToken', 'logout']);
+    authServiceSpy = jasmine.createSpyObj('AuthService', ['getAccessToken', 'logout', 'refreshToken']);
 
     TestBed.configureTestingModule({
       providers: [
@@ -86,8 +87,28 @@ describe('authInterceptor', () => {
     req.flush({});
   });
 
-  it('should_callLogoutAndNavigateToLogin_when_401Error', () => {
+  it('should_attemptTokenRefresh_when_401Error', () => {
     authServiceSpy.getAccessToken.and.returnValue('expired-token');
+    const refreshResponse = { accessToken: 'new-token', refreshToken: 'new-refresh', expiresIn: 3600, tokenType: 'Bearer', user: {} };
+    authServiceSpy.refreshToken.and.returnValue(of(refreshResponse as any));
+
+    httpClient.get(`${environment.apiUrl}/tasks`).subscribe();
+
+    const req = httpTesting.expectOne(`${environment.apiUrl}/tasks`);
+    req.flush({ message: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(authServiceSpy.refreshToken).toHaveBeenCalled();
+    expect(authServiceSpy.logout).not.toHaveBeenCalled();
+
+    // The retry request should use the new token
+    const retryReq = httpTesting.expectOne(`${environment.apiUrl}/tasks`);
+    expect(retryReq.request.headers.get('Authorization')).toBe('Bearer new-token');
+    retryReq.flush({});
+  });
+
+  it('should_callLogoutAndNavigateToLogin_when_refreshFails', () => {
+    authServiceSpy.getAccessToken.and.returnValue('expired-token');
+    authServiceSpy.refreshToken.and.returnValue(throwError(() => new Error('refresh failed')));
     const navigateSpy = spyOn(router, 'navigate');
 
     httpClient.get(`${environment.apiUrl}/tasks`).subscribe({
@@ -99,8 +120,44 @@ describe('authInterceptor', () => {
     const req = httpTesting.expectOne(`${environment.apiUrl}/tasks`);
     req.flush({ message: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
 
+    expect(authServiceSpy.refreshToken).toHaveBeenCalled();
     expect(authServiceSpy.logout).toHaveBeenCalled();
     expect(navigateSpy).toHaveBeenCalledWith(['/login']);
+  });
+
+  it('should_callLogoutAndNavigateToLogin_when_refreshReturnsNull', () => {
+    authServiceSpy.getAccessToken.and.returnValue('expired-token');
+    authServiceSpy.refreshToken.and.returnValue(of(null));
+    const navigateSpy = spyOn(router, 'navigate');
+
+    httpClient.get(`${environment.apiUrl}/tasks`).subscribe({
+      error: (err: HttpErrorResponse) => {
+        expect(err.status).toBe(401);
+      },
+    });
+
+    const req = httpTesting.expectOne(`${environment.apiUrl}/tasks`);
+    req.flush({ message: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(authServiceSpy.refreshToken).toHaveBeenCalled();
+    expect(authServiceSpy.logout).toHaveBeenCalled();
+    expect(navigateSpy).toHaveBeenCalledWith(['/login']);
+  });
+
+  it('should_notAttemptRefresh_when_401OnRefreshEndpoint', () => {
+    authServiceSpy.getAccessToken.and.returnValue('expired-token');
+
+    httpClient.post(`${environment.apiUrl}/auth/refresh`, {}).subscribe({
+      error: (err: HttpErrorResponse) => {
+        expect(err.status).toBe(401);
+      },
+    });
+
+    const req = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
+    req.flush({ message: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(authServiceSpy.refreshToken).not.toHaveBeenCalled();
+    expect(authServiceSpy.logout).not.toHaveBeenCalled();
   });
 
   it('should_notCallLogout_when_nonUnauthorizedError', () => {
