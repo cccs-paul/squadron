@@ -1,8 +1,8 @@
 <div class="dashboard">
   <div class="dashboard__header">
     <div>
-      <h1 class="dashboard__title">Dashboard</h1>
-      <p class="dashboard__subtitle">Overview of your development workflow</p>
+      <h1 class="dashboard__title">Agent Dashboard</h1>
+      <p class="dashboard__subtitle">Real-time overview of your AI agent workforce</p>
     </div>
     <div class="dashboard__actions">
       <a routerLink="/tasks" class="sq-btn sq-btn--primary">
@@ -20,26 +20,25 @@
       <div class="stat-card sq-card">
         <div class="stat-card__icon" [style.background]="stat.bgColor">
           @switch (stat.icon) {
-            @case ('total') {
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" [attr.stroke]="stat.color" stroke-width="2" stroke-linecap="round">
-                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-                <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-              </svg>
-            }
-            @case ('progress') {
+            @case ('active') {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" [attr.stroke]="stat.color" stroke-width="2" stroke-linecap="round">
                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
               </svg>
             }
-            @case ('review') {
+            @case ('idle') {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" [attr.stroke]="stat.color" stroke-width="2" stroke-linecap="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
             }
-            @case ('done') {
+            @case ('conversations') {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" [attr.stroke]="stat.color" stroke-width="2" stroke-linecap="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22 4 12 14.01 9 11.01"/>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            }
+            @case ('tokens') {
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" [attr.stroke]="stat.color" stroke-width="2" stroke-linecap="round">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                <line x1="7" y1="7" x2="7.01" y2="7"/>
               </svg>
             }
           }
@@ -52,49 +51,107 @@
     }
   </div>
 
-  <div class="dashboard__grid">
-    <!-- Task Distribution -->
-    <div class="sq-card dashboard__chart">
-      <div class="card-header">
-        <h3>Task Distribution</h3>
-      </div>
-      <div class="card-body">
-        <div class="distribution">
-          @for (item of stateDistribution(); track item.state) {
-            <div class="distribution__row">
-              <div class="distribution__label">
-                <span class="distribution__dot" [style.background]="item.color"></span>
-                {{ item.state }}
+  <!-- Active Work -->
+  <div class="sq-card dashboard__active-work">
+    <div class="card-header">
+      <h3>Active Agents</h3>
+      <span class="card-header__badge">{{ activeWork().length }} working</span>
+    </div>
+    <div class="card-body">
+      @if (activeWork().length > 0) {
+        <div class="active-work-list">
+          @for (work of activeWork(); track work.conversationId) {
+            <div class="work-card">
+              <div class="work-card__badge" [style.background]="getAgentBg(work.agentType)" [style.color]="getAgentColor(work.agentType)">
+                {{ work.agentType }}
               </div>
-              <div class="distribution__bar-wrapper">
-                <div class="distribution__bar" [style.width.%]="item.percentage" [style.background]="item.color"></div>
+              <div class="work-card__details">
+                <div class="work-card__row">
+                  <span class="work-card__label">Task</span>
+                  <span class="work-card__value">{{ work.taskId | slice:0:8 }}...</span>
+                </div>
+                <div class="work-card__row">
+                  <span class="work-card__label">Model</span>
+                  <span class="work-card__value">{{ work.provider }}/{{ work.model }}</span>
+                </div>
+                <div class="work-card__row">
+                  <span class="work-card__label">Tokens</span>
+                  <span class="work-card__value">{{ formatTokens(work.totalTokens) }}</span>
+                </div>
               </div>
-              <span class="distribution__count">{{ item.count }}</span>
+              <div class="work-card__meta">
+                <span class="work-card__pulse"></span>
+                <span class="work-card__time">{{ work.lastActivityAt | timeAgo }}</span>
+              </div>
             </div>
           }
         </div>
-      </div>
+      } @else {
+        <div class="empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--sq-text-tertiary)" stroke-width="1.5" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <p>All agents are idle</p>
+        </div>
+      }
     </div>
+  </div>
 
-    <!-- Recent Activity -->
+  <div class="dashboard__grid">
+    <!-- Recent Activity Timeline -->
     <div class="sq-card dashboard__activity">
       <div class="card-header">
         <h3>Recent Activity</h3>
       </div>
       <div class="card-body">
         <div class="activity-list">
-          @for (activity of recentActivity(); track activity.id) {
+          @for (activity of recentActivity(); track activity.conversationId + activity.timestamp) {
             <div class="activity-item">
-              <div class="activity-item__dot"></div>
+              <div class="activity-item__dot" [style.background]="getAgentColor(activity.agentType)"></div>
               <div class="activity-item__content">
                 <p class="activity-item__text">
-                  <strong>{{ activity.title }}</strong> {{ activity.action }}
+                  <span class="activity-item__agent-badge" [style.background]="getAgentBg(activity.agentType)" [style.color]="getAgentColor(activity.agentType)">{{ activity.agentType }}</span>
+                  @if (activity.action === 'working') {
+                    <span> is working on task {{ activity.taskId | slice:0:8 }}...</span>
+                  } @else {
+                    <span> {{ activity.action }} task {{ activity.taskId | slice:0:8 }}...</span>
+                  }
                 </p>
-                <span class="activity-item__meta">{{ activity.actor }} &middot; {{ activity.time | timeAgo }}</span>
+                <span class="activity-item__meta">{{ formatTokens(activity.totalTokens) }} tokens &middot; {{ activity.timestamp | timeAgo }}</span>
               </div>
             </div>
           } @empty {
             <p class="activity-empty">No recent activity</p>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Agent Type Summaries -->
+    <div class="sq-card dashboard__summaries">
+      <div class="card-header">
+        <h3>Agent Type Breakdown</h3>
+      </div>
+      <div class="card-body">
+        <div class="summaries">
+          @for (summary of agentTypeSummaries(); track summary.agentType) {
+            <div class="summary-row">
+              <div class="summary-row__header">
+                <span class="summary-row__badge" [style.background]="getAgentBg(summary.agentType)" [style.color]="getAgentColor(summary.agentType)">{{ summary.agentType }}</span>
+                <span class="summary-row__tokens">{{ formatTokens(summary.totalTokens) }} tokens</span>
+              </div>
+              <div class="summary-row__bar-wrapper">
+                <div class="summary-row__bar" [style.width.%]="(summary.totalTokens / getMaxTokens()) * 100" [style.background]="getAgentColor(summary.agentType)"></div>
+              </div>
+              <div class="summary-row__counts">
+                @if (summary.activeCount > 0) {
+                  <span class="summary-row__active">{{ summary.activeCount }} active</span>
+                }
+                <span class="summary-row__completed">{{ summary.completedCount }} completed</span>
+              </div>
+            </div>
+          } @empty {
+            <p class="activity-empty">No agent data available</p>
           }
         </div>
       </div>

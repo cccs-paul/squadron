@@ -86,7 +86,7 @@ class GatewayConfigTest {
 
         List<Route> routes = routeLocator.getRoutes().collectList().block();
         assertThat(routes).isNotNull();
-        assertThat(routes).hasSize(12);
+        assertThat(routes).hasSize(14);
     }
 
     @Test
@@ -190,8 +190,10 @@ class GatewayConfigTest {
                 "auth-service",
                 "identity-service",
                 "config-service",
+                "orchestrator-projects",
                 "orchestrator-service",
                 "platform-service",
+                "agent-dashboard",
                 "agent-service",
                 "workspace-service",
                 "git-service",
@@ -231,6 +233,28 @@ class GatewayConfigTest {
     }
 
     @Test
+    void should_defineOrchestratorProjectsRoute_with_correctUri() {
+        List<Route> routes = getRoutes();
+
+        Route route = findRoute(routes, "orchestrator-projects");
+        assertThat(route).isNotNull();
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-orchestrator:8083");
+        // orchestrator-projects does NOT have stripPrefix -- it forwards /api/projects/** as-is
+        assertThat(route.getFilters()).isEmpty();
+    }
+
+    @Test
+    void should_defineAgentDashboardRoute_with_correctUri() {
+        List<Route> routes = getRoutes();
+
+        Route route = findRoute(routes, "agent-dashboard");
+        assertThat(route).isNotNull();
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-agent:8085");
+        // agent-dashboard does NOT have stripPrefix -- it forwards /api/agents/dashboard as-is
+        assertThat(route.getFilters()).isEmpty();
+    }
+
+    @Test
     void should_haveAuthRouteWithoutStripPrefix() {
         List<Route> routes = getRoutes();
 
@@ -238,6 +262,17 @@ class GatewayConfigTest {
         assertThat(authRoute).isNotNull();
         // auth-service does NOT have stripPrefix -- it forwards /api/auth/** as-is
         assertThat(authRoute.getFilters()).isEmpty();
+    }
+
+    @Test
+    void should_havePlatformRouteWithoutStripPrefix() {
+        List<Route> routes = getRoutes();
+
+        Route route = findRoute(routes, "platform-service");
+        assertThat(route).isNotNull();
+        // platform-service does NOT have stripPrefix -- it forwards /api/platforms/** as-is
+        // because the platform controllers use @RequestMapping("/api/platforms/connections") etc.
+        assertThat(route.getFilters()).isEmpty();
     }
 
     private List<Route> getRoutes() {

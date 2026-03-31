@@ -113,6 +113,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'settings/projects',
+        loadComponent: () =>
+          import('./features/settings/project-config/project-config.component').then(
+            (m) => m.ProjectConfigComponent,
+          ),
+      },
+      {
         path: 'admin',
         canActivate: [adminGuard],
         loadChildren: () =>

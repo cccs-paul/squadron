@@ -263,4 +263,49 @@ class PlatformConnectionControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").value(false));
     }
+
+    // --- GET /api/platforms/connections/{id}/statuses ---
+
+    @Test
+    @WithMockUser
+    void should_getProjectStatuses_when_validRequest() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+        List<String> statuses = List.of("To Do", "In Progress", "In Review", "Done");
+
+        when(connectionService.fetchProjectStatuses(connectionId, "PROJ-1")).thenReturn(statuses);
+
+        mockMvc.perform(get("/api/platforms/connections/{id}/statuses", connectionId)
+                        .param("projectKey", "PROJ-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data[0]").value("To Do"))
+                .andExpect(jsonPath("$.data[1]").value("In Progress"))
+                .andExpect(jsonPath("$.data[2]").value("In Review"))
+                .andExpect(jsonPath("$.data[3]").value("Done"));
+
+        verify(connectionService).fetchProjectStatuses(connectionId, "PROJ-1");
+    }
+
+    @Test
+    @WithMockUser
+    void should_returnEmptyStatuses_when_noStatusesFound() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+
+        when(connectionService.fetchProjectStatuses(connectionId, "EMPTY")).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/platforms/connections/{id}/statuses", connectionId)
+                        .param("projectKey", "EMPTY"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void should_return401_when_getStatusesUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/platforms/connections/{id}/statuses", UUID.randomUUID())
+                        .param("projectKey", "PROJ-1"))
+                .andExpect(status().isUnauthorized());
+    }
 }

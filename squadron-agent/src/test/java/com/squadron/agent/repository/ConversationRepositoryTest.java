@@ -54,9 +54,40 @@ class ConversationRepositoryTest {
     }
 
     @Test
-    void should_haveFourCustomQueryMethods_when_interfaceInspected() {
+    void should_declareFindByTenantIdAndStatus_when_interfaceInspected() throws NoSuchMethodException {
+        Method method = ConversationRepository.class.getMethod(
+                "findByTenantIdAndStatus", UUID.class, String.class);
+        assertEquals(List.class, method.getReturnType());
+        assertEquals(2, method.getParameterCount());
+    }
+
+    @Test
+    void should_declareFindByTenantIdOrderByUpdatedAtDesc_when_interfaceInspected() throws NoSuchMethodException {
+        Method method = ConversationRepository.class.getMethod(
+                "findByTenantIdOrderByUpdatedAtDesc", UUID.class);
+        assertEquals(List.class, method.getReturnType());
+        assertEquals(1, method.getParameterCount());
+    }
+
+    @Test
+    void should_declareCountByTenantId_when_interfaceInspected() throws NoSuchMethodException {
+        Method method = ConversationRepository.class.getMethod("countByTenantId", UUID.class);
+        assertEquals(long.class, method.getReturnType());
+        assertEquals(1, method.getParameterCount());
+    }
+
+    @Test
+    void should_declareCountByTenantIdAndStatus_when_interfaceInspected() throws NoSuchMethodException {
+        Method method = ConversationRepository.class.getMethod(
+                "countByTenantIdAndStatus", UUID.class, String.class);
+        assertEquals(long.class, method.getReturnType());
+        assertEquals(2, method.getParameterCount());
+    }
+
+    @Test
+    void should_haveEightCustomQueryMethods_when_interfaceInspected() {
         Method[] methods = ConversationRepository.class.getDeclaredMethods();
-        assertEquals(4, methods.length);
+        assertEquals(8, methods.length);
     }
 
     @Test

@@ -134,6 +134,33 @@ public class PlatformConnectionService {
     }
 
     /**
+     * Fetches the available workflow statuses for a project from the remote ticketing platform.
+     * Configures the adapter with decrypted credentials and delegates to the adapter's
+     * {@link TicketingPlatformAdapter#getAvailableStatuses(String)} method.
+     *
+     * @param connectionId the platform connection to use
+     * @param projectKey   the external project key (e.g., JIRA project key, GitHub repo name)
+     * @return list of available status names from the remote platform
+     */
+    @Transactional(readOnly = true)
+    public List<String> fetchProjectStatuses(UUID connectionId, String projectKey) {
+        PlatformConnection connection = getConnection(connectionId);
+        TicketingPlatformAdapter adapter = adapterRegistry.getAdapter(connection.getPlatformType());
+
+        try {
+            String accessToken = getDecryptedAccessToken(connection);
+            adapter.configure(connection.getBaseUrl(), accessToken);
+            List<String> statuses = adapter.getAvailableStatuses(projectKey);
+            log.info("Fetched {} statuses for project '{}' from connection {} ({})",
+                    statuses.size(), projectKey, connectionId, connection.getPlatformType());
+            return statuses;
+        } catch (Exception e) {
+            throw new PlatformIntegrationException(connection.getPlatformType(),
+                    "Failed to fetch statuses for project '" + projectKey + "': " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Returns the decrypted credentials map for a connection.
      * Sensitive values are decrypted from their encrypted storage form.
      */

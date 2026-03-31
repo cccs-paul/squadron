@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.bind.annotation.RequestParam;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -68,5 +70,17 @@ public class PlatformConnectionController {
     public ResponseEntity<ApiResponse<Boolean>> testConnection(@PathVariable UUID id) {
         boolean result = connectionService.testConnection(id);
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    /**
+     * Fetches available workflow statuses from the remote ticketing platform
+     * for a given connection and project key.
+     */
+    @GetMapping("/{id}/statuses")
+    public ResponseEntity<ApiResponse<List<String>>> getProjectStatuses(
+            @PathVariable UUID id,
+            @RequestParam String projectKey) {
+        List<String> statuses = connectionService.fetchProjectStatuses(id, projectKey);
+        return ResponseEntity.ok(ApiResponse.success(statuses));
     }
 }

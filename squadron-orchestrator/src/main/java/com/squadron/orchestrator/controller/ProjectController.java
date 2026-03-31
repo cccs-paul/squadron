@@ -2,8 +2,11 @@ package com.squadron.orchestrator.controller;
 
 import com.squadron.common.dto.ApiResponse;
 import com.squadron.orchestrator.dto.CreateProjectRequest;
+import com.squadron.orchestrator.dto.ProjectWorkflowMappingsRequest;
+import com.squadron.orchestrator.dto.WorkflowMappingDto;
 import com.squadron.orchestrator.entity.Project;
 import com.squadron.orchestrator.service.ProjectService;
+import com.squadron.orchestrator.service.ProjectWorkflowMappingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,9 +31,12 @@ import java.util.UUID;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final ProjectWorkflowMappingService mappingService;
 
-    public ProjectController(ProjectService projectService) {
+    public ProjectController(ProjectService projectService,
+                             ProjectWorkflowMappingService mappingService) {
         this.projectService = projectService;
+        this.mappingService = mappingService;
     }
 
     @PostMapping
@@ -76,5 +82,33 @@ public class ProjectController {
     public ResponseEntity<Void> deleteProject(@PathVariable UUID id) {
         projectService.deleteProject(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // --- Workflow Step Mapping Endpoints ---
+
+    @GetMapping("/{projectId}/workflow-mappings")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
+    @Operation(summary = "Get all workflow step mappings for a project")
+    public ResponseEntity<ApiResponse<List<WorkflowMappingDto>>> getWorkflowMappings(
+            @PathVariable UUID projectId) {
+        List<WorkflowMappingDto> mappings = mappingService.getMappings(projectId);
+        return ResponseEntity.ok(ApiResponse.success(mappings));
+    }
+
+    @PutMapping("/{projectId}/workflow-mappings")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead')")
+    @Operation(summary = "Replace all workflow step mappings for a project")
+    public ResponseEntity<ApiResponse<List<WorkflowMappingDto>>> saveWorkflowMappings(
+            @PathVariable UUID projectId,
+            @Valid @RequestBody ProjectWorkflowMappingsRequest request) {
+        List<WorkflowMappingDto> saved = mappingService.saveMappings(projectId, request.getMappings());
+        return ResponseEntity.ok(ApiResponse.success(saved));
+    }
+
+    @GetMapping("/workflow-states")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
+    @Operation(summary = "List all available internal workflow states")
+    public ResponseEntity<ApiResponse<List<String>>> getWorkflowStates() {
+        return ResponseEntity.ok(ApiResponse.success(mappingService.getAvailableInternalStates()));
     }
 }

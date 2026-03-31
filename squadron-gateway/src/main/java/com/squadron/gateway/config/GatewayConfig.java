@@ -56,14 +56,19 @@ public class GatewayConfig {
                         .path("/api/config/**")
                         .filters(f -> f.stripPrefix(2))
                         .uri(configUri))
+                .route("orchestrator-projects", r -> r
+                        .path("/api/projects/**")
+                        .uri(orchestratorUri))
                 .route("orchestrator-service", r -> r
                         .path("/api/tasks/**")
                         .filters(f -> f.stripPrefix(2))
                         .uri(orchestratorUri))
                 .route("platform-service", r -> r
                         .path("/api/platforms/**")
-                        .filters(f -> f.stripPrefix(2))
                         .uri(platformUri))
+                .route("agent-dashboard", r -> r
+                        .path("/api/agents/dashboard/**", "/api/agents/dashboard")
+                        .uri(agentUri))
                 .route("agent-service", r -> r
                         .path("/api/agents/**")
                         .filters(f -> f.stripPrefix(2))

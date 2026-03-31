@@ -3,8 +3,11 @@ package com.squadron.orchestrator.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.orchestrator.config.SecurityConfig;
 import com.squadron.orchestrator.dto.CreateProjectRequest;
+import com.squadron.orchestrator.dto.ProjectWorkflowMappingsRequest;
+import com.squadron.orchestrator.dto.WorkflowMappingDto;
 import com.squadron.orchestrator.entity.Project;
 import com.squadron.orchestrator.service.ProjectService;
+import com.squadron.orchestrator.service.ProjectWorkflowMappingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -47,6 +50,9 @@ class ProjectControllerTest {
 
     @MockBean
     private ProjectService projectService;
+
+    @MockBean
+    private ProjectWorkflowMappingService mappingService;
 
     @MockBean
     private JwtDecoder jwtDecoder;
@@ -236,5 +242,87 @@ class ProjectControllerTest {
         mockMvc.perform(delete("/api/projects/{id}", UUID.randomUUID())
                         .with(csrf()))
                 .andExpect(status().isForbidden());
+    }
+
+    // --- Workflow Mapping Tests ---
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_getWorkflowMappings() throws Exception {
+        UUID projectId = UUID.randomUUID();
+        List<WorkflowMappingDto> mappings = List.of(
+                WorkflowMappingDto.builder().internalState("REVIEW").externalStatus("Code Review").build(),
+                WorkflowMappingDto.builder().internalState("DONE").externalStatus("Closed").build()
+        );
+
+        when(mappingService.getMappings(projectId)).thenReturn(mappings);
+
+        mockMvc.perform(get("/api/projects/{projectId}/workflow-mappings", projectId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].internalState").value("REVIEW"))
+                .andExpect(jsonPath("$.data[0].externalStatus").value("Code Review"))
+                .andExpect(jsonPath("$.data[1].internalState").value("DONE"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"squadron-admin"})
+    void should_saveWorkflowMappings() throws Exception {
+        UUID projectId = UUID.randomUUID();
+        List<WorkflowMappingDto> mappings = List.of(
+                WorkflowMappingDto.builder().internalState("REVIEW").externalStatus("In Review").build()
+        );
+
+        ProjectWorkflowMappingsRequest request = ProjectWorkflowMappingsRequest.builder()
+                .mappings(mappings)
+                .build();
+
+        when(mappingService.saveMappings(eq(projectId), any())).thenReturn(mappings);
+
+        mockMvc.perform(put("/api/projects/{projectId}/workflow-mappings", projectId)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].internalState").value("REVIEW"))
+                .andExpect(jsonPath("$.data[0].externalStatus").value("In Review"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_return403_when_developerTriesToSaveMappings() throws Exception {
+        UUID projectId = UUID.randomUUID();
+        ProjectWorkflowMappingsRequest request = ProjectWorkflowMappingsRequest.builder()
+                .mappings(List.of(
+                        WorkflowMappingDto.builder().internalState("REVIEW").externalStatus("Rev").build()
+                ))
+                .build();
+
+        mockMvc.perform(put("/api/projects/{projectId}/workflow-mappings", projectId)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = {"viewer"})
+    void should_getWorkflowStates() throws Exception {
+        when(mappingService.getAvailableInternalStates())
+                .thenReturn(List.of("BACKLOG", "PRIORITIZED", "PLANNING", "PROPOSE_CODE",
+                        "REVIEW", "QA", "MERGE", "DONE"));
+
+        mockMvc.perform(get("/api/projects/workflow-states"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(8))
+                .andExpect(jsonPath("$.data[0]").value("BACKLOG"));
+    }
+
+    @Test
+    void should_return401_when_gettingMappingsUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/projects/{projectId}/workflow-mappings", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
     }
 }

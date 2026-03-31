@@ -1,12 +1,18 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { TaskService } from '../../core/services/task.service';
-import { TaskState } from '../../core/models/task.model';
+import { SlicePipe } from '@angular/common';
+import { AgentDashboardService } from '../../core/services/agent-dashboard.service';
+import {
+  AgentDashboard,
+  ActiveAgentWork,
+  AgentActivity,
+  AgentTypeSummary,
+} from '../../core/models/agent.model';
 import { TimeAgoPipe } from '../../shared/pipes/time-ago.pipe';
 
 interface StatCard {
   label: string;
-  value: number;
+  value: number | string;
   icon: string;
   color: string;
   bgColor: string;
@@ -15,87 +21,123 @@ interface StatCard {
 @Component({
   selector: 'sq-dashboard',
   standalone: true,
-  imports: [RouterLink, TimeAgoPipe],
+  imports: [RouterLink, SlicePipe, TimeAgoPipe],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent implements OnInit {
-  private taskService = inject(TaskService);
+  private dashboardService = inject(AgentDashboardService);
 
-  stats = signal<StatCard[]>([
-    { label: 'Total Tasks', value: 0, icon: 'total', color: '#4F46E5', bgColor: '#EEF2FF' },
-    { label: 'In Progress', value: 0, icon: 'progress', color: '#06B6D4', bgColor: '#ECFEFF' },
-    { label: 'Pending Review', value: 0, icon: 'review', color: '#F59E0B', bgColor: '#FEF3C7' },
-    { label: 'Completed', value: 0, icon: 'done', color: '#10B981', bgColor: '#D1FAE5' },
-  ]);
-
-  stateDistribution = signal<{ state: string; count: number; percentage: number; color: string }[]>([]);
-  recentActivity = signal<{ id: string; title: string; action: string; actor: string; time: string }[]>([]);
+  stats = signal<StatCard[]>([]);
+  activeWork = signal<ActiveAgentWork[]>([]);
+  recentActivity = signal<AgentActivity[]>([]);
+  agentTypeSummaries = signal<AgentTypeSummary[]>([]);
   loading = signal(true);
 
-  readonly stateColors: Record<string, string> = {
-    BACKLOG: '#9CA3AF',
+  /** Colour mapping for known agent types. */
+  readonly agentTypeColors: Record<string, string> = {
     PLANNING: '#818CF8',
-    IN_PROGRESS: '#06B6D4',
+    CODING: '#06B6D4',
     REVIEW: '#F59E0B',
     QA: '#8B5CF6',
-    DONE: '#10B981',
+    MERGE: '#10B981',
+    COVERAGE: '#EC4899',
+  };
+
+  /** Background-tint for stat icons, keyed by icon name. */
+  readonly agentTypeBgColors: Record<string, string> = {
+    PLANNING: '#EEF2FF',
+    CODING: '#ECFEFF',
+    REVIEW: '#FEF3C7',
+    QA: '#F3E8FF',
+    MERGE: '#D1FAE5',
+    COVERAGE: '#FCE7F3',
   };
 
   ngOnInit(): void {
     this.loadDashboardData();
   }
 
+  getAgentColor(agentType: string): string {
+    return this.agentTypeColors[agentType] || '#9CA3AF';
+  }
+
+  getAgentBg(agentType: string): string {
+    return this.agentTypeBgColors[agentType] || '#F3F4F6';
+  }
+
+  formatTokens(tokens: number): string {
+    if (tokens >= 1_000_000) return (tokens / 1_000_000).toFixed(1) + 'M';
+    if (tokens >= 1_000) return (tokens / 1_000).toFixed(1) + 'K';
+    return String(tokens);
+  }
+
+  getMaxTokens(): number {
+    const summaries = this.agentTypeSummaries();
+    if (summaries.length === 0) return 1;
+    return Math.max(...summaries.map((s) => s.totalTokens), 1);
+  }
+
   private loadDashboardData(): void {
-    this.taskService.getTaskStats().subscribe({
-      next: (data) => {
-        const byState = data.byState;
-        const total = data.total || 0;
-        const inProgress = byState?.[TaskState.IN_PROGRESS] || 0;
-        const review = byState?.[TaskState.REVIEW] || 0;
-        const done = byState?.[TaskState.DONE] || 0;
-
-        this.stats.set([
-          { label: 'Total Tasks', value: total, icon: 'total', color: '#4F46E5', bgColor: '#EEF2FF' },
-          { label: 'In Progress', value: inProgress, icon: 'progress', color: '#06B6D4', bgColor: '#ECFEFF' },
-          { label: 'Pending Review', value: review, icon: 'review', color: '#F59E0B', bgColor: '#FEF3C7' },
-          { label: 'Completed', value: done, icon: 'done', color: '#10B981', bgColor: '#D1FAE5' },
-        ]);
-
-        const distribution = Object.entries(byState || {}).map(([state, count]) => ({
-          state: state.replace('_', ' '),
-          count: count as number,
-          percentage: total > 0 ? ((count as number) / total) * 100 : 0,
-          color: this.stateColors[state] || '#9CA3AF',
-        }));
-        this.stateDistribution.set(distribution);
+    this.dashboardService.getDashboard().subscribe({
+      next: (data: AgentDashboard) => {
+        this.applyData(data);
         this.loading.set(false);
       },
       error: () => {
+        this.applyMockData();
         this.loading.set(false);
-        // Use mock data for demo
-        this.stats.set([
-          { label: 'Total Tasks', value: 47, icon: 'total', color: '#4F46E5', bgColor: '#EEF2FF' },
-          { label: 'In Progress', value: 12, icon: 'progress', color: '#06B6D4', bgColor: '#ECFEFF' },
-          { label: 'Pending Review', value: 8, icon: 'review', color: '#F59E0B', bgColor: '#FEF3C7' },
-          { label: 'Completed', value: 19, icon: 'done', color: '#10B981', bgColor: '#D1FAE5' },
-        ]);
-        this.stateDistribution.set([
-          { state: 'BACKLOG', count: 5, percentage: 10.6, color: '#9CA3AF' },
-          { state: 'PLANNING', count: 3, percentage: 6.4, color: '#818CF8' },
-          { state: 'IN PROGRESS', count: 12, percentage: 25.5, color: '#06B6D4' },
-          { state: 'REVIEW', count: 8, percentage: 17.0, color: '#F59E0B' },
-          { state: 'QA', count: 0, percentage: 0, color: '#8B5CF6' },
-          { state: 'DONE', count: 19, percentage: 40.4, color: '#10B981' },
-        ]);
-        this.recentActivity.set([
-          { id: '1', title: 'Implement user auth flow', action: 'moved to Review', actor: 'AI Agent', time: new Date(Date.now() - 120000).toISOString() },
-          { id: '2', title: 'Fix pagination bug', action: 'completed', actor: 'AI Agent', time: new Date(Date.now() - 300000).toISOString() },
-          { id: '3', title: 'Add export CSV feature', action: 'started', actor: 'Jane Smith', time: new Date(Date.now() - 600000).toISOString() },
-          { id: '4', title: 'Update API rate limiting', action: 'review approved', actor: 'John Doe', time: new Date(Date.now() - 1800000).toISOString() },
-          { id: '5', title: 'Database migration v2', action: 'assigned to AI Agent', actor: 'System', time: new Date(Date.now() - 3600000).toISOString() },
-        ]);
       },
     });
+  }
+
+  private applyData(data: AgentDashboard): void {
+    this.stats.set([
+      { label: 'Active Agents', value: data.activeAgents, icon: 'active', color: '#06B6D4', bgColor: '#ECFEFF' },
+      { label: 'Idle Agents', value: data.idleAgents, icon: 'idle', color: '#9CA3AF', bgColor: '#F3F4F6' },
+      { label: 'Total Conversations', value: data.totalConversations, icon: 'conversations', color: '#4F46E5', bgColor: '#EEF2FF' },
+      { label: 'Tokens Used', value: this.formatTokens(data.totalTokensUsed), icon: 'tokens', color: '#F59E0B', bgColor: '#FEF3C7' },
+    ]);
+    this.activeWork.set(data.activeWork || []);
+    this.recentActivity.set(data.recentActivity || []);
+    this.agentTypeSummaries.set(data.agentTypeSummaries || []);
+  }
+
+  private applyMockData(): void {
+    const now = new Date().toISOString();
+    const fiveMinAgo = new Date(Date.now() - 300_000).toISOString();
+    const tenMinAgo = new Date(Date.now() - 600_000).toISOString();
+    const thirtyMinAgo = new Date(Date.now() - 1_800_000).toISOString();
+    const oneHrAgo = new Date(Date.now() - 3_600_000).toISOString();
+
+    this.stats.set([
+      { label: 'Active Agents', value: 3, icon: 'active', color: '#06B6D4', bgColor: '#ECFEFF' },
+      { label: 'Idle Agents', value: 3, icon: 'idle', color: '#9CA3AF', bgColor: '#F3F4F6' },
+      { label: 'Total Conversations', value: 24, icon: 'conversations', color: '#4F46E5', bgColor: '#EEF2FF' },
+      { label: 'Tokens Used', value: '142.3K', icon: 'tokens', color: '#F59E0B', bgColor: '#FEF3C7' },
+    ]);
+
+    this.activeWork.set([
+      { conversationId: 'c1', taskId: 't1', agentType: 'CODING', status: 'ACTIVE', provider: 'openai', model: 'gpt-4o', totalTokens: 4200, startedAt: tenMinAgo, lastActivityAt: now },
+      { conversationId: 'c2', taskId: 't2', agentType: 'REVIEW', status: 'ACTIVE', provider: 'openai', model: 'gpt-4o', totalTokens: 1800, startedAt: fiveMinAgo, lastActivityAt: now },
+      { conversationId: 'c3', taskId: 't3', agentType: 'PLANNING', status: 'ACTIVE', provider: 'anthropic', model: 'claude-3.5', totalTokens: 900, startedAt: thirtyMinAgo, lastActivityAt: fiveMinAgo },
+    ]);
+
+    this.recentActivity.set([
+      { conversationId: 'c1', taskId: 't1', agentType: 'CODING', action: 'working', totalTokens: 4200, timestamp: now },
+      { conversationId: 'c2', taskId: 't2', agentType: 'REVIEW', action: 'working', totalTokens: 1800, timestamp: fiveMinAgo },
+      { conversationId: 'c4', taskId: 't4', agentType: 'QA', action: 'completed', totalTokens: 3100, timestamp: thirtyMinAgo },
+      { conversationId: 'c5', taskId: 't5', agentType: 'MERGE', action: 'completed', totalTokens: 600, timestamp: oneHrAgo },
+      { conversationId: 'c3', taskId: 't3', agentType: 'PLANNING', action: 'working', totalTokens: 900, timestamp: fiveMinAgo },
+    ]);
+
+    this.agentTypeSummaries.set([
+      { agentType: 'PLANNING', activeCount: 1, completedCount: 5, totalTokens: 18200 },
+      { agentType: 'CODING', activeCount: 1, completedCount: 8, totalTokens: 52400 },
+      { agentType: 'REVIEW', activeCount: 1, completedCount: 4, totalTokens: 31000 },
+      { agentType: 'QA', activeCount: 0, completedCount: 3, totalTokens: 21400 },
+      { agentType: 'MERGE', activeCount: 0, completedCount: 3, totalTokens: 12600 },
+      { agentType: 'COVERAGE', activeCount: 0, completedCount: 1, totalTokens: 6700 },
+    ]);
   }
 }

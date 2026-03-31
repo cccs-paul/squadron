@@ -384,4 +384,89 @@ class PlatformConnectionServiceTest {
         assertTrue(credentialsJson.contains("encrypted-token"));
         assertTrue(credentialsJson.contains("plain-id")); // clientId is not sensitive
     }
+
+    // --- Fetch Project Statuses ---
+
+    @Test
+    void should_fetchProjectStatuses_when_connectionExists() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+        String credJson = objectMapper.writeValueAsString(Map.of("accessToken", "encrypted-token"));
+        PlatformConnection connection = PlatformConnection.builder()
+                .id(connectionId)
+                .tenantId(UUID.randomUUID())
+                .platformType("JIRA_CLOUD")
+                .baseUrl("https://example.atlassian.net")
+                .credentials(credJson)
+                .status("ACTIVE")
+                .build();
+
+        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+        when(adapterRegistry.getAdapter("JIRA_CLOUD")).thenReturn(adapter);
+        when(encryptionService.decrypt("encrypted-token")).thenReturn("plain-token");
+        when(adapter.getAvailableStatuses("PROJ-1")).thenReturn(List.of("To Do", "In Progress", "Done"));
+
+        List<String> result = connectionService.fetchProjectStatuses(connectionId, "PROJ-1");
+
+        assertEquals(3, result.size());
+        assertEquals("To Do", result.get(0));
+        assertEquals("In Progress", result.get(1));
+        assertEquals("Done", result.get(2));
+        verify(adapter).configure("https://example.atlassian.net", "plain-token");
+        verify(adapter).getAvailableStatuses("PROJ-1");
+    }
+
+    @Test
+    void should_throwPlatformIntegrationException_when_fetchStatusesFails() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+        String credJson = objectMapper.writeValueAsString(Map.of("accessToken", "encrypted-token"));
+        PlatformConnection connection = PlatformConnection.builder()
+                .id(connectionId)
+                .tenantId(UUID.randomUUID())
+                .platformType("JIRA_CLOUD")
+                .baseUrl("https://example.atlassian.net")
+                .credentials(credJson)
+                .status("ACTIVE")
+                .build();
+
+        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+        when(adapterRegistry.getAdapter("JIRA_CLOUD")).thenReturn(adapter);
+        when(encryptionService.decrypt("encrypted-token")).thenReturn("plain-token");
+        when(adapter.getAvailableStatuses("BAD-PROJ")).thenThrow(new RuntimeException("Project not found"));
+
+        assertThrows(PlatformIntegrationException.class,
+                () -> connectionService.fetchProjectStatuses(connectionId, "BAD-PROJ"));
+    }
+
+    @Test
+    void should_throwNotFound_when_fetchStatusesForMissingConnection() {
+        UUID connectionId = UUID.randomUUID();
+        when(connectionRepository.findById(connectionId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> connectionService.fetchProjectStatuses(connectionId, "PROJ-1"));
+    }
+
+    @Test
+    void should_fetchProjectStatuses_when_noCredentials() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+        PlatformConnection connection = PlatformConnection.builder()
+                .id(connectionId)
+                .tenantId(UUID.randomUUID())
+                .platformType("GITHUB")
+                .baseUrl("https://api.github.com")
+                .credentials(null)
+                .status("ACTIVE")
+                .build();
+
+        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+        when(adapterRegistry.getAdapter("GITHUB")).thenReturn(adapter);
+        when(adapter.getAvailableStatuses("my-repo")).thenReturn(List.of("open", "closed"));
+
+        List<String> result = connectionService.fetchProjectStatuses(connectionId, "my-repo");
+
+        assertEquals(2, result.size());
+        assertEquals("open", result.get(0));
+        assertEquals("closed", result.get(1));
+        verify(adapter).configure("https://api.github.com", "");
+    }
 }

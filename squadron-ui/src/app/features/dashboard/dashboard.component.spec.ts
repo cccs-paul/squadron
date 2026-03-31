@@ -1,25 +1,79 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DashboardComponent } from './dashboard.component';
-import { TaskService } from '../../core/services/task.service';
+import { AgentDashboardService } from '../../core/services/agent-dashboard.service';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
-import { TaskState } from '../../core/models/task.model';
+import { AgentDashboard } from '../../core/models/agent.model';
 
 describe('DashboardComponent', () => {
   let component: DashboardComponent;
   let fixture: ComponentFixture<DashboardComponent>;
-  let taskServiceSpy: jasmine.SpyObj<TaskService>;
+  let dashboardServiceSpy: jasmine.SpyObj<AgentDashboardService>;
+
+  const mockDashboard: AgentDashboard = {
+    activeAgents: 2,
+    idleAgents: 4,
+    totalConversations: 10,
+    totalTokensUsed: 142300,
+    activeWork: [
+      {
+        conversationId: 'c1',
+        taskId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        agentType: 'CODING',
+        status: 'ACTIVE',
+        provider: 'openai',
+        model: 'gpt-4o',
+        totalTokens: 4200,
+        startedAt: new Date(Date.now() - 600_000).toISOString(),
+        lastActivityAt: new Date().toISOString(),
+      },
+      {
+        conversationId: 'c2',
+        taskId: 'ffffffff-1111-2222-3333-444444444444',
+        agentType: 'REVIEW',
+        status: 'ACTIVE',
+        provider: 'openai',
+        model: 'gpt-4o',
+        totalTokens: 1800,
+        startedAt: new Date(Date.now() - 300_000).toISOString(),
+        lastActivityAt: new Date().toISOString(),
+      },
+    ],
+    recentActivity: [
+      {
+        conversationId: 'c1',
+        taskId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        agentType: 'CODING',
+        action: 'working',
+        totalTokens: 4200,
+        timestamp: new Date().toISOString(),
+      },
+      {
+        conversationId: 'c3',
+        taskId: 'xxxxxxxx-0000-1111-2222-333333333333',
+        agentType: 'QA',
+        action: 'completed',
+        totalTokens: 3100,
+        timestamp: new Date(Date.now() - 1_800_000).toISOString(),
+      },
+    ],
+    agentTypeSummaries: [
+      { agentType: 'CODING', activeCount: 1, completedCount: 5, totalTokens: 52400 },
+      { agentType: 'REVIEW', activeCount: 1, completedCount: 3, totalTokens: 31000 },
+      { agentType: 'QA', activeCount: 0, completedCount: 2, totalTokens: 21000 },
+    ],
+  };
 
   beforeEach(async () => {
-    taskServiceSpy = jasmine.createSpyObj('TaskService', ['getTaskStats']);
-    taskServiceSpy.getTaskStats.and.returnValue(throwError(() => new Error('api down')));
+    dashboardServiceSpy = jasmine.createSpyObj('AgentDashboardService', ['getDashboard']);
+    dashboardServiceSpy.getDashboard.and.returnValue(throwError(() => new Error('api down')));
 
     await TestBed.configureTestingModule({
       imports: [DashboardComponent],
       providers: [
-        { provide: TaskService, useValue: taskServiceSpy },
+        { provide: AgentDashboardService, useValue: dashboardServiceSpy },
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -38,68 +92,67 @@ describe('DashboardComponent', () => {
   it('should load mock data on API error', () => {
     fixture.detectChanges();
     expect(component.loading()).toBeFalse();
-    expect(component.stats()[0].value).toBe(47);
-    expect(component.stats()[1].value).toBe(12);
-    expect(component.stats()[2].value).toBe(8);
-    expect(component.stats()[3].value).toBe(19);
+    // Mock data has 3 active agents
+    expect(component.stats()[0].label).toBe('Active Agents');
+    expect(component.stats()[0].value).toBe(3);
+    expect(component.stats()[1].label).toBe('Idle Agents');
+    expect(component.stats()[1].value).toBe(3);
   });
 
-  it('should populate state distribution on API error', () => {
+  it('should populate active work on API error', () => {
     fixture.detectChanges();
-    expect(component.stateDistribution().length).toBeGreaterThan(0);
-    const done = component.stateDistribution().find((d) => d.state === 'DONE');
-    expect(done).toBeTruthy();
-    expect(done!.count).toBe(19);
+    expect(component.activeWork().length).toBe(3);
+    expect(component.activeWork()[0].agentType).toBe('CODING');
   });
 
   it('should populate recent activity on API error', () => {
     fixture.detectChanges();
     expect(component.recentActivity().length).toBe(5);
-    expect(component.recentActivity()[0].title).toBe('Implement user auth flow');
+    expect(component.recentActivity()[0].agentType).toBe('CODING');
+  });
+
+  it('should populate agent type summaries on API error', () => {
+    fixture.detectChanges();
+    expect(component.agentTypeSummaries().length).toBe(6);
+    expect(component.agentTypeSummaries()[0].agentType).toBe('PLANNING');
   });
 
   it('should load real data on successful API response', () => {
-    const statsData = {
-      total: 100,
-      byState: {
-        [TaskState.BACKLOG]: 10,
-        [TaskState.PLANNING]: 15,
-        [TaskState.IN_PROGRESS]: 30,
-        [TaskState.REVIEW]: 20,
-        [TaskState.QA]: 5,
-        [TaskState.DONE]: 20,
-      },
-      byPriority: {},
-    };
-    taskServiceSpy.getTaskStats.and.returnValue(of(statsData));
+    dashboardServiceSpy.getDashboard.and.returnValue(of(mockDashboard));
     fixture.detectChanges();
 
-    expect(component.stats()[0].value).toBe(100);
-    expect(component.stats()[1].value).toBe(30);
-    expect(component.stats()[2].value).toBe(20);
-    expect(component.stats()[3].value).toBe(20);
+    expect(component.stats()[0].value).toBe(2);       // activeAgents
+    expect(component.stats()[1].value).toBe(4);       // idleAgents
+    expect(component.stats()[2].value).toBe(10);      // totalConversations
+    expect(component.stats()[3].value).toBe('142.3K'); // totalTokensUsed formatted
     expect(component.loading()).toBeFalse();
   });
 
-  it('should compute state distribution from real data', () => {
-    const statsData = {
-      total: 50,
-      byState: {
-        [TaskState.BACKLOG]: 0,
-        [TaskState.PLANNING]: 0,
-        [TaskState.IN_PROGRESS]: 25,
-        [TaskState.REVIEW]: 0,
-        [TaskState.QA]: 0,
-        [TaskState.DONE]: 25,
-      } as Record<TaskState, number>,
-      byPriority: {} as Record<string, number>,
-    };
-    taskServiceSpy.getTaskStats.and.returnValue(of(statsData));
+  it('should set activeWork from API data', () => {
+    dashboardServiceSpy.getDashboard.and.returnValue(of(mockDashboard));
     fixture.detectChanges();
 
-    const inProgress = component.stateDistribution().find((d) => d.state === 'IN PROGRESS');
-    expect(inProgress).toBeTruthy();
-    expect(inProgress!.percentage).toBe(50);
+    expect(component.activeWork().length).toBe(2);
+    expect(component.activeWork()[0].agentType).toBe('CODING');
+    expect(component.activeWork()[1].agentType).toBe('REVIEW');
+  });
+
+  it('should set recentActivity from API data', () => {
+    dashboardServiceSpy.getDashboard.and.returnValue(of(mockDashboard));
+    fixture.detectChanges();
+
+    expect(component.recentActivity().length).toBe(2);
+    expect(component.recentActivity()[0].action).toBe('working');
+    expect(component.recentActivity()[1].action).toBe('completed');
+  });
+
+  it('should set agentTypeSummaries from API data', () => {
+    dashboardServiceSpy.getDashboard.and.returnValue(of(mockDashboard));
+    fixture.detectChanges();
+
+    expect(component.agentTypeSummaries().length).toBe(3);
+    expect(component.agentTypeSummaries()[0].agentType).toBe('CODING');
+    expect(component.agentTypeSummaries()[0].totalTokens).toBe(52400);
   });
 
   it('should render stat cards in the template', () => {
@@ -109,9 +162,60 @@ describe('DashboardComponent', () => {
     expect(statCards.length).toBe(4);
   });
 
-  it('should have correct stateColors mapping', () => {
-    expect(component.stateColors['BACKLOG']).toBe('#9CA3AF');
-    expect(component.stateColors['DONE']).toBe('#10B981');
-    expect(component.stateColors['IN_PROGRESS']).toBe('#06B6D4');
+  it('should render active work cards', () => {
+    dashboardServiceSpy.getDashboard.and.returnValue(of(mockDashboard));
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const workCards = el.querySelectorAll('.work-card');
+    expect(workCards.length).toBe(2);
+  });
+
+  it('should show empty state when no active work', () => {
+    const emptyDashboard: AgentDashboard = {
+      ...mockDashboard,
+      activeWork: [],
+    };
+    dashboardServiceSpy.getDashboard.and.returnValue(of(emptyDashboard));
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const emptyState = el.querySelector('.empty-state');
+    expect(emptyState).toBeTruthy();
+    expect(emptyState!.textContent).toContain('All agents are idle');
+  });
+
+  it('should have correct agentTypeColors mapping', () => {
+    expect(component.agentTypeColors['CODING']).toBe('#06B6D4');
+    expect(component.agentTypeColors['REVIEW']).toBe('#F59E0B');
+    expect(component.agentTypeColors['QA']).toBe('#8B5CF6');
+    expect(component.agentTypeColors['MERGE']).toBe('#10B981');
+    expect(component.agentTypeColors['PLANNING']).toBe('#818CF8');
+    expect(component.agentTypeColors['COVERAGE']).toBe('#EC4899');
+  });
+
+  it('should format tokens correctly', () => {
+    expect(component.formatTokens(500)).toBe('500');
+    expect(component.formatTokens(1500)).toBe('1.5K');
+    expect(component.formatTokens(1_500_000)).toBe('1.5M');
+  });
+
+  it('should return default color for unknown agent type', () => {
+    expect(component.getAgentColor('UNKNOWN')).toBe('#9CA3AF');
+    expect(component.getAgentBg('UNKNOWN')).toBe('#F3F4F6');
+  });
+
+  it('should calculate max tokens from summaries', () => {
+    dashboardServiceSpy.getDashboard.and.returnValue(of(mockDashboard));
+    fixture.detectChanges();
+    expect(component.getMaxTokens()).toBe(52400);
+  });
+
+  it('should return 1 for max tokens when no summaries', () => {
+    const emptyDashboard: AgentDashboard = {
+      ...mockDashboard,
+      agentTypeSummaries: [],
+    };
+    dashboardServiceSpy.getDashboard.and.returnValue(of(emptyDashboard));
+    fixture.detectChanges();
+    expect(component.getMaxTokens()).toBe(1);
   });
 });

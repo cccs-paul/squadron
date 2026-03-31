@@ -1,12 +1,19 @@
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { ApiService } from './api.service';
 import { PlatformConnection, PlatformConnectionType } from '../models/security.model';
+import { ApiResponse } from '../auth/auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class PlatformService extends ApiService {
   getConnections(): Observable<PlatformConnection[]> {
     return this.get<PlatformConnection[]>('/platforms/connections');
+  }
+
+  getConnectionsByTenant(tenantId: string): Observable<PlatformConnection[]> {
+    return this.get<ApiResponse<PlatformConnection[]>>(`/platforms/connections/tenant/${tenantId}`).pipe(
+      map((response) => response.data),
+    );
   }
 
   getConnection(id: string): Observable<PlatformConnection> {
@@ -31,5 +38,18 @@ export class PlatformService extends ApiService {
 
   syncConnection(id: string): Observable<void> {
     return this.post<void>(`/platforms/connections/${id}/sync`, {});
+  }
+
+  /**
+   * Fetches available workflow statuses from the remote ticketing platform
+   * for a given connection and project key.
+   */
+  getProjectStatuses(connectionId: string, projectKey: string): Observable<string[]> {
+    return this.get<ApiResponse<string[]>>(
+      `/platforms/connections/${connectionId}/statuses`,
+      { projectKey },
+    ).pipe(
+      map((response) => response.data),
+    );
   }
 }

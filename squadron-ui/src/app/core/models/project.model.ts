@@ -6,6 +6,8 @@ export interface Project {
   repositoryUrl?: string;
   platformType?: PlatformType;
   platformProjectId?: string;
+  connectionId?: string;
+  externalProjectId?: string;
   defaultBranch: string;
   taskCount: number;
   activeTaskCount: number;
@@ -18,4 +20,13 @@ export enum PlatformType {
   GITHUB = 'GITHUB',
   GITLAB = 'GITLAB',
   AZURE_DEVOPS = 'AZURE_DEVOPS',
+}
+
+export interface WorkflowMapping {
+  internalState: string;
+  externalStatus: string;
+}
+
+export interface WorkflowMappingsRequest {
+  mappings: WorkflowMapping[];
 }

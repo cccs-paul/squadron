@@ -18,4 +18,12 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
     List<Conversation> findByUserIdAndStatus(UUID userId, String status);
 
     Optional<Conversation> findByIdAndTenantId(UUID id, UUID tenantId);
+
+    List<Conversation> findByTenantIdAndStatus(UUID tenantId, String status);
+
+    List<Conversation> findByTenantIdOrderByUpdatedAtDesc(UUID tenantId);
+
+    long countByTenantId(UUID tenantId);
+
+    long countByTenantIdAndStatus(UUID tenantId, String status);
 }
