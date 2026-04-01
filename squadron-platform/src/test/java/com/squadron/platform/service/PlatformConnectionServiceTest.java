@@ -56,6 +56,7 @@ class PlatformConnectionServiceTest {
         UUID tenantId = UUID.randomUUID();
         CreateConnectionRequest request = CreateConnectionRequest.builder()
                 .tenantId(tenantId)
+                .name("My JIRA Connection")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .authType("OAUTH2")
@@ -68,6 +69,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection savedConnection = PlatformConnection.builder()
                 .id(UUID.randomUUID())
                 .tenantId(tenantId)
+                .name("My JIRA Connection")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .authType("OAUTH2")
@@ -81,6 +83,7 @@ class PlatformConnectionServiceTest {
         assertNotNull(result);
         assertEquals("ACTIVE", result.getStatus());
         assertEquals("JIRA_CLOUD", result.getPlatformType());
+        assertEquals("My JIRA Connection", result.getName());
         verify(connectionRepository).save(any(PlatformConnection.class));
         verify(encryptionService).encrypt("secret");
     }
@@ -89,6 +92,7 @@ class PlatformConnectionServiceTest {
     void should_createConnection_when_noCredentials() {
         CreateConnectionRequest request = CreateConnectionRequest.builder()
                 .tenantId(UUID.randomUUID())
+                .name("GitHub Connection")
                 .platformType("GITHUB")
                 .baseUrl("https://api.github.com")
                 .authType("PAT")
@@ -98,6 +102,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection savedConnection = PlatformConnection.builder()
                 .id(UUID.randomUUID())
                 .tenantId(request.getTenantId())
+                .name("GitHub Connection")
                 .platformType("GITHUB")
                 .status("ACTIVE")
                 .build();
@@ -116,6 +121,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("Test Connection")
                 .platformType("JIRA_CLOUD")
                 .build();
 
@@ -137,8 +143,8 @@ class PlatformConnectionServiceTest {
     @Test
     void should_listConnectionsByTenant() {
         UUID tenantId = UUID.randomUUID();
-        PlatformConnection c1 = PlatformConnection.builder().id(UUID.randomUUID()).tenantId(tenantId).build();
-        PlatformConnection c2 = PlatformConnection.builder().id(UUID.randomUUID()).tenantId(tenantId).build();
+        PlatformConnection c1 = PlatformConnection.builder().id(UUID.randomUUID()).tenantId(tenantId).name("Conn 1").build();
+        PlatformConnection c2 = PlatformConnection.builder().id(UUID.randomUUID()).tenantId(tenantId).name("Conn 2").build();
 
         when(connectionRepository.findByTenantId(tenantId)).thenReturn(List.of(c1, c2));
 
@@ -153,6 +159,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection existing = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("Old Name")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://old.atlassian.net")
                 .authType("OAUTH2")
@@ -160,6 +167,7 @@ class PlatformConnectionServiceTest {
 
         CreateConnectionRequest request = CreateConnectionRequest.builder()
                 .tenantId(existing.getTenantId())
+                .name("Updated Name")
                 .platformType("JIRA_SERVER")
                 .baseUrl("https://new.jira.com")
                 .authType("PAT")
@@ -174,6 +182,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection result = connectionService.updateConnection(connectionId, request);
 
         assertNotNull(result);
+        assertEquals("Updated Name", existing.getName());
         assertEquals("JIRA_SERVER", existing.getPlatformType());
         assertEquals("https://new.jira.com", existing.getBaseUrl());
         verify(connectionRepository).save(existing);
@@ -185,6 +194,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection existing = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("Existing Connection")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://old.atlassian.net")
                 .authType("OAUTH2")
@@ -193,6 +203,7 @@ class PlatformConnectionServiceTest {
 
         CreateConnectionRequest request = CreateConnectionRequest.builder()
                 .tenantId(existing.getTenantId())
+                .name("Existing Connection")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://new.atlassian.net")
                 .authType("OAUTH2")
@@ -216,6 +227,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("To Delete")
                 .platformType("GITHUB")
                 .build();
 
@@ -241,6 +253,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("JIRA Test")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .credentials(credJson)
@@ -268,6 +281,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("JIRA Fail Test")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .credentials(credJson)
@@ -293,6 +307,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("JIRA Error Test")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .credentials(credJson)
@@ -318,6 +333,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("Cred Test")
                 .platformType("JIRA_CLOUD")
                 .credentials(credJson)
                 .build();
@@ -337,6 +353,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("No Creds")
                 .platformType("JIRA_CLOUD")
                 .credentials(null)
                 .build();
@@ -352,6 +369,7 @@ class PlatformConnectionServiceTest {
     void should_encryptSensitiveFields_when_creatingConnection() {
         CreateConnectionRequest request = CreateConnectionRequest.builder()
                 .tenantId(UUID.randomUUID())
+                .name("Encrypt Test")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .authType("OAUTH2")
@@ -368,6 +386,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection savedConnection = PlatformConnection.builder()
                 .id(UUID.randomUUID())
                 .tenantId(request.getTenantId())
+                .name("Encrypt Test")
                 .platformType("JIRA_CLOUD")
                 .status("ACTIVE")
                 .build();
@@ -394,6 +413,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("Status Fetch Test")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .credentials(credJson)
@@ -422,6 +442,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("Status Fail Test")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .credentials(credJson)
@@ -452,6 +473,7 @@ class PlatformConnectionServiceTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("GitHub No Creds")
                 .platformType("GITHUB")
                 .baseUrl("https://api.github.com")
                 .credentials(null)

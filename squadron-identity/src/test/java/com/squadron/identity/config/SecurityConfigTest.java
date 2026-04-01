@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 
 import java.lang.reflect.Method;
 
@@ -33,14 +35,6 @@ class SecurityConfigTest {
                 org.springframework.security.config.annotation.web.builders.HttpSecurity.class);
 
         assertNotNull(method);
-    }
-
-    @Test
-    void should_haveSecurityFilterChainBeanAnnotation_when_checked() throws NoSuchMethodException {
-        Method method = SecurityConfig.class.getDeclaredMethod(
-                "securityFilterChain",
-                org.springframework.security.config.annotation.web.builders.HttpSecurity.class);
-
         assertTrue(method.isAnnotationPresent(org.springframework.context.annotation.Bean.class));
     }
 
@@ -54,9 +48,26 @@ class SecurityConfigTest {
     }
 
     @Test
+    void should_haveJwtDecoderMethod_when_checked() throws NoSuchMethodException {
+        Method method = SecurityConfig.class.getDeclaredMethod("jwtDecoder");
+
+        assertNotNull(method);
+        assertTrue(method.isAnnotationPresent(org.springframework.context.annotation.Bean.class));
+        assertEquals(JwtDecoder.class, method.getReturnType());
+    }
+
+    @Test
+    void should_haveJwtAuthenticationConverterMethod_when_checked() throws NoSuchMethodException {
+        Method method = SecurityConfig.class.getDeclaredMethod("jwtAuthenticationConverter");
+
+        assertNotNull(method);
+        assertTrue(method.isAnnotationPresent(org.springframework.context.annotation.Bean.class));
+        assertEquals(JwtAuthenticationConverter.class, method.getReturnType());
+    }
+
+    @Test
     void should_instantiateSecurityConfig_when_constructed() {
         SecurityConfig config = new SecurityConfig();
-
         assertNotNull(config);
     }
 }

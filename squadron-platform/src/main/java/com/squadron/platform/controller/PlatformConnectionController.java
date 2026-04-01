@@ -1,6 +1,7 @@
 package com.squadron.platform.controller;
 
 import com.squadron.common.dto.ApiResponse;
+import com.squadron.platform.dto.ConnectionInfoResponse;
 import com.squadron.platform.dto.CreateConnectionRequest;
 import com.squadron.platform.entity.PlatformConnection;
 import com.squadron.platform.service.PlatformConnectionService;
@@ -14,9 +15,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
@@ -32,32 +32,35 @@ public class PlatformConnectionController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<PlatformConnection>> createConnection(
+    public ResponseEntity<ApiResponse<ConnectionInfoResponse>> createConnection(
             @Valid @RequestBody CreateConnectionRequest request) {
         PlatformConnection connection = connectionService.createConnection(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(connection));
+                .body(ApiResponse.success(ConnectionInfoResponse.fromEntity(connection)));
     }
 
     @GetMapping("/tenant/{tenantId}")
-    public ResponseEntity<ApiResponse<List<PlatformConnection>>> listByTenant(
+    public ResponseEntity<ApiResponse<List<ConnectionInfoResponse>>> listByTenant(
             @PathVariable UUID tenantId) {
         List<PlatformConnection> connections = connectionService.listConnectionsByTenant(tenantId);
-        return ResponseEntity.ok(ApiResponse.success(connections));
+        List<ConnectionInfoResponse> response = connections.stream()
+                .map(ConnectionInfoResponse::fromEntity)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<PlatformConnection>> getConnection(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<ConnectionInfoResponse>> getConnection(@PathVariable UUID id) {
         PlatformConnection connection = connectionService.getConnection(id);
-        return ResponseEntity.ok(ApiResponse.success(connection));
+        return ResponseEntity.ok(ApiResponse.success(ConnectionInfoResponse.fromEntity(connection)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<PlatformConnection>> updateConnection(
+    public ResponseEntity<ApiResponse<ConnectionInfoResponse>> updateConnection(
             @PathVariable UUID id,
             @Valid @RequestBody CreateConnectionRequest request) {
         PlatformConnection connection = connectionService.updateConnection(id, request);
-        return ResponseEntity.ok(ApiResponse.success(connection));
+        return ResponseEntity.ok(ApiResponse.success(ConnectionInfoResponse.fromEntity(connection)));
     }
 
     @DeleteMapping("/{id}")

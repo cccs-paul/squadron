@@ -71,6 +71,7 @@ class RepositoryIntegrationTest {
     private PlatformConnection createConnection(UUID tenantId, String platformType, String status) {
         PlatformConnection conn = PlatformConnection.builder()
                 .tenantId(tenantId)
+                .name(platformType + " Connection")
                 .platformType(platformType)
                 .baseUrl("https://" + platformType.toLowerCase() + ".example.com")
                 .authType("OAUTH2")
@@ -103,6 +104,7 @@ class RepositoryIntegrationTest {
     void should_savePlatformConnection_when_validEntity() {
         PlatformConnection conn = PlatformConnection.builder()
                 .tenantId(UUID.randomUUID())
+                .name("JIRA Test Connection")
                 .platformType("JIRA")
                 .baseUrl("https://jira.example.com")
                 .authType("OAUTH2")

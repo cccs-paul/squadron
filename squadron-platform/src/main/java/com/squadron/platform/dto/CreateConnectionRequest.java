@@ -19,6 +19,9 @@ public class CreateConnectionRequest {
     @NotNull(message = "Tenant ID is required")
     private UUID tenantId;
 
+    @NotBlank(message = "Name is required")
+    private String name;
+
     @NotBlank(message = "Platform type is required")
     private String platformType;
 

@@ -19,14 +19,14 @@ describe('PlatformConnectionsComponent', () => {
     {
       id: 'pc-1', tenantId: 't1', name: 'GitHub Org',
       platformType: PlatformConnectionType.GITHUB,
-      baseUrl: 'https://api.github.com', status: ConnectionStatus.CONNECTED,
+      baseUrl: 'https://api.github.com', status: ConnectionStatus.ACTIVE,
       lastSyncAt: new Date().toISOString(),
       config: {}, createdAt: new Date().toISOString(),
     },
     {
       id: 'pc-2', tenantId: 't1', name: 'Jira Cloud',
       platformType: PlatformConnectionType.JIRA,
-      baseUrl: 'https://myorg.atlassian.net', status: ConnectionStatus.CONNECTED,
+      baseUrl: 'https://myorg.atlassian.net', status: ConnectionStatus.ACTIVE,
       config: {}, createdAt: new Date().toISOString(),
     },
     {
@@ -186,8 +186,7 @@ describe('PlatformConnectionsComponent', () => {
   });
 
   it('should_returnCorrectStatusClass_when_statusClassCalled', () => {
-    expect(component.statusClass(ConnectionStatus.CONNECTED)).toBe('success');
-    expect(component.statusClass(ConnectionStatus.DISCONNECTED)).toBe('neutral');
+    expect(component.statusClass(ConnectionStatus.ACTIVE)).toBe('success');
     expect(component.statusClass(ConnectionStatus.ERROR)).toBe('error');
   });
 

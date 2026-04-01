@@ -18,6 +18,7 @@ class CreateConnectionRequestTest {
 
         CreateConnectionRequest request = CreateConnectionRequest.builder()
                 .tenantId(tenantId)
+                .name("My JIRA Connection")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .authType("OAUTH2")
@@ -26,6 +27,7 @@ class CreateConnectionRequestTest {
                 .build();
 
         assertEquals(tenantId, request.getTenantId());
+        assertEquals("My JIRA Connection", request.getName());
         assertEquals("JIRA_CLOUD", request.getPlatformType());
         assertEquals("https://example.atlassian.net", request.getBaseUrl());
         assertEquals("OAUTH2", request.getAuthType());
@@ -37,6 +39,7 @@ class CreateConnectionRequestTest {
     void should_supportNoArgsConstructor() {
         CreateConnectionRequest request = new CreateConnectionRequest();
         assertNull(request.getTenantId());
+        assertNull(request.getName());
         assertNull(request.getPlatformType());
     }
 
@@ -45,11 +48,13 @@ class CreateConnectionRequestTest {
         CreateConnectionRequest request = new CreateConnectionRequest();
         UUID tenantId = UUID.randomUUID();
         request.setTenantId(tenantId);
+        request.setName("GitHub Conn");
         request.setPlatformType("GITHUB");
         request.setBaseUrl("https://api.github.com");
         request.setAuthType("PAT");
 
         assertEquals(tenantId, request.getTenantId());
+        assertEquals("GitHub Conn", request.getName());
         assertEquals("GITHUB", request.getPlatformType());
         assertEquals("https://api.github.com", request.getBaseUrl());
         assertEquals("PAT", request.getAuthType());
@@ -60,12 +65,14 @@ class CreateConnectionRequestTest {
         UUID tenantId = UUID.randomUUID();
         CreateConnectionRequest r1 = CreateConnectionRequest.builder()
                 .tenantId(tenantId)
+                .name("Same Name")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .authType("OAUTH2")
                 .build();
         CreateConnectionRequest r2 = CreateConnectionRequest.builder()
                 .tenantId(tenantId)
+                .name("Same Name")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .authType("OAUTH2")
@@ -78,10 +85,10 @@ class CreateConnectionRequestTest {
     @Test
     void should_notBeEqual_when_differentFields() {
         CreateConnectionRequest r1 = CreateConnectionRequest.builder()
-                .platformType("JIRA_CLOUD")
+                .name("JIRA").platformType("JIRA_CLOUD")
                 .build();
         CreateConnectionRequest r2 = CreateConnectionRequest.builder()
-                .platformType("GITHUB")
+                .name("GitHub").platformType("GITHUB")
                 .build();
 
         assertNotEquals(r1, r2);
@@ -90,10 +97,12 @@ class CreateConnectionRequestTest {
     @Test
     void should_implementToString() {
         CreateConnectionRequest request = CreateConnectionRequest.builder()
+                .name("My Connection")
                 .platformType("JIRA_CLOUD")
                 .build();
         String str = request.toString();
         assertNotNull(str);
         assertTrue(str.contains("JIRA_CLOUD"));
+        assertTrue(str.contains("My Connection"));
     }
 }

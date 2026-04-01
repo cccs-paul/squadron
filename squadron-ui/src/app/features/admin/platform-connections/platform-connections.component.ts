@@ -105,7 +105,7 @@ export class PlatformConnectionsComponent implements OnInit {
             name: this.formName,
             platformType: this.formType,
             baseUrl: this.formBaseUrl,
-            status: ConnectionStatus.CONNECTED,
+            status: ConnectionStatus.ACTIVE,
             config,
             createdAt: new Date().toISOString(),
           };
@@ -153,8 +153,7 @@ export class PlatformConnectionsComponent implements OnInit {
 
   statusClass(status: ConnectionStatus): string {
     switch (status) {
-      case ConnectionStatus.CONNECTED: return 'success';
-      case ConnectionStatus.DISCONNECTED: return 'neutral';
+      case ConnectionStatus.ACTIVE: return 'success';
       case ConnectionStatus.ERROR: return 'error';
       default: return 'neutral';
     }
@@ -175,13 +174,13 @@ export class PlatformConnectionsComponent implements OnInit {
     return [
       {
         id: 'pc-1', tenantId: '1', name: 'GitHub - Organization', platformType: PlatformConnectionType.GITHUB,
-        baseUrl: 'https://api.github.com', status: ConnectionStatus.CONNECTED,
+        baseUrl: 'https://api.github.com', status: ConnectionStatus.ACTIVE,
         lastSyncAt: new Date(Date.now() - 1800000).toISOString(),
         config: {}, createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
       },
       {
         id: 'pc-2', tenantId: '1', name: 'Jira Cloud', platformType: PlatformConnectionType.JIRA,
-        baseUrl: 'https://myorg.atlassian.net', status: ConnectionStatus.CONNECTED,
+        baseUrl: 'https://myorg.atlassian.net', status: ConnectionStatus.ACTIVE,
         lastSyncAt: new Date(Date.now() - 3600000).toISOString(),
         config: {}, createdAt: new Date(Date.now() - 86400000 * 20).toISOString(),
       },

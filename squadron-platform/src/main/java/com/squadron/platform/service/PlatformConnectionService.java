@@ -58,6 +58,7 @@ public class PlatformConnectionService {
 
         PlatformConnection connection = PlatformConnection.builder()
                 .tenantId(request.getTenantId())
+                .name(request.getName())
                 .platformType(request.getPlatformType())
                 .baseUrl(request.getBaseUrl())
                 .authType(request.getAuthType())
@@ -87,6 +88,7 @@ public class PlatformConnectionService {
      */
     public PlatformConnection updateConnection(UUID id, CreateConnectionRequest request) {
         PlatformConnection connection = getConnection(id);
+        connection.setName(request.getName());
         connection.setPlatformType(request.getPlatformType());
         connection.setBaseUrl(request.getBaseUrl());
         connection.setAuthType(request.getAuthType());

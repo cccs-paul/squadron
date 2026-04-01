@@ -58,6 +58,7 @@ class PlatformConnectionControllerTest {
 
         CreateConnectionRequest request = CreateConnectionRequest.builder()
                 .tenantId(tenantId)
+                .name("Jira Cloud - Production")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://myorg.atlassian.net")
                 .authType("OAUTH2")
@@ -67,6 +68,7 @@ class PlatformConnectionControllerTest {
         PlatformConnection saved = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(tenantId)
+                .name("Jira Cloud - Production")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://myorg.atlassian.net")
                 .authType("OAUTH2")
@@ -83,6 +85,7 @@ class PlatformConnectionControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(connectionId.toString()))
+                .andExpect(jsonPath("$.data.name").value("Jira Cloud - Production"))
                 .andExpect(jsonPath("$.data.platformType").value("JIRA_CLOUD"))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
 
@@ -93,6 +96,7 @@ class PlatformConnectionControllerTest {
     void should_return401_when_createConnectionUnauthenticated() throws Exception {
         CreateConnectionRequest request = CreateConnectionRequest.builder()
                 .tenantId(UUID.randomUUID())
+                .name("Test Connection")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.com")
                 .authType("PAT")
@@ -114,6 +118,7 @@ class PlatformConnectionControllerTest {
         PlatformConnection conn = PlatformConnection.builder()
                 .id(UUID.randomUUID())
                 .tenantId(tenantId)
+                .name("GitHub - Organization")
                 .platformType("GITHUB")
                 .baseUrl("https://api.github.com")
                 .authType("OAUTH2")
@@ -127,6 +132,7 @@ class PlatformConnectionControllerTest {
         mockMvc.perform(get("/api/platforms/connections/tenant/{tenantId}", tenantId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].name").value("GitHub - Organization"))
                 .andExpect(jsonPath("$.data[0].platformType").value("GITHUB"));
     }
 
@@ -154,6 +160,7 @@ class PlatformConnectionControllerTest {
         PlatformConnection conn = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(UUID.randomUUID())
+                .name("GitLab - Corporate")
                 .platformType("GITLAB")
                 .baseUrl("https://gitlab.com")
                 .authType("PAT")
@@ -168,6 +175,7 @@ class PlatformConnectionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(connectionId.toString()))
+                .andExpect(jsonPath("$.data.name").value("GitLab - Corporate"))
                 .andExpect(jsonPath("$.data.platformType").value("GITLAB"));
     }
 
@@ -187,6 +195,7 @@ class PlatformConnectionControllerTest {
 
         CreateConnectionRequest request = CreateConnectionRequest.builder()
                 .tenantId(tenantId)
+                .name("Updated Jira Cloud")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://updated.atlassian.net")
                 .authType("OAUTH2")
@@ -195,6 +204,7 @@ class PlatformConnectionControllerTest {
         PlatformConnection updated = PlatformConnection.builder()
                 .id(connectionId)
                 .tenantId(tenantId)
+                .name("Updated Jira Cloud")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://updated.atlassian.net")
                 .authType("OAUTH2")
@@ -210,6 +220,7 @@ class PlatformConnectionControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.name").value("Updated Jira Cloud"))
                 .andExpect(jsonPath("$.data.baseUrl").value("https://updated.atlassian.net"));
 
         verify(connectionService).updateConnection(eq(connectionId), any(CreateConnectionRequest.class));
@@ -307,5 +318,34 @@ class PlatformConnectionControllerTest {
         mockMvc.perform(get("/api/platforms/connections/{id}/statuses", UUID.randomUUID())
                         .param("projectKey", "PROJ-1"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // --- Response should not expose credentials ---
+
+    @Test
+    @WithMockUser
+    void should_notExposeCredentials_when_listByTenant() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+
+        PlatformConnection conn = PlatformConnection.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .name("Jira Prod")
+                .platformType("JIRA_CLOUD")
+                .baseUrl("https://myorg.atlassian.net")
+                .authType("API_TOKEN")
+                .credentials("{\"apiToken\":\"secret-value\"}")
+                .status("ACTIVE")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+
+        when(connectionService.listConnectionsByTenant(tenantId)).thenReturn(List.of(conn));
+
+        mockMvc.perform(get("/api/platforms/connections/tenant/{tenantId}", tenantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].name").value("Jira Prod"))
+                .andExpect(jsonPath("$.data[0].credentials").doesNotExist())
+                .andExpect(jsonPath("$.data[0].metadata").doesNotExist());
     }
 }

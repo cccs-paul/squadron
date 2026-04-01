@@ -17,6 +17,7 @@ class PlatformConnectionTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(id)
                 .tenantId(tenantId)
+                .name("My JIRA Connection")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .authType("OAUTH2")
@@ -27,6 +28,7 @@ class PlatformConnectionTest {
 
         assertEquals(id, connection.getId());
         assertEquals(tenantId, connection.getTenantId());
+        assertEquals("My JIRA Connection", connection.getName());
         assertEquals("JIRA_CLOUD", connection.getPlatformType());
         assertEquals("https://example.atlassian.net", connection.getBaseUrl());
         assertEquals("OAUTH2", connection.getAuthType());
@@ -39,6 +41,7 @@ class PlatformConnectionTest {
     void should_haveDefaultStatusActive() {
         PlatformConnection connection = PlatformConnection.builder()
                 .tenantId(UUID.randomUUID())
+                .name("GitHub Connection")
                 .platformType("GITHUB")
                 .baseUrl("https://api.github.com")
                 .authType("PAT")
@@ -52,6 +55,7 @@ class PlatformConnectionTest {
         PlatformConnection connection = new PlatformConnection();
         assertNull(connection.getId());
         assertNull(connection.getTenantId());
+        assertNull(connection.getName());
     }
 
     @Test
@@ -61,6 +65,7 @@ class PlatformConnectionTest {
         UUID tenantId = UUID.randomUUID();
         connection.setId(id);
         connection.setTenantId(tenantId);
+        connection.setName("GitLab Conn");
         connection.setPlatformType("GITLAB");
         connection.setBaseUrl("https://gitlab.com");
         connection.setAuthType("PAT");
@@ -68,6 +73,7 @@ class PlatformConnectionTest {
 
         assertEquals(id, connection.getId());
         assertEquals(tenantId, connection.getTenantId());
+        assertEquals("GitLab Conn", connection.getName());
         assertEquals("GITLAB", connection.getPlatformType());
         assertEquals("https://gitlab.com", connection.getBaseUrl());
         assertEquals("PAT", connection.getAuthType());

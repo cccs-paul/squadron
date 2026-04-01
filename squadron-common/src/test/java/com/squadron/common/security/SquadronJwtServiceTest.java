@@ -97,8 +97,15 @@ class SquadronJwtServiceTest {
         UUID tenantId = UUID.randomUUID();
 
         String token = jwtService.generateAccessToken(userId, tenantId, "test@example.com", "Test", Set.of("dev"), "ldap");
-        // Tamper with the signature by modifying the last character
-        String tamperedToken = token.substring(0, token.length() - 2) + "XX";
+        // Tamper with the signature by flipping characters in the middle of the signature
+        String[] parts = token.split("\\.");
+        String sig = parts[2];
+        // Invert every character in the first 10 chars of the signature to reliably corrupt it
+        char[] sigChars = sig.toCharArray();
+        for (int i = 0; i < Math.min(10, sigChars.length); i++) {
+            sigChars[i] = sigChars[i] == 'A' ? 'B' : 'A';
+        }
+        String tamperedToken = parts[0] + "." + parts[1] + "." + new String(sigChars);
 
         assertThrows(SecurityException.class, () -> jwtService.validateToken(tamperedToken));
     }

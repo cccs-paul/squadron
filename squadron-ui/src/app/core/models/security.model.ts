@@ -76,6 +76,7 @@ export interface PlatformConnection {
   name: string;
   platformType: PlatformConnectionType;
   baseUrl: string;
+  authType?: string;
   status: ConnectionStatus;
   lastSyncAt?: string;
   config: Record<string, string>;
@@ -91,8 +92,7 @@ export enum PlatformConnectionType {
 }
 
 export enum ConnectionStatus {
-  CONNECTED = 'CONNECTED',
-  DISCONNECTED = 'DISCONNECTED',
+  ACTIVE = 'ACTIVE',
   ERROR = 'ERROR',
 }
 

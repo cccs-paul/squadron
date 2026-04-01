@@ -19,6 +19,7 @@ class ConnectionInfoResponseTest {
         ConnectionInfoResponse response = ConnectionInfoResponse.builder()
                 .id(id)
                 .tenantId(tenantId)
+                .name("My JIRA Connection")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .authType("OAUTH2")
@@ -28,6 +29,7 @@ class ConnectionInfoResponseTest {
 
         assertEquals(id, response.getId());
         assertEquals(tenantId, response.getTenantId());
+        assertEquals("My JIRA Connection", response.getName());
         assertEquals("JIRA_CLOUD", response.getPlatformType());
         assertEquals("https://example.atlassian.net", response.getBaseUrl());
         assertEquals("OAUTH2", response.getAuthType());
@@ -40,6 +42,7 @@ class ConnectionInfoResponseTest {
         ConnectionInfoResponse response = new ConnectionInfoResponse();
         assertNull(response.getId());
         assertNull(response.getTenantId());
+        assertNull(response.getName());
         assertNull(response.getPlatformType());
         assertNull(response.getBaseUrl());
         assertNull(response.getAuthType());
@@ -56,6 +59,7 @@ class ConnectionInfoResponseTest {
 
         response.setId(id);
         response.setTenantId(tenantId);
+        response.setName("GitHub Conn");
         response.setPlatformType("GITHUB");
         response.setBaseUrl("https://api.github.com");
         response.setAuthType("PAT");
@@ -64,6 +68,7 @@ class ConnectionInfoResponseTest {
 
         assertEquals(id, response.getId());
         assertEquals(tenantId, response.getTenantId());
+        assertEquals("GitHub Conn", response.getName());
         assertEquals("GITHUB", response.getPlatformType());
         assertEquals("https://api.github.com", response.getBaseUrl());
         assertEquals("PAT", response.getAuthType());
@@ -78,11 +83,11 @@ class ConnectionInfoResponseTest {
         Instant createdAt = Instant.parse("2025-01-01T00:00:00Z");
 
         ConnectionInfoResponse r1 = ConnectionInfoResponse.builder()
-                .id(id).tenantId(tenantId).platformType("JIRA_CLOUD")
+                .id(id).tenantId(tenantId).name("Same Name").platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net").authType("OAUTH2")
                 .status("ACTIVE").createdAt(createdAt).build();
         ConnectionInfoResponse r2 = ConnectionInfoResponse.builder()
-                .id(id).tenantId(tenantId).platformType("JIRA_CLOUD")
+                .id(id).tenantId(tenantId).name("Same Name").platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net").authType("OAUTH2")
                 .status("ACTIVE").createdAt(createdAt).build();
 
@@ -93,9 +98,9 @@ class ConnectionInfoResponseTest {
     @Test
     void should_notBeEqual_when_differentFields() {
         ConnectionInfoResponse r1 = ConnectionInfoResponse.builder()
-                .platformType("JIRA_CLOUD").build();
+                .name("JIRA").platformType("JIRA_CLOUD").build();
         ConnectionInfoResponse r2 = ConnectionInfoResponse.builder()
-                .platformType("GITHUB").build();
+                .name("GitHub").platformType("GITHUB").build();
 
         assertNotEquals(r1, r2);
     }
@@ -103,6 +108,7 @@ class ConnectionInfoResponseTest {
     @Test
     void should_implementToString() {
         ConnectionInfoResponse response = ConnectionInfoResponse.builder()
+                .name("GitLab Conn")
                 .platformType("GITLAB")
                 .status("ACTIVE")
                 .build();
@@ -110,6 +116,7 @@ class ConnectionInfoResponseTest {
         assertNotNull(str);
         assertTrue(str.contains("GITLAB"));
         assertTrue(str.contains("ACTIVE"));
+        assertTrue(str.contains("GitLab Conn"));
     }
 
     @Test
@@ -121,6 +128,7 @@ class ConnectionInfoResponseTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(id)
                 .tenantId(tenantId)
+                .name("JIRA Production")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://example.atlassian.net")
                 .authType("OAUTH2")
@@ -134,6 +142,7 @@ class ConnectionInfoResponseTest {
 
         assertEquals(id, response.getId());
         assertEquals(tenantId, response.getTenantId());
+        assertEquals("JIRA Production", response.getName());
         assertEquals("JIRA_CLOUD", response.getPlatformType());
         assertEquals("https://example.atlassian.net", response.getBaseUrl());
         assertEquals("OAUTH2", response.getAuthType());
@@ -146,6 +155,7 @@ class ConnectionInfoResponseTest {
         PlatformConnection connection = PlatformConnection.builder()
                 .id(UUID.randomUUID())
                 .tenantId(UUID.randomUUID())
+                .name("GitHub PAT Connection")
                 .platformType("GITHUB")
                 .baseUrl("https://api.github.com")
                 .authType("PAT")
@@ -170,10 +180,11 @@ class ConnectionInfoResponseTest {
         Instant createdAt = Instant.now();
 
         ConnectionInfoResponse response = new ConnectionInfoResponse(
-                id, tenantId, "AZURE_DEVOPS", "https://dev.azure.com", "PAT", "ACTIVE", createdAt
+                id, tenantId, "Azure DevOps Conn", "AZURE_DEVOPS", "https://dev.azure.com", "PAT", "ACTIVE", createdAt
         );
 
         assertEquals(id, response.getId());
+        assertEquals("Azure DevOps Conn", response.getName());
         assertEquals("AZURE_DEVOPS", response.getPlatformType());
         assertEquals("ACTIVE", response.getStatus());
     }

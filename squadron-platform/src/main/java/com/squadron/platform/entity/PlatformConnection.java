@@ -33,6 +33,9 @@ public class PlatformConnection {
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
 
+    @Column(nullable = false, length = 255)
+    private String name;
+
     @Column(name = "platform_type", nullable = false, length = 50)
     private String platformType;
 

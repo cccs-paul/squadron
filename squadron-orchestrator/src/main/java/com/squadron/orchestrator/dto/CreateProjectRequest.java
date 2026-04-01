@@ -18,7 +18,6 @@ public class CreateProjectRequest {
     @NotNull(message = "Tenant ID is required")
     private UUID tenantId;
 
-    @NotNull(message = "Team ID is required")
     private UUID teamId;
 
     @NotBlank(message = "Project name is required")

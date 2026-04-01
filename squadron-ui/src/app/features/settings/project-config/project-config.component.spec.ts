@@ -27,12 +27,12 @@ describe('ProjectConfigComponent', () => {
     {
       id: 'pc-1', tenantId: 't1', name: 'Jira Cloud - Production',
       platformType: PlatformConnectionType.JIRA, baseUrl: 'https://myorg.atlassian.net',
-      status: ConnectionStatus.CONNECTED, config: {}, createdAt: new Date().toISOString(),
+      status: ConnectionStatus.ACTIVE, config: {}, createdAt: new Date().toISOString(),
     },
     {
       id: 'pc-2', tenantId: 't1', name: 'GitHub - Organization',
       platformType: PlatformConnectionType.GITHUB, baseUrl: 'https://api.github.com',
-      status: ConnectionStatus.CONNECTED, config: {}, createdAt: new Date().toISOString(),
+      status: ConnectionStatus.ACTIVE, config: {}, createdAt: new Date().toISOString(),
     },
   ];
 

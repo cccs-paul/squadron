@@ -1,13 +1,13 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-03-31
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete: project workflow mappings, agent dashboard redesign, ticket provider integration (Feature 1), agent interaction UI (Feature 2), notification system (Feature 3), deployment documentation (Feature 4), user agent squadron configuration (Feature 5). Post-feature polish complete: auth interceptor token refresh (Feature 6), project config page redesign with providers-first flow (Feature 7), whimsical agent names (Feature 8). All 19 containers healthy with test LDAP. All backend tests passing (BUILD SUCCESS). All 684 Angular tests passing (0 failures). Angular build passing.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete: project workflow mappings, agent dashboard redesign, ticket provider integration (Feature 1), agent interaction UI (Feature 2), notification system (Feature 3), deployment documentation (Feature 4), user agent squadron configuration (Feature 5). Post-feature polish complete: auth interceptor token refresh (Feature 6), project config page redesign with providers-first flow (Feature 7), whimsical agent names (Feature 8), backend/frontend schema alignment (Feature 9). All 19 containers healthy with test LDAP. All backend tests passing (BUILD SUCCESS). All 684 Angular tests passing (0 failures). Angular build passing.
 
 ---
 
 ## Completed Modules
 
-### squadron-common (60 src / 65 test)
+### squadron-common (66 src / 64 test)
 - [x] DTOs (TaskDto, TenantDto, TeamDto, UserDto, ProjectDto, etc.)
 - [x] Events (TaskStateChanged, AgentInvoked, AgentCompleted, ReviewUpdated, etc.)
 - [x] Security (TenantContext, TenantFilter, JwtService, TokenEncryption, AccessLevel)
@@ -39,7 +39,7 @@
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
-### squadron-orchestrator (36 src / 35 test)
+### squadron-orchestrator (39 src / 36 test)
 - [x] Custom PostgreSQL state machine (WorkflowEngine)
 - [x] Task/Project/Workflow CRUD
 - [x] State transitions with validation
@@ -48,7 +48,7 @@
 - [x] PlatformServiceClient (Feign)
 - [x] ResilientPlatformServiceClient (circuit breaker + retry wrapper)
 - [x] Project workflow mappings (entity, repository, service, controller endpoints)
-- [x] Flyway migrations (V1, V2)
+- [x] Flyway migrations (V1, V2, V3)
 - [x] All tests passing
 
 ### squadron-agent (90 src / 91 test)
@@ -75,7 +75,7 @@
 - [x] Flyway migration (V1)
 - [x] All tests passing
 
-### squadron-platform (33 src / 35 test)
+### squadron-platform (35 src / 35 test)
 - [x] Adapter pattern with registry
 - [x] JIRA Cloud adapter
 - [x] JIRA Server adapter
@@ -86,7 +86,7 @@
 - [x] Webhook processing
 - [x] Platform sync service
 - [x] Project statuses endpoint (GET /api/platforms/connections/{id}/statuses)
-- [x] Flyway migrations (V1, V2)
+- [x] Flyway migrations (V1, V2, V3, V4)
 - [x] All tests passing
 
 ### squadron-git (34 src / 36 test)
@@ -135,7 +135,7 @@
 ### Infrastructure
 - [x] Docker Compose (docker-compose.yml)
 - [x] Parent POM with dependency management
-- [x] All 17 Flyway migrations (including V2 for orchestrator workflow mappings)
+- [x] All 22 Flyway migrations (V1-V4 for platform, V1-V3 for orchestrator/identity/agent/git, V1-V2 for review/notification, V1 for config/workspace)
 - [x] Test LDAP integration (docker-compose-testldap.yml, seed data)
 - [x] All 19 containers healthy with testldap-build-and-start.sh
 
@@ -269,22 +269,39 @@
 - [x] Backend: UserAgentConfigService + controller tests updated
 - [x] Frontend: user-squadron.service.spec.ts + squadron-config.component.spec.ts updated
 
+### Feature 9: Backend/Frontend Schema Alignment & Security Fixes
+- [x] Flyway V4 migration: `V4__add_name_to_platform_connections.sql` — adds `name VARCHAR(255)` column, backfills existing rows, sets NOT NULL
+- [x] `PlatformConnection` entity: added `name` field with `@Column(nullable = false, length = 255)`
+- [x] `CreateConnectionRequest` DTO: added `@NotBlank name` field
+- [x] `ConnectionInfoResponse` DTO: added `name` field, updated `fromEntity()` mapper
+- [x] `PlatformConnectionService`: create/update now handle `name`
+- [x] `PlatformConnectionController`: rewritten to return `ConnectionInfoResponse` instead of raw `PlatformConnection` entity (prevents credential exposure)
+- [x] Frontend `ConnectionStatus` enum: changed from `CONNECTED/DISCONNECTED/ERROR` to `ACTIVE/ERROR` to match backend
+- [x] Frontend `PlatformConnection` interface: added optional `authType?` field
+- [x] Sidebar icons: added `platforms` (code brackets) and `agents` (robot) cases to regular navItems `@switch`
+- [x] Flyway V3 migration for orchestrator: `V3__make_team_id_nullable.sql` — makes `team_id` nullable on projects/tasks
+- [x] Orchestrator `Project` entity and `CreateProjectRequest` DTO: `teamId` now optional
+- [x] JWT security configs: squadron-identity and squadron-platform SecurityConfig updated to use internal JWKS endpoint
+- [x] Flaky JWT tamper test fix: `SquadronJwtServiceTest.should_throwSecurityException_when_tokenIsTampered` now reliably corrupts signature
+- [x] All backend tests updated (controller, service, DTO, entity, repository integration tests)
+- [x] All 684 Angular tests passing, all backend tests passing (BUILD SUCCESS)
+
 ---
 
 ## Quick Reference
 
 | Module | Sources | Tests | Status |
 |--------|:-------:|:-----:|--------|
-| squadron-common | 60 | 65 | Complete |
+| squadron-common | 66 | 64 | Complete |
 | squadron-gateway | 10 | 10 | Complete |
 | squadron-identity | 42 | 42 | Complete |
-| squadron-orchestrator | 36 | 35 | Complete |
+| squadron-orchestrator | 39 | 36 | Complete |
 | squadron-agent | 90 | 91 | Complete |
 | squadron-workspace | 16 | 16 | Complete |
-| squadron-platform | 33 | 35 | Complete |
+| squadron-platform | 35 | 35 | Complete |
 | squadron-git | 34 | 36 | Complete |
 | squadron-review | 26 | 27 | Complete |
 | squadron-config | 11 | 11 | Complete |
 | squadron-notification | 24 | 24 | Complete |
-| **TOTAL** | **382** | **392** | |
+| **TOTAL** | **393** | **392** | |
 | squadron-ui | 32 components | 52 specs | Complete |
