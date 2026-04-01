@@ -13,6 +13,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -66,6 +68,7 @@ public class UserPlatformToken {
     /**
      * Extra OAuth2 token metadata stored as JSONB (e.g., token_type from OAuth response, scope details).
      */
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "token_metadata", columnDefinition = "jsonb")
     private String tokenMetadata;
 

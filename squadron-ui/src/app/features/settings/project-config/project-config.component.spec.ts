@@ -26,7 +26,7 @@ describe('ProjectConfigComponent', () => {
   const mockConnections: PlatformConnection[] = [
     {
       id: 'pc-1', tenantId: 't1', name: 'Jira Cloud - Production',
-      platformType: PlatformConnectionType.JIRA, baseUrl: 'https://myorg.atlassian.net',
+      platformType: PlatformConnectionType.JIRA_CLOUD, baseUrl: 'https://myorg.atlassian.net',
       status: ConnectionStatus.ACTIVE, config: {}, createdAt: new Date().toISOString(),
     },
     {
@@ -160,16 +160,16 @@ describe('ProjectConfigComponent', () => {
 
   it('should_returnAuthTypeOptions_forPlatformType', () => {
     fixture.detectChanges();
-    component.providerForm.platformType = 'JIRA';
+    component.providerForm.platformType = 'JIRA_CLOUD';
     const options = component.getAuthTypeOptions();
     expect(options.length).toBe(2);
     expect(options[0].label).toBe('API Token');
-    expect(options[1].label).toBe('PAT');
+    expect(options[1].label).toBe('OAuth 2.0');
   });
 
   it('should_returnAuthFields_forSelectedAuthType', () => {
     fixture.detectChanges();
-    component.providerForm.platformType = 'JIRA';
+    component.providerForm.platformType = 'JIRA_CLOUD';
     component.providerForm.authType = 'API Token';
     const fields = component.getAuthFields();
     expect(fields.length).toBe(2);
@@ -204,7 +204,7 @@ describe('ProjectConfigComponent', () => {
   it('should_canSaveProvider_returnTrue_when_formComplete', () => {
     fixture.detectChanges();
     component.providerForm = {
-      name: 'My Jira', platformType: 'JIRA', baseUrl: 'https://myorg.atlassian.net',
+      name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
       authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
     expect(component.canSaveProvider()).toBeTrue();
@@ -214,7 +214,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     const initialCount = component.connections().length;
     component.providerForm = {
-      name: 'My Jira', platformType: 'JIRA', baseUrl: 'https://myorg.atlassian.net',
+      name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
       authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
 
@@ -230,7 +230,7 @@ describe('ProjectConfigComponent', () => {
     platformServiceSpy.createConnectionFromRequest.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
     component.providerForm = {
-      name: 'My Jira', platformType: 'JIRA', baseUrl: 'https://myorg.atlassian.net',
+      name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
       authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
 
@@ -412,7 +412,8 @@ describe('ProjectConfigComponent', () => {
 
   it('should_returnPlatformIcon', () => {
     expect(component.platformIcon('GITHUB')).toBe('GitHub');
-    expect(component.platformIcon('JIRA')).toBe('Jira');
+    expect(component.platformIcon('JIRA_CLOUD')).toBe('Jira Cloud');
+    expect(component.platformIcon('JIRA_SERVER')).toBe('Jira Server / DC');
     expect(component.platformIcon('GITLAB')).toBe('GitLab');
     expect(component.platformIcon('AZURE_DEVOPS')).toBe('Azure DevOps');
     expect(component.platformIcon('BITBUCKET')).toBe('Bitbucket');

@@ -12,6 +12,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -46,9 +48,11 @@ public class ReviewPolicy {
     @Column(name = "self_review_allowed")
     private Boolean selfReviewAllowed = true;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "auto_request_reviewers", columnDefinition = "jsonb")
     private String autoRequestReviewers;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "review_checklist", columnDefinition = "jsonb")
     private String reviewChecklist;
 

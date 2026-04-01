@@ -25,7 +25,7 @@ describe('PlatformConnectionsComponent', () => {
     },
     {
       id: 'pc-2', tenantId: 't1', name: 'Jira Cloud',
-      platformType: PlatformConnectionType.JIRA,
+      platformType: PlatformConnectionType.JIRA_CLOUD,
       baseUrl: 'https://myorg.atlassian.net', status: ConnectionStatus.ACTIVE,
       config: {}, createdAt: new Date().toISOString(),
     },
@@ -193,7 +193,8 @@ describe('PlatformConnectionsComponent', () => {
   it('should_returnCorrectPlatformIcon_when_platformIconCalled', () => {
     expect(component.platformIcon(PlatformConnectionType.GITHUB)).toBe('GitHub');
     expect(component.platformIcon(PlatformConnectionType.GITLAB)).toBe('GitLab');
-    expect(component.platformIcon(PlatformConnectionType.JIRA)).toBe('Jira');
+    expect(component.platformIcon(PlatformConnectionType.JIRA_CLOUD)).toBe('Jira Cloud');
+    expect(component.platformIcon(PlatformConnectionType.JIRA_SERVER)).toBe('Jira Server / DC');
     expect(component.platformIcon(PlatformConnectionType.AZURE_DEVOPS)).toBe('Azure DevOps');
     expect(component.platformIcon(PlatformConnectionType.BITBUCKET)).toBe('Bitbucket');
   });

@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
-**Last updated:** 2026-03-31
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete: project workflow mappings, agent dashboard redesign, ticket provider integration (Feature 1), agent interaction UI (Feature 2), notification system (Feature 3), deployment documentation (Feature 4), user agent squadron configuration (Feature 5). Post-feature polish complete: auth interceptor token refresh (Feature 6), project config page redesign with providers-first flow (Feature 7), whimsical agent names (Feature 8), backend/frontend schema alignment (Feature 9). All 19 containers healthy with test LDAP. All backend tests passing (BUILD SUCCESS). All 684 Angular tests passing (0 failures). Angular build passing.
+**Last updated:** 2026-04-01
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-10). Settings UI consolidated into unified tabbed page (Feature 10). Hibernate jsonb type mismatch fixed across all 17 entity files (27 fields). apiToken credential encryption security fix applied. JIRA Cloud vs JIRA Server split completed (frontend enums, auth options, Flyway V5 data migration). All 19 containers healthy with test LDAP. All backend tests passing (BUILD SUCCESS). All 697 Angular tests passing (0 failures). Angular build passing.
 
 ---
 
@@ -86,7 +86,7 @@
 - [x] Webhook processing
 - [x] Platform sync service
 - [x] Project statuses endpoint (GET /api/platforms/connections/{id}/statuses)
-- [x] Flyway migrations (V1, V2, V3, V4)
+- [x] Flyway migrations (V1, V2, V3, V4, V5)
 - [x] All tests passing
 
 ### squadron-git (34 src / 36 test)
@@ -119,7 +119,7 @@
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
-### squadron-ui (Angular 21) — 684 tests passing
+### squadron-ui (Angular 21) — 697 tests passing
 - [x] 32 components (dashboard, tasks, projects, reviews, agent-chat, squadron-config, etc.)
 - [x] 23 services (including agent-dashboard, user-squadron, platform services)
 - [x] 13 models (including agent dashboard, squadron config interfaces)
@@ -131,6 +131,7 @@
 - [x] Ticket provider integration UI (connection linking, remote status fetch, status-aware mappings)
 - [x] User agent squadron configuration UI (agent cards, add/edit/remove/reset, inline template)
 - [x] Whimsical default agent names (Architect, Maverick, Hawkeye, Gremlin, Stitch, Radar, Phoenix, Oracle)
+- [x] Unified settings page: 5-tab layout (General, Providers & Projects, Agent Squadron, Notifications, Agent Config)
 
 ### Infrastructure
 - [x] Docker Compose (docker-compose.yml)
@@ -246,6 +247,18 @@
 - [x] Frontend: 9 service tests + 18 component tests (all passing)
 - [x] Tests: 684 Angular tests passing, all backend tests passing
 
+### Feature 10: Unified Settings Page (Settings UI Cleanup)
+- [x] Consolidated 4 separate settings routes into single `/settings` page with 5 tabs
+- [x] Tabs: General, Providers & Projects, Agent Squadron, Notifications, Agent Config
+- [x] SettingsComponent rewritten as tabbed container importing all sub-components
+- [x] Removed separate routes: `/settings/projects`, `/settings/squadron`, `/settings/notifications`, `/settings/agent-config`
+- [x] Removed admin duplicate: `/admin/platforms` route removed
+- [x] Sidebar cleanup: removed "Providers" and "My Squadron" nav items (5 nav items, 5 admin items)
+- [x] Sidebar icon cases cleaned up (removed unused `platforms`/`agents` from regular nav, `platforms` from admin nav)
+- [x] Settings spec rewritten: 20 tests (tab system, sub-component rendering, general tab behavior, DOM rendering)
+- [x] Sidebar spec updated: 5 nav items, 10 total with admin
+- [x] All 697 Angular tests passing, all backend tests passing, 19 containers healthy
+
 ### Feature 6: Auth Interceptor Token Refresh
 - [x] Auth interceptor: On 401, attempt `refreshToken()` before logging out
 - [x] Auth interceptor: Retry original request with new token on successful refresh
@@ -285,6 +298,43 @@
 - [x] Flaky JWT tamper test fix: `SquadronJwtServiceTest.should_throwSecurityException_when_tokenIsTampered` now reliably corrupts signature
 - [x] All backend tests updated (controller, service, DTO, entity, repository integration tests)
 - [x] All 684 Angular tests passing, all backend tests passing (BUILD SUCCESS)
+
+### Bug Fix: Hibernate jsonb Type Mismatch (HTTP 500 on Provider Save)
+- [x] Root cause: PostgreSQL `column "X" is of type jsonb but expression is of type character varying` — Hibernate binding JSONB fields as VARCHAR
+- [x] Fix: Added `@JdbcTypeCode(SqlTypes.JSON)` annotation to all 27 jsonb fields across 17 entity files
+- [x] Affected entities (15 fields fixed, 12 already correct):
+  - `PlatformConnection` — `credentials`, `metadata`
+  - `UserPlatformToken` — `tokenMetadata`
+  - `ConversationMessage` — `toolCalls`
+  - `SquadronConfig` — `config`
+  - `ConfigAuditLog` — `previousValue`, `newValue`
+  - `ConfigEntry` — `configValue`
+  - `GitOperation` — `details`
+  - `Team` — `settings`
+  - `Tenant` — `settings`
+  - `AuthProviderConfig` — `config`
+  - `NotificationPreference` — `mutedEventTypes`
+  - `QAReport` — `findings`, `testGaps`, `coverageDetails`
+  - `ReviewPolicy` — `autoRequestReviewers`, `reviewChecklist`
+
+### Security Fix: apiToken Credential Encryption
+- [x] `PlatformConnectionService.SENSITIVE_CREDENTIAL_KEYS` was missing `"apiToken"` — only had `"apiKey"`
+- [x] When using Jira Cloud "API Token" auth, credential key `"apiToken"` was stored unencrypted
+- [x] Added `"apiToken"` to `SENSITIVE_CREDENTIAL_KEYS` set
+- [x] Added `"apiToken"` to `getDecryptedAccessToken()` lookup list
+
+### Feature 11: JIRA Cloud vs JIRA Server Split
+- [x] Backend already had separate adapters: `JiraCloudAdapter` (REST API v3) and `JiraServerAdapter` (REST API v2)
+- [x] Frontend `PlatformConnectionType` enum: replaced `JIRA` with `JIRA_CLOUD` + `JIRA_SERVER`
+- [x] Frontend `PlatformType` enum: replaced `JIRA` with `JIRA_CLOUD` + `JIRA_SERVER`
+- [x] `AUTH_TYPE_OPTIONS` split: JIRA_CLOUD gets API Token + OAuth 2.0; JIRA_SERVER gets PAT + Basic Auth
+- [x] `platformIcon()` updated in both components: "Jira Cloud" and "Jira Server / DC"
+- [x] `getMockStatuses()` updated for new types
+- [x] Mock data and `newProviderForm()` default updated
+- [x] `RepositoryIntegrationTest` updated: all `"JIRA"` → `"JIRA_CLOUD"`, plus multi-type query test
+- [x] Flyway V5 migration: `V5__migrate_jira_to_jira_cloud.sql` — converts existing `"JIRA"` rows to `"JIRA_CLOUD"`
+- [x] All frontend test files updated (project-config, platform-connections, platform.service specs)
+- [x] `WebhookProcessingService` already handles backward compat (searches both JIRA_CLOUD and JIRA_SERVER)
 
 ---
 

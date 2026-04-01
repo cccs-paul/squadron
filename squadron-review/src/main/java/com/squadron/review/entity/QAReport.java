@@ -11,6 +11,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -54,12 +56,15 @@ public class QAReport {
     @Column(name = "tests_skipped")
     private Integer testsSkipped;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String findings;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "test_gaps", columnDefinition = "jsonb")
     private String testGaps;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "coverage_details", columnDefinition = "jsonb")
     private String coverageDetails;
 

@@ -99,34 +99,6 @@ export const routes: Routes = [
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },
       {
-        path: 'settings/notifications',
-        loadComponent: () =>
-          import('./features/settings/notification-preferences/notification-preferences.component').then(
-            (m) => m.NotificationPreferencesComponent,
-          ),
-      },
-      {
-        path: 'settings/agent-config',
-        loadComponent: () =>
-          import('./features/settings/agent-config/agent-config.component').then(
-            (m) => m.AgentConfigComponent,
-          ),
-      },
-      {
-        path: 'settings/projects',
-        loadComponent: () =>
-          import('./features/settings/project-config/project-config.component').then(
-            (m) => m.ProjectConfigComponent,
-          ),
-      },
-      {
-        path: 'settings/squadron',
-        loadComponent: () =>
-          import('./features/settings/squadron-config/squadron-config.component').then(
-            (m) => m.SquadronConfigComponent,
-          ),
-      },
-      {
         path: 'admin',
         canActivate: [adminGuard],
         loadChildren: () =>

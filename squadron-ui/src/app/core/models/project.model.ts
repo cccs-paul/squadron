@@ -16,7 +16,8 @@ export interface Project {
 }
 
 export enum PlatformType {
-  JIRA = 'JIRA',
+  JIRA_CLOUD = 'JIRA_CLOUD',
+  JIRA_SERVER = 'JIRA_SERVER',
   GITHUB = 'GITHUB',
   GITLAB = 'GITLAB',
   AZURE_DEVOPS = 'AZURE_DEVOPS',

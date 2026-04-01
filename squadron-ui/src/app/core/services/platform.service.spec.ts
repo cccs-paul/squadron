@@ -29,7 +29,7 @@ describe('PlatformService', () => {
   });
 
   it('should_getConnections_when_called', () => {
-    const mockConnections = [{ id: 'c1', type: 'JIRA' }];
+    const mockConnections = [{ id: 'c1', type: 'JIRA_CLOUD' }];
 
     service.getConnections().subscribe((connections) => {
       expect(connections).toEqual(mockConnections as any);
@@ -53,7 +53,7 @@ describe('PlatformService', () => {
   });
 
   it('should_createConnection_when_calledWithData', () => {
-    const connectionData = { type: 'JIRA', name: 'My JIRA' };
+    const connectionData = { type: 'JIRA_CLOUD', name: 'My JIRA' };
     const mockResponse = { id: 'c2', ...connectionData };
 
     service.createConnection(connectionData as any).subscribe((connection) => {
@@ -70,12 +70,12 @@ describe('PlatformService', () => {
     const request = {
       tenantId: 't1',
       name: 'My JIRA',
-      platformType: 'JIRA',
+      platformType: 'JIRA_CLOUD',
       baseUrl: 'https://myorg.atlassian.net',
       authType: 'PAT',
       credentials: { pat: 'my-token' },
     };
-    const mockConnection = { id: 'c3', tenantId: 't1', name: 'My JIRA', platformType: 'JIRA', baseUrl: 'https://myorg.atlassian.net' };
+    const mockConnection = { id: 'c3', tenantId: 't1', name: 'My JIRA', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net' };
 
     service.createConnectionFromRequest(request).subscribe((connection) => {
       expect(connection).toEqual(mockConnection as any);

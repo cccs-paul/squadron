@@ -34,13 +34,6 @@ export const adminRoutes: Routes = [
       ),
   },
   {
-    path: 'platforms',
-    loadComponent: () =>
-      import('./platform-connections/platform-connections.component').then(
-        (m) => m.PlatformConnectionsComponent,
-      ),
-  },
-  {
     path: 'usage',
     loadComponent: () =>
       import('./usage-dashboard/usage-dashboard.component').then(

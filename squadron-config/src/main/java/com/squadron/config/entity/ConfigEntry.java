@@ -13,6 +13,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -43,6 +45,7 @@ public class ConfigEntry {
     @Column(name = "config_key", nullable = false)
     private String configKey;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "config_value", columnDefinition = "jsonb", nullable = false)
     private String configValue;
 

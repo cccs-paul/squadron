@@ -11,6 +11,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -36,6 +38,7 @@ public class ConversationMessage {
     @Column(name = "content", columnDefinition = "text")
     private String content;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "tool_calls", columnDefinition = "jsonb")
     private String toolCalls;
 

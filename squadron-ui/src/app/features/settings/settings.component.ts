@@ -3,11 +3,23 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { Tenant, TenantSettings } from '../../core/models/tenant.model';
+import { ProjectConfigComponent } from './project-config/project-config.component';
+import { SquadronConfigComponent } from './squadron-config/squadron-config.component';
+import { NotificationPreferencesComponent } from './notification-preferences/notification-preferences.component';
+import { AgentConfigComponent } from './agent-config/agent-config.component';
+
+export type SettingsTab = 'general' | 'providers-projects' | 'squadron' | 'notifications' | 'agent-config';
 
 @Component({
   selector: 'sq-settings',
   standalone: true,
-  imports: [FormsModule],
+  imports: [
+    FormsModule,
+    ProjectConfigComponent,
+    SquadronConfigComponent,
+    NotificationPreferencesComponent,
+    AgentConfigComponent,
+  ],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -20,17 +32,26 @@ export class SettingsComponent implements OnInit {
   loading = signal(true);
   saving = signal(false);
   saveSuccess = signal(false);
+  activeTab = signal<SettingsTab>('general');
 
-  // Settings form
+  // General tab - Settings form
   settingsDefaultBranch = 'main';
   settingsAutoReview = true;
   settingsAiEnabled = true;
   settingsMaxUsers = 50;
   settingsMaxProjects = 20;
 
-  // Profile form
+  // General tab - Profile form
   profileDisplayName = '';
   profileEmail = '';
+
+  readonly tabs: { id: SettingsTab; label: string }[] = [
+    { id: 'general', label: 'General' },
+    { id: 'providers-projects', label: 'Providers & Projects' },
+    { id: 'squadron', label: 'Agent Squadron' },
+    { id: 'notifications', label: 'Notifications' },
+    { id: 'agent-config', label: 'Agent Config' },
+  ];
 
   ngOnInit(): void {
     this.loadSettings();
@@ -39,6 +60,10 @@ export class SettingsComponent implements OnInit {
       this.profileDisplayName = currentUser.displayName;
       this.profileEmail = currentUser.email;
     }
+  }
+
+  setTab(tab: SettingsTab): void {
+    this.activeTab.set(tab);
   }
 
   loadSettings(): void {

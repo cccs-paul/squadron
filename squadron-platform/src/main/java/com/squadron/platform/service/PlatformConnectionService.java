@@ -30,7 +30,7 @@ public class PlatformConnectionService {
      * Keys in the credentials map whose values should be encrypted before storage.
      */
     private static final List<String> SENSITIVE_CREDENTIAL_KEYS = List.of(
-            "clientSecret", "accessToken", "pat", "apiKey", "privateKey", "password"
+            "clientSecret", "accessToken", "pat", "apiKey", "apiToken", "privateKey", "password"
     );
 
     private final PlatformConnectionRepository connectionRepository;
@@ -216,7 +216,7 @@ public class PlatformConnectionService {
         try {
             Map<String, Object> creds = objectMapper.readValue(connection.getCredentials(), Map.class);
             // Look for known token field names in order of preference
-            for (String key : List.of("accessToken", "pat", "apiKey")) {
+            for (String key : List.of("accessToken", "pat", "apiKey", "apiToken")) {
                 Object value = creds.get(key);
                 if (value != null && !value.toString().isEmpty()) {
                     return encryptionService.decrypt(value.toString());

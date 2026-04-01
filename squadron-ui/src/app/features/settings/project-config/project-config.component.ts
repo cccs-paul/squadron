@@ -44,9 +44,13 @@ interface ProjectMappingState {
 }
 
 const AUTH_TYPE_OPTIONS: Record<string, { label: string; fields: { key: string; label: string; secret: boolean }[] }[]> = {
-  JIRA: [
+  JIRA_CLOUD: [
     { label: 'API Token', fields: [{ key: 'email', label: 'Email', secret: false }, { key: 'apiToken', label: 'API Token', secret: true }] },
+    { label: 'OAuth 2.0', fields: [{ key: 'clientId', label: 'Client ID', secret: false }, { key: 'clientSecret', label: 'Client Secret', secret: true }] },
+  ],
+  JIRA_SERVER: [
     { label: 'PAT', fields: [{ key: 'pat', label: 'Personal Access Token', secret: true }] },
+    { label: 'Basic Auth', fields: [{ key: 'username', label: 'Username', secret: false }, { key: 'password', label: 'Password', secret: true }] },
   ],
   GITHUB: [
     { label: 'PAT', fields: [{ key: 'pat', label: 'Personal Access Token', secret: true }] },
@@ -491,7 +495,8 @@ export class ProjectConfigComponent implements OnInit {
     switch (type) {
       case 'GITHUB': return 'GitHub';
       case 'GITLAB': return 'GitLab';
-      case 'JIRA': case 'JIRA_CLOUD': case 'JIRA_SERVER': return 'Jira';
+      case 'JIRA_CLOUD': return 'Jira Cloud';
+      case 'JIRA_SERVER': return 'Jira Server / DC';
       case 'AZURE_DEVOPS': return 'Azure DevOps';
       case 'BITBUCKET': return 'Bitbucket';
       default: return type;
@@ -510,7 +515,7 @@ export class ProjectConfigComponent implements OnInit {
 
   private getMockStatuses(platformType: string): string[] {
     switch (platformType) {
-      case 'JIRA': case 'JIRA_CLOUD': case 'JIRA_SERVER':
+      case 'JIRA_CLOUD': case 'JIRA_SERVER':
         return ['To Do', 'In Progress', 'Code Review', 'QA Testing', 'Done'];
       case 'GITHUB':
         return ['open', 'closed'];
@@ -524,7 +529,7 @@ export class ProjectConfigComponent implements OnInit {
   }
 
   private newProviderForm(): ProviderForm {
-    return { name: '', platformType: 'JIRA', baseUrl: '', authType: 'API Token', credentials: {} };
+    return { name: '', platformType: 'JIRA_CLOUD', baseUrl: '', authType: 'API Token', credentials: {} };
   }
 
   private newProjectForm(): ProjectForm {

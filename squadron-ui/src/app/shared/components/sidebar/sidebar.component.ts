@@ -28,8 +28,6 @@ export class SidebarComponent {
     { label: 'Projects', route: '/projects', icon: 'projects' },
     { label: 'Reviews', route: '/reviews', icon: 'reviews' },
     { label: 'Settings', route: '/settings', icon: 'settings' },
-    { label: 'Providers', route: '/settings/projects', icon: 'platforms' },
-    { label: 'My Squadron', route: '/settings/squadron', icon: 'agents' },
   ];
 
   readonly adminItems: NavItem[] = [
@@ -38,6 +36,5 @@ export class SidebarComponent {
     { label: 'Security Groups', route: '/admin/security-groups', icon: 'security', adminOnly: true },
     { label: 'Permissions', route: '/admin/permissions', icon: 'permissions', adminOnly: true },
     { label: 'Auth Providers', route: '/admin/auth-providers', icon: 'auth', adminOnly: true },
-    { label: 'Platforms', route: '/admin/platforms', icon: 'platforms', adminOnly: true },
   ];
 }

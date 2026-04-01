@@ -12,6 +12,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -59,6 +61,7 @@ public class NotificationPreference {
     @Column(name = "email_address", length = 255)
     private String emailAddress;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "muted_event_types", columnDefinition = "jsonb")
     private String mutedEventTypes;
 

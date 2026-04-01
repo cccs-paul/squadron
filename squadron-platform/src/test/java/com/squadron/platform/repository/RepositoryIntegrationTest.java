@@ -104,9 +104,9 @@ class RepositoryIntegrationTest {
     void should_savePlatformConnection_when_validEntity() {
         PlatformConnection conn = PlatformConnection.builder()
                 .tenantId(UUID.randomUUID())
-                .name("JIRA Test Connection")
-                .platformType("JIRA")
-                .baseUrl("https://jira.example.com")
+                .name("JIRA Cloud Test Connection")
+                .platformType("JIRA_CLOUD")
+                .baseUrl("https://myorg.atlassian.net")
                 .authType("OAUTH2")
                 .credentials("{\"clientId\": \"abc\"}")
                 .build();
@@ -115,8 +115,8 @@ class RepositoryIntegrationTest {
         entityManager.flush();
 
         assertThat(saved.getId()).isNotNull();
-        assertThat(saved.getPlatformType()).isEqualTo("JIRA");
-        assertThat(saved.getBaseUrl()).isEqualTo("https://jira.example.com");
+        assertThat(saved.getPlatformType()).isEqualTo("JIRA_CLOUD");
+        assertThat(saved.getBaseUrl()).isEqualTo("https://myorg.atlassian.net");
         assertThat(saved.getAuthType()).isEqualTo("OAUTH2");
         assertThat(saved.getStatus()).isEqualTo("ACTIVE");
         assertThat(saved.getCredentials()).isEqualTo("{\"clientId\": \"abc\"}");
@@ -145,7 +145,7 @@ class RepositoryIntegrationTest {
     @Test
     void should_findByTenantId_when_connectionsExist() {
         UUID tenantId = UUID.randomUUID();
-        createConnection(tenantId, "JIRA");
+        createConnection(tenantId, "JIRA_CLOUD");
         createConnection(tenantId, "GITHUB");
         createConnection(UUID.randomUUID(), "GITLAB");
 
@@ -158,24 +158,24 @@ class RepositoryIntegrationTest {
     @Test
     void should_findByTenantIdAndPlatformType_when_matching() {
         UUID tenantId = UUID.randomUUID();
-        createConnection(tenantId, "JIRA");
-        createConnection(tenantId, "JIRA");
+        createConnection(tenantId, "JIRA_CLOUD");
+        createConnection(tenantId, "JIRA_CLOUD");
         createConnection(tenantId, "GITHUB");
 
         List<PlatformConnection> jiraResults =
-                platformConnectionRepository.findByTenantIdAndPlatformType(tenantId, "JIRA");
+                platformConnectionRepository.findByTenantIdAndPlatformType(tenantId, "JIRA_CLOUD");
         List<PlatformConnection> githubResults =
                 platformConnectionRepository.findByTenantIdAndPlatformType(tenantId, "GITHUB");
 
         assertThat(jiraResults).hasSize(2);
-        assertThat(jiraResults).allMatch(c -> "JIRA".equals(c.getPlatformType()));
+        assertThat(jiraResults).allMatch(c -> "JIRA_CLOUD".equals(c.getPlatformType()));
         assertThat(githubResults).hasSize(1);
     }
 
     @Test
     void should_findByTenantIdAndStatus_when_matching() {
         UUID tenantId = UUID.randomUUID();
-        createConnection(tenantId, "JIRA", "ACTIVE");
+        createConnection(tenantId, "JIRA_CLOUD", "ACTIVE");
         createConnection(tenantId, "GITHUB", "ACTIVE");
         createConnection(tenantId, "GITLAB", "DISABLED");
 
@@ -194,39 +194,39 @@ class RepositoryIntegrationTest {
     void should_findByPlatformTypeAndStatus_when_matching() {
         UUID tenant1 = UUID.randomUUID();
         UUID tenant2 = UUID.randomUUID();
-        createConnection(tenant1, "JIRA", "ACTIVE");
-        createConnection(tenant2, "JIRA", "ACTIVE");
-        createConnection(tenant1, "JIRA", "DISABLED");
+        createConnection(tenant1, "JIRA_CLOUD", "ACTIVE");
+        createConnection(tenant2, "JIRA_CLOUD", "ACTIVE");
+        createConnection(tenant1, "JIRA_CLOUD", "DISABLED");
 
         List<PlatformConnection> results =
-                platformConnectionRepository.findByPlatformTypeAndStatus("JIRA", "ACTIVE");
+                platformConnectionRepository.findByPlatformTypeAndStatus("JIRA_CLOUD", "ACTIVE");
 
         assertThat(results).hasSize(2);
-        assertThat(results).allMatch(c -> "JIRA".equals(c.getPlatformType()) && "ACTIVE".equals(c.getStatus()));
+        assertThat(results).allMatch(c -> "JIRA_CLOUD".equals(c.getPlatformType()) && "ACTIVE".equals(c.getStatus()));
     }
 
     @Test
     void should_findByPlatformTypeInAndStatus_when_matching() {
         UUID tenantId = UUID.randomUUID();
-        createConnection(tenantId, "JIRA", "ACTIVE");
-        createConnection(tenantId, "GITHUB", "ACTIVE");
+        createConnection(tenantId, "JIRA_CLOUD", "ACTIVE");
+        createConnection(tenantId, "JIRA_SERVER", "ACTIVE");
         createConnection(tenantId, "GITLAB", "ACTIVE");
         createConnection(tenantId, "AZURE_DEVOPS", "DISABLED");
 
         List<PlatformConnection> results =
                 platformConnectionRepository.findByPlatformTypeInAndStatus(
-                        List.of("JIRA", "GITHUB"), "ACTIVE");
+                        List.of("JIRA_CLOUD", "JIRA_SERVER"), "ACTIVE");
 
         assertThat(results).hasSize(2);
         assertThat(results).allMatch(c -> "ACTIVE".equals(c.getStatus()));
         assertThat(results).extracting(PlatformConnection::getPlatformType)
-                .containsExactlyInAnyOrder("JIRA", "GITHUB");
+                .containsExactlyInAnyOrder("JIRA_CLOUD", "JIRA_SERVER");
     }
 
     @Test
     void should_deletePlatformConnection_when_exists() {
         UUID tenantId = UUID.randomUUID();
-        PlatformConnection conn = createConnection(tenantId, "JIRA");
+        PlatformConnection conn = createConnection(tenantId, "JIRA_CLOUD");
         UUID connId = conn.getId();
 
         platformConnectionRepository.deleteById(connId);
@@ -238,7 +238,7 @@ class RepositoryIntegrationTest {
     @Test
     void should_updatePlatformConnection_when_fieldsChanged() {
         UUID tenantId = UUID.randomUUID();
-        PlatformConnection conn = createConnection(tenantId, "JIRA");
+        PlatformConnection conn = createConnection(tenantId, "JIRA_CLOUD");
         conn.setStatus("DISABLED");
         conn.setBaseUrl("https://new-jira.example.com");
 
@@ -304,7 +304,7 @@ class RepositoryIntegrationTest {
     void should_findByUserIdAndConnectionId_when_tokenExists() {
         UUID tenantId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        PlatformConnection conn = createConnection(tenantId, "JIRA");
+        PlatformConnection conn = createConnection(tenantId, "JIRA_CLOUD");
         createToken(userId, conn.getId());
 
         Optional<UserPlatformToken> found =
@@ -327,7 +327,7 @@ class RepositoryIntegrationTest {
     void should_findByUserId_when_tokensExist() {
         UUID tenantId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        PlatformConnection conn1 = createConnection(tenantId, "JIRA");
+        PlatformConnection conn1 = createConnection(tenantId, "JIRA_CLOUD");
         PlatformConnection conn2 = createConnection(tenantId, "GITHUB");
         createToken(userId, conn1.getId());
         createToken(userId, conn2.getId());

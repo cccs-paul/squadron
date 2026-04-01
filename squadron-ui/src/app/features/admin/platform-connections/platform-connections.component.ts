@@ -163,7 +163,8 @@ export class PlatformConnectionsComponent implements OnInit {
     switch (type) {
       case PlatformConnectionType.GITHUB: return 'GitHub';
       case PlatformConnectionType.GITLAB: return 'GitLab';
-      case PlatformConnectionType.JIRA: return 'Jira';
+      case PlatformConnectionType.JIRA_CLOUD: return 'Jira Cloud';
+      case PlatformConnectionType.JIRA_SERVER: return 'Jira Server / DC';
       case PlatformConnectionType.AZURE_DEVOPS: return 'Azure DevOps';
       case PlatformConnectionType.BITBUCKET: return 'Bitbucket';
       default: return type;
@@ -179,7 +180,7 @@ export class PlatformConnectionsComponent implements OnInit {
         config: {}, createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
       },
       {
-        id: 'pc-2', tenantId: '1', name: 'Jira Cloud', platformType: PlatformConnectionType.JIRA,
+        id: 'pc-2', tenantId: '1', name: 'Jira Cloud', platformType: PlatformConnectionType.JIRA_CLOUD,
         baseUrl: 'https://myorg.atlassian.net', status: ConnectionStatus.ACTIVE,
         lastSyncAt: new Date(Date.now() - 3600000).toISOString(),
         config: {}, createdAt: new Date(Date.now() - 86400000 * 20).toISOString(),
