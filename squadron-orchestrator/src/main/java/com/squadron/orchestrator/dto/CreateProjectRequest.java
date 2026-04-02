@@ -1,7 +1,6 @@
 package com.squadron.orchestrator.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,7 +14,6 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CreateProjectRequest {
 
-    @NotNull(message = "Tenant ID is required")
     private UUID tenantId;
 
     private UUID teamId;
@@ -28,6 +26,8 @@ public class CreateProjectRequest {
     private String defaultBranch;
 
     private String branchStrategy;
+
+    private String branchNamingTemplate;
 
     private UUID connectionId;
 

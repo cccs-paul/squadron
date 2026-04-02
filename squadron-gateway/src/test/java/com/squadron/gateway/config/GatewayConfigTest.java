@@ -86,7 +86,7 @@ class GatewayConfigTest {
 
         List<Route> routes = routeLocator.getRoutes().collectList().block();
         assertThat(routes).isNotNull();
-        assertThat(routes).hasSize(15);
+        assertThat(routes).hasSize(16);
     }
 
     @Test
@@ -105,6 +105,17 @@ class GatewayConfigTest {
         Route identityRoute = findRoute(routes, "identity-service");
         assertThat(identityRoute).isNotNull();
         assertThat(identityRoute.getUri().toString()).isEqualTo("http://squadron-identity:8081");
+    }
+
+    @Test
+    void should_defineTenantRoute_with_correctUri() {
+        List<Route> routes = getRoutes();
+
+        Route route = findRoute(routes, "tenant-service");
+        assertThat(route).isNotNull();
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-identity:8081");
+        // tenant-service does NOT have stripPrefix -- it forwards /api/tenants/** as-is
+        assertThat(route.getFilters()).isEmpty();
     }
 
     @Test
@@ -188,6 +199,7 @@ class GatewayConfigTest {
                 "websocket-agent",
                 "websocket-notifications",
                 "auth-service",
+                "tenant-service",
                 "identity-service",
                 "config-service",
                 "orchestrator-projects",
@@ -204,13 +216,14 @@ class GatewayConfigTest {
     }
 
     @Test
-    void should_haveIdentityRouteWithFilters() {
+    void should_haveIdentityRouteWithoutFilters() {
         List<Route> routes = getRoutes();
 
         Route identityRoute = findRoute(routes, "identity-service");
         assertThat(identityRoute).isNotNull();
-        // identity-service has a stripPrefix filter
-        assertThat(identityRoute.getFilters()).isNotEmpty();
+        // identity-service does NOT have stripPrefix -- it forwards /api/identity/** as-is
+        // because the identity controllers use @RequestMapping("/api/...") full paths
+        assertThat(identityRoute.getFilters()).isEmpty();
     }
 
     @Test

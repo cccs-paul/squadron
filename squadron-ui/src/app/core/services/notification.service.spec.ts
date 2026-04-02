@@ -2,6 +2,7 @@ import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { NotificationService, ToastNotification } from './notification.service';
+import { AuthService } from '../auth/auth.service';
 import { Notification, NotificationType } from '../models/notification.model';
 import { environment } from '../../../environments/environment';
 
@@ -9,12 +10,24 @@ describe('NotificationService', () => {
   let service: NotificationService;
   let httpTesting: HttpTestingController;
   const apiUrl = environment.apiUrl;
+  let authServiceStub: any;
 
   beforeEach(() => {
+    authServiceStub = {
+      user: jasmine.createSpy('user').and.returnValue({
+        id: 'u1', username: 'admin', email: 'admin@acme.com',
+        displayName: 'Admin User', tenantId: '1', tenantName: 'Acme Corp',
+        roles: ['ADMIN'], permissions: [],
+      }),
+      isAuthenticated: jasmine.createSpy('isAuthenticated').and.returnValue(true),
+      getAccessToken: jasmine.createSpy('getAccessToken').and.returnValue('mock-jwt-token'),
+    };
+
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: AuthService, useValue: authServiceStub },
       ],
     });
     service = TestBed.inject(NotificationService);
@@ -359,5 +372,17 @@ describe('NotificationService', () => {
     const url = (service as any).buildNotificationWsUrl();
     // environment.wsUrl is 'ws://localhost:8443/ws' in dev
     expect(url).toContain('/notifications/websocket');
+  });
+
+  it('should_includeAccessToken_when_buildingWsUrl', () => {
+    const url = (service as any).buildNotificationWsUrl();
+    expect(url).toContain('?access_token=mock-jwt-token');
+  });
+
+  it('should_buildWsUrlWithoutToken_when_noAccessToken', () => {
+    authServiceStub.getAccessToken.and.returnValue(null);
+    const url = (service as any).buildNotificationWsUrl();
+    expect(url).toContain('/notifications/websocket');
+    expect(url).not.toContain('access_token');
   });
 });

@@ -1,6 +1,7 @@
-import { Injectable, OnDestroy, signal } from '@angular/core';
+import { Injectable, inject, OnDestroy, signal } from '@angular/core';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { Observable, Subject } from 'rxjs';
+import { AuthService } from '../auth/auth.service';
 import { environment } from '../../../environments/environment';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -11,6 +12,7 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'err
  */
 @Injectable({ providedIn: 'root' })
 export class WebSocketService implements OnDestroy {
+  private authService = inject(AuthService);
   private client: Client | null = null;
   private subscriptions = new Map<string, StompSubscription>();
 
@@ -135,13 +137,15 @@ export class WebSocketService implements OnDestroy {
 
   private buildWsUrl(): string {
     const base = environment.wsUrl;
+    const token = this.authService.getAccessToken();
+    const tokenParam = token ? `?access_token=${encodeURIComponent(token)}` : '';
     // Convert ws:// or wss:// URL to full endpoint
     // Backend registers /ws/agent with SockJS — for native WebSocket, use /ws/agent/websocket
     if (base.startsWith('ws://') || base.startsWith('wss://')) {
-      return `${base}/agent/websocket`;
+      return `${base}/agent/websocket${tokenParam}`;
     }
     // Relative URL — build from window.location
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}${base}/agent/websocket`;
+    return `${protocol}//${window.location.host}${base}/agent/websocket${tokenParam}`;
   }
 }

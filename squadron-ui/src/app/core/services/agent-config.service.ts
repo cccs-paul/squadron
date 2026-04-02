@@ -16,10 +16,10 @@ export interface AgentConfig {
 @Injectable({ providedIn: 'root' })
 export class AgentConfigService extends ApiService {
   getConfig(tenantId: string): Observable<AgentConfig> {
-    return this.get<AgentConfig>(`/agent/config/${tenantId}`);
+    return this.get<AgentConfig>(`/agents/config/tenant/${tenantId}`);
   }
 
   updateConfig(tenantId: string, config: Partial<AgentConfig>): Observable<AgentConfig> {
-    return this.put<AgentConfig>(`/agent/config/${tenantId}`, config);
+    return this.put<AgentConfig>(`/agents/config/tenant/${tenantId}`, config);
   }
 }

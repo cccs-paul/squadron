@@ -17,8 +17,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -57,7 +59,7 @@ public class PlatformSyncService {
                 .orElseThrow(() -> new ResourceNotFoundException("PlatformConnection", connectionId));
 
         TicketingPlatformAdapter adapter = adapterRegistry.getAdapter(connection.getPlatformType());
-        adapter.configure(connection.getBaseUrl(), extractAccessToken(connection));
+        adapter.configure(connection.getBaseUrl(), getDecryptedCredentialsMap(connection));
 
         try {
             PlatformTaskFilter filter = PlatformTaskFilter.builder()
@@ -96,22 +98,23 @@ public class PlatformSyncService {
                 .orElseThrow(() -> new ResourceNotFoundException("PlatformConnection", connectionId));
 
         // Use user's delegated token if available, decrypted automatically
-        String accessToken;
+        Map<String, String> credentials;
         if (userId != null) {
             try {
-                accessToken = userTokenService.getDecryptedAccessToken(userId, connectionId);
+                String accessToken = userTokenService.getDecryptedAccessToken(userId, connectionId);
+                credentials = Map.of("accessToken", accessToken);
             } catch (ResourceNotFoundException e) {
                 // Fallback to connection-level credentials if user has no linked token
                 log.debug("No user token found for user {} on connection {}, using connection credentials",
                         userId, connectionId);
-                accessToken = extractAccessToken(connection);
+                credentials = getDecryptedCredentialsMap(connection);
             }
         } else {
-            accessToken = extractAccessToken(connection);
+            credentials = getDecryptedCredentialsMap(connection);
         }
 
         TicketingPlatformAdapter adapter = adapterRegistry.getAdapter(connection.getPlatformType());
-        adapter.configure(connection.getBaseUrl(), accessToken);
+        adapter.configure(connection.getBaseUrl(), credentials);
 
         try {
             adapter.updateTaskStatus(externalId, status, comment);
@@ -132,40 +135,32 @@ public class PlatformSyncService {
         }
     }
 
+    private static final Set<String> SENSITIVE_CREDENTIAL_KEYS = Set.of(
+            "accessToken", "pat", "apiKey", "apiToken", "password", "clientSecret"
+    );
+
     /**
-     * Extracts and decrypts the access token from connection credentials.
-     * Connection credentials JSONB stores sensitive values (accessToken, pat, apiKey) in encrypted form.
+     * Extracts and decrypts the full credentials map from connection credentials.
+     * Connection credentials JSONB stores sensitive values in encrypted form.
      */
     @SuppressWarnings("unchecked")
-    private String extractAccessToken(PlatformConnection connection) {
+    private Map<String, String> getDecryptedCredentialsMap(PlatformConnection connection) {
         if (connection.getCredentials() == null) {
-            return "";
+            return Map.of();
         }
         try {
-            Map<String, Object> creds = objectMapper.readValue(connection.getCredentials(), Map.class);
-
-            // Look for known token field names in order of preference
-            String encryptedToken = null;
-            for (String key : List.of("accessToken", "pat", "apiKey")) {
-                Object value = creds.get(key);
-                if (value != null) {
-                    encryptedToken = value.toString();
-                    break;
+            Map<String, String> creds = objectMapper.readValue(connection.getCredentials(), Map.class);
+            Map<String, String> decrypted = new HashMap<>(creds);
+            for (String key : SENSITIVE_CREDENTIAL_KEYS) {
+                String value = decrypted.get(key);
+                if (value != null && !value.isEmpty()) {
+                    decrypted.put(key, encryptionService.decrypt(value));
                 }
             }
-
-            if (encryptedToken == null || encryptedToken.isEmpty()) {
-                return "";
-            }
-
-            // Decrypt the token value
-            return encryptionService.decrypt(encryptedToken);
+            return decrypted;
         } catch (JsonProcessingException e) {
             log.warn("Failed to parse credentials for connection {}", connection.getId(), e);
-            return "";
-        } catch (SecurityException e) {
-            log.warn("Failed to decrypt credentials for connection {}: {}", connection.getId(), e.getMessage());
-            return "";
+            return Map.of();
         }
     }
 }

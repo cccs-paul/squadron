@@ -3,6 +3,7 @@ package com.squadron.platform.controller;
 import com.squadron.common.dto.ApiResponse;
 import com.squadron.platform.dto.ConnectionInfoResponse;
 import com.squadron.platform.dto.CreateConnectionRequest;
+import com.squadron.platform.dto.PlatformProjectDto;
 import com.squadron.platform.entity.PlatformConnection;
 import com.squadron.platform.service.PlatformConnectionService;
 import jakarta.validation.Valid;
@@ -85,5 +86,30 @@ public class PlatformConnectionController {
             @RequestParam String projectKey) {
         List<String> statuses = connectionService.fetchProjectStatuses(id, projectKey);
         return ResponseEntity.ok(ApiResponse.success(statuses));
+    }
+
+    /**
+     * Fetches the list of projects/repositories from the remote ticketing platform
+     * for a given connection. Used to populate the project import UI.
+     */
+    @GetMapping("/{id}/projects")
+    public ResponseEntity<ApiResponse<List<PlatformProjectDto>>> getRemoteProjects(
+            @PathVariable UUID id) {
+        List<PlatformProjectDto> projects = connectionService.fetchProjects(id);
+        return ResponseEntity.ok(ApiResponse.success(projects));
+    }
+
+    /**
+     * Lists platform connections filtered by category (TICKET_PROVIDER or GIT_REMOTE).
+     */
+    @GetMapping("/tenant/{tenantId}/category/{category}")
+    public ResponseEntity<ApiResponse<List<ConnectionInfoResponse>>> listByTenantAndCategory(
+            @PathVariable UUID tenantId,
+            @PathVariable String category) {
+        List<PlatformConnection> connections = connectionService.listConnectionsByTenantAndCategory(tenantId, category);
+        List<ConnectionInfoResponse> response = connections.stream()
+                .map(ConnectionInfoResponse::fromEntity)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

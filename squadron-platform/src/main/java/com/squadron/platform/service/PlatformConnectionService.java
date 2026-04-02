@@ -8,6 +8,7 @@ import com.squadron.common.security.TokenEncryptionService;
 import com.squadron.platform.adapter.PlatformAdapterRegistry;
 import com.squadron.platform.adapter.TicketingPlatformAdapter;
 import com.squadron.platform.dto.CreateConnectionRequest;
+import com.squadron.platform.dto.PlatformProjectDto;
 import com.squadron.platform.entity.PlatformConnection;
 import com.squadron.platform.repository.PlatformConnectionRepository;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -32,6 +34,11 @@ public class PlatformConnectionService {
     private static final List<String> SENSITIVE_CREDENTIAL_KEYS = List.of(
             "clientSecret", "accessToken", "pat", "apiKey", "apiToken", "privateKey", "password"
     );
+
+    /**
+     * Platform types classified as Git remotes. All others default to TICKET_PROVIDER.
+     */
+    private static final Set<String> GIT_REMOTE_TYPES = Set.of("GITHUB", "GITLAB", "BITBUCKET");
 
     private final PlatformConnectionRepository connectionRepository;
     private final PlatformAdapterRegistry adapterRegistry;
@@ -64,6 +71,7 @@ public class PlatformConnectionService {
                 .authType(request.getAuthType())
                 .credentials(encryptCredentials(request.getCredentials()))
                 .metadata(serializeToJson(request.getMetadata()))
+                .platformCategory(determinePlatformCategory(request.getPlatformType()))
                 .status("ACTIVE")
                 .build();
 
@@ -115,9 +123,9 @@ public class PlatformConnectionService {
         TicketingPlatformAdapter adapter = adapterRegistry.getAdapter(connection.getPlatformType());
 
         try {
-            // Configure the adapter with decrypted connection details
-            String accessToken = getDecryptedAccessToken(connection);
-            adapter.configure(connection.getBaseUrl(), accessToken);
+            // Configure the adapter with full decrypted credentials
+            Map<String, String> credentials = getDecryptedCredentialsMap(connection);
+            adapter.configure(connection.getBaseUrl(), credentials);
             boolean result = adapter.testConnection();
 
             if (result) {
@@ -150,8 +158,8 @@ public class PlatformConnectionService {
         TicketingPlatformAdapter adapter = adapterRegistry.getAdapter(connection.getPlatformType());
 
         try {
-            String accessToken = getDecryptedAccessToken(connection);
-            adapter.configure(connection.getBaseUrl(), accessToken);
+            Map<String, String> credentials = getDecryptedCredentialsMap(connection);
+            adapter.configure(connection.getBaseUrl(), credentials);
             List<String> statuses = adapter.getAvailableStatuses(projectKey);
             log.info("Fetched {} statuses for project '{}' from connection {} ({})",
                     statuses.size(), projectKey, connectionId, connection.getPlatformType());
@@ -159,6 +167,32 @@ public class PlatformConnectionService {
         } catch (Exception e) {
             throw new PlatformIntegrationException(connection.getPlatformType(),
                     "Failed to fetch statuses for project '" + projectKey + "': " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Fetches the list of projects/repositories from the remote ticketing platform.
+     * Configures the adapter with decrypted credentials and delegates to the adapter's
+     * {@link TicketingPlatformAdapter#getProjects()} method.
+     *
+     * @param connectionId the platform connection to use
+     * @return list of projects available on the remote platform
+     */
+    @Transactional(readOnly = true)
+    public List<PlatformProjectDto> fetchProjects(UUID connectionId) {
+        PlatformConnection connection = getConnection(connectionId);
+        TicketingPlatformAdapter adapter = adapterRegistry.getAdapter(connection.getPlatformType());
+
+        try {
+            Map<String, String> credentials = getDecryptedCredentialsMap(connection);
+            adapter.configure(connection.getBaseUrl(), credentials);
+            List<PlatformProjectDto> projects = adapter.getProjects();
+            log.info("Fetched {} projects from connection {} ({})",
+                    projects.size(), connectionId, connection.getPlatformType());
+            return projects;
+        } catch (Exception e) {
+            throw new PlatformIntegrationException(connection.getPlatformType(),
+                    "Failed to fetch projects: " + e.getMessage(), e);
         }
     }
 
@@ -185,6 +219,10 @@ public class PlatformConnectionService {
             return decrypted;
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Failed to parse credentials for connection " + connectionId, e);
+        } catch (SecurityException e) {
+            log.warn("Failed to decrypt credentials for connection {} — credentials may have been " +
+                    "encrypted with a different key", connectionId, e);
+            return Map.of();
         }
     }
 
@@ -226,6 +264,41 @@ public class PlatformConnectionService {
         } catch (JsonProcessingException e) {
             log.warn("Failed to parse credentials for connection {}", connection.getId(), e);
             return "";
+        } catch (SecurityException e) {
+            log.warn("Failed to decrypt access token for connection {} — credentials may have been " +
+                    "encrypted with a different key", connection.getId(), e);
+            return "";
+        }
+    }
+
+    /**
+     * Decrypts all sensitive credential fields from a connection's stored credentials
+     * and returns the full credentials map. This allows adapters to access all fields
+     * they need (e.g., email + apiToken for Jira Cloud Basic auth).
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, String> getDecryptedCredentialsMap(PlatformConnection connection) {
+        if (connection.getCredentials() == null) {
+            return Map.of();
+        }
+        try {
+            Map<String, String> creds = objectMapper.readValue(connection.getCredentials(), Map.class);
+            Map<String, String> decrypted = new HashMap<>(creds);
+            for (String key : SENSITIVE_CREDENTIAL_KEYS) {
+                String value = decrypted.get(key);
+                if (value != null && !value.isEmpty()) {
+                    decrypted.put(key, encryptionService.decrypt(value));
+                }
+            }
+            return decrypted;
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to parse credentials for connection {}", connection.getId(), e);
+            return Map.of();
+        } catch (SecurityException e) {
+            log.warn("Failed to decrypt credentials for connection {} — credentials may have been " +
+                    "encrypted with a different key (e.g., after service restart with a random key)",
+                    connection.getId(), e);
+            return Map.of();
         }
     }
 
@@ -238,5 +311,25 @@ public class PlatformConnectionService {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Failed to serialize to JSON", e);
         }
+    }
+
+    /**
+     * Determines the platform category based on the platform type.
+     * GitHub, GitLab, and Bitbucket are classified as GIT_REMOTE.
+     * All others (JIRA_CLOUD, JIRA_SERVER, AZURE_DEVOPS) are TICKET_PROVIDER.
+     */
+    public static String determinePlatformCategory(String platformType) {
+        if (platformType != null && GIT_REMOTE_TYPES.contains(platformType.toUpperCase())) {
+            return "GIT_REMOTE";
+        }
+        return "TICKET_PROVIDER";
+    }
+
+    /**
+     * Lists platform connections for a tenant filtered by category.
+     */
+    @Transactional(readOnly = true)
+    public List<PlatformConnection> listConnectionsByTenantAndCategory(UUID tenantId, String category) {
+        return connectionRepository.findByTenantIdAndPlatformCategory(tenantId, category);
     }
 }

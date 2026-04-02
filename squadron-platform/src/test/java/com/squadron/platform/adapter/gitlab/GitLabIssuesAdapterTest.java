@@ -1,5 +1,6 @@
 package com.squadron.platform.adapter.gitlab;
 
+import com.squadron.platform.config.WebClientSslHelper;
 import com.squadron.platform.dto.PlatformTaskDto;
 import com.squadron.platform.dto.PlatformTaskFilter;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,9 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class GitLabIssuesAdapterTest {
+
+    @Mock
+    private WebClientSslHelper sslHelper;
 
     @Mock
     private WebClient.Builder webClientBuilder;
@@ -88,14 +92,15 @@ class GitLabIssuesAdapterTest {
 
     @BeforeEach
     void setUp() {
-        adapter = new GitLabIssuesAdapter(webClientBuilder);
+        adapter = new GitLabIssuesAdapter(sslHelper);
     }
 
     private void configureAdapter() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
-        adapter.configure("https://gitlab.com", "glpat-token");
+        adapter.configure("https://gitlab.com", Map.of("pat", "glpat-token"));
     }
 
     @SuppressWarnings("unchecked")
@@ -133,11 +138,12 @@ class GitLabIssuesAdapterTest {
 
     @Test
     void should_configureAdapter() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
 
-        adapter.configure("https://gitlab.com", "glpat-token");
+        adapter.configure("https://gitlab.com", Map.of("pat", "glpat-token"));
 
         verify(webClientBuilder).baseUrl("https://gitlab.com/api/v4");
     }
@@ -161,11 +167,12 @@ class GitLabIssuesAdapterTest {
     @Test
     @SuppressWarnings("unchecked")
     void should_returnFalse_when_testConnectionFails() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
 
-        adapter.configure("https://gitlab.com", "bad-token");
+        adapter.configure("https://gitlab.com", Map.of("pat", "bad-token"));
 
         when(webClient.get()).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
@@ -432,5 +439,90 @@ class GitLabIssuesAdapterTest {
 
         PlatformTaskDto task = adapter.getTask("10:1");
         assertNull(task.getPriority());
+    }
+
+    // ========== getProjects tests ==========
+
+    @Test
+    void should_getProjects_when_configured() {
+        configureAdapter();
+
+        String json = """
+                [
+                  {
+                    "id": 42,
+                    "name": "My Project",
+                    "description": "A GitLab project",
+                    "web_url": "https://gitlab.com/mygroup/myproject",
+                    "avatar_url": "https://gitlab.com/uploads/avatar.png"
+                  },
+                  {
+                    "id": 99,
+                    "name": "Another Project",
+                    "description": null,
+                    "web_url": "https://gitlab.com/mygroup/another",
+                    "avatar_url": null
+                  }
+                ]
+                """;
+        mockGetReturning(json);
+
+        var projects = adapter.getProjects();
+
+        assertNotNull(projects);
+        assertEquals(2, projects.size());
+
+        assertEquals("42", projects.get(0).getKey());
+        assertEquals("My Project", projects.get(0).getName());
+        assertEquals("A GitLab project", projects.get(0).getDescription());
+        assertEquals("https://gitlab.com/mygroup/myproject", projects.get(0).getUrl());
+        assertEquals("https://gitlab.com/uploads/avatar.png", projects.get(0).getAvatarUrl());
+
+        assertEquals("99", projects.get(1).getKey());
+        assertEquals("Another Project", projects.get(1).getName());
+        assertNull(projects.get(1).getDescription());
+        assertNull(projects.get(1).getAvatarUrl());
+    }
+
+    @Test
+    void should_returnEmptyProjects_when_noProjects() {
+        configureAdapter();
+        mockGetReturning("[]");
+
+        var projects = adapter.getProjects();
+        assertNotNull(projects);
+        assertTrue(projects.isEmpty());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_throwException_when_getProjectsFails() {
+        configureAdapter();
+
+        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.error(new RuntimeException("500")));
+
+        assertThrows(RuntimeException.class, () -> adapter.getProjects());
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setupGetMock() {
+        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_throwException_when_getProjectsReceivesHtmlResponse() {
+        configureAdapter();
+        setupGetMock();
+        String htmlResponse = "<html><body><h1>Login Required</h1></body></html>";
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(htmlResponse));
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> adapter.getProjects());
+        assertTrue(ex.getMessage().contains("Received HTML instead of JSON"));
     }
 }

@@ -23,6 +23,7 @@ public class ConnectionInfoResponse {
     private UUID tenantId;
     private String name;
     private String platformType;
+    private String platformCategory;
     private String baseUrl;
     private String authType;
     private String status;
@@ -38,6 +39,7 @@ public class ConnectionInfoResponse {
                 .tenantId(connection.getTenantId())
                 .name(connection.getName())
                 .platformType(connection.getPlatformType())
+                .platformCategory(connection.getPlatformCategory())
                 .baseUrl(connection.getBaseUrl())
                 .authType(connection.getAuthType())
                 .status(connection.getStatus())

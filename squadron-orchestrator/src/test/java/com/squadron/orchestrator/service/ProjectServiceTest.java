@@ -239,6 +239,88 @@ class ProjectServiceTest {
                 () -> projectService.updateProject(projectId, request));
     }
 
+    // --- branchNamingTemplate ---
+
+    @Test
+    void should_createProject_withBranchNamingTemplate_when_provided() {
+        CreateProjectRequest request = CreateProjectRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .teamId(UUID.randomUUID())
+                .name("Template Project")
+                .branchNamingTemplate("feature/{ticket}-{description}")
+                .build();
+
+        when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Project result = projectService.createProject(request);
+
+        assertEquals("feature/{ticket}-{description}", result.getBranchNamingTemplate());
+    }
+
+    @Test
+    void should_createProject_withDefaultBranchNamingTemplate_when_templateIsNull() {
+        CreateProjectRequest request = CreateProjectRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .teamId(UUID.randomUUID())
+                .name("Default Template")
+                .branchNamingTemplate(null)
+                .build();
+
+        when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Project result = projectService.createProject(request);
+
+        assertEquals("{strategy}/{ticket}-{description}", result.getBranchNamingTemplate());
+    }
+
+    @Test
+    void should_updateProject_withBranchNamingTemplate_when_provided() {
+        UUID projectId = UUID.randomUUID();
+        Project existing = Project.builder()
+                .id(projectId)
+                .tenantId(UUID.randomUUID())
+                .teamId(UUID.randomUUID())
+                .name("Old")
+                .branchNamingTemplate("{strategy}/{ticket}-{description}")
+                .build();
+
+        CreateProjectRequest request = CreateProjectRequest.builder()
+                .branchNamingTemplate("bugfix/{ticket}")
+                .build();
+
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(existing));
+        when(projectRepository.save(any(Project.class))).thenReturn(existing);
+
+        projectService.updateProject(projectId, request);
+
+        assertEquals("bugfix/{ticket}", existing.getBranchNamingTemplate());
+    }
+
+    @Test
+    void should_notUpdateBranchNamingTemplate_when_templateIsNull() {
+        UUID projectId = UUID.randomUUID();
+        Project existing = Project.builder()
+                .id(projectId)
+                .tenantId(UUID.randomUUID())
+                .teamId(UUID.randomUUID())
+                .name("Existing")
+                .branchNamingTemplate("{strategy}/{ticket}-{description}")
+                .build();
+
+        CreateProjectRequest request = CreateProjectRequest.builder()
+                .name("Updated Name")
+                .branchNamingTemplate(null)
+                .build();
+
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(existing));
+        when(projectRepository.save(any(Project.class))).thenReturn(existing);
+
+        projectService.updateProject(projectId, request);
+
+        assertEquals("{strategy}/{ticket}-{description}", existing.getBranchNamingTemplate());
+        assertEquals("Updated Name", existing.getName());
+    }
+
     @Test
     void should_deleteProject_when_exists() {
         UUID projectId = UUID.randomUUID();

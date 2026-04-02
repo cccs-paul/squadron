@@ -1,7 +1,8 @@
-import { Injectable, OnDestroy, signal } from '@angular/core';
+import { Injectable, inject, OnDestroy, signal } from '@angular/core';
 import { Observable, Subject, tap } from 'rxjs';
 import { Client, IMessage } from '@stomp/stompjs';
 import { ApiService, PageResponse } from './api.service';
+import { AuthService } from '../auth/auth.service';
 import { Notification } from '../models/notification.model';
 import { environment } from '../../../environments/environment';
 
@@ -16,6 +17,8 @@ export interface ToastNotification {
 
 @Injectable({ providedIn: 'root' })
 export class NotificationService extends ApiService implements OnDestroy {
+  private authService = inject(AuthService);
+
   readonly unreadCount = signal(0);
   readonly notifications = signal<Notification[]>([]);
   readonly toasts = signal<ToastNotification[]>([]);
@@ -173,10 +176,12 @@ export class NotificationService extends ApiService implements OnDestroy {
 
   private buildNotificationWsUrl(): string {
     const base = environment.wsUrl;
+    const token = this.authService.getAccessToken();
+    const tokenParam = token ? `?access_token=${encodeURIComponent(token)}` : '';
     if (base.startsWith('ws://') || base.startsWith('wss://')) {
-      return `${base}/notifications/websocket`;
+      return `${base}/notifications/websocket${tokenParam}`;
     }
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}${base}/notifications/websocket`;
+    return `${protocol}//${window.location.host}${base}/notifications/websocket${tokenParam}`;
   }
 }

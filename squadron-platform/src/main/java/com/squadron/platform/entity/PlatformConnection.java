@@ -68,6 +68,14 @@ public class PlatformConnection {
     @Builder.Default
     private String status = "ACTIVE";
 
+    /**
+     * Platform category: TICKET_PROVIDER or GIT_REMOTE.
+     * Indicates the primary purpose of this connection.
+     */
+    @Column(name = "platform_category", nullable = false, length = 50)
+    @Builder.Default
+    private String platformCategory = "TICKET_PROVIDER";
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String metadata;

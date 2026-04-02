@@ -1,0 +1,110 @@
+<div class="user-tokens">
+  <div class="user-tokens__header">
+    <h2>Platform Tokens</h2>
+    <p class="user-tokens__subtitle">Link your personal access tokens to allow Squadron to act on your behalf</p>
+  </div>
+
+  @if (linkSuccess()) {
+    <div class="alert alert--success">Token linked successfully</div>
+  }
+
+  @if (linkError(); as err) {
+    <div class="alert alert--error">{{ err }}</div>
+  }
+
+  @if (loading()) {
+    <div class="user-tokens__loading">
+      <div class="spinner"></div>
+      <p>Loading tokens...</p>
+    </div>
+  } @else {
+    <div class="user-tokens__sections">
+      <!-- Linked Tokens -->
+      <section class="user-tokens__section">
+        <div class="user-tokens__section-header">
+          <h3>Linked Accounts</h3>
+          <p>Platform accounts currently linked to your profile</p>
+        </div>
+        <div class="user-tokens__section-body">
+          @if (tokens().length === 0) {
+            <div class="user-tokens__empty">
+              <p>No platform tokens linked yet. Link a token below to get started.</p>
+            </div>
+          } @else {
+            @for (token of tokens(); track token.id) {
+              <div class="user-tokens__token-card">
+                <div class="user-tokens__token-info">
+                  <div class="user-tokens__token-name">{{ getConnectionName(token.connectionId) }}</div>
+                  <div class="user-tokens__token-meta">
+                    <span class="user-tokens__token-badge">{{ token.tokenType }}</span>
+                    <span class="user-tokens__token-platform">{{ getConnectionPlatform(token.connectionId) }}</span>
+                    <span class="user-tokens__token-date">Linked {{ formatDate(token.createdAt) }}</span>
+                    @if (token.expiresAt) {
+                      <span class="user-tokens__token-expiry">Expires {{ formatDate(token.expiresAt) }}</span>
+                    }
+                  </div>
+                </div>
+                <button class="user-tokens__unlink-btn" (click)="unlinkToken(token)">Unlink</button>
+              </div>
+            }
+          }
+        </div>
+      </section>
+
+      <!-- Link New Token -->
+      <section class="user-tokens__section">
+        <div class="user-tokens__section-header">
+          <h3>Link New Token</h3>
+          <p>Connect a personal access token from an external platform</p>
+        </div>
+        <div class="user-tokens__section-body">
+          @if (getUnlinkedConnections().length === 0 && !showLinkForm()) {
+            <div class="user-tokens__empty">
+              <p>All available connections are already linked.</p>
+            </div>
+          } @else {
+            @if (!showLinkForm()) {
+              <button class="btn btn--secondary" (click)="toggleLinkForm()">
+                Link a Token
+              </button>
+            } @else {
+              <div class="user-tokens__link-form">
+                <div class="user-tokens__field">
+                  <label class="user-tokens__label">Platform Connection</label>
+                  <select class="user-tokens__select" [(ngModel)]="selectedConnectionId">
+                    <option value="">Select a connection...</option>
+                    @for (conn of getUnlinkedConnections(); track conn.id) {
+                      <option [value]="conn.id">{{ conn.name }} ({{ conn.platformType }})</option>
+                    }
+                  </select>
+                </div>
+
+                <div class="user-tokens__field">
+                  <label class="user-tokens__label">Personal Access Token</label>
+                  <input
+                    class="user-tokens__input"
+                    type="password"
+                    [(ngModel)]="patValue"
+                    placeholder="Enter your token..."
+                  />
+                  <span class="user-tokens__hint">Your token is encrypted before storage</span>
+                </div>
+
+                <div class="user-tokens__form-actions">
+                  <button class="btn btn--primary" (click)="linkPat()" [disabled]="linking()">
+                    @if (linking()) {
+                      Linking...
+                    } @else {
+                      Link Token
+                    }
+                  </button>
+                  <button class="btn btn--secondary" (click)="toggleLinkForm()">Cancel</button>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      </section>
+    </div>
+  }
+</div>

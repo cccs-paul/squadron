@@ -43,7 +43,7 @@ describe('AgentConfigService', () => {
       expect(result).toEqual(mockConfig);
     });
 
-    const req = httpTesting.expectOne(`${apiUrl}/agent/config/t1`);
+    const req = httpTesting.expectOne(`${apiUrl}/agents/config/tenant/t1`);
     expect(req.request.method).toBe('GET');
     req.flush(mockConfig);
   });
@@ -68,7 +68,7 @@ describe('AgentConfigService', () => {
       expect(result.maxTokens).toBe(8192);
     });
 
-    const req = httpTesting.expectOne(`${apiUrl}/agent/config/t1`);
+    const req = httpTesting.expectOne(`${apiUrl}/agents/config/tenant/t1`);
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual(update);
     req.flush(mockResponse);
@@ -77,7 +77,7 @@ describe('AgentConfigService', () => {
   it('should_getConfig_when_calledWithDifferentTenantId', () => {
     service.getConfig('tenant-xyz').subscribe();
 
-    const req = httpTesting.expectOne(`${apiUrl}/agent/config/tenant-xyz`);
+    const req = httpTesting.expectOne(`${apiUrl}/agents/config/tenant/tenant-xyz`);
     expect(req.request.method).toBe('GET');
     req.flush({});
   });

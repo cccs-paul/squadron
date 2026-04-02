@@ -118,6 +118,35 @@ class ProjectControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = {"developer"})
+    void should_createProject_when_developerRole() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+
+        CreateProjectRequest request = CreateProjectRequest.builder()
+                .tenantId(tenantId)
+                .name("Dev Project")
+                .build();
+
+        Project savedProject = Project.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .name("Dev Project")
+                .defaultBranch("main")
+                .branchStrategy("TRUNK_BASED")
+                .build();
+
+        when(projectService.createProject(any(CreateProjectRequest.class))).thenReturn(savedProject);
+
+        mockMvc.perform(post("/api/projects")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.name").value("Dev Project"));
+    }
+
+    @Test
     @WithMockUser(roles = {"viewer"})
     void should_listByTenant() throws Exception {
         UUID tenantId = UUID.randomUUID();

@@ -1,5 +1,6 @@
 package com.squadron.platform.adapter;
 
+import com.squadron.platform.dto.PlatformProjectDto;
 import com.squadron.platform.dto.PlatformTaskDto;
 import com.squadron.platform.dto.PlatformTaskFilter;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -39,12 +41,13 @@ class TicketingPlatformAdapterTest {
         assertTrue(methodNames.contains("addComment"));
         assertTrue(methodNames.contains("getAvailableStatuses"));
         assertTrue(methodNames.contains("testConnection"));
+        assertTrue(methodNames.contains("getProjects"));
     }
 
     @Test
-    void should_haveExactlyEightMethods() {
+    void should_haveExactlyNineMethods() {
         Method[] methods = TicketingPlatformAdapter.class.getDeclaredMethods();
-        assertEquals(8, methods.length);
+        assertEquals(9, methods.length);
     }
 
     @Test
@@ -57,11 +60,12 @@ class TicketingPlatformAdapterTest {
 
     @Test
     void should_mockConfigure() {
-        doNothing().when(adapter).configure("https://jira.example.com", "token123");
+        Map<String, String> creds = Map.of("pat", "token123");
+        doNothing().when(adapter).configure("https://jira.example.com", creds);
 
-        adapter.configure("https://jira.example.com", "token123");
+        adapter.configure("https://jira.example.com", creds);
 
-        verify(adapter).configure("https://jira.example.com", "token123");
+        verify(adapter).configure("https://jira.example.com", creds);
     }
 
     @Test
@@ -142,7 +146,7 @@ class TicketingPlatformAdapterTest {
             public String getPlatformType() { return "CUSTOM"; }
 
             @Override
-            public void configure(String baseUrl, String accessToken) {}
+            public void configure(String baseUrl, Map<String, String> credentials) {}
 
             @Override
             public List<PlatformTaskDto> fetchTasks(String projectKey, PlatformTaskFilter filter) {
@@ -165,6 +169,9 @@ class TicketingPlatformAdapterTest {
 
             @Override
             public boolean testConnection() { return true; }
+
+            @Override
+            public List<PlatformProjectDto> getProjects() { return List.of(); }
         };
 
         assertEquals("CUSTOM", anonymous.getPlatformType());
@@ -172,5 +179,6 @@ class TicketingPlatformAdapterTest {
         assertEquals(List.of("OPEN", "CLOSED"), anonymous.getAvailableStatuses("ANY"));
         assertTrue(anonymous.fetchTasks("ANY", null).isEmpty());
         assertNull(anonymous.getTask("X"));
+        assertTrue(anonymous.getProjects().isEmpty());
     }
 }

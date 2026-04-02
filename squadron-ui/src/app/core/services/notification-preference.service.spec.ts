@@ -43,7 +43,7 @@ describe('NotificationPreferenceService', () => {
       expect(result).toEqual(mockPrefs);
     });
 
-    const req = httpTesting.expectOne(`${apiUrl}/notifications/preferences/u1`);
+    const req = httpTesting.expectOne(`${apiUrl}/notifications/preferences/user/u1`);
     expect(req.request.method).toBe('GET');
     req.flush(mockPrefs);
   });
@@ -69,7 +69,7 @@ describe('NotificationPreferenceService', () => {
       expect(result.slackWebhookUrl).toBe('https://hooks.slack.com/services/test');
     });
 
-    const req = httpTesting.expectOne(`${apiUrl}/notifications/preferences/u1`);
+    const req = httpTesting.expectOne(`${apiUrl}/notifications/preferences/user/u1`);
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual(update);
     req.flush(mockResponse);
@@ -78,7 +78,7 @@ describe('NotificationPreferenceService', () => {
   it('should_sendCorrectUrl_when_calledWithDifferentUserId', () => {
     service.getPreferences('user-abc').subscribe();
 
-    const req = httpTesting.expectOne(`${apiUrl}/notifications/preferences/user-abc`);
+    const req = httpTesting.expectOne(`${apiUrl}/notifications/preferences/user/user-abc`);
     expect(req.request.method).toBe('GET');
     req.flush({});
   });

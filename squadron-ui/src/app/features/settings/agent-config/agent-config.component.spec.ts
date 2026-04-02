@@ -1,14 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AgentConfigComponent } from './agent-config.component';
 import { AgentConfigService, AgentConfig } from '../../../core/services/agent-config.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 
 describe('AgentConfigComponent', () => {
   let component: AgentConfigComponent;
   let fixture: ComponentFixture<AgentConfigComponent>;
   let configServiceSpy: jasmine.SpyObj<AgentConfigService>;
+  let authServiceMock: Partial<AuthService>;
 
   const mockConfig: AgentConfig = {
     id: 'cfg1',
@@ -29,10 +32,26 @@ describe('AgentConfigComponent', () => {
       'updateConfig',
     ]);
 
+    authServiceMock = {
+      user: signal({
+        id: 'u1',
+        username: 'testuser',
+        email: 'test@example.com',
+        displayName: 'Test User',
+        tenantId: 'demo-tenant-001',
+        tenantName: 'Demo Tenant',
+        roles: ['squadron-admin'],
+        permissions: [],
+      }),
+      isAuthenticated: signal(true),
+      isAdmin: signal(true),
+    } as any;
+
     await TestBed.configureTestingModule({
       imports: [AgentConfigComponent],
       providers: [
         { provide: AgentConfigService, useValue: configServiceSpy },
+        { provide: AuthService, useValue: authServiceMock },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],

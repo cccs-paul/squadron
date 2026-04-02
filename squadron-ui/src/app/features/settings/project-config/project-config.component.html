@@ -1,341 +1,813 @@
 <div class="project-config">
   <div class="project-config__header">
-    <h2>Providers &amp; Projects</h2>
+    <h2>Setup Wizard</h2>
     <p class="project-config__subtitle">
-      Configure ticket providers, then create projects from those providers
+      Configure your integrations step by step: ticket providers, Git remotes, projects, and workflow
     </p>
   </div>
 
-  <div class="project-config__tabs">
-    <button
-      class="project-config__tab"
-      [class.project-config__tab--active]="activeTab() === 'providers'"
-      (click)="setTab('providers')"
-    >Ticket Providers</button>
-    <button
-      class="project-config__tab"
-      [class.project-config__tab--active]="activeTab() === 'projects'"
-      (click)="setTab('projects')"
-    >Projects</button>
+  <!-- Wizard Step Indicators -->
+  <div class="wizard-steps">
+    @for (step of steps; track step.id) {
+      <button
+        class="wizard-step"
+        [class.wizard-step--active]="activeStep() === step.id"
+        [class.wizard-step--complete]="isStepComplete(step.id) && activeStep() !== step.id"
+        (click)="setStep(step.id)"
+      >
+        <span class="wizard-step__number">
+          @if (isStepComplete(step.id) && activeStep() !== step.id) {
+            <span class="wizard-step__check">&#10003;</span>
+          } @else {
+            {{ step.number }}
+          }
+        </span>
+        <span class="wizard-step__label">{{ step.label }}</span>
+      </button>
+      @if (step.number < steps.length) {
+        <div class="wizard-steps__connector"
+          [class.wizard-steps__connector--active]="getStepIndex(activeStep()) >= step.number"
+        ></div>
+      }
+    }
   </div>
 
   @if (loading()) {
     <div class="project-config__loading">
       <div class="spinner"></div>
-      <p>Loading...</p>
+      <p>Loading configuration...</p>
     </div>
   } @else if (loadError()) {
     <div class="alert alert--error">{{ loadError() }}</div>
-  } @else if (activeTab() === 'providers') {
-    <!-- PROVIDERS TAB -->
-    <div class="project-config__section">
-      <div class="section-header">
-        <h3 class="section-header__title">Configured Providers</h3>
-        <button class="btn btn--primary btn--sm" (click)="toggleProviderForm()">
-          @if (showProviderForm()) { Cancel } @else { + Add Provider }
-        </button>
-      </div>
+  } @else {
+    <div class="project-config__content">
 
-      @if (showProviderForm()) {
-        <div class="form-card">
-          <h4 class="form-card__title">New Ticket Provider</h4>
-
-          @if (providerSaveError()) {
-            <div class="alert alert--error">{{ providerSaveError() }}</div>
-          }
-
-          <div class="form-card__row">
-            <div class="form-card__field">
-              <label class="form-card__label">Name</label>
-              <input class="form-input" type="text" [(ngModel)]="providerForm.name" placeholder="e.g. Jira Cloud - Production" />
+      <!-- ===== STEP 1: Ticket Providers ===== -->
+      @if (activeStep() === 'ticket-providers') {
+        <div class="step-panel">
+          <div class="step-panel__header">
+            <div>
+              <h3 class="step-panel__title">Ticket Providers</h3>
+              <p class="step-panel__desc">Connect your issue tracking systems. Squadron will sync tasks from these platforms.</p>
             </div>
-            <div class="form-card__field">
-              <label class="form-card__label">Platform Type</label>
-              <select class="form-select" [(ngModel)]="providerForm.platformType" (ngModelChange)="onPlatformTypeChange()">
-                @for (pt of platformTypes; track pt) {
-                  <option [value]="pt">{{ platformIcon(pt) }}</option>
-                }
-              </select>
-            </div>
-          </div>
-
-          <div class="form-card__row">
-            <div class="form-card__field form-card__field--full">
-              <label class="form-card__label">Base URL</label>
-              <input class="form-input" type="text" [(ngModel)]="providerForm.baseUrl" placeholder="e.g. https://myorg.atlassian.net" />
-            </div>
-          </div>
-
-          <div class="form-card__row">
-            <div class="form-card__field">
-              <label class="form-card__label">Auth Type</label>
-              <select class="form-select" [(ngModel)]="providerForm.authType" (ngModelChange)="onAuthTypeChange()">
-                @for (opt of getAuthTypeOptions(); track opt.label) {
-                  <option [value]="opt.label">{{ opt.label }}</option>
-                }
-              </select>
-            </div>
-          </div>
-
-          @for (field of getAuthFields(); track field.key) {
-            <div class="form-card__row">
-              <div class="form-card__field form-card__field--full">
-                <label class="form-card__label">{{ field.label }}</label>
-                <input
-                  class="form-input"
-                  [type]="field.secret ? 'password' : 'text'"
-                  [ngModel]="providerForm.credentials[field.key] || ''"
-                  (ngModelChange)="providerForm.credentials[field.key] = $event"
-                  [placeholder]="'Enter ' + field.label"
-                />
-              </div>
-            </div>
-          }
-
-          <div class="form-card__actions">
-            <button class="btn btn--secondary" (click)="toggleProviderForm()">Cancel</button>
-            <button class="btn btn--primary" (click)="saveProvider()" [disabled]="!canSaveProvider() || savingProvider()">
-              @if (savingProvider()) { Saving... } @else { Save Provider }
+            <button class="btn btn--primary btn--sm" (click)="toggleTicketForm()">
+              @if (showTicketForm()) { Cancel } @else { + Add Provider }
             </button>
           </div>
-        </div>
-      }
 
-      @if (connections().length === 0 && !showProviderForm()) {
-        <div class="project-config__empty">
-          <p>No ticket providers configured. Add a provider to get started.</p>
-        </div>
-      } @else {
-        <div class="project-config__list">
-          @for (conn of connections(); track conn.id) {
-            <div class="provider-card">
-              <div class="provider-card__info">
-                <span class="provider-card__type-badge">{{ platformIcon(conn.platformType) }}</span>
-                <div class="provider-card__details">
-                  <span class="provider-card__name">{{ conn.name }}</span>
-                  <span class="provider-card__url">{{ conn.baseUrl }}</span>
+          @if (ticketSaveSuccess()) {
+            <div class="alert alert--success">Ticket provider added successfully</div>
+          }
+
+          @if (showTicketForm()) {
+            <div class="form-card">
+              <h4 class="form-card__title">New Ticket Provider</h4>
+
+              @if (ticketSaveError()) {
+                <div class="alert alert--error">{{ ticketSaveError() }}</div>
+              }
+
+              <div class="form-card__row">
+                <div class="form-card__field">
+                  <label class="form-card__label">Provider Name</label>
+                  <input class="form-input" type="text" [(ngModel)]="ticketForm.name" placeholder="e.g. Jira Cloud - Production" />
+                </div>
+                <div class="form-card__field">
+                  <label class="form-card__label">Platform</label>
+                  <select class="form-select" [(ngModel)]="ticketForm.platformType" (ngModelChange)="onTicketPlatformTypeChange()">
+                    @for (pt of ticketPlatformTypes; track pt) {
+                      <option [value]="pt">{{ platformIcon(pt) }}</option>
+                    }
+                  </select>
                 </div>
               </div>
-              <div class="provider-card__actions">
-                <span class="provider-card__status provider-card__status--{{ conn.status.toLowerCase() }}">
-                  {{ conn.status }}
-                </span>
-                <button
-                  class="btn btn--danger btn--sm"
-                  (click)="deleteConnection(conn.id)"
-                  [disabled]="deletingConnectionId() === conn.id"
-                >
-                  @if (deletingConnectionId() === conn.id) { Deleting... } @else { Delete }
+
+              @if (!isCloudPlatform(ticketForm.platformType)) {
+                <div class="form-card__row">
+                  <div class="form-card__field form-card__field--full">
+                    <label class="form-card__label">Base URL</label>
+                    <input class="form-input" type="text" [(ngModel)]="ticketForm.baseUrl" placeholder="e.g. https://jira.mycompany.com" />
+                    <span class="form-hint">Required for self-hosted instances</span>
+                  </div>
+                </div>
+              } @else if (ticketForm.platformType === 'JIRA_CLOUD') {
+                <div class="form-card__row">
+                  <div class="form-card__field form-card__field--full">
+                    <label class="form-card__label">Cloud Instance URL</label>
+                    <input class="form-input" type="text" [(ngModel)]="ticketForm.baseUrl" placeholder="e.g. https://myorg.atlassian.net" />
+                    <span class="form-hint">Your Atlassian cloud URL</span>
+                  </div>
+                </div>
+              }
+
+              <div class="form-card__row">
+                <div class="form-card__field">
+                  <label class="form-card__label">Authentication</label>
+                  <select class="form-select" [(ngModel)]="ticketForm.authType" (ngModelChange)="onTicketAuthTypeChange()">
+                    @for (opt of getTicketAuthTypeOptions(); track opt.label) {
+                      <option [value]="opt.label">{{ opt.label }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+
+              @for (field of getTicketAuthFields(); track field.key) {
+                <div class="form-card__row">
+                  <div class="form-card__field form-card__field--full">
+                    <label class="form-card__label">{{ field.label }}</label>
+                    <input
+                      class="form-input"
+                      [type]="field.secret ? 'password' : 'text'"
+                      [ngModel]="ticketForm.credentials[field.key] || ''"
+                      (ngModelChange)="ticketForm.credentials[field.key] = $event"
+                      [placeholder]="'Enter ' + field.label"
+                    />
+                  </div>
+                </div>
+              }
+
+              <div class="form-card__actions">
+                <button class="btn btn--secondary" (click)="toggleTicketForm()">Cancel</button>
+                <button class="btn btn--primary" (click)="saveTicketProvider()" [disabled]="!canSaveTicketProvider() || savingTicketProvider()">
+                  @if (savingTicketProvider()) { Saving... } @else { Save Provider }
                 </button>
               </div>
             </div>
           }
+
+          @if (ticketProviders().length === 0 && !showTicketForm()) {
+            <div class="empty-state">
+              <div class="empty-state__icon">&#128203;</div>
+              <h4 class="empty-state__title">No ticket providers yet</h4>
+              <p class="empty-state__desc">Connect Jira, Azure DevOps, or another issue tracker to sync tasks automatically.</p>
+            </div>
+          } @else if (ticketProviders().length > 0) {
+            <div class="provider-list">
+              @for (conn of ticketProviders(); track conn.id) {
+                <div class="provider-card">
+                  <div class="provider-card__info">
+                    <span class="provider-card__type-badge">{{ platformIcon(conn.platformType) }}</span>
+                    <div class="provider-card__details">
+                      <span class="provider-card__name">{{ conn.name }}</span>
+                      <span class="provider-card__url">{{ conn.baseUrl }}</span>
+                    </div>
+                  </div>
+                  <div class="provider-card__actions">
+                    <span class="provider-card__status provider-card__status--{{ conn.status.toLowerCase() }}">
+                      {{ conn.status }}
+                    </span>
+                    <button
+                      class="btn btn--danger btn--sm"
+                      (click)="deleteTicketProvider(conn.id)"
+                      [disabled]="deletingConnectionId() === conn.id"
+                    >
+                      @if (deletingConnectionId() === conn.id) { Removing... } @else { Remove }
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
         </div>
       }
-    </div>
-  } @else {
-    <!-- PROJECTS TAB -->
-    <div class="project-config__section">
-      @if (connections().length === 0) {
-        <div class="project-config__empty">
-          <p>No ticket providers configured. Please add a provider on the Ticket Providers tab first.</p>
-        </div>
-      } @else {
-        <div class="section-header">
-          <h3 class="section-header__title">Projects</h3>
-          <button class="btn btn--primary btn--sm" (click)="toggleProjectForm()">
-            @if (showProjectForm()) { Cancel } @else { + New Project }
-          </button>
-        </div>
 
-        @if (showProjectForm()) {
-          <div class="form-card">
-            <h4 class="form-card__title">New Project</h4>
-
-            @if (projectSaveError()) {
-              <div class="alert alert--error">{{ projectSaveError() }}</div>
-            }
-
-            <div class="form-card__row">
-              <div class="form-card__field">
-                <label class="form-card__label">Project Name</label>
-                <input class="form-input" type="text" [(ngModel)]="projectForm.name" placeholder="e.g. my-service" />
-              </div>
-              <div class="form-card__field">
-                <label class="form-card__label">Default Branch</label>
-                <input class="form-input" type="text" [(ngModel)]="projectForm.defaultBranch" placeholder="main" />
-              </div>
+      <!-- ===== STEP 2: Git Remotes ===== -->
+      @if (activeStep() === 'git-remotes') {
+        <div class="step-panel">
+          <div class="step-panel__header">
+            <div>
+              <h3 class="step-panel__title">Git Remotes</h3>
+              <p class="step-panel__desc">Configure Git platforms for code hosting. Add SSH keys for secure clone/push operations.</p>
             </div>
-
-            <div class="form-card__row">
-              <div class="form-card__field form-card__field--full">
-                <label class="form-card__label">Description (optional)</label>
-                <input class="form-input" type="text" [(ngModel)]="projectForm.description" placeholder="Brief project description" />
-              </div>
-            </div>
-
-            <div class="form-card__row">
-              <div class="form-card__field">
-                <label class="form-card__label">Ticket Provider</label>
-                <select class="form-select" [(ngModel)]="projectForm.connectionId">
-                  <option value="">-- Select provider --</option>
-                  @for (conn of connections(); track conn.id) {
-                    <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
-                  }
-                </select>
-              </div>
-              <div class="form-card__field">
-                <label class="form-card__label">External Project Key</label>
-                <input class="form-input" type="text" [(ngModel)]="projectForm.externalProjectId" placeholder="e.g. SQ, my-org/my-repo" />
-              </div>
-            </div>
-
-            <div class="form-card__actions">
-              <button class="btn btn--secondary" (click)="toggleProjectForm()">Cancel</button>
-              <button class="btn btn--primary" (click)="saveProject()" [disabled]="!canSaveProject() || savingProject()">
-                @if (savingProject()) { Creating... } @else { Create Project }
-              </button>
-            </div>
+            <button class="btn btn--primary btn--sm" (click)="toggleGitForm()">
+              @if (showGitForm()) { Cancel } @else { + Add Git Remote }
+            </button>
           </div>
-        }
 
-        <div class="project-config__list">
-          @for (ps of projectStates(); track ps.project.id; let i = $index) {
-            <div class="project-card" [class.project-card--expanded]="ps.expanded">
-              <button class="project-card__header" (click)="toggleProject(i)">
-                <div class="project-card__info">
-                  <span class="project-card__name">{{ ps.project.name }}</span>
-                  @if (ps.project.description) {
-                    <span class="project-card__desc">{{ ps.project.description }}</span>
-                  }
+          @if (gitSaveSuccess()) {
+            <div class="alert alert--success">Git remote added successfully</div>
+          }
+
+          @if (showGitForm()) {
+            <div class="form-card">
+              <h4 class="form-card__title">New Git Remote</h4>
+
+              @if (gitSaveError()) {
+                <div class="alert alert--error">{{ gitSaveError() }}</div>
+              }
+
+              <div class="form-card__row">
+                <div class="form-card__field">
+                  <label class="form-card__label">Connection Name</label>
+                  <input class="form-input" type="text" [(ngModel)]="gitForm.name" placeholder="e.g. GitHub - My Org" />
                 </div>
-                <div class="project-card__meta">
-                  @if (ps.connectionName) {
-                    <span class="project-card__platform-tag">{{ ps.connectionName }}</span>
-                  }
-                  <span class="project-card__badge">{{ ps.mappings.length }} mappings</span>
-                  <span class="project-card__chevron" [class.project-card__chevron--open]="ps.expanded">&#9662;</span>
+                <div class="form-card__field">
+                  <label class="form-card__label">Platform</label>
+                  <select class="form-select" [(ngModel)]="gitForm.platformType" (ngModelChange)="onGitPlatformTypeChange()">
+                    @for (pt of gitPlatformTypes; track pt) {
+                      <option [value]="pt">{{ platformIcon(pt) }}</option>
+                    }
+                  </select>
                 </div>
-              </button>
+              </div>
 
-              @if (ps.expanded) {
-                <div class="project-card__body">
-                  @if (ps.saveSuccess) {
-                    <div class="alert alert--success">Mappings saved successfully</div>
-                  }
-                  @if (ps.saveError) {
-                    <div class="alert alert--error">{{ ps.saveError }}</div>
-                  }
-                  @if (ps.fetchError) {
-                    <div class="alert alert--error">{{ ps.fetchError }}</div>
-                  }
+              @if (!isCloudPlatform(gitForm.platformType)) {
+                <div class="form-card__row">
+                  <div class="form-card__field form-card__field--full">
+                    <label class="form-card__label">Base URL</label>
+                    <input class="form-input" type="text" [(ngModel)]="gitForm.baseUrl" placeholder="e.g. https://gitlab.mycompany.com, https://bitbucket.mycompany.com" />
+                    <span class="form-hint">Required for self-hosted instances</span>
+                  </div>
+                </div>
+              } @else {
+                <div class="form-card__row">
+                  <div class="form-card__field form-card__field--full">
+                    <div class="cloud-notice">
+                      <span class="cloud-notice__icon">&#9729;</span>
+                      <span>{{ platformIcon(gitForm.platformType) }} Cloud detected - no URL needed</span>
+                    </div>
+                  </div>
+                </div>
+              }
 
-                  <div class="connection-section">
-                    <h3 class="connection-section__title">Platform Connection</h3>
-                    <div class="connection-section__row">
-                      <div class="connection-section__field">
-                        <label class="connection-section__label">Connection</label>
-                        <select class="form-select" [ngModel]="ps.project.connectionId || ''" (ngModelChange)="updateProjectConnection(i, $event)">
-                          <option value="">-- No connection --</option>
-                          @for (conn of connections(); track conn.id) {
-                            <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
-                          }
-                        </select>
-                      </div>
-                      <div class="connection-section__field">
-                        <label class="connection-section__label">External Project Key</label>
-                        <input class="form-input" type="text" [ngModel]="ps.project.externalProjectId || ''" (ngModelChange)="updateExternalProjectId(i, $event)" placeholder="e.g. SQ, my-org/my-repo" />
-                      </div>
-                      <div class="connection-section__action">
-                        <button class="btn btn--secondary" (click)="fetchRemoteStatuses(i)" [disabled]="!canFetchStatuses(ps)">
-                          @if (ps.fetchingStatuses) {
-                            <span class="spinner spinner--inline"></span> Fetching...
-                          } @else {
-                            Fetch Statuses
-                          }
+              <div class="form-card__row">
+                <div class="form-card__field">
+                  <label class="form-card__label">Authentication</label>
+                  <select class="form-select" [(ngModel)]="gitForm.authType" (ngModelChange)="onGitAuthTypeChange()">
+                    @for (opt of getGitAuthTypeOptions(); track opt.label) {
+                      <option [value]="opt.label">{{ opt.label }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+
+              @for (field of getGitAuthFields(); track field.key) {
+                <div class="form-card__row">
+                  <div class="form-card__field form-card__field--full">
+                    <label class="form-card__label">{{ field.label }}</label>
+                    <input
+                      class="form-input"
+                      [type]="field.secret ? 'password' : 'text'"
+                      [ngModel]="gitForm.credentials[field.key] || ''"
+                      (ngModelChange)="gitForm.credentials[field.key] = $event"
+                      [placeholder]="'Enter ' + field.label"
+                    />
+                  </div>
+                </div>
+              }
+
+              <div class="form-card__actions">
+                <button class="btn btn--secondary" (click)="toggleGitForm()">Cancel</button>
+                <button class="btn btn--primary" (click)="saveGitRemote()" [disabled]="!canSaveGitRemote() || savingGitRemote()">
+                  @if (savingGitRemote()) { Saving... } @else { Save Git Remote }
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (gitRemotes().length === 0 && !showGitForm()) {
+            <div class="empty-state">
+              <div class="empty-state__icon">&#128279;</div>
+              <h4 class="empty-state__title">No Git remotes configured</h4>
+              <p class="empty-state__desc">Add GitHub, GitLab, or Bitbucket connections for code hosting and SSH access.</p>
+            </div>
+          } @else if (gitRemotes().length > 0) {
+            <div class="provider-list">
+              @for (conn of gitRemotes(); track conn.id) {
+                <div class="provider-card">
+                  <div class="provider-card__info">
+                    <span class="provider-card__type-badge provider-card__type-badge--git">{{ platformIcon(conn.platformType) }}</span>
+                    <div class="provider-card__details">
+                      <span class="provider-card__name">{{ conn.name }}</span>
+                      <span class="provider-card__url">{{ conn.baseUrl }}</span>
+                    </div>
+                  </div>
+                  <div class="provider-card__actions">
+                    <span class="provider-card__key-count">
+                      {{ getSshKeysForConnection(conn.id).length }} SSH key{{ getSshKeysForConnection(conn.id).length !== 1 ? 's' : '' }}
+                    </span>
+                    <span class="provider-card__status provider-card__status--{{ conn.status.toLowerCase() }}">
+                      {{ conn.status }}
+                    </span>
+                    <button
+                      class="btn btn--danger btn--sm"
+                      (click)="deleteGitRemote(conn.id)"
+                      [disabled]="deletingConnectionId() === conn.id"
+                    >
+                      @if (deletingConnectionId() === conn.id) { Removing... } @else { Remove }
+                    </button>
+                  </div>
+                </div>
+
+                <!-- SSH Keys for this connection -->
+                @if (getSshKeysForConnection(conn.id).length > 0) {
+                  <div class="ssh-key-list">
+                    @for (key of getSshKeysForConnection(conn.id); track key.id) {
+                      <div class="ssh-key-card">
+                        <div class="ssh-key-card__info">
+                          <span class="ssh-key-card__icon">&#128273;</span>
+                          <div class="ssh-key-card__details">
+                            <span class="ssh-key-card__name">{{ key.name }}</span>
+                            <span class="ssh-key-card__meta">{{ key.keyType }} &middot; {{ key.fingerprint }}</span>
+                          </div>
+                        </div>
+                        <button
+                          class="btn btn--danger btn--xs"
+                          (click)="deleteSshKey(key.id)"
+                          [disabled]="deletingSshKeyId() === key.id"
+                        >
+                          @if (deletingSshKeyId() === key.id) { ... } @else { Remove }
                         </button>
+                      </div>
+                    }
+                  </div>
+                }
+              }
+            </div>
+          }
+
+          <!-- SSH Key section -->
+          @if (gitRemotes().length > 0) {
+            <div class="ssh-section">
+              <div class="ssh-section__header">
+                <div>
+                  <h4 class="ssh-section__title">SSH Keys</h4>
+                  <p class="ssh-section__desc">Add SSH key pairs for secure Git clone and push operations</p>
+                </div>
+                <button class="btn btn--secondary btn--sm" (click)="toggleSshKeyForm()">
+                  @if (showSshKeyForm()) { Cancel } @else { + Add SSH Key }
+                </button>
+              </div>
+
+              @if (sshKeySaveSuccess()) {
+                <div class="alert alert--success">SSH key added successfully</div>
+              }
+
+              @if (showSshKeyForm()) {
+                <div class="form-card form-card--nested">
+                  <h4 class="form-card__title">New SSH Key</h4>
+
+                  @if (sshKeySaveError()) {
+                    <div class="alert alert--error">{{ sshKeySaveError() }}</div>
+                  }
+
+                  <div class="form-card__row">
+                    <div class="form-card__field">
+                      <label class="form-card__label">Git Remote</label>
+                      <select class="form-select" [(ngModel)]="sshKeyForm.connectionId">
+                        <option value="">-- Select connection --</option>
+                        @for (conn of gitRemotes(); track conn.id) {
+                          <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div class="form-card__field">
+                      <label class="form-card__label">Key Name</label>
+                      <input class="form-input" type="text" [(ngModel)]="sshKeyForm.name" placeholder="e.g. deploy-key-prod" />
+                    </div>
+                  </div>
+
+                  <div class="form-card__row">
+                    <div class="form-card__field">
+                      <label class="form-card__label">Key Type</label>
+                      <select class="form-select" [(ngModel)]="sshKeyForm.keyType">
+                        <option value="ED25519">ED25519 (Recommended)</option>
+                        <option value="RSA">RSA</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-card__row">
+                    <div class="form-card__field form-card__field--full">
+                      <label class="form-card__label">Public Key</label>
+                      <textarea
+                        class="form-textarea"
+                        rows="3"
+                        [(ngModel)]="sshKeyForm.publicKey"
+                        placeholder="ssh-ed25519 AAAA..."
+                      ></textarea>
+                    </div>
+                  </div>
+
+                  <div class="form-card__row">
+                    <div class="form-card__field form-card__field--full">
+                      <label class="form-card__label">Private Key</label>
+                      <textarea
+                        class="form-textarea form-textarea--secret"
+                        rows="4"
+                        [(ngModel)]="sshKeyForm.privateKey"
+                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                      ></textarea>
+                      <span class="form-hint">Stored encrypted. Never transmitted after creation.</span>
+                    </div>
+                  </div>
+
+                  <div class="form-card__actions">
+                    <button class="btn btn--secondary" (click)="toggleSshKeyForm()">Cancel</button>
+                    <button class="btn btn--primary" (click)="saveSshKey()" [disabled]="!canSaveSshKey() || savingSshKey()">
+                      @if (savingSshKey()) { Saving... } @else { Save SSH Key }
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ===== STEP 3: Projects ===== -->
+      @if (activeStep() === 'projects') {
+        <div class="step-panel">
+          <div class="step-panel__header">
+            <div>
+              <h3 class="step-panel__title">Projects</h3>
+              <p class="step-panel__desc">Import projects from your configured providers. Set Git clone URLs and default branches.</p>
+            </div>
+            @if (allConnections().length > 0) {
+              <button class="btn btn--primary btn--sm" (click)="toggleImportPanel()">
+                @if (showImportPanel()) { Cancel } @else { + Import Projects }
+              </button>
+            }
+          </div>
+
+          @if (allConnections().length === 0) {
+            <div class="empty-state">
+              <div class="empty-state__icon">&#9888;</div>
+              <h4 class="empty-state__title">No providers configured</h4>
+              <p class="empty-state__desc">Go back to Step 1 or 2 and add at least one provider before importing projects.</p>
+              <button class="btn btn--secondary" (click)="setStep('ticket-providers')">Go to Ticket Providers</button>
+            </div>
+          } @else {
+            <!-- IMPORT PANEL -->
+            @if (showImportPanel()) {
+              <div class="form-card">
+                <h4 class="form-card__title">Import Projects from Provider</h4>
+
+                @if (importSaveError()) {
+                  <div class="alert alert--error">{{ importSaveError() }}</div>
+                }
+
+                <div class="form-card__row">
+                  <div class="form-card__field">
+                    <label class="form-card__label">Provider</label>
+                    <select class="form-select" [ngModel]="importConnectionId()" (ngModelChange)="onImportConnectionChange($event)">
+                      <option value="">-- Select provider --</option>
+                      @for (conn of allConnections(); track conn.id) {
+                        <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="form-card__field form-card__field--action">
+                    <button
+                      class="btn btn--secondary"
+                      (click)="fetchRemoteProjects()"
+                      [disabled]="!importConnectionId() || importLoading()"
+                    >
+                      @if (importLoading()) {
+                        <span class="spinner spinner--inline"></span> Fetching...
+                      } @else {
+                        Fetch Projects
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                @if (importError()) {
+                  <div class="alert alert--error">{{ importError() }}</div>
+                }
+
+                @if (importFetchComplete() && !importError() && importCandidates().length === 0) {
+                  <div class="alert alert--info">No projects found on this provider.</div>
+                }
+
+                @if (importCandidates().length > 0) {
+                  <div class="import-list">
+                    <div class="import-list__toolbar">
+                      <span class="import-list__count">
+                        {{ getSelectedCandidates().length }} of {{ importCandidates().length }} selected
+                      </span>
+                      <div class="import-list__toolbar-actions">
+                        <button class="btn btn--secondary btn--xs" (click)="selectAllCandidates()">Select All</button>
+                        <button class="btn btn--secondary btn--xs" (click)="deselectAllCandidates()">Deselect All</button>
                       </div>
                     </div>
 
-                    @if (ps.remoteStatuses.length > 0) {
-                      <div class="connection-section__statuses">
-                        <span class="connection-section__statuses-label">Remote statuses:</span>
-                        <div class="connection-section__statuses-list">
-                          @for (status of ps.remoteStatuses; track status) {
-                            <span class="status-chip">{{ status }}</span>
+                    @for (candidate of importCandidates(); track candidate.remote.key; let ci = $index) {
+                      <div
+                        class="import-card"
+                        [class.import-card--selected]="candidate.selected"
+                        [class.import-card--imported]="isAlreadyImported(candidate)"
+                      >
+                        <div class="import-card__header">
+                          <label class="import-card__checkbox-label">
+                            <input
+                              type="checkbox"
+                              [checked]="candidate.selected"
+                              [disabled]="isAlreadyImported(candidate)"
+                              (change)="toggleCandidateSelection(ci)"
+                            />
+                            <div class="import-card__title-group">
+                              <span class="import-card__name">{{ candidate.remote.name }}</span>
+                              <span class="import-card__key">{{ candidate.remote.key }}</span>
+                            </div>
+                          </label>
+                          @if (isAlreadyImported(candidate)) {
+                            <span class="import-card__imported-badge">Already imported</span>
                           }
                         </div>
+
+                        @if (candidate.remote.description) {
+                          <p class="import-card__description">{{ candidate.remote.description }}</p>
+                        }
+
+                        @if (candidate.selected) {
+                          <div class="import-card__details">
+                            <div class="import-card__row">
+                              <div class="import-card__field">
+                                <label class="form-card__label">Project Name</label>
+                                <input class="form-input" type="text"
+                                  [ngModel]="candidate.name"
+                                  (ngModelChange)="updateCandidateName(ci, $event)" />
+                              </div>
+                              <div class="import-card__field">
+                                <label class="form-card__label">Default Branch</label>
+                                <input class="form-input" type="text"
+                                  [ngModel]="candidate.defaultBranch"
+                                  (ngModelChange)="updateCandidateBranch(ci, $event)" />
+                              </div>
+                            </div>
+                            <div class="import-card__row">
+                              <div class="import-card__field import-card__field--full">
+                                <label class="form-card__label">Git Clone URL</label>
+                                <input class="form-input" type="text"
+                                  [ngModel]="candidate.repositoryUrl"
+                                  (ngModelChange)="updateCandidateRepoUrl(ci, $event)"
+                                  placeholder="e.g. git@github.com:org/repo.git or https://github.com/org/repo.git" />
+                              </div>
+                            </div>
+                            <div class="import-card__row">
+                              <div class="import-card__field import-card__field--full">
+                                <label class="form-card__label">Description</label>
+                                <input class="form-input" type="text"
+                                  [ngModel]="candidate.description"
+                                  (ngModelChange)="updateCandidateDescription(ci, $event)"
+                                  placeholder="Brief project description" />
+                              </div>
+                            </div>
+                          </div>
+                        }
                       </div>
                     }
                   </div>
 
-                  @if (ps.loading) {
-                    <div class="project-config__loading project-config__loading--small">
-                      <div class="spinner spinner--small"></div>
-                      <p>Loading mappings...</p>
-                    </div>
-                  } @else {
-                    <div class="mapping-section">
-                      <h3 class="mapping-section__title">Workflow Mappings</h3>
-                      <div class="mapping-table">
-                        <div class="mapping-table__header-row">
-                          <span class="mapping-table__col-label">Squadron State</span>
-                          <span class="mapping-table__col-label">External Status</span>
-                          <span class="mapping-table__col-action"></span>
-                        </div>
+                  <div class="form-card__actions">
+                    @if (importProgress(); as progress) {
+                      <span class="import-progress">Importing {{ progress.done }}/{{ progress.total }}...</span>
+                    }
+                    <button class="btn btn--secondary" (click)="toggleImportPanel()">Cancel</button>
+                    <button class="btn btn--primary" (click)="importSelected()" [disabled]="!canImport()">
+                      @if (importSaving()) {
+                        Importing...
+                      } @else {
+                        Import {{ getSelectedCandidates().length }} Project{{ getSelectedCandidates().length !== 1 ? 's' : '' }}
+                      }
+                    </button>
+                  </div>
+                }
+              </div>
+            }
 
-                        @for (m of ps.mappings; track m.internalState; let mi = $index) {
-                          <div class="mapping-table__row">
-                            <select class="mapping-table__select" [ngModel]="m.internalState" (ngModelChange)="updateMappingState(i, mi, $event)">
-                              @for (s of getAvailableStates(i, m.internalState); track s) {
-                                <option [value]="s">{{ formatState(s) }}</option>
+            <!-- Existing Projects List -->
+            @if (projectStates().length > 0) {
+              <div class="project-list">
+                @for (ps of projectStates(); track ps.project.id; let i = $index) {
+                  <div class="project-card">
+                    <div class="project-card__header">
+                      <div class="project-card__info">
+                        <span class="project-card__name">{{ ps.project.name }}</span>
+                        @if (ps.project.repositoryUrl) {
+                          <span class="project-card__url">{{ ps.project.repositoryUrl }}</span>
+                        }
+                      </div>
+                      <div class="project-card__meta">
+                        @if (getConnectionPlatformType(ps.project.connectionId); as platformType) {
+                          <span class="project-card__type-badge">{{ platformIcon(platformType) }}</span>
+                        }
+                        <span class="project-card__branch">{{ ps.project.defaultBranch }}</span>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else if (!showImportPanel()) {
+              <div class="empty-state">
+                <div class="empty-state__icon">&#128194;</div>
+                <h4 class="empty-state__title">No projects yet</h4>
+                <p class="empty-state__desc">Click "+ Import Projects" to import from a configured provider.</p>
+              </div>
+            }
+          }
+        </div>
+      }
+
+      <!-- ===== STEP 4: Branch & Workflow ===== -->
+      @if (activeStep() === 'branch-workflow') {
+        <div class="step-panel">
+          <div class="step-panel__header">
+            <div>
+              <h3 class="step-panel__title">Branch Naming &amp; Workflow</h3>
+              <p class="step-panel__desc">Configure branch naming templates and map workflow states to your external platform statuses.</p>
+            </div>
+          </div>
+
+          @if (projectStates().length === 0) {
+            <div class="empty-state">
+              <div class="empty-state__icon">&#9888;</div>
+              <h4 class="empty-state__title">No projects to configure</h4>
+              <p class="empty-state__desc">Import projects in Step 3 before configuring branch naming and workflow mappings.</p>
+              <button class="btn btn--secondary" (click)="setStep('projects')">Go to Projects</button>
+            </div>
+          } @else {
+            <div class="project-list">
+              @for (ps of projectStates(); track ps.project.id; let i = $index) {
+                <div class="project-card" [class.project-card--expanded]="ps.expanded">
+                  <button class="project-card__toggle" (click)="toggleProject(i)">
+                    <div class="project-card__info">
+                      <span class="project-card__name">{{ ps.project.name }}</span>
+                      @if (ps.connectionName) {
+                        <span class="project-card__platform-tag">{{ ps.connectionName }}</span>
+                      }
+                    </div>
+                    <div class="project-card__meta">
+                      <span class="project-card__badge">{{ getMappingLabel(ps) }}</span>
+                      <span class="project-card__chevron" [class.project-card__chevron--open]="ps.expanded">&#9662;</span>
+                    </div>
+                  </button>
+
+                  @if (ps.expanded) {
+                    <div class="project-card__body">
+                      @if (ps.saveSuccess) {
+                        <div class="alert alert--success">Mappings saved successfully</div>
+                      }
+                      @if (ps.saveError) {
+                        <div class="alert alert--error">{{ ps.saveError }}</div>
+                      }
+                      @if (ps.fetchError) {
+                        <div class="alert alert--error">{{ ps.fetchError }}</div>
+                      }
+
+                      <!-- Branch Naming Template -->
+                      <div class="config-section">
+                        <h4 class="config-section__title">Branch Naming</h4>
+                        <div class="config-section__row">
+                          <div class="config-section__field">
+                            <label class="form-card__label">Branch Naming Template</label>
+                            <input class="form-input" type="text"
+                              [ngModel]="ps.project.branchNamingTemplate || '{strategy}/{ticket}-{description}'"
+                              (ngModelChange)="updateBranchNamingTemplate(i, $event)"
+                              placeholder="{strategy}/{ticket}-{description}" />
+                            <span class="form-hint">
+                              Variables: &#123;strategy&#125;, &#123;ticket&#125;, &#123;description&#125;, &#123;type&#125;, &#123;user&#125;
+                            </span>
+                          </div>
+                        </div>
+                        <div class="template-preview">
+                          <span class="template-preview__label">Preview:</span>
+                          <code class="template-preview__code">
+                            {{ (ps.project.branchNamingTemplate || '{strategy}/{ticket}-{description}')
+                              .replace('{strategy}', 'feature')
+                              .replace('{ticket}', 'SQ-123')
+                              .replace('{description}', 'add-login-page')
+                              .replace('{type}', 'feat')
+                              .replace('{user}', 'jdoe')
+                            }}
+                          </code>
+                        </div>
+                      </div>
+
+                      <!-- Platform Connection -->
+                      <div class="config-section">
+                        <h4 class="config-section__title">Platform Connection</h4>
+                        <div class="config-section__row config-section__row--cols">
+                          <div class="config-section__field">
+                            <label class="form-card__label">Connection</label>
+                            <select class="form-select" [ngModel]="ps.project.connectionId || ''" (ngModelChange)="updateProjectConnection(i, $event)">
+                              <option value="">-- No connection --</option>
+                              @for (conn of allConnections(); track conn.id) {
+                                <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
                               }
                             </select>
+                          </div>
+                          <div class="config-section__field">
+                            <label class="form-card__label">External Project Key</label>
+                            <input class="form-input" type="text"
+                              [ngModel]="ps.project.externalProjectId || ''"
+                              (ngModelChange)="updateExternalProjectId(i, $event)"
+                              placeholder="e.g. SQ, my-org/my-repo" />
+                          </div>
+                          <div class="config-section__action">
+                            <button class="btn btn--secondary" (click)="fetchRemoteStatuses(i)" [disabled]="!canFetchStatuses(ps)">
+                              @if (ps.fetchingStatuses) {
+                                <span class="spinner spinner--inline"></span> Fetching...
+                              } @else {
+                                Fetch Statuses
+                              }
+                            </button>
+                          </div>
+                        </div>
 
-                            @if (ps.remoteStatuses.length > 0) {
-                              <select class="mapping-table__select" [ngModel]="m.externalStatus" (ngModelChange)="updateMappingStatus(i, mi, $event)">
-                                <option value="">-- Select status --</option>
-                                @for (rs of ps.remoteStatuses; track rs) {
-                                  <option [value]="rs">{{ rs }}</option>
+                        @if (ps.remoteStatuses.length > 0) {
+                          <div class="statuses-display">
+                            <span class="statuses-display__label">Remote statuses:</span>
+                            <div class="statuses-display__list">
+                              @for (status of ps.remoteStatuses; track status) {
+                                <span class="status-chip">{{ status }}</span>
+                              }
+                            </div>
+                          </div>
+                        }
+                      </div>
+
+                      <!-- Workflow Mappings -->
+                      @if (ps.loading) {
+                        <div class="project-config__loading project-config__loading--small">
+                          <div class="spinner spinner--small"></div>
+                          <p>Loading mappings...</p>
+                        </div>
+                      } @else {
+                        <div class="config-section">
+                          <h4 class="config-section__title">Workflow Mappings</h4>
+                          <div class="mapping-table">
+                            <div class="mapping-table__header-row">
+                              <span class="mapping-table__col-label">Squadron State</span>
+                              <span class="mapping-table__col-label">External Status</span>
+                              <span class="mapping-table__col-action"></span>
+                            </div>
+
+                            @for (m of ps.mappings; track m.internalState; let mi = $index) {
+                              <div class="mapping-table__row">
+                                <select class="mapping-table__select" [ngModel]="m.internalState" (ngModelChange)="updateMappingState(i, mi, $event)">
+                                  @for (s of getAvailableStates(i, m.internalState); track s) {
+                                    <option [value]="s">{{ formatState(s) }}</option>
+                                  }
+                                </select>
+
+                                @if (ps.remoteStatuses.length > 0) {
+                                  <select class="mapping-table__select" [ngModel]="m.externalStatus" (ngModelChange)="updateMappingStatus(i, mi, $event)">
+                                    <option value="">-- Select status --</option>
+                                    @for (rs of ps.remoteStatuses; track rs) {
+                                      <option [value]="rs">{{ rs }}</option>
+                                    }
+                                  </select>
+                                } @else {
+                                  <input class="mapping-table__input" type="text" [ngModel]="m.externalStatus" (ngModelChange)="updateMappingStatus(i, mi, $event)" placeholder="e.g. In Progress" />
                                 }
-                              </select>
-                            } @else {
-                              <input class="mapping-table__input" type="text" [ngModel]="m.externalStatus" (ngModelChange)="updateMappingStatus(i, mi, $event)" placeholder="e.g. In Progress, Code Review..." />
+
+                                <button class="mapping-table__remove" (click)="removeMapping(i, mi)" title="Remove mapping">&times;</button>
+                              </div>
                             }
 
-                            <button class="mapping-table__remove" (click)="removeMapping(i, mi)" title="Remove mapping">&times;</button>
+                            @if (ps.mappings.length === 0) {
+                              <div class="mapping-table__empty">
+                                No workflow mappings. Click "Add Mapping" to map states.
+                              </div>
+                            }
                           </div>
-                        }
 
-                        @if (ps.mappings.length === 0) {
-                          <div class="mapping-table__empty">
-                            No workflow mappings. Click "Add Mapping" to map states.
+                          <div class="config-section__actions">
+                            @if (ps.mappings.length < workflowStates().length) {
+                              <button class="btn btn--secondary" (click)="addMapping(i)">+ Add Mapping</button>
+                            }
+                            <button class="btn btn--primary" (click)="saveMappings(i)" [disabled]="ps.saving">
+                              @if (ps.saving) { Saving... } @else { Save Mappings }
+                            </button>
                           </div>
-                        }
-                      </div>
-
-                      <div class="project-card__actions">
-                        @if (ps.mappings.length < workflowStates().length) {
-                          <button class="btn btn--secondary" (click)="addMapping(i)">+ Add Mapping</button>
-                        }
-                        <button class="btn btn--primary" (click)="saveMappings(i)" [disabled]="ps.saving">
-                          @if (ps.saving) { Saving... } @else { Save Mappings }
-                        </button>
-                      </div>
+                        </div>
+                      }
                     </div>
                   }
                 </div>
               }
             </div>
           }
-
-          @if (projectStates().length === 0 && !showProjectForm()) {
-            <div class="project-config__empty">
-              <p>No projects yet. Click "+ New Project" to create one from a configured provider.</p>
-            </div>
-          }
         </div>
       }
+
+      <!-- Step Navigation -->
+      <div class="wizard-nav">
+        @if (getStepIndex(activeStep()) > 0) {
+          <button class="btn btn--secondary" (click)="prevStep()">
+            &#8592; Previous
+          </button>
+        } @else {
+          <span></span>
+        }
+        @if (getStepIndex(activeStep()) < steps.length - 1) {
+          <button class="btn btn--primary" (click)="nextStep()">
+            Next &#8594;
+          </button>
+        }
+      </div>
     </div>
   }
 </div>

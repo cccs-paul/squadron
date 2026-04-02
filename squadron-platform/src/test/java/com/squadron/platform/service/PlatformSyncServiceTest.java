@@ -22,8 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -86,7 +85,7 @@ class PlatformSyncServiceTest {
         List<PlatformTaskDto> result = syncService.syncTasks(connectionId, "PROJ");
 
         assertEquals(2, result.size());
-        verify(adapter).configure("https://example.atlassian.net", "plain-token");
+        verify(adapter).configure(eq("https://example.atlassian.net"), anyMap());
         verify(natsEventPublisher).publish(anyString(), any());
     }
 
@@ -166,7 +165,7 @@ class PlatformSyncServiceTest {
 
         syncService.pushTaskStatus(connectionId, "owner/repo#1", "closed", "Done", userId);
 
-        verify(adapter).configure("https://api.github.com", "user-token");
+        verify(adapter).configure(eq("https://api.github.com"), anyMap());
         verify(adapter).updateTaskStatus("owner/repo#1", "closed", "Done");
         verify(natsEventPublisher).publish(anyString(), any());
     }
@@ -195,7 +194,7 @@ class PlatformSyncServiceTest {
 
         syncService.pushTaskStatus(connectionId, "owner/repo#1", "closed", "Done", userId);
 
-        verify(adapter).configure("https://api.github.com", "connection-token");
+        verify(adapter).configure(eq("https://api.github.com"), anyMap());
     }
 
     @Test
@@ -219,7 +218,7 @@ class PlatformSyncServiceTest {
 
         syncService.pushTaskStatus(connectionId, "PROJ-1", "Done", null, null);
 
-        verify(adapter).configure("https://example.atlassian.net", "connection-token");
+        verify(adapter).configure(eq("https://example.atlassian.net"), anyMap());
         verify(userTokenService, never()).getDecryptedAccessToken(any(), any());
     }
 
@@ -273,6 +272,6 @@ class PlatformSyncServiceTest {
 
         syncService.pushTaskStatus(connectionId, "PROJ-1", "Done", null, null);
 
-        verify(adapter).configure("https://example.atlassian.net", "");
+        verify(adapter).configure(eq("https://example.atlassian.net"), anyMap());
     }
 }

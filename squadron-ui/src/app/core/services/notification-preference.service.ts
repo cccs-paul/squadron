@@ -17,10 +17,10 @@ export interface NotificationPreference {
 @Injectable({ providedIn: 'root' })
 export class NotificationPreferenceService extends ApiService {
   getPreferences(userId: string): Observable<NotificationPreference> {
-    return this.get<NotificationPreference>(`/notifications/preferences/${userId}`);
+    return this.get<NotificationPreference>(`/notifications/preferences/user/${userId}`);
   }
 
   updatePreferences(userId: string, prefs: Partial<NotificationPreference>): Observable<NotificationPreference> {
-    return this.put<NotificationPreference>(`/notifications/preferences/${userId}`, prefs);
+    return this.put<NotificationPreference>(`/notifications/preferences/user/${userId}`, prefs);
   }
 }

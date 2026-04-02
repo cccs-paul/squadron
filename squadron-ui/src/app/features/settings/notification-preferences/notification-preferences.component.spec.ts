@@ -4,14 +4,17 @@ import {
   NotificationPreferenceService,
   NotificationPreference,
 } from '../../../core/services/notification-preference.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 
 describe('NotificationPreferencesComponent', () => {
   let component: NotificationPreferencesComponent;
   let fixture: ComponentFixture<NotificationPreferencesComponent>;
   let prefServiceSpy: jasmine.SpyObj<NotificationPreferenceService>;
+  let authServiceMock: Partial<AuthService>;
 
   const mockPrefs: NotificationPreference = {
     userId: 'demo-user-001',
@@ -31,10 +34,26 @@ describe('NotificationPreferencesComponent', () => {
       'updatePreferences',
     ]);
 
+    authServiceMock = {
+      user: signal({
+        id: 'demo-user-001',
+        username: 'testuser',
+        email: 'user@acme.com',
+        displayName: 'Test User',
+        tenantId: 't1',
+        tenantName: 'Test Tenant',
+        roles: ['squadron-admin'],
+        permissions: [],
+      }),
+      isAuthenticated: signal(true),
+      isAdmin: signal(true),
+    } as any;
+
     await TestBed.configureTestingModule({
       imports: [NotificationPreferencesComponent],
       providers: [
         { provide: NotificationPreferenceService, useValue: prefServiceSpy },
+        { provide: AuthService, useValue: authServiceMock },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],

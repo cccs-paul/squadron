@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.platform.adapter.TicketingPlatformAdapter;
+import com.squadron.platform.config.AdapterErrorHelper;
+import com.squadron.platform.config.WebClientSslHelper;
+import com.squadron.platform.dto.PlatformProjectDto;
 import com.squadron.platform.dto.PlatformTaskDto;
 import com.squadron.platform.dto.PlatformTaskFilter;
 import org.slf4j.Logger;
@@ -14,6 +17,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,14 +37,14 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
     private static final Logger log = LoggerFactory.getLogger(AzureDevOpsAdapter.class);
     private static final String PLATFORM_TYPE = "AZURE_DEVOPS";
 
-    private final WebClient.Builder webClientBuilder;
+    private final WebClientSslHelper sslHelper;
     private final ObjectMapper objectMapper;
     private WebClient webClient;
     private String baseUrl;
     private String accessToken;
 
-    public AzureDevOpsAdapter(WebClient.Builder webClientBuilder) {
-        this.webClientBuilder = webClientBuilder;
+    public AzureDevOpsAdapter(WebClientSslHelper sslHelper) {
+        this.sslHelper = sslHelper;
         this.objectMapper = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
@@ -51,12 +55,17 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
     }
 
     @Override
-    public void configure(String baseUrl, String accessToken) {
+    public void configure(String baseUrl, Map<String, String> credentials) {
         this.baseUrl = baseUrl;
-        this.accessToken = accessToken;
-        this.webClient = webClientBuilder
+        this.accessToken = resolveToken(credentials);
+
+        // Azure DevOps PAT uses Basic auth with an empty username: base64(:pat)
+        String encoded = Base64.getEncoder().encodeToString(
+                (":" + this.accessToken).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        this.webClient = sslHelper.trustedBuilder()
                 .baseUrl(baseUrl)
-                .defaultHeader("Authorization", "Basic " + accessToken)
+                .defaultHeader("Authorization", "Basic " + encoded)
                 .defaultHeader("Accept", "application/json")
                 .defaultHeader("Content-Type", "application/json")
                 .build();
@@ -97,6 +106,11 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
                     .bodyToMono(String.class)
                     .block();
 
+            String htmlError = AdapterErrorHelper.checkForHtmlResponse(wiqlResponse, log);
+            if (htmlError != null) {
+                throw new RuntimeException("Failed to fetch tasks from Azure DevOps: " + htmlError);
+            }
+
             Map<String, Object> wiqlMap = objectMapper.readValue(wiqlResponse, new TypeReference<>() {});
             List<Map<String, Object>> workItemRefs = castToListOfMaps(wiqlMap.get("workItems"));
             if (workItemRefs == null || workItemRefs.isEmpty()) {
@@ -128,9 +142,13 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
                 result.add(mapWorkItemToPlatformTask(workItem, org, project));
             }
             return result;
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to fetch work items from Azure DevOps for project {}", projectKey, e);
-            throw new RuntimeException("Failed to fetch tasks from Azure DevOps: " + e.getMessage(), e);
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to fetch work items from Azure DevOps for project {}: {}", projectKey, message, e);
+            throw new RuntimeException("Failed to fetch tasks from Azure DevOps: " + message, e);
         }
     }
 
@@ -146,11 +164,20 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
                     .bodyToMono(String.class)
                     .block();
 
+            String htmlError = AdapterErrorHelper.checkForHtmlResponse(responseBody, log);
+            if (htmlError != null) {
+                throw new RuntimeException("Failed to get task from Azure DevOps: " + htmlError);
+            }
+
             Map<String, Object> workItem = objectMapper.readValue(responseBody, new TypeReference<>() {});
             return mapWorkItemToPlatformTask(workItem, null, null);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to get work item {} from Azure DevOps", externalId, e);
-            throw new RuntimeException("Failed to get task from Azure DevOps: " + e.getMessage(), e);
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to get work item {} from Azure DevOps: {}", externalId, message, e);
+            throw new RuntimeException("Failed to get task from Azure DevOps: " + message, e);
         }
     }
 
@@ -182,8 +209,10 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Failed to update work item {} status on Azure DevOps", externalId, e);
-            throw new RuntimeException("Failed to update task status on Azure DevOps: " + e.getMessage(), e);
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to update work item {} status on Azure DevOps: {}", externalId, message, e);
+            throw new RuntimeException("Failed to update task status on Azure DevOps: " + message, e);
         }
     }
 
@@ -203,9 +232,13 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
                     .block();
 
             log.info("Successfully added comment to work item {}", externalId);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to add comment to work item {} on Azure DevOps", externalId, e);
-            throw new RuntimeException("Failed to add comment on Azure DevOps: " + e.getMessage(), e);
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to add comment to work item {} on Azure DevOps: {}", externalId, message, e);
+            throw new RuntimeException("Failed to add comment on Azure DevOps: " + message, e);
         }
     }
 
@@ -224,6 +257,11 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
+
+            String htmlError = AdapterErrorHelper.checkForHtmlResponse(typesResponse, log);
+            if (htmlError != null) {
+                throw new RuntimeException("Failed to get available statuses from Azure DevOps: " + htmlError);
+            }
 
             Map<String, Object> typesMap = objectMapper.readValue(typesResponse, new TypeReference<>() {});
             List<Map<String, Object>> types = castToListOfMaps(typesMap.get("value"));
@@ -261,9 +299,13 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
             }
 
             return new ArrayList<>(stateNames);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to get available statuses for Azure DevOps project {}", projectKey, e);
-            throw new RuntimeException("Failed to get available statuses from Azure DevOps: " + e.getMessage(), e);
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to get available statuses for Azure DevOps project {}: {}", projectKey, message, e);
+            throw new RuntimeException("Failed to get available statuses from Azure DevOps: " + message, e);
         }
     }
 
@@ -283,8 +325,56 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
             log.info("Azure DevOps connection test successful");
             return true;
         } catch (Exception e) {
-            log.error("Azure DevOps connection test failed", e);
+            String classified = AdapterErrorHelper.classifyError(e);
+            log.error("Azure DevOps connection test failed: {}", classified != null ? classified : e.getMessage(), e);
             return false;
+        }
+    }
+
+    @Override
+    public List<PlatformProjectDto> getProjects() {
+        log.info("Fetching projects from Azure DevOps");
+        try {
+            String responseBody = webClient.get()
+                    .uri("/_apis/projects?api-version=7.0")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            String htmlError = AdapterErrorHelper.checkForHtmlResponse(responseBody, log);
+            if (htmlError != null) {
+                throw new RuntimeException("Failed to fetch projects from Azure DevOps: " + htmlError);
+            }
+
+            Map<String, Object> responseMap = objectMapper.readValue(
+                    responseBody, new TypeReference<Map<String, Object>>() {});
+            List<Map<String, Object>> projects = castToListOfMaps(responseMap.get("value"));
+            if (projects == null) {
+                return Collections.emptyList();
+            }
+
+            List<PlatformProjectDto> result = new ArrayList<>();
+            for (Map<String, Object> project : projects) {
+                String name = (String) project.get("name");
+                String description = (String) project.get("description");
+                String url = baseUrl + "/" + name;
+
+                result.add(PlatformProjectDto.builder()
+                        .key(name)
+                        .name(name)
+                        .description(description)
+                        .url(url)
+                        .avatarUrl(null)
+                        .build());
+            }
+            return result;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to fetch projects from Azure DevOps: {}", message, e);
+            throw new RuntimeException("Failed to fetch projects from Azure DevOps: " + message, e);
         }
     }
 
@@ -427,5 +517,18 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
             return (List<Map<String, Object>>) obj;
         }
         return null;
+    }
+
+    /**
+     * Extracts a single token value from the credentials map by checking known token field names.
+     */
+    private String resolveToken(Map<String, String> credentials) {
+        for (String key : List.of("accessToken", "pat", "apiKey", "apiToken")) {
+            String value = credentials.get(key);
+            if (value != null && !value.isEmpty()) {
+                return value;
+            }
+        }
+        return "";
     }
 }

@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PlatformService } from '../../../core/services/platform.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import {
   PlatformConnection,
   PlatformConnectionType,
@@ -17,6 +18,7 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 })
 export class PlatformConnectionsComponent implements OnInit {
   private platformService = inject(PlatformService);
+  private authService = inject(AuthService);
 
   connections = signal<PlatformConnection[]>([]);
   loading = signal(true);
@@ -38,7 +40,13 @@ export class PlatformConnectionsComponent implements OnInit {
 
   loadConnections(): void {
     this.loading.set(true);
-    this.platformService.getConnections().subscribe({
+    const user = this.authService.user();
+    if (!user) {
+      this.connections.set([]);
+      this.loading.set(false);
+      return;
+    }
+    this.platformService.getConnections(user.tenantId).subscribe({
       next: (connections) => {
         this.connections.set(connections);
         this.loading.set(false);

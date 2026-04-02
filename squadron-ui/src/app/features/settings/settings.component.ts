@@ -7,8 +7,9 @@ import { ProjectConfigComponent } from './project-config/project-config.componen
 import { SquadronConfigComponent } from './squadron-config/squadron-config.component';
 import { NotificationPreferencesComponent } from './notification-preferences/notification-preferences.component';
 import { AgentConfigComponent } from './agent-config/agent-config.component';
+import { UserTokensComponent } from './user-tokens/user-tokens.component';
 
-export type SettingsTab = 'general' | 'providers-projects' | 'squadron' | 'notifications' | 'agent-config';
+export type SettingsTab = 'general' | 'providers-projects' | 'squadron' | 'notifications' | 'agent-config' | 'platform-tokens';
 
 @Component({
   selector: 'sq-settings',
@@ -19,6 +20,7 @@ export type SettingsTab = 'general' | 'providers-projects' | 'squadron' | 'notif
     SquadronConfigComponent,
     NotificationPreferencesComponent,
     AgentConfigComponent,
+    UserTokensComponent,
   ],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
@@ -51,6 +53,7 @@ export class SettingsComponent implements OnInit {
     { id: 'squadron', label: 'Agent Squadron' },
     { id: 'notifications', label: 'Notifications' },
     { id: 'agent-config', label: 'Agent Config' },
+    { id: 'platform-tokens', label: 'Platform Tokens' },
   ];
 
   ngOnInit(): void {
@@ -71,7 +74,9 @@ export class SettingsComponent implements OnInit {
     this.tenantService.getTenant().subscribe({
       next: (tenant) => {
         this.tenant.set(tenant);
-        this.applySettings(tenant.settings);
+        if (tenant.settings) {
+          this.applySettings(tenant.settings);
+        }
         this.loading.set(false);
       },
       error: () => {

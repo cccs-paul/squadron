@@ -1,5 +1,6 @@
 package com.squadron.identity.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.common.dto.TenantDto;
 import com.squadron.identity.entity.Tenant;
 import com.squadron.identity.exception.ResourceNotFoundException;
@@ -7,12 +8,12 @@ import com.squadron.identity.repository.TenantRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,7 +27,6 @@ class TenantServiceTest {
     @Mock
     private TenantRepository tenantRepository;
 
-    @InjectMocks
     private TenantService tenantService;
 
     private UUID tenantId;
@@ -34,6 +34,7 @@ class TenantServiceTest {
 
     @BeforeEach
     void setUp() {
+        tenantService = new TenantService(tenantRepository, new ObjectMapper());
         tenantId = UUID.randomUUID();
         tenant = Tenant.builder()
                 .id(tenantId)
@@ -168,5 +169,66 @@ class TenantServiceTest {
 
         assertTrue(results.isEmpty());
         verify(tenantRepository).findByStatus("ACTIVE");
+    }
+
+    @Test
+    void should_updateTenantSettings_when_validRequest() {
+        tenant.setSettings("{\"aiEnabled\":true}");
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(tenantRepository.save(tenant)).thenReturn(tenant);
+
+        Map<String, Object> settingsUpdate = Map.of("maxUsers", 50, "aiEnabled", false);
+        TenantDto result = tenantService.updateTenantSettings(tenantId, settingsUpdate);
+
+        assertNotNull(result);
+        assertNotNull(result.getSettings());
+        assertEquals(50, result.getSettings().get("maxUsers"));
+        assertEquals(false, result.getSettings().get("aiEnabled"));
+        verify(tenantRepository).save(tenant);
+    }
+
+    @Test
+    void should_updateTenantSettings_when_existingSettingsNull() {
+        tenant.setSettings(null);
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(tenantRepository.save(tenant)).thenReturn(tenant);
+
+        Map<String, Object> settingsUpdate = Map.of("maxProjects", 10);
+        TenantDto result = tenantService.updateTenantSettings(tenantId, settingsUpdate);
+
+        assertNotNull(result);
+        assertNotNull(result.getSettings());
+        assertEquals(10, result.getSettings().get("maxProjects"));
+    }
+
+    @Test
+    void should_throwNotFound_when_updatingSettingsForMissingTenant() {
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                tenantService.updateTenantSettings(tenantId, Map.of("key", "value")));
+    }
+
+    @Test
+    void should_returnSettingsInDto_when_tenantHasSettings() {
+        tenant.setSettings("{\"aiEnabled\":true,\"maxUsers\":25}");
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+
+        TenantDto result = tenantService.getTenant(tenantId);
+
+        assertNotNull(result.getSettings());
+        assertEquals(true, result.getSettings().get("aiEnabled"));
+        assertEquals(25, result.getSettings().get("maxUsers"));
+    }
+
+    @Test
+    void should_returnEmptySettings_when_tenantHasNoSettings() {
+        tenant.setSettings(null);
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+
+        TenantDto result = tenantService.getTenant(tenantId);
+
+        assertNotNull(result.getSettings());
+        assertTrue(result.getSettings().isEmpty());
     }
 }

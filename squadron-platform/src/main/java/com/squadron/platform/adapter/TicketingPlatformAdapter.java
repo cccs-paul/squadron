@@ -1,9 +1,11 @@
 package com.squadron.platform.adapter;
 
+import com.squadron.platform.dto.PlatformProjectDto;
 import com.squadron.platform.dto.PlatformTaskDto;
 import com.squadron.platform.dto.PlatformTaskFilter;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Common interface for all ticketing platform adapters.
@@ -18,8 +20,14 @@ public interface TicketingPlatformAdapter {
 
     /**
      * Configures the adapter with connection details.
+     *
+     * @param baseUrl     the base URL of the external platform instance
+     * @param credentials the decrypted credentials map (keys vary by platform and auth type,
+     *                    e.g. {@code email}+{@code apiToken} for Jira Cloud API Token auth,
+     *                    {@code pat} for PAT-based auth, {@code username}+{@code password}
+     *                    for Basic auth, etc.)
      */
-    void configure(String baseUrl, String accessToken);
+    void configure(String baseUrl, Map<String, String> credentials);
 
     /**
      * Fetches tasks from the platform matching the given filter.
@@ -50,4 +58,11 @@ public interface TicketingPlatformAdapter {
      * Tests whether the connection to the platform is working.
      */
     boolean testConnection();
+
+    /**
+     * Returns the list of projects/repositories available on the connected platform.
+     * Used to populate the project import UI where users select which remote projects
+     * to track in Squadron.
+     */
+    List<PlatformProjectDto> getProjects();
 }

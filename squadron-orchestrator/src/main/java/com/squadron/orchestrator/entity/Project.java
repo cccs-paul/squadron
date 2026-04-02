@@ -56,6 +56,10 @@ public class Project {
     @Column(name = "branch_strategy")
     private String branchStrategy = "TRUNK_BASED";
 
+    @Builder.Default
+    @Column(name = "branch_naming_template", length = 500)
+    private String branchNamingTemplate = "{strategy}/{ticket}-{description}";
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String settings;

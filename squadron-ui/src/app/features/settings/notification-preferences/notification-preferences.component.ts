@@ -4,6 +4,7 @@ import {
   NotificationPreferenceService,
   NotificationPreference,
 } from '../../../core/services/notification-preference.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'sq-notification-preferences',
@@ -14,6 +15,7 @@ import {
 })
 export class NotificationPreferencesComponent implements OnInit {
   private prefService = inject(NotificationPreferenceService);
+  private authService = inject(AuthService);
 
   loading = signal(true);
   saving = signal(false);
@@ -30,7 +32,9 @@ export class NotificationPreferencesComponent implements OnInit {
   emailAddress = '';
   mutedEventTypes: string[] = [];
 
-  readonly userId = 'demo-user-001';
+  get userId(): string {
+    return this.authService.user()?.id ?? '';
+  }
 
   readonly eventTypes = [
     'TASK_ASSIGNED',

@@ -7,6 +7,8 @@ import { PlatformService } from '../../core/services/platform.service';
 import { UserSquadronService } from '../../core/services/user-squadron.service';
 import { NotificationPreferenceService } from '../../core/services/notification-preference.service';
 import { AgentConfigService } from '../../core/services/agent-config.service';
+import { UserTokenService } from '../../core/services/user-token.service';
+import { SshKeyService } from '../../core/services/ssh-key.service';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -23,6 +25,8 @@ describe('SettingsComponent', () => {
   let squadronServiceSpy: jasmine.SpyObj<UserSquadronService>;
   let notificationPrefServiceSpy: jasmine.SpyObj<NotificationPreferenceService>;
   let agentConfigServiceSpy: jasmine.SpyObj<AgentConfigService>;
+  let userTokenServiceSpy: jasmine.SpyObj<UserTokenService>;
+  let sshKeyServiceSpy: jasmine.SpyObj<SshKeyService>;
   let authServiceStub: any;
 
   const mockTenant: Tenant = {
@@ -67,6 +71,16 @@ describe('SettingsComponent', () => {
       'getConfig', 'updateConfig',
     ]);
 
+    // UserTokensComponent dependencies
+    userTokenServiceSpy = jasmine.createSpyObj('UserTokenService', [
+      'getTokensByUser', 'getAvailableConnections', 'linkPatAccount', 'unlinkAccount',
+    ]);
+
+    // SshKeyService dependencies (used by ProjectConfigComponent)
+    sshKeyServiceSpy = jasmine.createSpyObj('SshKeyService', [
+      'createSshKey', 'getSshKey', 'getSshKeysByTenant', 'getSshKeysByConnection', 'deleteSshKey',
+    ]);
+
     authServiceStub = {
       user: signal({
         id: 'u1',
@@ -96,6 +110,9 @@ describe('SettingsComponent', () => {
     squadronServiceSpy.getLimits.and.returnValue(of({ maxAgentsPerUser: 8 }));
     notificationPrefServiceSpy.getPreferences.and.returnValue(throwError(() => new Error('mock')));
     agentConfigServiceSpy.getConfig.and.returnValue(throwError(() => new Error('mock')));
+    userTokenServiceSpy.getTokensByUser.and.returnValue(of([]));
+    userTokenServiceSpy.getAvailableConnections.and.returnValue(of([]));
+    sshKeyServiceSpy.getSshKeysByTenant.and.returnValue(of([]));
 
     await TestBed.configureTestingModule({
       imports: [SettingsComponent],
@@ -107,6 +124,8 @@ describe('SettingsComponent', () => {
         { provide: UserSquadronService, useValue: squadronServiceSpy },
         { provide: NotificationPreferenceService, useValue: notificationPrefServiceSpy },
         { provide: AgentConfigService, useValue: agentConfigServiceSpy },
+        { provide: UserTokenService, useValue: userTokenServiceSpy },
+        { provide: SshKeyService, useValue: sshKeyServiceSpy },
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
@@ -130,9 +149,9 @@ describe('SettingsComponent', () => {
   it('should have 5 tabs defined', () => {
     tenantServiceSpy.getTenant.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
-    expect(component.tabs.length).toBe(5);
+    expect(component.tabs.length).toBe(6);
     expect(component.tabs.map(t => t.id)).toEqual([
-      'general', 'providers-projects', 'squadron', 'notifications', 'agent-config',
+      'general', 'providers-projects', 'squadron', 'notifications', 'agent-config', 'platform-tokens',
     ]);
   });
 
@@ -158,6 +177,9 @@ describe('SettingsComponent', () => {
     component.setTab('providers-projects');
     expect(component.activeTab()).toBe('providers-projects');
 
+    component.setTab('platform-tokens');
+    expect(component.activeTab()).toBe('platform-tokens');
+
     component.setTab('general');
     expect(component.activeTab()).toBe('general');
   });
@@ -167,12 +189,13 @@ describe('SettingsComponent', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     const tabButtons = el.querySelectorAll('.settings-page__tab');
-    expect(tabButtons.length).toBe(5);
+    expect(tabButtons.length).toBe(6);
     expect(tabButtons[0].textContent).toContain('General');
     expect(tabButtons[1].textContent).toContain('Providers & Projects');
     expect(tabButtons[2].textContent).toContain('Agent Squadron');
     expect(tabButtons[3].textContent).toContain('Notifications');
     expect(tabButtons[4].textContent).toContain('Agent Config');
+    expect(tabButtons[5].textContent).toContain('Platform Tokens');
   });
 
   it('should mark active tab button', () => {
@@ -239,6 +262,16 @@ describe('SettingsComponent', () => {
     expect(el.querySelector('sq-agent-config')).toBeTruthy();
   });
 
+  it('should render sq-user-tokens when platform-tokens tab is active', () => {
+    tenantServiceSpy.getTenant.and.returnValue(throwError(() => new Error('fail')));
+    fixture.detectChanges();
+    component.setTab('platform-tokens');
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('sq-user-tokens')).toBeTruthy();
+  });
+
   it('should not render sub-components when general tab is active', () => {
     tenantServiceSpy.getTenant.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
@@ -248,6 +281,7 @@ describe('SettingsComponent', () => {
     expect(el.querySelector('sq-squadron-config')).toBeNull();
     expect(el.querySelector('sq-notification-preferences')).toBeNull();
     expect(el.querySelector('sq-agent-config')).toBeNull();
+    expect(el.querySelector('sq-user-tokens')).toBeNull();
   });
 
   // --- General tab: loading settings ---

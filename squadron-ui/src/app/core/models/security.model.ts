@@ -75,6 +75,7 @@ export interface PlatformConnection {
   tenantId: string;
   name: string;
   platformType: PlatformConnectionType;
+  platformCategory?: string;
   baseUrl: string;
   authType?: string;
   status: ConnectionStatus;
@@ -97,6 +98,11 @@ export enum ConnectionStatus {
   ERROR = 'ERROR',
 }
 
+export enum PlatformCategory {
+  TICKET_PROVIDER = 'TICKET_PROVIDER',
+  GIT_REMOTE = 'GIT_REMOTE',
+}
+
 export interface CreateConnectionRequest {
   tenantId: string;
   name: string;
@@ -105,4 +111,26 @@ export interface CreateConnectionRequest {
   authType: string;
   credentials: Record<string, string>;
   metadata?: Record<string, unknown>;
+}
+
+/** SSH key linked to a platform connection for Git clone/push operations. */
+export interface SshKey {
+  id: string;
+  tenantId: string;
+  connectionId: string;
+  name: string;
+  publicKey: string;
+  fingerprint: string;
+  keyType: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateSshKeyRequest {
+  tenantId: string;
+  connectionId: string;
+  name: string;
+  publicKey: string;
+  privateKey: string;
+  keyType?: string;
 }

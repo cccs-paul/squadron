@@ -19,4 +19,6 @@ public interface PlatformConnectionRepository extends JpaRepository<PlatformConn
     List<PlatformConnection> findByPlatformTypeAndStatus(String platformType, String status);
 
     List<PlatformConnection> findByPlatformTypeInAndStatus(List<String> platformTypes, String status);
+
+    List<PlatformConnection> findByTenantIdAndPlatformCategory(UUID tenantId, String platformCategory);
 }

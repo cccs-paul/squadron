@@ -1,5 +1,6 @@
 package com.squadron.platform.adapter.github;
 
+import com.squadron.platform.config.WebClientSslHelper;
 import com.squadron.platform.dto.PlatformTaskDto;
 import com.squadron.platform.dto.PlatformTaskFilter;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +12,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,6 +21,9 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class GitHubIssuesAdapterTest {
+
+    @Mock
+    private WebClientSslHelper sslHelper;
 
     @Mock
     private WebClient.Builder webClientBuilder;
@@ -45,14 +50,15 @@ class GitHubIssuesAdapterTest {
 
     @BeforeEach
     void setUp() {
-        adapter = new GitHubIssuesAdapter(webClientBuilder);
+        adapter = new GitHubIssuesAdapter(sslHelper);
     }
 
     private void configureAdapter() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
-        adapter.configure("https://api.github.com", "ghp_token");
+        adapter.configure("https://api.github.com", Map.of("pat", "ghp_token"));
     }
 
     private void mockGet(String responseJson) {
@@ -87,33 +93,36 @@ class GitHubIssuesAdapterTest {
 
     @Test
     void should_configureAdapter_withDefaultBaseUrl() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
 
-        adapter.configure(null, "ghp_token");
+        adapter.configure(null, Map.of("pat", "ghp_token"));
 
         verify(webClientBuilder).baseUrl("https://api.github.com");
     }
 
     @Test
     void should_configureAdapter_withCustomBaseUrl() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
 
-        adapter.configure("https://github.mycompany.com/api/v3", "ghp_token");
+        adapter.configure("https://github.mycompany.com/api/v3", Map.of("pat", "ghp_token"));
 
         verify(webClientBuilder).baseUrl("https://github.mycompany.com/api/v3");
     }
 
     @Test
     void should_configureAdapter_withBlankBaseUrlUsesDefault() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
 
-        adapter.configure("  ", "ghp_token");
+        adapter.configure("  ", Map.of("pat", "ghp_token"));
 
         verify(webClientBuilder).baseUrl("https://api.github.com");
     }
@@ -137,11 +146,12 @@ class GitHubIssuesAdapterTest {
     @Test
     @SuppressWarnings("unchecked")
     void should_returnFalse_when_testConnectionFails() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
 
-        adapter.configure("https://api.github.com", "bad-token");
+        adapter.configure("https://api.github.com", Map.of("pat", "bad-token"));
 
         when(webClient.get()).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
@@ -454,5 +464,92 @@ class GitHubIssuesAdapterTest {
     @Test
     void should_parseExternalId_throwsOnInvalidFormat_noSlash() {
         assertThrows(IllegalArgumentException.class, () -> adapter.parseExternalId("octocathello#42"));
+    }
+
+    // --- getProjects ---
+
+    @Test
+    void should_getProjects_when_configured() {
+        configureAdapter();
+
+        String json = """
+                [
+                  {
+                    "full_name": "octocat/hello-world",
+                    "name": "hello-world",
+                    "description": "My first repository",
+                    "html_url": "https://github.com/octocat/hello-world",
+                    "owner": {
+                      "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4"
+                    }
+                  },
+                  {
+                    "full_name": "octocat/spoon-knife",
+                    "name": "spoon-knife",
+                    "description": null,
+                    "html_url": "https://github.com/octocat/spoon-knife",
+                    "owner": {
+                      "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4"
+                    }
+                  }
+                ]
+                """;
+        mockGet(json);
+
+        var projects = adapter.getProjects();
+
+        assertNotNull(projects);
+        assertEquals(2, projects.size());
+
+        assertEquals("octocat/hello-world", projects.get(0).getKey());
+        assertEquals("hello-world", projects.get(0).getName());
+        assertEquals("My first repository", projects.get(0).getDescription());
+        assertEquals("https://github.com/octocat/hello-world", projects.get(0).getUrl());
+        assertEquals("https://avatars.githubusercontent.com/u/1?v=4", projects.get(0).getAvatarUrl());
+
+        assertEquals("octocat/spoon-knife", projects.get(1).getKey());
+        assertEquals("spoon-knife", projects.get(1).getName());
+        assertNull(projects.get(1).getDescription());
+    }
+
+    @Test
+    void should_returnEmptyProjects_when_noRepos() {
+        configureAdapter();
+        mockGet("[]");
+
+        var projects = adapter.getProjects();
+        assertNotNull(projects);
+        assertTrue(projects.isEmpty());
+    }
+
+    @Test
+    void should_throwException_when_getProjectsFails() {
+        configureAdapter();
+
+        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.error(new RuntimeException("401")));
+
+        assertThrows(RuntimeException.class, () -> adapter.getProjects());
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setupGetMock() {
+        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_throwException_when_getProjectsReceivesHtmlResponse() {
+        configureAdapter();
+        setupGetMock();
+        String htmlResponse = "<html><body><h1>Login Required</h1></body></html>";
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(htmlResponse));
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> adapter.getProjects());
+        assertTrue(ex.getMessage().contains("Received HTML instead of JSON"));
     }
 }

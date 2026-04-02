@@ -34,6 +34,7 @@ public class ProjectService {
                 .repoUrl(request.getRepoUrl())
                 .defaultBranch(request.getDefaultBranch() != null ? request.getDefaultBranch() : "main")
                 .branchStrategy(request.getBranchStrategy() != null ? request.getBranchStrategy() : "TRUNK_BASED")
+                .branchNamingTemplate(request.getBranchNamingTemplate() != null ? request.getBranchNamingTemplate() : "{strategy}/{ticket}-{description}")
                 .connectionId(request.getConnectionId())
                 .externalProjectId(request.getExternalProjectId())
                 .settings(request.getSettings())
@@ -72,6 +73,9 @@ public class ProjectService {
         }
         if (request.getBranchStrategy() != null) {
             project.setBranchStrategy(request.getBranchStrategy());
+        }
+        if (request.getBranchNamingTemplate() != null) {
+            project.setBranchNamingTemplate(request.getBranchNamingTemplate());
         }
         if (request.getConnectionId() != null) {
             project.setConnectionId(request.getConnectionId());

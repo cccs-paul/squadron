@@ -95,7 +95,7 @@ class CreateProjectRequestTest {
 
         CreateProjectRequest request = new CreateProjectRequest(
                 tenantId, teamId, "Name", "url", "main", "TRUNK_BASED",
-                connectionId, "ext-1", "{}"
+                "{strategy}/{ticket}-{description}", connectionId, "ext-1", "{}"
         );
 
         assertEquals(tenantId, request.getTenantId());

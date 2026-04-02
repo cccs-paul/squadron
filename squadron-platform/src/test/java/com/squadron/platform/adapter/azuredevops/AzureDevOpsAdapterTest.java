@@ -1,5 +1,6 @@
 package com.squadron.platform.adapter.azuredevops;
 
+import com.squadron.platform.config.WebClientSslHelper;
 import com.squadron.platform.dto.PlatformTaskDto;
 import com.squadron.platform.dto.PlatformTaskFilter;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -20,6 +22,9 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AzureDevOpsAdapterTest {
+
+    @Mock
+    private WebClientSslHelper sslHelper;
 
     @Mock
     private WebClient.Builder webClientBuilder;
@@ -48,14 +53,15 @@ class AzureDevOpsAdapterTest {
 
     @BeforeEach
     void setUp() {
-        adapter = new AzureDevOpsAdapter(webClientBuilder);
+        adapter = new AzureDevOpsAdapter(sslHelper);
     }
 
     private void configureAdapter() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
-        adapter.configure(BASE_URL, "base64-encoded-pat");
+        adapter.configure(BASE_URL, Map.of("pat", "base64-encoded-pat"));
     }
 
     // --- Existing tests (preserved) ---
@@ -67,11 +73,12 @@ class AzureDevOpsAdapterTest {
 
     @Test
     void should_configureAdapter() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
 
-        adapter.configure("https://dev.azure.com/myorg", "base64-encoded-pat");
+        adapter.configure("https://dev.azure.com/myorg", Map.of("pat", "base64-encoded-pat"));
 
         verify(webClientBuilder).baseUrl("https://dev.azure.com/myorg");
     }
@@ -663,6 +670,85 @@ class AzureDevOpsAdapterTest {
                 () -> adapter.parseProjectKey("myorg/"));
     }
 
+    // --- getProjects tests ---
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_getProjects_when_configured() {
+        configureAdapter();
+
+        String jsonResponse = """
+                {
+                  "count": 2,
+                  "value": [
+                    {
+                      "name": "MyProject",
+                      "description": "An Azure DevOps project"
+                    },
+                    {
+                      "name": "AnotherProject",
+                      "description": null
+                    }
+                  ]
+                }
+                """;
+
+        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(jsonResponse));
+
+        var projects = adapter.getProjects();
+
+        assertNotNull(projects);
+        assertEquals(2, projects.size());
+
+        assertEquals("MyProject", projects.get(0).getKey());
+        assertEquals("MyProject", projects.get(0).getName());
+        assertEquals("An Azure DevOps project", projects.get(0).getDescription());
+        assertTrue(projects.get(0).getUrl().contains("MyProject"));
+        assertNull(projects.get(0).getAvatarUrl());
+
+        assertEquals("AnotherProject", projects.get(1).getKey());
+        assertNull(projects.get(1).getDescription());
+        assertNull(projects.get(1).getAvatarUrl());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_returnEmptyProjects_when_noProjects() {
+        configureAdapter();
+
+        String jsonResponse = """
+                {
+                  "count": 0,
+                  "value": []
+                }
+                """;
+
+        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(jsonResponse));
+
+        var projects = adapter.getProjects();
+        assertNotNull(projects);
+        assertTrue(projects.isEmpty());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_throwException_when_getProjectsFails() {
+        configureAdapter();
+
+        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.error(new RuntimeException("403")));
+
+        assertThrows(RuntimeException.class, () -> adapter.getProjects());
+    }
+
     // --- Tag parsing edge cases ---
 
     @Test
@@ -717,5 +803,24 @@ class AzureDevOpsAdapterTest {
 
         PlatformTaskDto task = adapter.getTask("60");
         assertEquals("plain.user@example.com", task.getAssignee());
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setupGetMock() {
+        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_throwException_when_getProjectsReceivesHtmlResponse() {
+        configureAdapter();
+        setupGetMock();
+        String htmlResponse = "<html><body><h1>Login Required</h1></body></html>";
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(htmlResponse));
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> adapter.getProjects());
+        assertTrue(ex.getMessage().contains("Received HTML instead of JSON"));
     }
 }

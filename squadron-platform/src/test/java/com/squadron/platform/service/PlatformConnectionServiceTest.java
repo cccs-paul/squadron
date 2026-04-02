@@ -22,8 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -270,7 +269,7 @@ class PlatformConnectionServiceTest {
 
         assertTrue(result);
         assertEquals("ACTIVE", connection.getStatus());
-        verify(adapter).configure("https://example.atlassian.net", "plain-token");
+        verify(adapter).configure(eq("https://example.atlassian.net"), anyMap());
         verify(adapter).testConnection();
     }
 
@@ -431,7 +430,7 @@ class PlatformConnectionServiceTest {
         assertEquals("To Do", result.get(0));
         assertEquals("In Progress", result.get(1));
         assertEquals("Done", result.get(2));
-        verify(adapter).configure("https://example.atlassian.net", "plain-token");
+        verify(adapter).configure(eq("https://example.atlassian.net"), anyMap());
         verify(adapter).getAvailableStatuses("PROJ-1");
     }
 
@@ -467,6 +466,258 @@ class PlatformConnectionServiceTest {
                 () -> connectionService.fetchProjectStatuses(connectionId, "PROJ-1"));
     }
 
+    // --- Fetch Projects ---
+
+    @Test
+    void should_fetchProjects_when_connectionExists() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+        String credJson = objectMapper.writeValueAsString(Map.of("accessToken", "encrypted-token"));
+        PlatformConnection connection = PlatformConnection.builder()
+                .id(connectionId)
+                .tenantId(UUID.randomUUID())
+                .name("Project Fetch Test")
+                .platformType("JIRA_CLOUD")
+                .baseUrl("https://example.atlassian.net")
+                .credentials(credJson)
+                .status("ACTIVE")
+                .build();
+
+        List<com.squadron.platform.dto.PlatformProjectDto> mockProjects = List.of(
+                com.squadron.platform.dto.PlatformProjectDto.builder()
+                        .key("PROJ")
+                        .name("My Project")
+                        .description("A test project")
+                        .url("https://example.atlassian.net/browse/PROJ")
+                        .avatarUrl("https://example.atlassian.net/avatar.png")
+                        .build(),
+                com.squadron.platform.dto.PlatformProjectDto.builder()
+                        .key("DEMO")
+                        .name("Demo Project")
+                        .description(null)
+                        .url("https://example.atlassian.net/browse/DEMO")
+                        .avatarUrl(null)
+                        .build()
+        );
+
+        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+        when(adapterRegistry.getAdapter("JIRA_CLOUD")).thenReturn(adapter);
+        when(encryptionService.decrypt("encrypted-token")).thenReturn("plain-token");
+        when(adapter.getProjects()).thenReturn(mockProjects);
+
+        List<com.squadron.platform.dto.PlatformProjectDto> result = connectionService.fetchProjects(connectionId);
+
+        assertEquals(2, result.size());
+        assertEquals("PROJ", result.get(0).getKey());
+        assertEquals("My Project", result.get(0).getName());
+        assertEquals("A test project", result.get(0).getDescription());
+        assertEquals("DEMO", result.get(1).getKey());
+        assertNull(result.get(1).getDescription());
+        verify(adapter).configure(eq("https://example.atlassian.net"), anyMap());
+        verify(adapter).getProjects();
+    }
+
+    @Test
+    void should_throwPlatformIntegrationException_when_fetchProjectsFails() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+        String credJson = objectMapper.writeValueAsString(Map.of("accessToken", "encrypted-token"));
+        PlatformConnection connection = PlatformConnection.builder()
+                .id(connectionId)
+                .tenantId(UUID.randomUUID())
+                .name("Project Fail Test")
+                .platformType("JIRA_CLOUD")
+                .baseUrl("https://example.atlassian.net")
+                .credentials(credJson)
+                .status("ACTIVE")
+                .build();
+
+        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+        when(adapterRegistry.getAdapter("JIRA_CLOUD")).thenReturn(adapter);
+        when(encryptionService.decrypt("encrypted-token")).thenReturn("plain-token");
+        when(adapter.getProjects()).thenThrow(new RuntimeException("API error"));
+
+        assertThrows(PlatformIntegrationException.class,
+                () -> connectionService.fetchProjects(connectionId));
+    }
+
+    @Test
+    void should_throwNotFound_when_fetchProjectsForMissingConnection() {
+        UUID connectionId = UUID.randomUUID();
+        when(connectionRepository.findById(connectionId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> connectionService.fetchProjects(connectionId));
+    }
+
+    @Test
+    void should_fetchProjects_when_noCredentials() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+        PlatformConnection connection = PlatformConnection.builder()
+                .id(connectionId)
+                .tenantId(UUID.randomUUID())
+                .name("GitHub No Creds")
+                .platformType("GITHUB")
+                .baseUrl("https://api.github.com")
+                .credentials(null)
+                .status("ACTIVE")
+                .build();
+
+        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+        when(adapterRegistry.getAdapter("GITHUB")).thenReturn(adapter);
+        when(adapter.getProjects()).thenReturn(List.of(
+                com.squadron.platform.dto.PlatformProjectDto.builder()
+                        .key("octocat/hello")
+                        .name("hello")
+                        .build()
+        ));
+
+        List<com.squadron.platform.dto.PlatformProjectDto> result = connectionService.fetchProjects(connectionId);
+
+        assertEquals(1, result.size());
+        assertEquals("octocat/hello", result.get(0).getKey());
+        verify(adapter).configure(eq("https://api.github.com"), anyMap());
+    }
+
+    // --- determinePlatformCategory ---
+
+    @Test
+    void should_returnGitRemote_when_platformTypeIsGitHub() {
+        assertEquals("GIT_REMOTE", PlatformConnectionService.determinePlatformCategory("GITHUB"));
+    }
+
+    @Test
+    void should_returnGitRemote_when_platformTypeIsGitLab() {
+        assertEquals("GIT_REMOTE", PlatformConnectionService.determinePlatformCategory("GITLAB"));
+    }
+
+    @Test
+    void should_returnGitRemote_when_platformTypeIsBitbucket() {
+        assertEquals("GIT_REMOTE", PlatformConnectionService.determinePlatformCategory("BITBUCKET"));
+    }
+
+    @Test
+    void should_returnTicketProvider_when_platformTypeIsJiraCloud() {
+        assertEquals("TICKET_PROVIDER", PlatformConnectionService.determinePlatformCategory("JIRA_CLOUD"));
+    }
+
+    @Test
+    void should_returnTicketProvider_when_platformTypeIsJiraServer() {
+        assertEquals("TICKET_PROVIDER", PlatformConnectionService.determinePlatformCategory("JIRA_SERVER"));
+    }
+
+    @Test
+    void should_returnTicketProvider_when_platformTypeIsAzureDevOps() {
+        assertEquals("TICKET_PROVIDER", PlatformConnectionService.determinePlatformCategory("AZURE_DEVOPS"));
+    }
+
+    @Test
+    void should_returnTicketProvider_when_platformTypeIsNull() {
+        assertEquals("TICKET_PROVIDER", PlatformConnectionService.determinePlatformCategory(null));
+    }
+
+    @Test
+    void should_returnGitRemote_when_platformTypeCaseInsensitive() {
+        assertEquals("GIT_REMOTE", PlatformConnectionService.determinePlatformCategory("github"));
+        assertEquals("GIT_REMOTE", PlatformConnectionService.determinePlatformCategory("GitLab"));
+        assertEquals("GIT_REMOTE", PlatformConnectionService.determinePlatformCategory("bitbucket"));
+    }
+
+    // --- listConnectionsByTenantAndCategory ---
+
+    @Test
+    void should_listConnectionsByTenantAndCategory_when_categoryIsGitRemote() {
+        UUID tenantId = UUID.randomUUID();
+        PlatformConnection conn = PlatformConnection.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .name("GitHub Conn")
+                .platformType("GITHUB")
+                .platformCategory("GIT_REMOTE")
+                .build();
+
+        when(connectionRepository.findByTenantIdAndPlatformCategory(tenantId, "GIT_REMOTE"))
+                .thenReturn(List.of(conn));
+
+        List<PlatformConnection> result = connectionService.listConnectionsByTenantAndCategory(tenantId, "GIT_REMOTE");
+
+        assertEquals(1, result.size());
+        assertEquals("GitHub Conn", result.get(0).getName());
+    }
+
+    @Test
+    void should_listConnectionsByTenantAndCategory_when_categoryIsTicketProvider() {
+        UUID tenantId = UUID.randomUUID();
+        PlatformConnection conn1 = PlatformConnection.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .name("Jira Conn")
+                .platformType("JIRA_CLOUD")
+                .platformCategory("TICKET_PROVIDER")
+                .build();
+        PlatformConnection conn2 = PlatformConnection.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .name("Azure Conn")
+                .platformType("AZURE_DEVOPS")
+                .platformCategory("TICKET_PROVIDER")
+                .build();
+
+        when(connectionRepository.findByTenantIdAndPlatformCategory(tenantId, "TICKET_PROVIDER"))
+                .thenReturn(List.of(conn1, conn2));
+
+        List<PlatformConnection> result = connectionService.listConnectionsByTenantAndCategory(tenantId, "TICKET_PROVIDER");
+
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    void should_returnEmptyList_when_noConnectionsForCategory() {
+        UUID tenantId = UUID.randomUUID();
+        when(connectionRepository.findByTenantIdAndPlatformCategory(tenantId, "GIT_REMOTE"))
+                .thenReturn(List.of());
+
+        List<PlatformConnection> result = connectionService.listConnectionsByTenantAndCategory(tenantId, "GIT_REMOTE");
+
+        assertTrue(result.isEmpty());
+    }
+
+    // --- createConnection sets platformCategory ---
+
+    @Test
+    void should_setPlatformCategoryToGitRemote_when_creatingGitHubConnection() {
+        CreateConnectionRequest request = CreateConnectionRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .name("GitHub Org")
+                .platformType("GITHUB")
+                .baseUrl("https://api.github.com")
+                .authType("PAT")
+                .credentials(null)
+                .build();
+
+        when(connectionRepository.save(any(PlatformConnection.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PlatformConnection result = connectionService.createConnection(request);
+
+        assertEquals("GIT_REMOTE", result.getPlatformCategory());
+    }
+
+    @Test
+    void should_setPlatformCategoryToTicketProvider_when_creatingJiraConnection() {
+        CreateConnectionRequest request = CreateConnectionRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .name("Jira Cloud")
+                .platformType("JIRA_CLOUD")
+                .baseUrl("https://acme.atlassian.net")
+                .authType("API_TOKEN")
+                .credentials(null)
+                .build();
+
+        when(connectionRepository.save(any(PlatformConnection.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PlatformConnection result = connectionService.createConnection(request);
+
+        assertEquals("TICKET_PROVIDER", result.getPlatformCategory());
+    }
+
     @Test
     void should_fetchProjectStatuses_when_noCredentials() throws Exception {
         UUID connectionId = UUID.randomUUID();
@@ -489,6 +740,6 @@ class PlatformConnectionServiceTest {
         assertEquals(2, result.size());
         assertEquals("open", result.get(0));
         assertEquals("closed", result.get(1));
-        verify(adapter).configure("https://api.github.com", "");
+        verify(adapter).configure(eq("https://api.github.com"), anyMap());
     }
 }

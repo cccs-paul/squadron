@@ -1,9 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { PlatformConnectionsComponent } from './platform-connections.component';
 import { PlatformService } from '../../../core/services/platform.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import {
   PlatformConnection,
   PlatformConnectionType,
@@ -14,6 +16,7 @@ describe('PlatformConnectionsComponent', () => {
   let component: PlatformConnectionsComponent;
   let fixture: ComponentFixture<PlatformConnectionsComponent>;
   let platformServiceSpy: jasmine.SpyObj<PlatformService>;
+  let authServiceMock: Partial<AuthService>;
 
   const mockConnections: PlatformConnection[] = [
     {
@@ -44,10 +47,26 @@ describe('PlatformConnectionsComponent', () => {
     ]);
     platformServiceSpy.getConnections.and.returnValue(of(mockConnections));
 
+    authServiceMock = {
+      user: signal({
+        id: 'u1',
+        username: 'testuser',
+        email: 'test@example.com',
+        displayName: 'Test User',
+        tenantId: 't1',
+        tenantName: 'Test Tenant',
+        roles: ['squadron-admin'],
+        permissions: [],
+      }),
+      isAuthenticated: signal(true),
+      isAdmin: signal(true),
+    } as any;
+
     await TestBed.configureTestingModule({
       imports: [PlatformConnectionsComponent, FormsModule],
       providers: [
         { provide: PlatformService, useValue: platformServiceSpy },
+        { provide: AuthService, useValue: authServiceMock },
         provideRouter([]),
       ],
     }).compileComponents();
@@ -63,7 +82,7 @@ describe('PlatformConnectionsComponent', () => {
   it('should_loadConnections_when_initialized', () => {
     fixture.detectChanges();
 
-    expect(platformServiceSpy.getConnections).toHaveBeenCalled();
+    expect(platformServiceSpy.getConnections).toHaveBeenCalledWith('t1');
     expect(component.connections()).toEqual(mockConnections);
     expect(component.loading()).toBeFalse();
   });
@@ -136,7 +155,7 @@ describe('PlatformConnectionsComponent', () => {
 
   it('should_callTestConnection_when_testConnectionCalled', () => {
     fixture.detectChanges();
-    platformServiceSpy.testConnection.and.returnValue(of({ success: true, message: 'OK' }));
+    platformServiceSpy.testConnection.and.returnValue(of(true));
 
     component.testConnection(mockConnections[0]);
 

@@ -2,16 +2,20 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ProjectService } from '../../../core/services/project.service';
 import { PlatformService } from '../../../core/services/platform.service';
+import { SshKeyService } from '../../../core/services/ssh-key.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Project, WorkflowMapping } from '../../../core/models/project.model';
+import { Project, RemoteProject, WorkflowMapping, BranchStrategyType } from '../../../core/models/project.model';
 import {
   PlatformConnection,
   PlatformConnectionType,
+  PlatformCategory,
   CreateConnectionRequest,
+  SshKey,
+  CreateSshKeyRequest,
 } from '../../../core/models/security.model';
 import { forkJoin } from 'rxjs';
 
-type TabId = 'providers' | 'projects';
+export type WizardStep = 'ticket-providers' | 'git-remotes' | 'projects' | 'branch-workflow';
 
 interface ProviderForm {
   name: string;
@@ -21,12 +25,22 @@ interface ProviderForm {
   credentials: Record<string, string>;
 }
 
-interface ProjectForm {
+interface SshKeyForm {
+  connectionId: string;
+  name: string;
+  publicKey: string;
+  privateKey: string;
+  keyType: string;
+}
+
+interface ImportCandidate {
+  remote: RemoteProject;
+  selected: boolean;
   name: string;
   description: string;
   defaultBranch: string;
-  connectionId: string;
-  externalProjectId: string;
+  repositoryUrl: string;
+  branchNamingTemplate: string;
 }
 
 interface ProjectMappingState {
@@ -42,6 +56,13 @@ interface ProjectMappingState {
   fetchError: string | null;
   connectionName: string | null;
 }
+
+/** Platform types that are ticket providers (not Git remotes) */
+const TICKET_PROVIDER_TYPES = new Set(['JIRA_CLOUD', 'JIRA_SERVER', 'AZURE_DEVOPS']);
+/** Platform types that are Git remotes */
+const GIT_REMOTE_TYPES = new Set(['GITHUB', 'GITLAB', 'BITBUCKET']);
+/** Cloud platforms that don't need a base URL */
+const CLOUD_PLATFORMS = new Set(['GITHUB', 'GITLAB', 'JIRA_CLOUD']);
 
 const AUTH_TYPE_OPTIONS: Record<string, { label: string; fields: { key: string; label: string; secret: boolean }[] }[]> = {
   JIRA_CLOUD: [
@@ -67,6 +88,17 @@ const AUTH_TYPE_OPTIONS: Record<string, { label: string; fields: { key: string; 
   ],
 };
 
+const BRANCH_STRATEGIES: { value: string; label: string; description: string }[] = [
+  { value: 'TRUNK_BASED', label: 'Trunk-Based', description: 'All work flows to a single main branch' },
+  { value: 'GITFLOW', label: 'Gitflow', description: 'Feature, develop, release, and hotfix branches' },
+  { value: 'GITHUB_FLOW', label: 'GitHub Flow', description: 'Feature branches merged directly to main' },
+  { value: 'GITLAB_FLOW', label: 'GitLab Flow', description: 'Feature branches with environment branches' },
+  { value: 'RELEASE_BRANCHING', label: 'Release Branching', description: 'Separate branches for each release' },
+];
+
+const TICKET_PLATFORM_TYPES = ['JIRA_CLOUD', 'JIRA_SERVER', 'AZURE_DEVOPS'];
+const GIT_PLATFORM_TYPES = ['GITHUB', 'GITLAB', 'BITBUCKET'];
+
 @Component({
   selector: 'sq-project-config',
   standalone: true,
@@ -77,29 +109,67 @@ const AUTH_TYPE_OPTIONS: Record<string, { label: string; fields: { key: string; 
 export class ProjectConfigComponent implements OnInit {
   private projectService = inject(ProjectService);
   private platformService = inject(PlatformService);
+  private sshKeyService = inject(SshKeyService);
   private authService = inject(AuthService);
 
   loading = signal(true);
   loadError = signal<string | null>(null);
-  activeTab = signal<TabId>('providers');
+  activeStep = signal<WizardStep>('ticket-providers');
 
-  // Providers tab
-  connections = signal<PlatformConnection[]>([]);
-  showProviderForm = signal(false);
-  savingProvider = signal(false);
-  providerSaveError = signal<string | null>(null);
+  // All connections (loaded once)
+  allConnections = signal<PlatformConnection[]>([]);
+
+  // Step 1: Ticket Providers
+  ticketProviders = signal<PlatformConnection[]>([]);
+  showTicketForm = signal(false);
+  savingTicketProvider = signal(false);
+  ticketSaveError = signal<string | null>(null);
+  ticketSaveSuccess = signal(false);
   deletingConnectionId = signal<string | null>(null);
-  providerForm: ProviderForm = this.newProviderForm();
+  ticketForm: ProviderForm = this.newTicketForm();
 
-  // Projects tab
+  // Step 2: Git Remotes
+  gitRemotes = signal<PlatformConnection[]>([]);
+  showGitForm = signal(false);
+  savingGitRemote = signal(false);
+  gitSaveError = signal<string | null>(null);
+  gitSaveSuccess = signal(false);
+  gitForm: ProviderForm = this.newGitForm();
+
+  // SSH Keys
+  sshKeys = signal<SshKey[]>([]);
+  showSshKeyForm = signal(false);
+  savingSshKey = signal(false);
+  sshKeySaveError = signal<string | null>(null);
+  sshKeySaveSuccess = signal(false);
+  deletingSshKeyId = signal<string | null>(null);
+  sshKeyForm: SshKeyForm = this.newSshKeyForm();
+
+  // Step 3: Projects
   projectStates = signal<ProjectMappingState[]>([]);
   workflowStates = signal<string[]>([]);
-  showProjectForm = signal(false);
-  savingProject = signal(false);
-  projectSaveError = signal<string | null>(null);
-  projectForm: ProjectForm = this.newProjectForm();
+  showImportPanel = signal(false);
+  importConnectionId = signal<string>('');
+  importLoading = signal(false);
+  importError = signal<string | null>(null);
+  importCandidates = signal<ImportCandidate[]>([]);
+  importSaving = signal(false);
+  importSaveError = signal<string | null>(null);
+  importProgress = signal<{ done: number; total: number } | null>(null);
+  importFetchComplete = signal(false);
 
-  readonly platformTypes = Object.values(PlatformConnectionType);
+  // Step 4: Branch & Workflow (uses projectStates)
+
+  readonly ticketPlatformTypes = TICKET_PLATFORM_TYPES;
+  readonly gitPlatformTypes = GIT_PLATFORM_TYPES;
+  readonly branchStrategies = BRANCH_STRATEGIES;
+
+  readonly steps: { id: WizardStep; label: string; number: number }[] = [
+    { id: 'ticket-providers', label: 'Ticket Providers', number: 1 },
+    { id: 'git-remotes', label: 'Git Remotes', number: 2 },
+    { id: 'projects', label: 'Projects', number: 3 },
+    { id: 'branch-workflow', label: 'Branch & Workflow', number: 4 },
+  ];
 
   ngOnInit(): void {
     this.loadData();
@@ -120,10 +190,13 @@ export class ProjectConfigComponent implements OnInit {
       projects: this.projectService.getProjectsByTenant(user.tenantId),
       states: this.projectService.getWorkflowStates(),
       connections: this.platformService.getConnectionsByTenant(user.tenantId),
+      sshKeys: this.sshKeyService.getSshKeysByTenant(user.tenantId),
     }).subscribe({
-      next: ({ projects, states, connections }) => {
+      next: ({ projects, states, connections, sshKeys }) => {
         this.workflowStates.set(states);
-        this.connections.set(connections);
+        this.allConnections.set(connections);
+        this.sshKeys.set(sshKeys);
+        this.categorizeConnections(connections);
         this.projectStates.set(
           projects.map((p) => ({
             project: p,
@@ -146,89 +219,170 @@ export class ProjectConfigComponent implements OnInit {
           'BACKLOG', 'PRIORITIZED', 'PLANNING', 'PROPOSE_CODE',
           'REVIEW', 'QA', 'MERGE', 'DONE',
         ]);
-        this.connections.set([]);
+        this.allConnections.set([]);
+        this.ticketProviders.set([]);
+        this.gitRemotes.set([]);
+        this.sshKeys.set([]);
         this.projectStates.set([]);
         this.loading.set(false);
       },
     });
   }
 
-  setTab(tab: TabId): void {
-    this.activeTab.set(tab);
+  setStep(step: WizardStep): void {
+    this.activeStep.set(step);
   }
 
-  // --- Provider methods ---
-
-  getAuthTypeOptions(): { label: string; fields: { key: string; label: string; secret: boolean }[] }[] {
-    return AUTH_TYPE_OPTIONS[this.providerForm.platformType] ?? [];
+  getStepIndex(step: WizardStep): number {
+    return this.steps.findIndex((s) => s.id === step);
   }
 
-  getAuthFields(): { key: string; label: string; secret: boolean }[] {
-    const options = this.getAuthTypeOptions();
-    const selected = options.find((o) => o.label === this.providerForm.authType);
-    return selected?.fields ?? [];
-  }
-
-  onPlatformTypeChange(): void {
-    const options = this.getAuthTypeOptions();
-    this.providerForm.authType = options.length > 0 ? options[0].label : '';
-    this.providerForm.credentials = {};
-  }
-
-  onAuthTypeChange(): void {
-    this.providerForm.credentials = {};
-  }
-
-  toggleProviderForm(): void {
-    this.showProviderForm.set(!this.showProviderForm());
-    if (!this.showProviderForm()) {
-      this.providerForm = this.newProviderForm();
-      this.providerSaveError.set(null);
+  isStepComplete(step: WizardStep): boolean {
+    switch (step) {
+      case 'ticket-providers': return this.ticketProviders().length > 0;
+      case 'git-remotes': return this.gitRemotes().length > 0;
+      case 'projects': return this.projectStates().length > 0;
+      case 'branch-workflow': return this.projectStates().some((ps) => ps.mappings.length > 0);
+      default: return false;
     }
   }
 
-  canSaveProvider(): boolean {
-    const f = this.providerForm;
-    if (!f.name.trim() || !f.platformType || !f.baseUrl.trim() || !f.authType) return false;
-    const fields = this.getAuthFields();
+  nextStep(): void {
+    const idx = this.getStepIndex(this.activeStep());
+    if (idx < this.steps.length - 1) {
+      this.activeStep.set(this.steps[idx + 1].id);
+    }
+  }
+
+  prevStep(): void {
+    const idx = this.getStepIndex(this.activeStep());
+    if (idx > 0) {
+      this.activeStep.set(this.steps[idx - 1].id);
+    }
+  }
+
+  // --- Platform type helpers ---
+
+  isCloudPlatform(platformType: string): boolean {
+    return CLOUD_PLATFORMS.has(platformType);
+  }
+
+  getDefaultBaseUrl(platformType: string): string {
+    switch (platformType) {
+      case 'GITHUB': return 'https://api.github.com';
+      case 'GITLAB': return 'https://gitlab.com';
+      case 'JIRA_CLOUD': return '';
+      default: return '';
+    }
+  }
+
+  platformIcon(type: string): string {
+    switch (type) {
+      case 'GITHUB': return 'GitHub';
+      case 'GITLAB': return 'GitLab';
+      case 'JIRA_CLOUD': return 'Jira Cloud';
+      case 'JIRA_SERVER': return 'Jira Server / DC';
+      case 'AZURE_DEVOPS': return 'Azure DevOps';
+      case 'BITBUCKET': return 'Bitbucket';
+      default: return type;
+    }
+  }
+
+  platformDescription(type: string): string {
+    switch (type) {
+      case 'JIRA_CLOUD': return 'Atlassian-hosted Jira in the cloud';
+      case 'JIRA_SERVER': return 'Self-hosted Jira Server or Data Center';
+      case 'AZURE_DEVOPS': return 'Microsoft Azure DevOps Services';
+      case 'GITHUB': return 'GitHub.com or GitHub Enterprise';
+      case 'GITLAB': return 'GitLab.com or self-managed GitLab';
+      case 'BITBUCKET': return 'Bitbucket Cloud or Bitbucket Server';
+      default: return '';
+    }
+  }
+
+  // ===== STEP 1: Ticket Providers =====
+
+  getTicketAuthTypeOptions(): { label: string; fields: { key: string; label: string; secret: boolean }[] }[] {
+    return AUTH_TYPE_OPTIONS[this.ticketForm.platformType] ?? [];
+  }
+
+  getTicketAuthFields(): { key: string; label: string; secret: boolean }[] {
+    const options = this.getTicketAuthTypeOptions();
+    const selected = options.find((o) => o.label === this.ticketForm.authType);
+    return selected?.fields ?? [];
+  }
+
+  onTicketPlatformTypeChange(): void {
+    const options = this.getTicketAuthTypeOptions();
+    this.ticketForm.authType = options.length > 0 ? options[0].label : '';
+    this.ticketForm.credentials = {};
+    if (this.isCloudPlatform(this.ticketForm.platformType)) {
+      this.ticketForm.baseUrl = this.getDefaultBaseUrl(this.ticketForm.platformType);
+    } else {
+      this.ticketForm.baseUrl = '';
+    }
+  }
+
+  onTicketAuthTypeChange(): void {
+    this.ticketForm.credentials = {};
+  }
+
+  toggleTicketForm(): void {
+    this.showTicketForm.set(!this.showTicketForm());
+    if (!this.showTicketForm()) {
+      this.ticketForm = this.newTicketForm();
+      this.ticketSaveError.set(null);
+    }
+  }
+
+  canSaveTicketProvider(): boolean {
+    const f = this.ticketForm;
+    if (!f.name.trim() || !f.platformType || !f.authType) return false;
+    if (!this.isCloudPlatform(f.platformType) && !f.baseUrl.trim()) return false;
+    const fields = this.getTicketAuthFields();
     return fields.every((field) => (f.credentials[field.key] ?? '').trim().length > 0);
   }
 
-  saveProvider(): void {
+  saveTicketProvider(): void {
     const user = this.authService.user();
     if (!user) return;
 
-    this.savingProvider.set(true);
-    this.providerSaveError.set(null);
+    this.savingTicketProvider.set(true);
+    this.ticketSaveError.set(null);
 
     const request: CreateConnectionRequest = {
       tenantId: user.tenantId,
-      name: this.providerForm.name.trim(),
-      platformType: this.providerForm.platformType,
-      baseUrl: this.providerForm.baseUrl.trim(),
-      authType: this.providerForm.authType,
-      credentials: { ...this.providerForm.credentials },
+      name: this.ticketForm.name.trim(),
+      platformType: this.ticketForm.platformType,
+      baseUrl: this.ticketForm.baseUrl.trim() || this.getDefaultBaseUrl(this.ticketForm.platformType),
+      authType: this.ticketForm.authType,
+      credentials: { ...this.ticketForm.credentials },
     };
 
     this.platformService.createConnectionFromRequest(request).subscribe({
       next: (connection) => {
-        this.connections.set([...this.connections(), connection]);
-        this.savingProvider.set(false);
-        this.showProviderForm.set(false);
-        this.providerForm = this.newProviderForm();
+        this.ticketProviders.set([...this.ticketProviders(), connection]);
+        this.allConnections.set([...this.allConnections(), connection]);
+        this.savingTicketProvider.set(false);
+        this.showTicketForm.set(false);
+        this.ticketForm = this.newTicketForm();
+        this.ticketSaveSuccess.set(true);
+        setTimeout(() => this.ticketSaveSuccess.set(false), 3000);
       },
-      error: () => {
-        this.providerSaveError.set('Failed to save provider. Please check your configuration and try again.');
-        this.savingProvider.set(false);
+      error: (err: any) => {
+        const msg = err?.error?.message || 'Failed to save provider. Please check your configuration and try again.';
+        this.ticketSaveError.set(msg);
+        this.savingTicketProvider.set(false);
       },
     });
   }
 
-  deleteConnection(id: string): void {
+  deleteTicketProvider(id: string): void {
     this.deletingConnectionId.set(id);
     this.platformService.deleteConnection(id).subscribe({
       next: () => {
-        this.connections.set(this.connections().filter((c) => c.id !== id));
+        this.ticketProviders.set(this.ticketProviders().filter((c) => c.id !== id));
+        this.allConnections.set(this.allConnections().filter((c) => c.id !== id));
         this.deletingConnectionId.set(null);
       },
       error: () => {
@@ -237,59 +391,351 @@ export class ProjectConfigComponent implements OnInit {
     });
   }
 
-  // --- Project methods ---
+  // ===== STEP 2: Git Remotes =====
 
-  toggleProjectForm(): void {
-    this.showProjectForm.set(!this.showProjectForm());
-    if (!this.showProjectForm()) {
-      this.projectForm = this.newProjectForm();
-      this.projectSaveError.set(null);
+  getGitAuthTypeOptions(): { label: string; fields: { key: string; label: string; secret: boolean }[] }[] {
+    return AUTH_TYPE_OPTIONS[this.gitForm.platformType] ?? [];
+  }
+
+  getGitAuthFields(): { key: string; label: string; secret: boolean }[] {
+    const options = this.getGitAuthTypeOptions();
+    const selected = options.find((o) => o.label === this.gitForm.authType);
+    return selected?.fields ?? [];
+  }
+
+  onGitPlatformTypeChange(): void {
+    const options = this.getGitAuthTypeOptions();
+    this.gitForm.authType = options.length > 0 ? options[0].label : '';
+    this.gitForm.credentials = {};
+    if (this.isCloudPlatform(this.gitForm.platformType)) {
+      this.gitForm.baseUrl = this.getDefaultBaseUrl(this.gitForm.platformType);
+    } else {
+      this.gitForm.baseUrl = '';
     }
   }
 
-  canSaveProject(): boolean {
-    const f = this.projectForm;
-    return f.name.trim().length > 0 && f.connectionId.length > 0;
+  onGitAuthTypeChange(): void {
+    this.gitForm.credentials = {};
   }
 
-  saveProject(): void {
-    this.savingProject.set(true);
-    this.projectSaveError.set(null);
+  toggleGitForm(): void {
+    this.showGitForm.set(!this.showGitForm());
+    if (!this.showGitForm()) {
+      this.gitForm = this.newGitForm();
+      this.gitSaveError.set(null);
+    }
+  }
 
-    const project: Partial<Project> = {
-      name: this.projectForm.name.trim(),
-      description: this.projectForm.description.trim() || undefined,
-      defaultBranch: this.projectForm.defaultBranch.trim() || 'main',
-      connectionId: this.projectForm.connectionId,
-      externalProjectId: this.projectForm.externalProjectId.trim() || undefined,
+  canSaveGitRemote(): boolean {
+    const f = this.gitForm;
+    if (!f.name.trim() || !f.platformType || !f.authType) return false;
+    if (!this.isCloudPlatform(f.platformType) && !f.baseUrl.trim()) return false;
+    const fields = this.getGitAuthFields();
+    return fields.every((field) => (f.credentials[field.key] ?? '').trim().length > 0);
+  }
+
+  saveGitRemote(): void {
+    const user = this.authService.user();
+    if (!user) return;
+
+    this.savingGitRemote.set(true);
+    this.gitSaveError.set(null);
+
+    const request: CreateConnectionRequest = {
+      tenantId: user.tenantId,
+      name: this.gitForm.name.trim(),
+      platformType: this.gitForm.platformType,
+      baseUrl: this.gitForm.baseUrl.trim() || this.getDefaultBaseUrl(this.gitForm.platformType),
+      authType: this.gitForm.authType,
+      credentials: { ...this.gitForm.credentials },
     };
 
-    this.projectService.createProject(project).subscribe({
-      next: (created) => {
-        const newState: ProjectMappingState = {
-          project: created,
-          expanded: false,
-          mappings: [],
-          remoteStatuses: [],
-          saving: false,
-          saveSuccess: false,
-          saveError: null,
-          loading: false,
-          fetchingStatuses: false,
-          fetchError: null,
-          connectionName: this.getConnectionName(created.connectionId, this.connections()),
-        };
-        this.projectStates.set([...this.projectStates(), newState]);
-        this.savingProject.set(false);
-        this.showProjectForm.set(false);
-        this.projectForm = this.newProjectForm();
+    this.platformService.createConnectionFromRequest(request).subscribe({
+      next: (connection) => {
+        this.gitRemotes.set([...this.gitRemotes(), connection]);
+        this.allConnections.set([...this.allConnections(), connection]);
+        this.savingGitRemote.set(false);
+        this.showGitForm.set(false);
+        this.gitForm = this.newGitForm();
+        this.gitSaveSuccess.set(true);
+        setTimeout(() => this.gitSaveSuccess.set(false), 3000);
       },
-      error: () => {
-        this.projectSaveError.set('Failed to create project. Please try again.');
-        this.savingProject.set(false);
+      error: (err: any) => {
+        const msg = err?.error?.message || 'Failed to save Git remote. Please check your configuration.';
+        this.gitSaveError.set(msg);
+        this.savingGitRemote.set(false);
       },
     });
   }
+
+  deleteGitRemote(id: string): void {
+    this.deletingConnectionId.set(id);
+    this.platformService.deleteConnection(id).subscribe({
+      next: () => {
+        this.gitRemotes.set(this.gitRemotes().filter((c) => c.id !== id));
+        this.allConnections.set(this.allConnections().filter((c) => c.id !== id));
+        this.sshKeys.set(this.sshKeys().filter((k) => k.connectionId !== id));
+        this.deletingConnectionId.set(null);
+      },
+      error: () => {
+        this.deletingConnectionId.set(null);
+      },
+    });
+  }
+
+  // --- SSH Key methods ---
+
+  getSshKeysForConnection(connectionId: string): SshKey[] {
+    return this.sshKeys().filter((k) => k.connectionId === connectionId);
+  }
+
+  toggleSshKeyForm(): void {
+    this.showSshKeyForm.set(!this.showSshKeyForm());
+    if (!this.showSshKeyForm()) {
+      this.sshKeyForm = this.newSshKeyForm();
+      this.sshKeySaveError.set(null);
+    } else {
+      // Auto-select the only git remote if there's exactly one
+      const remotes = this.gitRemotes();
+      if (remotes.length === 1) {
+        this.sshKeyForm.connectionId = remotes[0].id;
+      }
+    }
+  }
+
+  canSaveSshKey(): boolean {
+    const f = this.sshKeyForm;
+    return f.connectionId.length > 0 && f.name.trim().length > 0 &&
+      f.publicKey.trim().length > 0 && f.privateKey.trim().length > 0;
+  }
+
+  saveSshKey(): void {
+    const user = this.authService.user();
+    if (!user) return;
+
+    this.savingSshKey.set(true);
+    this.sshKeySaveError.set(null);
+
+    const request: CreateSshKeyRequest = {
+      tenantId: user.tenantId,
+      connectionId: this.sshKeyForm.connectionId,
+      name: this.sshKeyForm.name.trim(),
+      publicKey: this.sshKeyForm.publicKey.trim(),
+      privateKey: this.sshKeyForm.privateKey.trim(),
+      keyType: this.sshKeyForm.keyType || undefined,
+    };
+
+    this.sshKeyService.createSshKey(request).subscribe({
+      next: (key) => {
+        this.sshKeys.set([...this.sshKeys(), key]);
+        this.savingSshKey.set(false);
+        this.showSshKeyForm.set(false);
+        this.sshKeyForm = this.newSshKeyForm();
+        this.sshKeySaveSuccess.set(true);
+        setTimeout(() => this.sshKeySaveSuccess.set(false), 3000);
+      },
+      error: (err: any) => {
+        const msg = err?.error?.message || 'Failed to save SSH key. Please verify the key pair.';
+        this.sshKeySaveError.set(msg);
+        this.savingSshKey.set(false);
+      },
+    });
+  }
+
+  deleteSshKey(id: string): void {
+    this.deletingSshKeyId.set(id);
+    this.sshKeyService.deleteSshKey(id).subscribe({
+      next: () => {
+        this.sshKeys.set(this.sshKeys().filter((k) => k.id !== id));
+        this.deletingSshKeyId.set(null);
+      },
+      error: () => {
+        this.deletingSshKeyId.set(null);
+      },
+    });
+  }
+
+  // ===== STEP 3: Projects =====
+
+  toggleImportPanel(): void {
+    this.showImportPanel.set(!this.showImportPanel());
+    if (!this.showImportPanel()) {
+      this.resetImportState();
+    } else {
+      const conns = this.allConnections();
+      if (conns.length === 1) {
+        this.importConnectionId.set(conns[0].id);
+        this.fetchRemoteProjects();
+      }
+    }
+  }
+
+  onImportConnectionChange(connectionId: string): void {
+    this.importConnectionId.set(connectionId);
+    this.importCandidates.set([]);
+    this.importError.set(null);
+    this.importSaveError.set(null);
+    this.importFetchComplete.set(false);
+    if (connectionId) {
+      this.fetchRemoteProjects();
+    }
+  }
+
+  fetchRemoteProjects(): void {
+    const connectionId = this.importConnectionId();
+    if (!connectionId) return;
+
+    this.importLoading.set(true);
+    this.importError.set(null);
+    this.importCandidates.set([]);
+    this.importFetchComplete.set(false);
+
+    this.platformService.getRemoteProjects(connectionId).subscribe({
+      next: (remoteProjects) => {
+        const existingKeys = new Set(
+          this.projectStates()
+            .map((ps) => ps.project.externalProjectId)
+            .filter(Boolean),
+        );
+        const candidates: ImportCandidate[] = remoteProjects.map((rp) => ({
+          remote: rp,
+          selected: false,
+          name: rp.name,
+          description: rp.description ?? '',
+          defaultBranch: 'main',
+          repositoryUrl: rp.url ?? '',
+          branchNamingTemplate: '{strategy}/{ticket}-{description}',
+        }));
+        candidates.forEach((c) => {
+          if (existingKeys.has(c.remote.key)) {
+            (c as any)._alreadyImported = true;
+          }
+        });
+        this.importCandidates.set(candidates);
+        this.importFetchComplete.set(true);
+        this.importLoading.set(false);
+      },
+      error: (err: any) => {
+        const msg = err?.error?.message || err?.message || 'Failed to fetch projects. Please check the connection.';
+        this.importError.set(msg);
+        this.importFetchComplete.set(true);
+        this.importLoading.set(false);
+      },
+    });
+  }
+
+  toggleCandidateSelection(index: number): void {
+    const candidates = [...this.importCandidates()];
+    candidates[index] = { ...candidates[index], selected: !candidates[index].selected };
+    this.importCandidates.set(candidates);
+  }
+
+  selectAllCandidates(): void {
+    const candidates = this.importCandidates().map((c) => ({
+      ...c,
+      selected: !this.isAlreadyImported(c),
+    }));
+    this.importCandidates.set(candidates);
+  }
+
+  deselectAllCandidates(): void {
+    const candidates = this.importCandidates().map((c) => ({ ...c, selected: false }));
+    this.importCandidates.set(candidates);
+  }
+
+  updateCandidateName(index: number, value: string): void {
+    const candidates = [...this.importCandidates()];
+    candidates[index] = { ...candidates[index], name: value };
+    this.importCandidates.set(candidates);
+  }
+
+  updateCandidateDescription(index: number, value: string): void {
+    const candidates = [...this.importCandidates()];
+    candidates[index] = { ...candidates[index], description: value };
+    this.importCandidates.set(candidates);
+  }
+
+  updateCandidateBranch(index: number, value: string): void {
+    const candidates = [...this.importCandidates()];
+    candidates[index] = { ...candidates[index], defaultBranch: value };
+    this.importCandidates.set(candidates);
+  }
+
+  updateCandidateRepoUrl(index: number, value: string): void {
+    const candidates = [...this.importCandidates()];
+    candidates[index] = { ...candidates[index], repositoryUrl: value };
+    this.importCandidates.set(candidates);
+  }
+
+  getSelectedCandidates(): ImportCandidate[] {
+    return this.importCandidates().filter((c) => c.selected);
+  }
+
+  isAlreadyImported(candidate: ImportCandidate): boolean {
+    return !!(candidate as any)._alreadyImported;
+  }
+
+  canImport(): boolean {
+    return this.getSelectedCandidates().length > 0 && !this.importSaving();
+  }
+
+  importSelected(): void {
+    const selected = this.getSelectedCandidates();
+    if (selected.length === 0) return;
+
+    this.importSaving.set(true);
+    this.importSaveError.set(null);
+    this.importProgress.set({ done: 0, total: selected.length });
+
+    let completed = 0;
+    let errors = 0;
+
+    selected.forEach((candidate) => {
+      const project: Partial<Project> = {
+        name: candidate.name.trim(),
+        description: candidate.description.trim() || undefined,
+        defaultBranch: candidate.defaultBranch.trim() || 'main',
+        repositoryUrl: candidate.repositoryUrl.trim() || undefined,
+        connectionId: this.importConnectionId(),
+        externalProjectId: candidate.remote.key,
+        branchNamingTemplate: candidate.branchNamingTemplate || '{strategy}/{ticket}-{description}',
+      };
+
+      this.projectService.createProject(project).subscribe({
+        next: (created) => {
+          completed++;
+          this.importProgress.set({ done: completed + errors, total: selected.length });
+          const newState: ProjectMappingState = {
+            project: created,
+            expanded: false,
+            mappings: [],
+            remoteStatuses: [],
+            saving: false,
+            saveSuccess: false,
+            saveError: null,
+            loading: false,
+            fetchingStatuses: false,
+            fetchError: null,
+            connectionName: this.getConnectionName(created.connectionId, this.allConnections()),
+          };
+          this.projectStates.set([...this.projectStates(), newState]);
+
+          if (completed + errors === selected.length) {
+            this.finishImport(errors);
+          }
+        },
+        error: () => {
+          errors++;
+          this.importProgress.set({ done: completed + errors, total: selected.length });
+          if (completed + errors === selected.length) {
+            this.finishImport(errors);
+          }
+        },
+      });
+    });
+  }
+
+  // ===== STEP 4: Branch & Workflow =====
 
   toggleProject(index: number): void {
     const states = [...this.projectStates()];
@@ -354,7 +800,7 @@ export class ProjectConfigComponent implements OnInit {
       },
       error: () => {
         const updated = [...this.projectStates()];
-        const conn = this.connections().find((c) => c.id === project.connectionId);
+        const conn = this.allConnections().find((c) => c.id === project.connectionId);
         const platformType = conn?.platformType ?? 'UNKNOWN';
         const mockStatuses = this.getMockStatuses(platformType);
         updated[index] = {
@@ -372,7 +818,7 @@ export class ProjectConfigComponent implements OnInit {
     const states = [...this.projectStates()];
     const state = { ...states[index] };
     state.project = { ...state.project, connectionId: connectionId || undefined };
-    state.connectionName = this.getConnectionName(connectionId, this.connections());
+    state.connectionName = this.getConnectionName(connectionId, this.allConnections());
     state.remoteStatuses = [];
     states[index] = state;
     this.projectStates.set(states);
@@ -383,6 +829,14 @@ export class ProjectConfigComponent implements OnInit {
     const state = { ...states[index] };
     state.project = { ...state.project, externalProjectId: value || undefined };
     state.remoteStatuses = [];
+    states[index] = state;
+    this.projectStates.set(states);
+  }
+
+  updateBranchNamingTemplate(index: number, value: string): void {
+    const states = [...this.projectStates()];
+    const state = { ...states[index] };
+    state.project = { ...state.project, branchNamingTemplate: value };
     states[index] = state;
     this.projectStates.set(states);
   }
@@ -466,12 +920,13 @@ export class ProjectConfigComponent implements OnInit {
           this.projectStates.set(current);
         }, 3000);
       },
-      error: () => {
+      error: (err: any) => {
+        const msg = err?.error?.message || 'Failed to save mappings. Please try again.';
         const updated = [...this.projectStates()];
         updated[index] = {
           ...updated[index],
           saving: false,
-          saveError: 'Failed to save mappings. Please try again.',
+          saveError: msg,
         };
         this.projectStates.set(updated);
         setTimeout(() => {
@@ -491,20 +946,63 @@ export class ProjectConfigComponent implements OnInit {
       .join(' ');
   }
 
-  platformIcon(type: string): string {
-    switch (type) {
-      case 'GITHUB': return 'GitHub';
-      case 'GITLAB': return 'GitLab';
-      case 'JIRA_CLOUD': return 'Jira Cloud';
-      case 'JIRA_SERVER': return 'Jira Server / DC';
-      case 'AZURE_DEVOPS': return 'Azure DevOps';
-      case 'BITBUCKET': return 'Bitbucket';
-      default: return type;
+  canFetchStatuses(ps: ProjectMappingState): boolean {
+    return !!ps.project.connectionId && !!ps.project.externalProjectId && !ps.fetchingStatuses;
+  }
+
+  getConnectionPlatformType(connectionId: string | undefined): string | null {
+    if (!connectionId) return null;
+    const conn = this.allConnections().find((c) => c.id === connectionId);
+    return conn ? conn.platformType : null;
+  }
+
+  getConnectionStatus(connectionId: string | undefined): string | null {
+    if (!connectionId) return null;
+    const conn = this.allConnections().find((c) => c.id === connectionId);
+    return conn ? conn.status : null;
+  }
+
+  getMappingLabel(ps: ProjectMappingState): string {
+    if (ps.expanded) {
+      return `${ps.mappings.length} mapping${ps.mappings.length !== 1 ? 's' : ''}`;
+    }
+    return 'Not configured';
+  }
+
+  // --- Private helpers ---
+
+  private categorizeConnections(connections: PlatformConnection[]): void {
+    const tickets: PlatformConnection[] = [];
+    const remotes: PlatformConnection[] = [];
+    connections.forEach((c) => {
+      if (c.platformCategory === 'GIT_REMOTE' || GIT_REMOTE_TYPES.has(c.platformType)) {
+        remotes.push(c);
+      } else {
+        tickets.push(c);
+      }
+    });
+    this.ticketProviders.set(tickets);
+    this.gitRemotes.set(remotes);
+  }
+
+  private finishImport(errors: number): void {
+    this.importSaving.set(false);
+    if (errors > 0) {
+      this.importSaveError.set(`${errors} project(s) failed to import. The rest were imported successfully.`);
+    } else {
+      this.showImportPanel.set(false);
+      this.resetImportState();
     }
   }
 
-  canFetchStatuses(ps: ProjectMappingState): boolean {
-    return !!ps.project.connectionId && !!ps.project.externalProjectId && !ps.fetchingStatuses;
+  private resetImportState(): void {
+    this.importConnectionId.set('');
+    this.importCandidates.set([]);
+    this.importLoading.set(false);
+    this.importError.set(null);
+    this.importSaveError.set(null);
+    this.importProgress.set(null);
+    this.importFetchComplete.set(false);
   }
 
   private getConnectionName(connectionId: string | undefined, connections: PlatformConnection[]): string | null {
@@ -528,11 +1026,15 @@ export class ProjectConfigComponent implements OnInit {
     }
   }
 
-  private newProviderForm(): ProviderForm {
+  private newTicketForm(): ProviderForm {
     return { name: '', platformType: 'JIRA_CLOUD', baseUrl: '', authType: 'API Token', credentials: {} };
   }
 
-  private newProjectForm(): ProjectForm {
-    return { name: '', description: '', defaultBranch: 'main', connectionId: '', externalProjectId: '' };
+  private newGitForm(): ProviderForm {
+    return { name: '', platformType: 'GITHUB', baseUrl: 'https://api.github.com', authType: 'PAT', credentials: {} };
+  }
+
+  private newSshKeyForm(): SshKeyForm {
+    return { connectionId: '', name: '', publicKey: '', privateKey: '', keyType: 'ED25519' };
   }
 }

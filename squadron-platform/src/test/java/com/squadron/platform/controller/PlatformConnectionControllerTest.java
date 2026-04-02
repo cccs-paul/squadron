@@ -3,6 +3,7 @@ package com.squadron.platform.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.platform.config.SecurityConfig;
 import com.squadron.platform.dto.CreateConnectionRequest;
+import com.squadron.platform.dto.PlatformProjectDto;
 import com.squadron.platform.entity.PlatformConnection;
 import com.squadron.platform.service.PlatformConnectionService;
 import org.junit.jupiter.api.Test;
@@ -317,6 +318,119 @@ class PlatformConnectionControllerTest {
     void should_return401_when_getStatusesUnauthenticated() throws Exception {
         mockMvc.perform(get("/api/platforms/connections/{id}/statuses", UUID.randomUUID())
                         .param("projectKey", "PROJ-1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // --- GET /api/platforms/connections/{id}/projects ---
+
+    @Test
+    @WithMockUser
+    void should_getRemoteProjects_when_validRequest() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+        List<PlatformProjectDto> projects = List.of(
+                PlatformProjectDto.builder()
+                        .key("PROJ")
+                        .name("My Project")
+                        .description("A test project")
+                        .url("https://example.atlassian.net/browse/PROJ")
+                        .avatarUrl("https://example.atlassian.net/avatar.png")
+                        .build(),
+                PlatformProjectDto.builder()
+                        .key("DEMO")
+                        .name("Demo Project")
+                        .description(null)
+                        .url("https://example.atlassian.net/browse/DEMO")
+                        .avatarUrl(null)
+                        .build()
+        );
+
+        when(connectionService.fetchProjects(connectionId)).thenReturn(projects);
+
+        mockMvc.perform(get("/api/platforms/connections/{id}/projects", connectionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data[0].key").value("PROJ"))
+                .andExpect(jsonPath("$.data[0].name").value("My Project"))
+                .andExpect(jsonPath("$.data[0].description").value("A test project"))
+                .andExpect(jsonPath("$.data[0].url").value("https://example.atlassian.net/browse/PROJ"))
+                .andExpect(jsonPath("$.data[0].avatarUrl").value("https://example.atlassian.net/avatar.png"))
+                .andExpect(jsonPath("$.data[1].key").value("DEMO"))
+                .andExpect(jsonPath("$.data[1].name").value("Demo Project"))
+                .andExpect(jsonPath("$.data[1].description").doesNotExist());
+
+        verify(connectionService).fetchProjects(connectionId);
+    }
+
+    @Test
+    @WithMockUser
+    void should_returnEmptyProjects_when_noRemoteProjects() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+
+        when(connectionService.fetchProjects(connectionId)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/platforms/connections/{id}/projects", connectionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void should_return401_when_getProjectsUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/platforms/connections/{id}/projects", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // --- GET /api/platforms/connections/tenant/{tenantId}/category/{category} ---
+
+    @Test
+    @WithMockUser
+    void should_listByTenantAndCategory_when_gitRemote() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+
+        PlatformConnection conn = PlatformConnection.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .name("GitHub - Org")
+                .platformType("GITHUB")
+                .baseUrl("https://api.github.com")
+                .authType("PAT")
+                .status("ACTIVE")
+                .platformCategory("GIT_REMOTE")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+
+        when(connectionService.listConnectionsByTenantAndCategory(tenantId, "GIT_REMOTE"))
+                .thenReturn(List.of(conn));
+
+        mockMvc.perform(get("/api/platforms/connections/tenant/{tenantId}/category/{category}", tenantId, "GIT_REMOTE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].name").value("GitHub - Org"))
+                .andExpect(jsonPath("$.data[0].platformType").value("GITHUB"));
+    }
+
+    @Test
+    @WithMockUser
+    void should_returnEmptyList_when_noCategoryConnections() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+
+        when(connectionService.listConnectionsByTenantAndCategory(tenantId, "TICKET_PROVIDER"))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/platforms/connections/tenant/{tenantId}/category/{category}", tenantId, "TICKET_PROVIDER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void should_return401_when_listByCategoryUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/platforms/connections/tenant/{tenantId}/category/{category}",
+                UUID.randomUUID(), "GIT_REMOTE"))
                 .andExpect(status().isUnauthorized());
     }
 

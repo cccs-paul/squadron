@@ -180,7 +180,7 @@ class ConnectionInfoResponseTest {
         Instant createdAt = Instant.now();
 
         ConnectionInfoResponse response = new ConnectionInfoResponse(
-                id, tenantId, "Azure DevOps Conn", "AZURE_DEVOPS", "https://dev.azure.com", "PAT", "ACTIVE", createdAt
+                id, tenantId, "Azure DevOps Conn", "AZURE_DEVOPS", "TICKET_PROVIDER", "https://dev.azure.com", "PAT", "ACTIVE", createdAt
         );
 
         assertEquals(id, response.getId());

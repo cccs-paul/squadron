@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.platform.adapter.TicketingPlatformAdapter;
+import com.squadron.platform.config.AdapterErrorHelper;
+import com.squadron.platform.config.WebClientSslHelper;
+import com.squadron.platform.dto.PlatformProjectDto;
 import com.squadron.platform.dto.PlatformTaskDto;
 import com.squadron.platform.dto.PlatformTaskFilter;
 import org.slf4j.Logger;
@@ -30,14 +33,14 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
     private static final Logger log = LoggerFactory.getLogger(GitLabIssuesAdapter.class);
     private static final String PLATFORM_TYPE = "GITLAB";
 
-    private final WebClient.Builder webClientBuilder;
+    private final WebClientSslHelper sslHelper;
     private final ObjectMapper objectMapper;
     private WebClient webClient;
     private String baseUrl;
     private String accessToken;
 
-    public GitLabIssuesAdapter(WebClient.Builder webClientBuilder) {
-        this.webClientBuilder = webClientBuilder;
+    public GitLabIssuesAdapter(WebClientSslHelper sslHelper) {
+        this.sslHelper = sslHelper;
         this.objectMapper = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
@@ -48,12 +51,12 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
     }
 
     @Override
-    public void configure(String baseUrl, String accessToken) {
+    public void configure(String baseUrl, Map<String, String> credentials) {
         this.baseUrl = baseUrl;
-        this.accessToken = accessToken;
-        this.webClient = webClientBuilder
+        this.accessToken = resolveToken(credentials);
+        this.webClient = sslHelper.trustedBuilder()
                 .baseUrl(baseUrl + "/api/v4")
-                .defaultHeader("PRIVATE-TOKEN", accessToken)
+                .defaultHeader("PRIVATE-TOKEN", this.accessToken)
                 .defaultHeader("Accept", "application/json")
                 .defaultHeader("Content-Type", "application/json")
                 .build();
@@ -63,30 +66,34 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
     @Override
     public List<PlatformTaskDto> fetchTasks(String projectKey, PlatformTaskFilter filter) {
         log.info("Fetching issues from GitLab for project {}", projectKey);
-
-        StringBuilder uri = new StringBuilder("/projects/" + projectKey + "/issues?");
-
-        int maxResults = 50;
-        if (filter != null) {
-            if (filter.getStatus() != null && !filter.getStatus().isBlank()) {
-                uri.append("state=").append(filter.getStatus()).append("&");
-            }
-            if (filter.getAssignee() != null && !filter.getAssignee().isBlank()) {
-                uri.append("assignee_username=").append(filter.getAssignee()).append("&");
-            }
-            if (filter.getMaxResults() != null) {
-                maxResults = filter.getMaxResults();
-            }
-        }
-        uri.append("per_page=").append(maxResults);
-
-        String responseBody = webClient.get()
-                .uri(uri.toString())
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
-
         try {
+            StringBuilder uri = new StringBuilder("/projects/" + projectKey + "/issues?");
+
+            int maxResults = 50;
+            if (filter != null) {
+                if (filter.getStatus() != null && !filter.getStatus().isBlank()) {
+                    uri.append("state=").append(filter.getStatus()).append("&");
+                }
+                if (filter.getAssignee() != null && !filter.getAssignee().isBlank()) {
+                    uri.append("assignee_username=").append(filter.getAssignee()).append("&");
+                }
+                if (filter.getMaxResults() != null) {
+                    maxResults = filter.getMaxResults();
+                }
+            }
+            uri.append("per_page=").append(maxResults);
+
+            String responseBody = webClient.get()
+                    .uri(uri.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            String htmlError = AdapterErrorHelper.checkForHtmlResponse(responseBody, log);
+            if (htmlError != null) {
+                throw new RuntimeException("Failed to fetch tasks from GitLab: " + htmlError);
+            }
+
             List<Map<String, Object>> issues = objectMapper.readValue(
                     responseBody, new TypeReference<>() {});
 
@@ -95,81 +102,111 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
                 tasks.add(mapIssueToDto(projectKey, issue));
             }
             return tasks;
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse GitLab issues response", e);
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to fetch tasks from GitLab for project {}: {}", projectKey, message, e);
+            throw new RuntimeException("Failed to fetch tasks from GitLab: " + message, e);
         }
     }
 
     @Override
     public PlatformTaskDto getTask(String externalId) {
         log.info("Getting issue {} from GitLab", externalId);
-
-        String[] parts = parseExternalId(externalId);
-        String projectId = parts[0];
-        String issueIid = parts[1];
-
-        String uri = "/projects/" + projectId + "/issues/" + issueIid;
-
-        String responseBody = webClient.get()
-                .uri(uri)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
-
         try {
+            String[] parts = parseExternalId(externalId);
+            String projectId = parts[0];
+            String issueIid = parts[1];
+
+            String uri = "/projects/" + projectId + "/issues/" + issueIid;
+
+            String responseBody = webClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            String htmlError = AdapterErrorHelper.checkForHtmlResponse(responseBody, log);
+            if (htmlError != null) {
+                throw new RuntimeException("Failed to get task from GitLab: " + htmlError);
+            }
+
             Map<String, Object> issue = objectMapper.readValue(
                     responseBody, new TypeReference<>() {});
             return mapIssueToDto(projectId, issue);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse GitLab issue response", e);
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to get task {} from GitLab: {}", externalId, message, e);
+            throw new RuntimeException("Failed to get task from GitLab: " + message, e);
         }
     }
 
     @Override
     public void updateTaskStatus(String externalId, String status, String comment) {
         log.info("Updating issue {} status to {} on GitLab", externalId, status);
+        try {
+            String[] parts = parseExternalId(externalId);
+            String projectId = parts[0];
+            String issueIid = parts[1];
 
-        String[] parts = parseExternalId(externalId);
-        String projectId = parts[0];
-        String issueIid = parts[1];
+            String stateEvent;
+            if ("closed".equalsIgnoreCase(status) || "close".equalsIgnoreCase(status)) {
+                stateEvent = "close";
+            } else {
+                stateEvent = "reopen";
+            }
 
-        String stateEvent;
-        if ("closed".equalsIgnoreCase(status) || "close".equalsIgnoreCase(status)) {
-            stateEvent = "close";
-        } else {
-            stateEvent = "reopen";
-        }
+            String uri = "/projects/" + projectId + "/issues/" + issueIid;
 
-        String uri = "/projects/" + projectId + "/issues/" + issueIid;
+            webClient.put()
+                    .uri(uri)
+                    .bodyValue(Map.of("state_event", stateEvent))
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
 
-        webClient.put()
-                .uri(uri)
-                .bodyValue(Map.of("state_event", stateEvent))
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
-
-        if (comment != null && !comment.isBlank()) {
-            addComment(externalId, comment);
+            if (comment != null && !comment.isBlank()) {
+                addComment(externalId, comment);
+            }
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to update task {} status on GitLab: {}", externalId, message, e);
+            throw new RuntimeException("Failed to update task status on GitLab: " + message, e);
         }
     }
 
     @Override
     public void addComment(String externalId, String comment) {
         log.info("Adding comment to issue {} on GitLab", externalId);
+        try {
+            String[] parts = parseExternalId(externalId);
+            String projectId = parts[0];
+            String issueIid = parts[1];
 
-        String[] parts = parseExternalId(externalId);
-        String projectId = parts[0];
-        String issueIid = parts[1];
+            String uri = "/projects/" + projectId + "/issues/" + issueIid + "/notes";
 
-        String uri = "/projects/" + projectId + "/issues/" + issueIid + "/notes";
-
-        webClient.post()
-                .uri(uri)
-                .bodyValue(Map.of("body", comment))
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
+            webClient.post()
+                    .uri(uri)
+                    .bodyValue(Map.of("body", comment))
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to add comment to task {} on GitLab: {}", externalId, message, e);
+            throw new RuntimeException("Failed to add comment on GitLab: " + message, e);
+        }
     }
 
     @Override
@@ -195,8 +232,55 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
             log.info("GitLab connection test successful");
             return true;
         } catch (Exception e) {
-            log.error("GitLab connection test failed", e);
+            String classified = AdapterErrorHelper.classifyError(e);
+            log.error("GitLab connection test failed: {}", classified != null ? classified : e.getMessage(), e);
             return false;
+        }
+    }
+
+    @Override
+    public List<PlatformProjectDto> getProjects() {
+        log.info("Fetching projects from GitLab");
+        try {
+            String responseBody = webClient.get()
+                    .uri("/projects?membership=true&per_page=100&order_by=updated_at")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            String htmlError = AdapterErrorHelper.checkForHtmlResponse(responseBody, log);
+            if (htmlError != null) {
+                throw new RuntimeException("Failed to fetch projects from GitLab: " + htmlError);
+            }
+
+            List<Map<String, Object>> projects = objectMapper.readValue(
+                    responseBody, new TypeReference<List<Map<String, Object>>>() {});
+
+            List<PlatformProjectDto> result = new ArrayList<>();
+            for (Map<String, Object> project : projects) {
+                Object idObj = project.get("id");
+                String key = idObj != null ? String.valueOf(idObj) : null;
+                String name = (String) project.get("name");
+                String description = (String) project.get("description");
+                String webUrl = (String) project.get("web_url");
+                String avatarUrl = (String) project.get("avatar_url");
+
+                result.add(PlatformProjectDto.builder()
+                        .key(key)
+                        .name(name)
+                        .description(description)
+                        .url(webUrl)
+                        .avatarUrl(avatarUrl)
+                        .build());
+            }
+            return result;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            String classified = AdapterErrorHelper.classifyError(e);
+            String message = classified != null ? classified : e.getMessage();
+            log.error("Failed to fetch projects from GitLab: {}", message, e);
+            throw new RuntimeException("Failed to fetch projects from GitLab: " + message, e);
         }
     }
 
@@ -277,5 +361,18 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
             }
         }
         return null;
+    }
+
+    /**
+     * Extracts a single token value from the credentials map by checking known token field names.
+     */
+    private String resolveToken(Map<String, String> credentials) {
+        for (String key : List.of("accessToken", "pat", "apiKey", "apiToken")) {
+            String value = credentials.get(key);
+            if (value != null && !value.isEmpty()) {
+                return value;
+            }
+        }
+        return "";
     }
 }

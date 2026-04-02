@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AgentConfigService, AgentConfig } from '../../../core/services/agent-config.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'sq-agent-config',
@@ -11,6 +12,7 @@ import { AgentConfigService, AgentConfig } from '../../../core/services/agent-co
 })
 export class AgentConfigComponent implements OnInit {
   private configService = inject(AgentConfigService);
+  private authService = inject(AuthService);
 
   loading = signal(true);
   saving = signal(false);
@@ -28,7 +30,10 @@ export class AgentConfigComponent implements OnInit {
   agentOverrides: Record<string, { provider: string; modelName: string; temperature: number; maxTokens: number }> = {};
   selectedOverrideType = '';
 
-  readonly tenantId = 'demo-tenant-001';
+  get tenantId(): string {
+    return this.authService.user()?.tenantId ?? '';
+  }
+
   readonly providers = ['OpenAI', 'Ollama'];
   readonly agentTypes = ['PLANNING', 'CODING', 'REVIEW', 'QA'];
 

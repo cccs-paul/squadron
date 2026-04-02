@@ -1,11 +1,27 @@
 import { TestBed } from '@angular/core/testing';
 import { WebSocketService } from './websocket.service';
+import { AuthService } from '../auth/auth.service';
 
 describe('WebSocketService', () => {
   let service: WebSocketService;
+  let authServiceStub: any;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    authServiceStub = {
+      user: jasmine.createSpy('user').and.returnValue({
+        id: 'u1', username: 'admin', email: 'admin@acme.com',
+        displayName: 'Admin User', tenantId: '1', tenantName: 'Acme Corp',
+        roles: ['ADMIN'], permissions: [],
+      }),
+      isAuthenticated: jasmine.createSpy('isAuthenticated').and.returnValue(true),
+      getAccessToken: jasmine.createSpy('getAccessToken').and.returnValue('mock-ws-token'),
+    };
+
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: AuthService, useValue: authServiceStub },
+      ],
+    });
     service = TestBed.inject(WebSocketService);
   });
 
@@ -80,5 +96,17 @@ describe('WebSocketService', () => {
     } catch (_e) {
       // May fail without real WS server, but observable should be created
     }
+  });
+
+  it('should_includeAccessToken_when_buildingWsUrl', () => {
+    const url = (service as any).buildWsUrl();
+    expect(url).toContain('?access_token=mock-ws-token');
+  });
+
+  it('should_buildWsUrlWithoutToken_when_noAccessToken', () => {
+    authServiceStub.getAccessToken.and.returnValue(null);
+    const url = (service as any).buildWsUrl();
+    expect(url).toContain('/agent/websocket');
+    expect(url).not.toContain('access_token');
   });
 });

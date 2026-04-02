@@ -48,20 +48,20 @@ public class GatewayConfig {
                 .route("auth-service", r -> r
                         .path("/api/auth/**")
                         .uri(identityUri))
+                .route("tenant-service", r -> r
+                        .path("/api/tenants/**")
+                        .uri(identityUri))
                 .route("identity-service", r -> r
                         .path("/api/identity/**")
-                        .filters(f -> f.stripPrefix(2))
                         .uri(identityUri))
                 .route("config-service", r -> r
                         .path("/api/config/**")
-                        .filters(f -> f.stripPrefix(2))
                         .uri(configUri))
                 .route("orchestrator-projects", r -> r
                         .path("/api/projects/**")
                         .uri(orchestratorUri))
                 .route("orchestrator-service", r -> r
                         .path("/api/tasks/**")
-                        .filters(f -> f.stripPrefix(2))
                         .uri(orchestratorUri))
                 .route("platform-service", r -> r
                         .path("/api/platforms/**")
@@ -74,23 +74,18 @@ public class GatewayConfig {
                         .uri(agentUri))
                 .route("agent-service", r -> r
                         .path("/api/agents/**")
-                        .filters(f -> f.stripPrefix(2))
                         .uri(agentUri))
                 .route("workspace-service", r -> r
                         .path("/api/workspaces/**")
-                        .filters(f -> f.stripPrefix(2))
                         .uri(workspaceUri))
                 .route("git-service", r -> r
                         .path("/api/git/**")
-                        .filters(f -> f.stripPrefix(2))
                         .uri(gitUri))
                 .route("review-service", r -> r
                         .path("/api/reviews/**")
-                        .filters(f -> f.stripPrefix(2))
                         .uri(reviewUri))
                 .route("notification-service", r -> r
                         .path("/api/notifications/**")
-                        .filters(f -> f.stripPrefix(2))
                         .uri(notificationUri))
                 .build();
     }

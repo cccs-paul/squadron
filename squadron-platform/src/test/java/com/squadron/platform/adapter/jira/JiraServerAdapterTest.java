@@ -1,5 +1,6 @@
 package com.squadron.platform.adapter.jira;
 
+import com.squadron.platform.config.WebClientSslHelper;
 import com.squadron.platform.dto.PlatformTaskDto;
 import com.squadron.platform.dto.PlatformTaskFilter;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +12,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,6 +21,9 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class JiraServerAdapterTest {
+
+    @Mock
+    private WebClientSslHelper sslHelper;
 
     @Mock
     private WebClient.Builder webClientBuilder;
@@ -47,14 +52,15 @@ class JiraServerAdapterTest {
 
     @BeforeEach
     void setUp() {
-        adapter = new JiraServerAdapter(webClientBuilder);
+        adapter = new JiraServerAdapter(sslHelper);
     }
 
     private void configureAdapter() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
-        adapter.configure("https://jira.mycompany.com", "my-pat");
+        adapter.configure("https://jira.mycompany.com", Map.of("pat", "my-pat"));
     }
 
     @SuppressWarnings("unchecked")
@@ -83,11 +89,12 @@ class JiraServerAdapterTest {
 
     @Test
     void should_configureAdapter() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
         when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
         when(webClientBuilder.build()).thenReturn(webClient);
 
-        adapter.configure("https://jira.mycompany.com", "my-pat");
+        adapter.configure("https://jira.mycompany.com", Map.of("pat", "my-pat"));
 
         verify(webClientBuilder).baseUrl("https://jira.mycompany.com/rest/api/2");
     }
@@ -513,5 +520,97 @@ class JiraServerAdapterTest {
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.error(new RuntimeException("404")));
 
         assertThrows(RuntimeException.class, () -> adapter.getAvailableStatuses("BADPROJ"));
+    }
+
+    // --- getProjects ---
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_getProjects_when_configured() {
+        configureAdapter();
+        setupGetMock();
+
+        String jsonResponse = """
+                [
+                  {
+                    "key": "PROJ",
+                    "name": "Server Project",
+                    "description": "A JIRA Server project",
+                    "avatarUrls": {
+                      "48x48": "https://jira.mycompany.com/avatar/proj.png"
+                    }
+                  },
+                  {
+                    "key": "TEST",
+                    "name": "Test Project",
+                    "description": null,
+                    "avatarUrls": {}
+                  }
+                ]
+                """;
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(jsonResponse));
+
+        var projects = adapter.getProjects();
+
+        assertNotNull(projects);
+        assertEquals(2, projects.size());
+
+        assertEquals("PROJ", projects.get(0).getKey());
+        assertEquals("Server Project", projects.get(0).getName());
+        assertEquals("A JIRA Server project", projects.get(0).getDescription());
+        assertTrue(projects.get(0).getUrl().contains("/browse/PROJ"));
+        assertEquals("https://jira.mycompany.com/avatar/proj.png", projects.get(0).getAvatarUrl());
+
+        assertEquals("TEST", projects.get(1).getKey());
+        assertNull(projects.get(1).getDescription());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_returnEmptyProjects_when_noProjects() {
+        configureAdapter();
+        setupGetMock();
+
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just("[]"));
+
+        var projects = adapter.getProjects();
+        assertNotNull(projects);
+        assertTrue(projects.isEmpty());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_throwException_when_getProjectsFails() {
+        configureAdapter();
+        setupGetMock();
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.error(new RuntimeException("500")));
+
+        assertThrows(RuntimeException.class, () -> adapter.getProjects());
+    }
+
+    // --- HTML response detection ---
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_throwException_when_getProjectsReceivesHtmlResponse() {
+        configureAdapter();
+        setupGetMock();
+        String htmlResponse = "<html><body><h1>Login Required</h1></body></html>";
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(htmlResponse));
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> adapter.getProjects());
+        assertTrue(ex.getMessage().contains("Received HTML instead of JSON"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_throwException_when_fetchTasksReceivesHtmlResponse() {
+        configureAdapter();
+        setupGetMock();
+        String htmlResponse = "<!DOCTYPE html><html><body>Error</body></html>";
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(htmlResponse));
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> adapter.fetchTasks("PROJ", null));
+        assertTrue(ex.getMessage().contains("Received HTML instead of JSON"));
     }
 }

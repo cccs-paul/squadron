@@ -13,6 +13,9 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,9 +43,14 @@ public class ProjectController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('squadron-admin','team-lead')")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
     @Operation(summary = "Create a new project")
-    public ResponseEntity<ApiResponse<Project>> createProject(@Valid @RequestBody CreateProjectRequest request) {
+    public ResponseEntity<ApiResponse<Project>> createProject(
+            @Valid @RequestBody CreateProjectRequest request) {
+        // Extract tenantId from JWT if not provided in request body
+        if (request.getTenantId() == null) {
+            request.setTenantId(extractTenantId());
+        }
         Project project = projectService.createProject(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(project));
     }
@@ -110,5 +118,16 @@ public class ProjectController {
     @Operation(summary = "List all available internal workflow states")
     public ResponseEntity<ApiResponse<List<String>>> getWorkflowStates() {
         return ResponseEntity.ok(ApiResponse.success(mappingService.getAvailableInternalStates()));
+    }
+
+    private UUID extractTenantId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            String tenantIdStr = jwtAuth.getToken().getClaimAsString("tenant_id");
+            if (tenantIdStr != null) {
+                return UUID.fromString(tenantIdStr);
+            }
+        }
+        throw new IllegalArgumentException("No tenant_id claim found in JWT");
     }
 }
