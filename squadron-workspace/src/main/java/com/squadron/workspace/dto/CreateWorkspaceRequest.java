@@ -35,4 +35,6 @@ public class CreateWorkspaceRequest {
     private Map<String, Object> resourceLimits;
 
     private String accessToken;
+
+    private String sshPrivateKey;
 }

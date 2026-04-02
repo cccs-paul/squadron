@@ -238,4 +238,28 @@ class SshKeyControllerTest {
                 .andExpect(jsonPath("$.data.publicKey").exists())
                 .andExpect(jsonPath("$.data.privateKey").doesNotExist());
     }
+
+    // --- GET /api/platforms/ssh-keys/{id}/private-key (internal endpoint) ---
+
+    @Test
+    @WithMockUser
+    void should_getDecryptedPrivateKey_when_authenticated() throws Exception {
+        UUID keyId = UUID.randomUUID();
+        String decryptedKey = "-----BEGIN OPENSSH PRIVATE KEY-----\nactual-private-key\n-----END OPENSSH PRIVATE KEY-----";
+
+        when(sshKeyService.getDecryptedPrivateKey(keyId)).thenReturn(decryptedKey);
+
+        mockMvc.perform(get("/api/platforms/ssh-keys/{id}/private-key", keyId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(decryptedKey));
+
+        verify(sshKeyService).getDecryptedPrivateKey(keyId);
+    }
+
+    @Test
+    void should_return401_when_getDecryptedPrivateKeyUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/platforms/ssh-keys/{id}/private-key", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
 }

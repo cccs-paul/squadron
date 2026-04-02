@@ -1,6 +1,7 @@
 package com.squadron.workspace.controller;
 
 import com.squadron.common.dto.ApiResponse;
+import com.squadron.workspace.client.ResilientPlatformServiceClient;
 import com.squadron.workspace.dto.CreateWorkspaceRequest;
 import com.squadron.workspace.dto.ExecRequest;
 import com.squadron.workspace.dto.ExecResult;
@@ -8,6 +9,8 @@ import com.squadron.workspace.dto.WorkspaceDto;
 import com.squadron.workspace.service.WorkspaceGitService;
 import com.squadron.workspace.service.WorkspaceService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -28,13 +31,18 @@ import java.util.UUID;
 @RequestMapping("/api/workspaces")
 public class WorkspaceController {
 
+    private static final Logger log = LoggerFactory.getLogger(WorkspaceController.class);
+
     private final WorkspaceService workspaceService;
     private final WorkspaceGitService workspaceGitService;
+    private final ResilientPlatformServiceClient platformServiceClient;
 
     public WorkspaceController(WorkspaceService workspaceService,
-                                WorkspaceGitService workspaceGitService) {
+                                WorkspaceGitService workspaceGitService,
+                                ResilientPlatformServiceClient platformServiceClient) {
         this.workspaceService = workspaceService;
         this.workspaceGitService = workspaceGitService;
+        this.platformServiceClient = platformServiceClient;
     }
 
     @PostMapping
@@ -109,8 +117,10 @@ public class WorkspaceController {
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
     public ResponseEntity<ApiResponse<ExecResult>> cloneRepo(
             @PathVariable UUID id,
-            @RequestParam(required = false) String accessToken) {
-        ExecResult result = workspaceGitService.cloneRepository(id, accessToken);
+            @RequestParam(required = false) String accessToken,
+            @RequestParam(required = false) UUID sshKeyId) {
+        String sshPrivateKey = resolveSshPrivateKey(sshKeyId);
+        ExecResult result = workspaceGitService.cloneRepository(id, accessToken, sshPrivateKey);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -140,8 +150,10 @@ public class WorkspaceController {
     public ResponseEntity<ApiResponse<ExecResult>> pushChanges(
             @PathVariable UUID id,
             @RequestParam(required = false) String branch,
-            @RequestParam(required = false) String accessToken) {
-        ExecResult result = workspaceGitService.pushChanges(id, branch, accessToken);
+            @RequestParam(required = false) String accessToken,
+            @RequestParam(required = false) UUID sshKeyId) {
+        String sshPrivateKey = resolveSshPrivateKey(sshKeyId);
+        ExecResult result = workspaceGitService.pushChanges(id, branch, accessToken, sshPrivateKey);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -157,6 +169,23 @@ public class WorkspaceController {
     public ResponseEntity<ApiResponse<ExecResult>> getGitStatus(@PathVariable UUID id) {
         ExecResult result = workspaceGitService.getStatus(id);
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    /**
+     * Resolves the SSH private key from the platform service by SSH key ID.
+     * Returns null if sshKeyId is null.
+     */
+    private String resolveSshPrivateKey(UUID sshKeyId) {
+        if (sshKeyId == null) {
+            return null;
+        }
+        try {
+            log.info("Resolving SSH private key for sshKeyId: {}", sshKeyId);
+            return platformServiceClient.getDecryptedPrivateKey(sshKeyId);
+        } catch (Exception e) {
+            log.error("Failed to resolve SSH private key for sshKeyId: {}", sshKeyId, e);
+            throw new RuntimeException("Failed to resolve SSH key: " + e.getMessage(), e);
+        }
     }
 
     private String extractFilename(String path) {

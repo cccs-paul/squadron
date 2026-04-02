@@ -1,5 +1,6 @@
 package com.squadron.workspace.config;
 
+import com.squadron.workspace.client.ResilientPlatformServiceClient;
 import com.squadron.workspace.controller.WorkspaceController;
 import com.squadron.workspace.service.WorkspaceGitService;
 import com.squadron.workspace.service.WorkspaceService;
@@ -30,6 +31,9 @@ class SecurityConfigTest {
 
     @MockBean
     private WorkspaceGitService workspaceGitService;
+
+    @MockBean
+    private ResilientPlatformServiceClient resilientPlatformServiceClient;
 
     @MockBean
     private JwtDecoder jwtDecoder;

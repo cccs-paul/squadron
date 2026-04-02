@@ -76,4 +76,15 @@ public class SshKeyController {
         sshKeyService.deleteSshKey(id);
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Internal endpoint for inter-service calls to retrieve decrypted private key.
+     * This should be secured to only allow service-to-service communication.
+     */
+    @GetMapping("/{id}/private-key")
+    @Operation(summary = "Get decrypted private key (internal use only)")
+    public ResponseEntity<ApiResponse<String>> getDecryptedPrivateKey(@PathVariable UUID id) {
+        String privateKey = sshKeyService.getDecryptedPrivateKey(id);
+        return ResponseEntity.ok(ApiResponse.success(privateKey));
+    }
 }

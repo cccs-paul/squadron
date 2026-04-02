@@ -17,6 +17,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -401,5 +402,222 @@ class WorkspaceGitServiceTest {
     void should_injectTokenIntoUrl_nonHttps() {
         String result = workspaceGitService.injectTokenIntoUrl("git@github.com:test/repo.git", "abc123");
         assertEquals("git@github.com:test/repo.git", result);
+    }
+
+    // --- SSH URL detection tests ---
+
+    @Test
+    void should_detectSshUrl_whenGitAtFormat() {
+        assertTrue(workspaceGitService.isSshUrl("git@github.com:test/repo.git"));
+    }
+
+    @Test
+    void should_detectSshUrl_whenSshProtocol() {
+        assertTrue(workspaceGitService.isSshUrl("ssh://git@github.com/test/repo.git"));
+    }
+
+    @Test
+    void should_notDetectSshUrl_whenHttps() {
+        assertFalse(workspaceGitService.isSshUrl("https://github.com/test/repo.git"));
+    }
+
+    @Test
+    void should_notDetectSshUrl_whenNull() {
+        assertFalse(workspaceGitService.isSshUrl(null));
+    }
+
+    // --- SSH clone tests ---
+
+    @Test
+    void should_cloneRepository_withSshKey() {
+        workspace.setRepoUrl("git@github.com:test/repo.git");
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
+        ExecResult mkdirResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult writeKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult chmodResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5000).build();
+        ExecResult rmKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"mkdir", "-p", "/workspace"}))).thenReturn(mkdirResult);
+        // SSH key setup
+        when(workspaceProvider.exec(eq("pod-abc123"), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("printf") && cmd[2].contains("/tmp/.squadron_ssh_key")))).thenReturn(writeKeyResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}))).thenReturn(chmodResult);
+        // Clone via SSH (uses sh -c with GIT_SSH_COMMAND)
+        when(workspaceProvider.exec(eq("pod-abc123"), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("GIT_SSH_COMMAND") && cmd[2].contains("clone")))).thenReturn(cloneResult);
+        // Cleanup
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}))).thenReturn(rmKeyResult);
+
+        String sshKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----\n";
+        ExecResult result = workspaceGitService.cloneRepository(workspaceId, null, sshKey);
+
+        assertEquals(0, result.getExitCode());
+        // Verify SSH key setup and cleanup happened
+        verify(workspaceProvider).exec(eq("pod-abc123"), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}));
+        verify(workspaceProvider).exec(eq("pod-abc123"), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}));
+    }
+
+    @Test
+    void should_cloneRepository_withSshKey_cleanupOnFailure() {
+        workspace.setRepoUrl("git@github.com:test/repo.git");
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
+        ExecResult mkdirResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult writeKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult chmodResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult cloneFailure = ExecResult.builder().exitCode(128).stdout("").stderr("Permission denied (publickey)").durationMs(2000).build();
+        ExecResult rmKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"mkdir", "-p", "/workspace"}))).thenReturn(mkdirResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("printf")))).thenReturn(writeKeyResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}))).thenReturn(chmodResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("GIT_SSH_COMMAND")))).thenReturn(cloneFailure);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}))).thenReturn(rmKeyResult);
+
+        String sshKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----\n";
+        ExecResult result = workspaceGitService.cloneRepository(workspaceId, null, sshKey);
+
+        assertEquals(128, result.getExitCode());
+        // Verify cleanup still happened even on failure
+        verify(workspaceProvider).exec(eq("pod-abc123"), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}));
+    }
+
+    @Test
+    void should_cloneRepository_ignoreSshKey_whenUrlIsHttps() {
+        // HTTPS URL + SSH key provided -> should use HTTPS, ignore SSH key
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
+        ExecResult mkdirResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5000).build();
+
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"mkdir", "-p", "/workspace"}))).thenReturn(mkdirResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"git", "clone", "--branch", "main", "--single-branch",
+                "https://oauth2:token123@github.com/test/repo.git", "/workspace"}))).thenReturn(cloneResult);
+
+        String sshKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----\n";
+        ExecResult result = workspaceGitService.cloneRepository(workspaceId, "token123", sshKey);
+
+        assertEquals(0, result.getExitCode());
+        // Should NOT set up SSH key for HTTPS URLs
+        verify(workspaceProvider, never()).exec(eq("pod-abc123"), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}));
+    }
+
+    // --- SSH push tests ---
+
+    @Test
+    void should_pushChanges_withSshKey() {
+        workspace.setRepoUrl("git@github.com:test/repo.git");
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult writeKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult chmodResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult pushResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(3000).build();
+        ExecResult rmKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+
+        when(workspaceProvider.exec(eq("pod-abc123"), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("printf")))).thenReturn(writeKeyResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}))).thenReturn(chmodResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("GIT_SSH_COMMAND") && cmd[2].contains("push")))).thenReturn(pushResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}))).thenReturn(rmKeyResult);
+
+        String sshKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----\n";
+        ExecResult result = workspaceGitService.pushChanges(workspaceId, "main", null, sshKey);
+
+        assertEquals(0, result.getExitCode());
+        verify(workspaceProvider).exec(eq("pod-abc123"), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}));
+        verify(workspaceProvider).exec(eq("pod-abc123"), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}));
+    }
+
+    @Test
+    void should_pushChanges_withSshKey_cleanupOnFailure() {
+        workspace.setRepoUrl("git@github.com:test/repo.git");
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult writeKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult chmodResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult pushFailure = ExecResult.builder().exitCode(1).stdout("").stderr("Permission denied").durationMs(3000).build();
+        ExecResult rmKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+
+        when(workspaceProvider.exec(eq("pod-abc123"), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("printf")))).thenReturn(writeKeyResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}))).thenReturn(chmodResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("GIT_SSH_COMMAND")))).thenReturn(pushFailure);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}))).thenReturn(rmKeyResult);
+
+        String sshKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----\n";
+        ExecResult result = workspaceGitService.pushChanges(workspaceId, "main", null, sshKey);
+
+        assertEquals(1, result.getExitCode());
+        // Verify cleanup happened even on failure
+        verify(workspaceProvider).exec(eq("pod-abc123"), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}));
+    }
+
+    @Test
+    void should_pushChanges_ignoreSshKey_whenUrlIsHttps() {
+        // HTTPS URL + SSH key -> should use HTTPS token, not SSH
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult setUrlResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(10).build();
+        ExecResult pushResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(3000).build();
+
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"git", "-C", "/workspace", "remote", "set-url", "origin",
+                "https://oauth2:my-token@github.com/test/repo.git"}))).thenReturn(setUrlResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"git", "-C", "/workspace", "push", "origin", "main"})))
+                .thenReturn(pushResult);
+
+        String sshKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----\n";
+        ExecResult result = workspaceGitService.pushChanges(workspaceId, "main", "my-token", sshKey);
+
+        assertEquals(0, result.getExitCode());
+        // Should NOT set up SSH key for HTTPS URLs
+        verify(workspaceProvider, never()).exec(eq("pod-abc123"), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}));
+    }
+
+    // --- Two-arg overload delegates ---
+
+    @Test
+    void should_cloneRepository_twoArgDelegatesToThreeArg() {
+        // The 2-arg overload should call the 3-arg overload with null sshPrivateKey
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
+        ExecResult mkdirResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5000).build();
+
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"mkdir", "-p", "/workspace"}))).thenReturn(mkdirResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"git", "clone", "--branch", "main", "--single-branch",
+                "https://github.com/test/repo.git", "/workspace"}))).thenReturn(cloneResult);
+
+        ExecResult result = workspaceGitService.cloneRepository(workspaceId, null);
+
+        assertEquals(0, result.getExitCode());
+    }
+
+    @Test
+    void should_pushChanges_threeArgDelegatesToFourArg() {
+        // The 3-arg overload should call the 4-arg overload with null sshPrivateKey
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult pushResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(3000).build();
+
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"git", "-C", "/workspace", "push", "origin", "main"})))
+                .thenReturn(pushResult);
+
+        ExecResult result = workspaceGitService.pushChanges(workspaceId, "main", null);
+
+        assertEquals(0, result.getExitCode());
     }
 }

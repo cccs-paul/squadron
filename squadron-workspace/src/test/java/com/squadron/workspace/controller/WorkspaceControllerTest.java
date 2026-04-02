@@ -1,6 +1,7 @@
 package com.squadron.workspace.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.squadron.workspace.client.ResilientPlatformServiceClient;
 import com.squadron.workspace.dto.CreateWorkspaceRequest;
 import com.squadron.workspace.dto.ExecRequest;
 import com.squadron.workspace.dto.ExecResult;
@@ -24,6 +25,7 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -44,6 +46,9 @@ class WorkspaceControllerTest {
 
     @MockBean
     private WorkspaceGitService workspaceGitService;
+
+    @MockBean
+    private ResilientPlatformServiceClient platformServiceClient;
 
     @MockBean
     private JwtDecoder jwtDecoder;
@@ -251,7 +256,7 @@ class WorkspaceControllerTest {
         ExecResult execResult = ExecResult.builder()
                 .exitCode(0).stdout("").stderr("").durationMs(5000).build();
 
-        when(workspaceGitService.cloneRepository(eq(workspaceId), eq("my-token"))).thenReturn(execResult);
+        when(workspaceGitService.cloneRepository(eq(workspaceId), eq("my-token"), isNull())).thenReturn(execResult);
 
         mockMvc.perform(post("/api/workspaces/{id}/git/clone", workspaceId)
                         .param("accessToken", "my-token"))
@@ -259,7 +264,7 @@ class WorkspaceControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.exitCode").value(0));
 
-        verify(workspaceGitService).cloneRepository(workspaceId, "my-token");
+        verify(workspaceGitService).cloneRepository(workspaceId, "my-token", null);
     }
 
     @Test
@@ -307,7 +312,7 @@ class WorkspaceControllerTest {
         ExecResult execResult = ExecResult.builder()
                 .exitCode(0).stdout("").stderr("").durationMs(3000).build();
 
-        when(workspaceGitService.pushChanges(eq(workspaceId), eq("main"), eq("my-token")))
+        when(workspaceGitService.pushChanges(eq(workspaceId), eq("main"), eq("my-token"), isNull()))
                 .thenReturn(execResult);
 
         mockMvc.perform(post("/api/workspaces/{id}/git/push", workspaceId)
@@ -317,7 +322,7 @@ class WorkspaceControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.exitCode").value(0));
 
-        verify(workspaceGitService).pushChanges(workspaceId, "main", "my-token");
+        verify(workspaceGitService).pushChanges(workspaceId, "main", "my-token", null);
     }
 
     @Test
@@ -351,5 +356,112 @@ class WorkspaceControllerTest {
                 .andExpect(jsonPath("$.data.exitCode").value(0));
 
         verify(workspaceGitService).getStatus(workspaceId);
+    }
+
+    // --- SSH key resolution tests ---
+
+    @Test
+    void should_cloneRepo_withSshKeyId() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        UUID sshKeyId = UUID.randomUUID();
+        String decryptedKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----";
+
+        ExecResult execResult = ExecResult.builder()
+                .exitCode(0).stdout("").stderr("").durationMs(5000).build();
+
+        when(platformServiceClient.getDecryptedPrivateKey(sshKeyId)).thenReturn(decryptedKey);
+        when(workspaceGitService.cloneRepository(eq(workspaceId), isNull(), eq(decryptedKey))).thenReturn(execResult);
+
+        mockMvc.perform(post("/api/workspaces/{id}/git/clone", workspaceId)
+                        .param("sshKeyId", sshKeyId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.exitCode").value(0));
+
+        verify(platformServiceClient).getDecryptedPrivateKey(sshKeyId);
+        verify(workspaceGitService).cloneRepository(workspaceId, null, decryptedKey);
+    }
+
+    @Test
+    void should_cloneRepo_withoutSshKeyId() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        ExecResult execResult = ExecResult.builder()
+                .exitCode(0).stdout("").stderr("").durationMs(5000).build();
+
+        when(workspaceGitService.cloneRepository(eq(workspaceId), isNull(), isNull())).thenReturn(execResult);
+
+        mockMvc.perform(post("/api/workspaces/{id}/git/clone", workspaceId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.exitCode").value(0));
+
+        verify(platformServiceClient, never()).getDecryptedPrivateKey(any());
+        verify(workspaceGitService).cloneRepository(workspaceId, null, null);
+    }
+
+    @Test
+    void should_pushChanges_withSshKeyId() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        UUID sshKeyId = UUID.randomUUID();
+        String decryptedKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----";
+
+        ExecResult execResult = ExecResult.builder()
+                .exitCode(0).stdout("").stderr("").durationMs(3000).build();
+
+        when(platformServiceClient.getDecryptedPrivateKey(sshKeyId)).thenReturn(decryptedKey);
+        when(workspaceGitService.pushChanges(eq(workspaceId), eq("main"), isNull(), eq(decryptedKey)))
+                .thenReturn(execResult);
+
+        mockMvc.perform(post("/api/workspaces/{id}/git/push", workspaceId)
+                        .param("branch", "main")
+                        .param("sshKeyId", sshKeyId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.exitCode").value(0));
+
+        verify(platformServiceClient).getDecryptedPrivateKey(sshKeyId);
+        verify(workspaceGitService).pushChanges(workspaceId, "main", null, decryptedKey);
+    }
+
+    @Test
+    void should_pushChanges_withoutSshKeyId() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        ExecResult execResult = ExecResult.builder()
+                .exitCode(0).stdout("").stderr("").durationMs(3000).build();
+
+        when(workspaceGitService.pushChanges(eq(workspaceId), isNull(), isNull(), isNull()))
+                .thenReturn(execResult);
+
+        mockMvc.perform(post("/api/workspaces/{id}/git/push", workspaceId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.exitCode").value(0));
+
+        verify(platformServiceClient, never()).getDecryptedPrivateKey(any());
+        verify(workspaceGitService).pushChanges(workspaceId, null, null, null);
+    }
+
+    @Test
+    void should_cloneRepo_withBothAccessTokenAndSshKeyId() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        UUID sshKeyId = UUID.randomUUID();
+        String decryptedKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----";
+
+        ExecResult execResult = ExecResult.builder()
+                .exitCode(0).stdout("").stderr("").durationMs(5000).build();
+
+        when(platformServiceClient.getDecryptedPrivateKey(sshKeyId)).thenReturn(decryptedKey);
+        when(workspaceGitService.cloneRepository(eq(workspaceId), eq("my-token"), eq(decryptedKey)))
+                .thenReturn(execResult);
+
+        mockMvc.perform(post("/api/workspaces/{id}/git/clone", workspaceId)
+                        .param("accessToken", "my-token")
+                        .param("sshKeyId", sshKeyId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.exitCode").value(0));
+
+        verify(platformServiceClient).getDecryptedPrivateKey(sshKeyId);
+        verify(workspaceGitService).cloneRepository(workspaceId, "my-token", decryptedKey);
     }
 }

@@ -563,13 +563,13 @@ class WorkspaceServiceTest {
         });
 
         ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5000).build();
-        when(workspaceGitService.cloneRepository(workspaceId, "my-token")).thenReturn(cloneResult);
+        when(workspaceGitService.cloneRepository(workspaceId, "my-token", null)).thenReturn(cloneResult);
 
         WorkspaceDto result = workspaceService.createWorkspace(request);
 
         assertNotNull(result);
         assertEquals("READY", result.getStatus());
-        verify(workspaceGitService).cloneRepository(workspaceId, "my-token");
+        verify(workspaceGitService).cloneRepository(workspaceId, "my-token", null);
     }
 
     @Test
@@ -597,14 +597,14 @@ class WorkspaceServiceTest {
         });
 
         doThrow(new RuntimeException("Clone failed")).when(workspaceGitService)
-                .cloneRepository(workspaceId, "bad-token");
+                .cloneRepository(workspaceId, "bad-token", null);
 
         // Should not throw - auto-clone failure is handled gracefully
         WorkspaceDto result = workspaceService.createWorkspace(request);
 
         assertNotNull(result);
         assertEquals("READY", result.getStatus());
-        verify(workspaceGitService).cloneRepository(workspaceId, "bad-token");
+        verify(workspaceGitService).cloneRepository(workspaceId, "bad-token", null);
     }
 
     @Test
@@ -633,5 +633,110 @@ class WorkspaceServiceTest {
 
         assertNotNull(result);
         verify(workspaceGitService, never()).cloneRepository(any(), any());
+    }
+
+    // --- SSH key passthrough tests ---
+
+    @Test
+    void should_autoCloneRepo_withSshKey() {
+        UUID workspaceId = UUID.randomUUID();
+
+        CreateWorkspaceRequest request = CreateWorkspaceRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .taskId(UUID.randomUUID())
+                .userId(UUID.randomUUID())
+                .repoUrl("git@github.com:test/repo.git")
+                .branch("main")
+                .sshPrivateKey("-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----")
+                .build();
+
+        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
+        when(workspaceProvider.createContainer(any())).thenReturn("pod-abc123");
+        when(workspaceRepository.save(any(Workspace.class))).thenAnswer(invocation -> {
+            Workspace w = invocation.getArgument(0);
+            if (w.getId() == null) {
+                w.setId(workspaceId);
+                w.setCreatedAt(Instant.now());
+            }
+            return w;
+        });
+
+        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5000).build();
+        when(workspaceGitService.cloneRepository(workspaceId, null,
+                "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----")).thenReturn(cloneResult);
+
+        WorkspaceDto result = workspaceService.createWorkspace(request);
+
+        assertNotNull(result);
+        assertEquals("READY", result.getStatus());
+        verify(workspaceGitService).cloneRepository(workspaceId, null,
+                "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----");
+    }
+
+    @Test
+    void should_autoCloneRepo_withAccessTokenAndSshKey_passesBoth() {
+        UUID workspaceId = UUID.randomUUID();
+
+        CreateWorkspaceRequest request = CreateWorkspaceRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .taskId(UUID.randomUUID())
+                .userId(UUID.randomUUID())
+                .repoUrl("git@github.com:test/repo.git")
+                .branch("main")
+                .accessToken("token123")
+                .sshPrivateKey("ssh-key-content")
+                .build();
+
+        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
+        when(workspaceProvider.createContainer(any())).thenReturn("pod-abc123");
+        when(workspaceRepository.save(any(Workspace.class))).thenAnswer(invocation -> {
+            Workspace w = invocation.getArgument(0);
+            if (w.getId() == null) {
+                w.setId(workspaceId);
+                w.setCreatedAt(Instant.now());
+            }
+            return w;
+        });
+
+        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5000).build();
+        when(workspaceGitService.cloneRepository(workspaceId, "token123", "ssh-key-content")).thenReturn(cloneResult);
+
+        WorkspaceDto result = workspaceService.createWorkspace(request);
+
+        assertNotNull(result);
+        verify(workspaceGitService).cloneRepository(workspaceId, "token123", "ssh-key-content");
+    }
+
+    @Test
+    void should_handleAutoCloneFailure_withSshKey_gracefully() {
+        UUID workspaceId = UUID.randomUUID();
+
+        CreateWorkspaceRequest request = CreateWorkspaceRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .taskId(UUID.randomUUID())
+                .userId(UUID.randomUUID())
+                .repoUrl("git@github.com:test/repo.git")
+                .sshPrivateKey("bad-key")
+                .build();
+
+        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
+        when(workspaceProvider.createContainer(any())).thenReturn("pod-abc123");
+        when(workspaceRepository.save(any(Workspace.class))).thenAnswer(invocation -> {
+            Workspace w = invocation.getArgument(0);
+            if (w.getId() == null) {
+                w.setId(workspaceId);
+                w.setCreatedAt(Instant.now());
+            }
+            return w;
+        });
+
+        doThrow(new RuntimeException("SSH clone failed")).when(workspaceGitService)
+                .cloneRepository(workspaceId, null, "bad-key");
+
+        WorkspaceDto result = workspaceService.createWorkspace(request);
+
+        assertNotNull(result);
+        assertEquals("READY", result.getStatus());
+        verify(workspaceGitService).cloneRepository(workspaceId, null, "bad-key");
     }
 }

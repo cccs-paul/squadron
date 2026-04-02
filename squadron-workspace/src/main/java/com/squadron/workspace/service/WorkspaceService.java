@@ -95,7 +95,7 @@ public class WorkspaceService {
         // Auto-clone repo if repoUrl is set
         if (workspace.getRepoUrl() != null && !workspace.getRepoUrl().isBlank()) {
             try {
-                workspaceGitService.cloneRepository(workspace.getId(), request.getAccessToken());
+                workspaceGitService.cloneRepository(workspace.getId(), request.getAccessToken(), request.getSshPrivateKey());
             } catch (Exception e) {
                 log.warn("Auto-clone failed for workspace {}, workspace still usable", workspace.getId(), e);
             }

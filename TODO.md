@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-04-02
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-15). Feature 15: SSH Key Management + Setup Wizard — new `SshKey` entity with encrypted private keys, full CRUD at `/api/platforms/ssh-keys`, `platform_category` column on `platform_connections` (TICKET_PROVIDER/GIT_REMOTE), `branch_naming_template` on projects, frontend project-config rewritten as 4-step wizard (Ticket Providers → Git Remotes + SSH Keys → Projects → Branch & Workflow). All previous features and bug fixes intact. All backend tests passing (474 platform, 328 orchestrator). All 798 Angular tests passing (0 failures). Angular build passing.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-16). Feature 16: SSH Key Integration for Git Operations — workspace git clone/push now supports SSH URLs using user-supplied SSH keys from squadron-platform. New `PlatformServiceClient` Feign client + `ResilientPlatformServiceClient` in workspace module, `GET /{id}/private-key` endpoint on platform, `WorkspaceGitService` detects SSH URLs and configures `GIT_SSH_COMMAND` with temporary key file. Backward compatible (HTTPS still works, SSH key optional). All previous features and bug fixes intact. All backend tests passing (476 platform, 191 workspace). All 798 Angular tests passing (0 failures). Angular build passing.
 
 ---
 
@@ -72,13 +72,14 @@
 - [x] Flyway migrations (V1, V2, V3)
 - [x] All tests passing
 
-### squadron-workspace (16 src / 16 test)
+### squadron-workspace (19 src / 18 test)
 - [x] Workspace providers (Kubernetes, Docker)
 - [x] WorkspaceService with lifecycle management
-- [x] WorkspaceGitService
+- [x] WorkspaceGitService (HTTPS + SSH support with GIT_SSH_COMMAND)
 - [x] WorkspaceCleanupScheduler
+- [x] PlatformServiceClient (Feign) + ResilientPlatformServiceClient (circuit breaker + retry)
 - [x] Flyway migration (V1)
-- [x] All tests passing
+- [x] All 191 tests passing
 
 ### squadron-platform (35 src / 35 test)
 - [x] Adapter pattern with registry
@@ -94,10 +95,11 @@
 - [x] Remote projects endpoint (GET /api/platforms/connections/{id}/projects) — `getProjects()` on all 5 adapters
 - [x] `PlatformProjectDto` (key, name, description, url, avatarUrl)
 - [x] SSH key management: `SshKey` entity, `SshKeyService`, `SshKeyController` at `/api/platforms/ssh-keys` (full CRUD)
+- [x] SSH key private-key endpoint: `GET /api/platforms/ssh-keys/{id}/private-key` (returns decrypted key for inter-service use)
 - [x] `platform_category` column on `platform_connections` (TICKET_PROVIDER / GIT_REMOTE), auto-determined by platform type
 - [x] `PlatformConnectionService.listConnectionsByTenantAndCategory()` + `GET /tenant/{tenantId}/category/{category}` endpoint
 - [x] Flyway migrations (V1, V2, V3, V4, V5, V6)
-- [x] All 474 tests passing
+- [x] All 476 tests passing
 
 ### squadron-git (34 src / 36 test)
 - [x] Git platform adapters (GitHub, GitLab, Bitbucket)
@@ -164,8 +166,9 @@
 - [x] ReviewServiceClient (squadron-agent -> squadron-review)
 - [x] WorkspaceServiceClient (squadron-agent -> squadron-workspace)
 - [x] PlatformServiceClient (squadron-orchestrator -> squadron-platform)
+- [x] PlatformServiceClient (squadron-workspace -> squadron-platform) — SSH key retrieval for git operations
 - [x] Feign URL properties configured in all application.yml files
-- [x] Resilient wrappers with circuit breaker + retry for all 5 Feign clients
+- [x] Resilient wrappers with circuit breaker + retry for all 6 Feign clients
 
 ### NATS JetStream
 - [x] JetStreamConfig (10 durable streams: TASKS, AGENTS, WORKSPACES, REVIEWS, GIT_EVENTS, NOTIFICATIONS, CONFIG, PLATFORM, AUDIT, COVERAGE)
@@ -451,6 +454,33 @@
 - [x] Frontend: 81 project-config component tests covering all wizard steps, SSH key CRUD, categorization, branch naming, import flow, workflow mappings
 - [x] Frontend: 798 Angular tests passing (42 net new tests)
 
+### Feature 16: SSH Key Integration for Git Operations (Agent Checkout with SSH Keys)
+- [x] Backend (squadron-workspace): `WorkspaceGitService` rewritten with SSH support
+  - `isSshUrl()` detects `git@` and `ssh://` URL prefixes
+  - `setupSshKey()` writes SSH private key to `/tmp/.squadron_ssh_key` with `chmod 600`
+  - `cleanupSshKey()` removes temporary key file in `finally` block
+  - `GIT_SSH_COMMAND` env var: `ssh -i /tmp/.squadron_ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`
+  - 3-arg `cloneRepository(workspaceId, accessToken, sshPrivateKey)` — SSH for SSH URLs, HTTPS token for HTTPS URLs
+  - 4-arg `pushChanges(workspaceId, branch, accessToken, sshPrivateKey)` — same dual-mode logic
+  - Original 2-arg/3-arg overloads delegate to new methods with `null` sshPrivateKey (backward compatible)
+- [x] Backend (squadron-workspace): `CreateWorkspaceRequest` — added `sshPrivateKey` field
+- [x] Backend (squadron-workspace): `WorkspaceService` — passes `request.getSshPrivateKey()` to git clone
+- [x] Backend (squadron-workspace): `WorkspaceController` — added `sshKeyId` optional param to clone/push endpoints, `resolveSshPrivateKey()` helper fetches key via Feign
+- [x] Backend (squadron-workspace): `PlatformServiceClient` — new Feign client interface for `GET /api/platforms/ssh-keys/{id}/private-key`
+- [x] Backend (squadron-workspace): `ResilientPlatformServiceClient` — circuit breaker + retry wrapper
+- [x] Backend (squadron-workspace): `SquadronWorkspaceApplication` — added `@EnableFeignClients`
+- [x] Backend (squadron-workspace): `pom.xml` — added `spring-cloud-starter-openfeign` dependency
+- [x] Backend (squadron-workspace): `application.yml` — added `squadron.platform.url` config
+- [x] Backend (squadron-platform): `SshKeyController` — added `GET /{id}/private-key` endpoint returning `ApiResponse<String>` with decrypted key
+- [x] Tests: 12 new `WorkspaceGitServiceTest` tests (SSH URL detection, SSH clone/push success, cleanup on failure, HTTPS ignores SSH key, delegation overloads)
+- [x] Tests: 3 new `WorkspaceServiceTest` tests (SSH key passthrough, both token+key passthrough, graceful failure)
+- [x] Tests: 5 new `WorkspaceControllerTest` tests (clone/push with/without sshKeyId, combined accessToken+sshKeyId)
+- [x] Tests: 5 new `ResilientPlatformServiceClientTest` tests (delegation, retry, circuit breaker open, CB exception, accessor)
+- [x] Tests: 2 new `SshKeyControllerTest` tests (get private key authenticated, get private key unauthenticated)
+- [x] Tests: 2 pre-existing tests updated (WorkspaceServiceTest auto-clone stubs changed from 2-arg to 3-arg)
+- [x] Tests: SecurityConfigTest updated (added `@MockBean ResilientPlatformServiceClient`)
+- [x] All 191 workspace tests passing, all 476 platform tests passing
+
 ---
 
 ## Quick Reference
@@ -462,11 +492,11 @@
 | squadron-identity | 42 | 42 | Complete |
 | squadron-orchestrator | 39 | 36 | Complete |
 | squadron-agent | 90 | 91 | Complete |
-| squadron-workspace | 16 | 16 | Complete |
+| squadron-workspace | 19 | 18 | Complete |
 | squadron-platform | 42 | 42 | Complete |
 | squadron-git | 34 | 36 | Complete |
 | squadron-review | 26 | 27 | Complete |
 | squadron-config | 11 | 11 | Complete |
 | squadron-notification | 24 | 24 | Complete |
-| **TOTAL** | **401** | **400** | |
+| **TOTAL** | **407** | **406** | |
 | squadron-ui | 33 components | 57 specs | Complete |

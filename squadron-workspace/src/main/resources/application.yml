@@ -33,6 +33,8 @@ squadron:
   security:
     jwt:
       jwks-uri: ${SQUADRON_JWKS_URI:http://localhost:8081/api/auth/jwks}
+  platform:
+    url: ${SQUADRON_PLATFORM_URL:http://localhost:8084}
   workspace:
     provider: ${WORKSPACE_PROVIDER:kubernetes}
     kubernetes:

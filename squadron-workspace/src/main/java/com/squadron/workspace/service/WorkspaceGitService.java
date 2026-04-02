@@ -14,13 +14,16 @@ import java.util.UUID;
 
 /**
  * Manages git operations within workspace containers by executing git CLI commands
- * inside the sandboxed environment.
+ * inside the sandboxed environment. Supports both HTTPS (with OAuth2 token) and
+ * SSH (with private key) authentication.
  */
 @Service
 public class WorkspaceGitService {
 
     private static final Logger log = LoggerFactory.getLogger(WorkspaceGitService.class);
     private static final String WORKSPACE_DIR = "/workspace";
+    private static final String SSH_KEY_PATH = "/tmp/.squadron_ssh_key";
+    private static final String GIT_SSH_COMMAND = "ssh -i " + SSH_KEY_PATH + " -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null";
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceProvider workspaceProvider;
@@ -33,10 +36,19 @@ public class WorkspaceGitService {
 
     /**
      * Clones a repository into the workspace container. Installs git if needed,
-     * then clones the repo to /workspace directory.
+     * then clones the repo to /workspace directory. Supports both HTTPS (with
+     * access token) and SSH (with private key) authentication.
      */
     @Transactional
     public ExecResult cloneRepository(UUID workspaceId, String accessToken) {
+        return cloneRepository(workspaceId, accessToken, null);
+    }
+
+    /**
+     * Clones a repository into the workspace container with optional SSH key support.
+     */
+    @Transactional
+    public ExecResult cloneRepository(UUID workspaceId, String accessToken, String sshPrivateKey) {
         Workspace workspace = getWorkspace(workspaceId);
         String containerId = workspace.getContainerId();
 
@@ -48,26 +60,44 @@ public class WorkspaceGitService {
         // 2. Create workspace directory
         workspaceProvider.exec(containerId, new String[]{"mkdir", "-p", WORKSPACE_DIR});
 
-        // 3. Build clone URL (inject token if provided)
-        String cloneUrl = workspace.getRepoUrl();
-        if (accessToken != null && !accessToken.isBlank()) {
-            cloneUrl = injectTokenIntoUrl(cloneUrl, accessToken);
+        // 3. Set up SSH key if provided and URL is SSH
+        boolean usingSsh = false;
+        if (sshPrivateKey != null && !sshPrivateKey.isBlank() && isSshUrl(workspace.getRepoUrl())) {
+            setupSshKey(containerId, sshPrivateKey);
+            usingSsh = true;
         }
 
-        // 4. Clone the repo
-        String[] cloneCmd = workspace.getBranch() != null
-                ? new String[]{"git", "clone", "--branch", workspace.getBranch(), "--single-branch", cloneUrl, WORKSPACE_DIR}
-                : new String[]{"git", "clone", cloneUrl, WORKSPACE_DIR};
+        try {
+            // 4. Build clone URL (inject token if HTTPS, use as-is for SSH)
+            String cloneUrl = workspace.getRepoUrl();
+            if (!usingSsh && accessToken != null && !accessToken.isBlank()) {
+                cloneUrl = injectTokenIntoUrl(cloneUrl, accessToken);
+            }
 
-        ExecResult result = workspaceProvider.exec(containerId, cloneCmd);
+            // 5. Clone the repo
+            String[] cloneCmd = workspace.getBranch() != null
+                    ? new String[]{"git", "clone", "--branch", workspace.getBranch(), "--single-branch", cloneUrl, WORKSPACE_DIR}
+                    : new String[]{"git", "clone", cloneUrl, WORKSPACE_DIR};
 
-        if (result.getExitCode() == 0) {
-            log.info("Successfully cloned repo into workspace {}", workspaceId);
-        } else {
-            log.error("Failed to clone repo into workspace {}: {}", workspaceId, sanitizeOutput(result.getStderr()));
+            ExecResult result;
+            if (usingSsh) {
+                result = execWithSshCommand(containerId, cloneCmd);
+            } else {
+                result = workspaceProvider.exec(containerId, cloneCmd);
+            }
+
+            if (result.getExitCode() == 0) {
+                log.info("Successfully cloned repo into workspace {}", workspaceId);
+            } else {
+                log.error("Failed to clone repo into workspace {}: {}", workspaceId, sanitizeOutput(result.getStderr()));
+            }
+
+            return result;
+        } finally {
+            if (usingSsh) {
+                cleanupSshKey(containerId);
+            }
         }
-
-        return result;
     }
 
     /**
@@ -128,21 +158,46 @@ public class WorkspaceGitService {
      */
     @Transactional(readOnly = true)
     public ExecResult pushChanges(UUID workspaceId, String branch, String accessToken) {
+        return pushChanges(workspaceId, branch, accessToken, null);
+    }
+
+    /**
+     * Pushes changes from the workspace to the remote with optional SSH key support.
+     */
+    @Transactional(readOnly = true)
+    public ExecResult pushChanges(UUID workspaceId, String branch, String accessToken, String sshPrivateKey) {
         Workspace workspace = getWorkspace(workspaceId);
         String containerId = workspace.getContainerId();
 
         log.info("Pushing changes from workspace {}", workspaceId);
 
-        // If access token provided, set remote URL with token
-        if (accessToken != null && !accessToken.isBlank()) {
-            String remoteUrl = injectTokenIntoUrl(workspace.getRepoUrl(), accessToken);
-            workspaceProvider.exec(containerId,
-                    new String[]{"git", "-C", WORKSPACE_DIR, "remote", "set-url", "origin", remoteUrl});
+        boolean usingSsh = false;
+        if (sshPrivateKey != null && !sshPrivateKey.isBlank() && isSshUrl(workspace.getRepoUrl())) {
+            setupSshKey(containerId, sshPrivateKey);
+            usingSsh = true;
         }
 
-        String pushBranch = branch != null ? branch : "HEAD";
-        return workspaceProvider.exec(containerId,
-                new String[]{"git", "-C", WORKSPACE_DIR, "push", "origin", pushBranch});
+        try {
+            // If access token provided (HTTPS), set remote URL with token
+            if (!usingSsh && accessToken != null && !accessToken.isBlank()) {
+                String remoteUrl = injectTokenIntoUrl(workspace.getRepoUrl(), accessToken);
+                workspaceProvider.exec(containerId,
+                        new String[]{"git", "-C", WORKSPACE_DIR, "remote", "set-url", "origin", remoteUrl});
+            }
+
+            String pushBranch = branch != null ? branch : "HEAD";
+            String[] pushCmd = new String[]{"git", "-C", WORKSPACE_DIR, "push", "origin", pushBranch};
+
+            if (usingSsh) {
+                return execWithSshCommand(containerId, pushCmd);
+            } else {
+                return workspaceProvider.exec(containerId, pushCmd);
+            }
+        } finally {
+            if (usingSsh) {
+                cleanupSshKey(containerId);
+            }
+        }
     }
 
     /**
@@ -184,6 +239,65 @@ public class WorkspaceGitService {
             return url.replace("https://", "https://oauth2:" + token + "@");
         }
         return url;
+    }
+
+    /**
+     * Determines if a URL is an SSH-style git URL.
+     * Matches: git@host:path, ssh://user@host/path
+     */
+    boolean isSshUrl(String url) {
+        if (url == null) return false;
+        return url.startsWith("git@") || url.startsWith("ssh://");
+    }
+
+    /**
+     * Writes the SSH private key to a temp file inside the container and sets
+     * appropriate permissions.
+     */
+    void setupSshKey(String containerId, String sshPrivateKey) {
+        log.debug("Setting up SSH key in container {}", containerId);
+        // Ensure the key ends with a newline (required by OpenSSH)
+        String key = sshPrivateKey.endsWith("\n") ? sshPrivateKey : sshPrivateKey + "\n";
+        // Write the key file
+        workspaceProvider.exec(containerId,
+                new String[]{"sh", "-c", "printf '%s' '" + escapeForShell(key) + "' > " + SSH_KEY_PATH});
+        // Set permissions
+        workspaceProvider.exec(containerId,
+                new String[]{"chmod", "600", SSH_KEY_PATH});
+    }
+
+    /**
+     * Removes the SSH key file from the container.
+     */
+    void cleanupSshKey(String containerId) {
+        log.debug("Cleaning up SSH key from container {}", containerId);
+        workspaceProvider.exec(containerId,
+                new String[]{"rm", "-f", SSH_KEY_PATH});
+    }
+
+    /**
+     * Executes a git command with GIT_SSH_COMMAND environment variable set
+     * for SSH key authentication.
+     */
+    private ExecResult execWithSshCommand(String containerId, String[] gitCmd) {
+        // Wrap the git command with GIT_SSH_COMMAND env var
+        StringBuilder cmdBuilder = new StringBuilder();
+        cmdBuilder.append("GIT_SSH_COMMAND='").append(GIT_SSH_COMMAND).append("' ");
+        for (int i = 0; i < gitCmd.length; i++) {
+            if (i > 0) cmdBuilder.append(" ");
+            // Quote arguments that might contain special chars
+            cmdBuilder.append("'").append(gitCmd[i].replace("'", "'\\''")).append("'");
+        }
+        return workspaceProvider.exec(containerId,
+                new String[]{"sh", "-c", cmdBuilder.toString()});
+    }
+
+    /**
+     * Escapes a string for safe inclusion in a single-quoted shell string.
+     */
+    private String escapeForShell(String value) {
+        // In single quotes, only single quote needs escaping: replace ' with '\''
+        return value.replace("'", "'\\''");
     }
 
     private String sanitizeOutput(String output) {
