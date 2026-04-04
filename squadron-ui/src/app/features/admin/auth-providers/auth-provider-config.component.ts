@@ -42,7 +42,8 @@ export class AuthProviderConfigComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.providers.set(this.getMockProviders());
+        console.error('Failed to load auth providers');
+        this.providers.set([]);
         this.loading.set(false);
       },
     });
@@ -103,16 +104,7 @@ export class AuthProviderConfigComponent implements OnInit {
       this.permissionService.createAuthProvider(payload).subscribe({
         next: () => { this.closeModal(); this.loadProviders(); },
         error: () => {
-          const mock: AuthProvider = {
-            id: crypto.randomUUID(),
-            tenantId: '1',
-            name: this.formName,
-            type: this.formType,
-            enabled: this.formEnabled,
-            config,
-            createdAt: new Date().toISOString(),
-          };
-          this.providers.set([mock, ...this.providers()]);
+          console.error('Failed to create auth provider');
           this.closeModal();
         },
       });
@@ -138,7 +130,8 @@ export class AuthProviderConfigComponent implements OnInit {
         this.testingId.set(null);
       },
       error: () => {
-        this.testResult.set({ success: true, message: 'Connection successful (demo)' });
+        console.error('Failed to test auth provider');
+        this.testResult.set({ success: false, message: 'Connection test failed' });
         this.testingId.set(null);
       },
     });
@@ -164,23 +157,4 @@ export class AuthProviderConfigComponent implements OnInit {
     }
   }
 
-  private getMockProviders(): AuthProvider[] {
-    return [
-      {
-        id: 'ap-1', tenantId: '1', name: 'Corporate OIDC', type: AuthProviderType.OIDC, enabled: true,
-        config: { clientId: 'squadron-app', issuerUrl: 'https://auth.example.com/realms/corp' },
-        createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-      },
-      {
-        id: 'ap-2', tenantId: '1', name: 'Keycloak Dev', type: AuthProviderType.KEYCLOAK, enabled: true,
-        config: { clientId: 'squadron-dev', issuerUrl: 'https://keycloak.dev.example.com/realms/dev' },
-        createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
-      },
-      {
-        id: 'ap-3', tenantId: '1', name: 'LDAP Directory', type: AuthProviderType.LDAP, enabled: false,
-        config: { clientId: '', issuerUrl: 'ldap://ldap.example.com:389' },
-        createdAt: new Date(Date.now() - 86400000 * 60).toISOString(),
-      },
-    ];
-  }
 }

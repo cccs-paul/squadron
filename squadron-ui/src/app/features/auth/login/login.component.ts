@@ -1,13 +1,15 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../../core/auth/auth.service';
 import { HealthService, HealthStatus } from '../../../core/services/health.service';
+import { I18nService, SupportedLanguage } from '../../../core/services/i18n.service';
 
 @Component({
   selector: 'sq-login',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslateModule],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
 })
@@ -15,6 +17,8 @@ export class LoginComponent implements OnInit {
   private authService = inject(AuthService);
   private router = inject(Router);
   private healthService = inject(HealthService);
+  private translateService = inject(TranslateService);
+  readonly i18n = inject(I18nService);
 
   username = '';
   password = '';
@@ -43,7 +47,7 @@ export class LoginComponent implements OnInit {
 
   login(): void {
     if (!this.username || !this.password) {
-      this.error.set('Please enter your username and password');
+      this.error.set(this.translateService.instant('login.errors.enterCredentials'));
       return;
     }
     this.loading.set(true);
@@ -63,11 +67,11 @@ export class LoginComponent implements OnInit {
         error: (err) => {
           this.loading.set(false);
           if (err.status === 401) {
-            this.error.set('Invalid username or password');
+            this.error.set(this.translateService.instant('login.errors.invalidCredentials'));
           } else if (err.status === 403) {
-            this.error.set('Your account has been suspended');
+            this.error.set(this.translateService.instant('login.errors.accountSuspended'));
           } else {
-            this.error.set('Unable to sign in. Please try again.');
+            this.error.set(this.translateService.instant('login.errors.generic'));
           }
         },
       });
@@ -96,6 +100,17 @@ export class LoginComponent implements OnInit {
 
   toggleHealthPanel(): void {
     this.showHealthPanel = !this.showHealthPanel;
+  }
+
+  langMenuOpen = false;
+
+  toggleLangMenu(): void {
+    this.langMenuOpen = !this.langMenuOpen;
+  }
+
+  switchLang(lang: SupportedLanguage): void {
+    this.i18n.switchLanguage(lang);
+    this.langMenuOpen = false;
   }
 
   getStatusColor(status: string): string {

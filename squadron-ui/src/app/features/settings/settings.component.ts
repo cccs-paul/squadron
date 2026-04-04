@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth/auth.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { Tenant, TenantSettings } from '../../core/models/tenant.model';
@@ -16,6 +17,7 @@ export type SettingsTab = 'general' | 'providers-projects' | 'squadron' | 'notif
   standalone: true,
   imports: [
     FormsModule,
+    TranslateModule,
     ProjectConfigComponent,
     SquadronConfigComponent,
     NotificationPreferencesComponent,
@@ -47,13 +49,13 @@ export class SettingsComponent implements OnInit {
   profileDisplayName = '';
   profileEmail = '';
 
-  readonly tabs: { id: SettingsTab; label: string }[] = [
-    { id: 'general', label: 'General' },
-    { id: 'providers-projects', label: 'Providers & Projects' },
-    { id: 'squadron', label: 'Agent Squadron' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'agent-config', label: 'Agent Config' },
-    { id: 'platform-tokens', label: 'Platform Tokens' },
+  readonly tabs: { id: SettingsTab; labelKey: string }[] = [
+    { id: 'general', labelKey: 'settings.tabs.general' },
+    { id: 'providers-projects', labelKey: 'settings.tabs.providersProjects' },
+    { id: 'squadron', labelKey: 'settings.tabs.agentSquadron' },
+    { id: 'notifications', labelKey: 'settings.tabs.notifications' },
+    { id: 'agent-config', labelKey: 'settings.tabs.agentConfig' },
+    { id: 'platform-tokens', labelKey: 'settings.tabs.platformTokens' },
   ];
 
   ngOnInit(): void {
@@ -79,8 +81,9 @@ export class SettingsComponent implements OnInit {
         }
         this.loading.set(false);
       },
-      error: () => {
-        this.applyMockSettings();
+      error: (err) => {
+        console.error('Failed to load settings', err);
+        this.tenant.set(null);
         this.loading.set(false);
       },
     });
@@ -104,11 +107,9 @@ export class SettingsComponent implements OnInit {
         this.saveSuccess.set(true);
         setTimeout(() => this.saveSuccess.set(false), 3000);
       },
-      error: () => {
-        // Optimistic update for demo
+      error: (err) => {
+        console.error('Failed to save settings', err);
         this.saving.set(false);
-        this.saveSuccess.set(true);
-        setTimeout(() => this.saveSuccess.set(false), 3000);
       },
     });
   }
@@ -121,21 +122,4 @@ export class SettingsComponent implements OnInit {
     this.settingsMaxProjects = settings.maxProjects;
   }
 
-  private applyMockSettings(): void {
-    this.tenant.set({
-      id: '1',
-      name: 'Acme Corp',
-      slug: 'acme',
-      plan: 'TEAM' as any,
-      settings: {
-        maxUsers: 50,
-        maxProjects: 20,
-        aiEnabled: true,
-        defaultBranch: 'main',
-        autoReview: true,
-      },
-      createdAt: new Date(Date.now() - 86400000 * 90).toISOString(),
-    });
-    this.applySettings(this.tenant()!.settings);
-  }
 }

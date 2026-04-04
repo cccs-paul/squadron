@@ -147,9 +147,9 @@ describe('AuthProviderConfigComponent', () => {
 
     component.testProvider(mockProviders[1]);
 
-    // After error, testingId is cleared and fallback result is set
+    // After error, testingId is cleared and failure result is set
     expect(component.testingId()).toBeNull();
-    expect(component.testResult()).toEqual({ success: true, message: 'Connection successful (demo)' });
+    expect(component.testResult()).toEqual({ success: false, message: 'Connection test failed' });
   });
 
   it('should_callDeleteAuthProvider_when_deleteProviderCalledAndConfirmed', () => {
@@ -178,13 +178,12 @@ describe('AuthProviderConfigComponent', () => {
     expect(component.typeIcon(AuthProviderType.SAML)).toBe('SAML');
   });
 
-  it('should_fallbackToMockData_when_getAuthProvidersFails', () => {
+  it('should_showEmptyState_when_getAuthProvidersFails', () => {
     permServiceSpy.getAuthProviders.and.returnValue(throwError(() => new Error('API error')));
 
     fixture.detectChanges();
 
-    expect(component.providers().length).toBeGreaterThan(0);
+    expect(component.providers().length).toBe(0);
     expect(component.loading()).toBeFalse();
-    expect(component.providers().some(p => p.name === 'Corporate OIDC')).toBeTrue();
   });
 });

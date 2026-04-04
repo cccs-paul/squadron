@@ -1,0 +1,189 @@
+{
+  "common": {
+    "appName": "Squadron",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "add": "Ajouter",
+    "close": "Fermer",
+    "refresh": "Actualiser",
+    "loading": "Chargement...",
+    "saving": "Enregistrement...",
+    "or": "ou",
+    "active": "actif",
+    "completed": "termine",
+    "working": "en cours",
+    "tokens": "jetons",
+    "noData": "Aucune donnee disponible"
+  },
+  "header": {
+    "searchPlaceholder": "Rechercher des taches, projets, revues...",
+    "settings": "Parametres",
+    "signOut": "Se deconnecter",
+    "toggleSidebar": "Basculer la barre laterale"
+  },
+  "sidebar": {
+    "dashboard": "Tableau de bord",
+    "tasks": "Taches",
+    "projects": "Projets",
+    "reviews": "Revues",
+    "settings": "Parametres",
+    "admin": "Administration",
+    "users": "Utilisateurs",
+    "teams": "Equipes",
+    "securityGroups": "Groupes de securite",
+    "permissions": "Permissions",
+    "authProviders": "Fournisseurs d'authentification"
+  },
+  "login": {
+    "title": "Squadron",
+    "subtitle": "Flux de travail de developpement propulse par l'IA",
+    "organization": "Organisation",
+    "selectOrganization": "Selectionner une organisation...",
+    "usernameOrEmail": "Nom d'utilisateur ou courriel",
+    "enterUsername": "Entrez votre nom d'utilisateur",
+    "password": "Mot de passe",
+    "enterPassword": "Entrez votre mot de passe",
+    "rememberMe": "Se souvenir de moi",
+    "forgotPassword": "Mot de passe oublie ?",
+    "signingIn": "Connexion en cours...",
+    "signIn": "Se connecter",
+    "signInWithSso": "Se connecter avec SSO",
+    "systemStatus": "Etat du systeme",
+    "services": "Services",
+    "infrastructure": "Infrastructure",
+    "healthy": "Operationnel",
+    "degraded": "Degrade",
+    "down": "Hors service",
+    "unableToReachBackend": "Impossible de joindre les services dorsaux",
+    "errors": {
+      "enterCredentials": "Veuillez entrer votre nom d'utilisateur et votre mot de passe",
+      "invalidCredentials": "Nom d'utilisateur ou mot de passe invalide",
+      "accountSuspended": "Votre compte a ete suspendu",
+      "generic": "Impossible de se connecter. Veuillez reessayer."
+    }
+  },
+  "dashboard": {
+    "title": "Tableau de bord des agents",
+    "subtitle": "Vue en temps reel de vos agents IA",
+    "newTask": "Nouvelle tache",
+    "activeAgents": "Agents actifs",
+    "allIdle": "Tous les agents sont inactifs",
+    "recentActivity": "Activite recente",
+    "noRecentActivity": "Aucune activite recente",
+    "agentTypeBreakdown": "Repartition par type d'agent",
+    "noAgentData": "Aucune donnee d'agent disponible",
+    "quickActions": "Actions rapides",
+    "viewTaskBoard": "Voir le tableau des taches",
+    "pendingReviews": "Revues en attente",
+    "browseProjects": "Parcourir les projets",
+    "isWorkingOn": "travaille sur la tache",
+    "task": "Tache",
+    "model": "Modele",
+    "stats": {
+      "activeAgents": "Agents actifs",
+      "idleAgents": "Agents inactifs",
+      "totalConversations": "Conversations totales",
+      "tokensUsed": "Jetons utilises"
+    }
+  },
+  "settings": {
+    "title": "Parametres",
+    "subtitle": "Gerez la configuration et les preferences de votre espace de travail",
+    "savedSuccessfully": "Parametres enregistres avec succes",
+    "loadingSettings": "Chargement des parametres...",
+    "saveSettings": "Enregistrer les parametres",
+    "tabs": {
+      "general": "General",
+      "providersProjects": "Fournisseurs et projets",
+      "agentSquadron": "Escadron d'agents",
+      "notifications": "Notifications",
+      "agentConfig": "Configuration des agents",
+      "platformTokens": "Jetons de plateforme"
+    },
+    "general": {
+      "profile": "Profil",
+      "profileDescription": "Vos informations personnelles",
+      "displayName": "Nom d'affichage",
+      "email": "Courriel",
+      "workspace": "Espace de travail",
+      "plan": "plan",
+      "defaultBranch": "Branche par defaut",
+      "defaultBranchHint": "La branche par defaut utilisee lors de la creation de nouvelles taches",
+      "aiAgents": "Agents IA",
+      "aiAgentsHint": "Activer la generation et la revue de code par IA",
+      "autoReview": "Revue automatique",
+      "autoReviewHint": "Demander automatiquement une revue IA sur les demandes de fusion",
+      "limits": "Limites",
+      "limitsDescription": "Limites de ressources pour votre espace de travail",
+      "maxUsers": "Nombre maximum d'utilisateurs",
+      "maxProjects": "Nombre maximum de projets"
+    }
+  },
+  "notifications": {
+    "title": "Preferences de notification",
+    "subtitle": "Configurez la facon dont vous recevez les notifications",
+    "savedSuccessfully": "Preferences enregistrees avec succes",
+    "saveFailed": "Echec de l'enregistrement des preferences. Veuillez reessayer.",
+    "loadingPreferences": "Chargement des preferences...",
+    "savePreferences": "Enregistrer les preferences",
+    "channels": {
+      "title": "Canaux de notification",
+      "subtitle": "Activer ou desactiver les methodes de livraison des notifications",
+      "inApp": "Notifications dans l'application",
+      "inAppHint": "Recevoir des notifications dans Squadron",
+      "email": "Courriel",
+      "emailHint": "Recevoir des notifications par courriel",
+      "emailAddress": "Adresse courriel",
+      "emailPlaceholder": "vous@exemple.com",
+      "slack": "Slack",
+      "slackHint": "Envoyer des notifications vers un canal Slack",
+      "slackWebhookUrl": "URL du webhook Slack",
+      "slackPlaceholder": "https://hooks.slack.com/services/...",
+      "teams": "Microsoft Teams",
+      "teamsHint": "Envoyer des notifications vers un canal Teams",
+      "teamsWebhookUrl": "URL du webhook Teams",
+      "teamsPlaceholder": "https://outlook.office.com/webhook/..."
+    },
+    "mutedEvents": {
+      "title": "Types d'evenements desactives",
+      "subtitle": "Selectionnez les types d'evenements pour lesquels vous ne souhaitez pas recevoir de notifications"
+    },
+    "eventTypes": {
+      "TASK_ASSIGNED": {
+        "label": "Tache assignee",
+        "description": "Une tache vous a ete assignee ou a votre equipe"
+      },
+      "TASK_STATE_CHANGED": {
+        "label": "Changement d'etat de tache",
+        "description": "Une tache a change d'etat dans le flux de travail (ex. Planification, Revue, AQ)"
+      },
+      "REVIEW_REQUESTED": {
+        "label": "Revue demandee",
+        "description": "Une revue de code a ete demandee sur une demande de fusion"
+      },
+      "REVIEW_COMPLETED": {
+        "label": "Revue terminee",
+        "description": "Une revue de code a ete completee avec approbation ou modifications demandees"
+      },
+      "AGENT_COMPLETED": {
+        "label": "Agent termine",
+        "description": "Un agent IA a termine son travail sur une tache"
+      },
+      "AGENT_NEEDS_INPUT": {
+        "label": "Agent en attente",
+        "description": "Un agent IA requiert votre intervention ou decision pour continuer"
+      },
+      "SYSTEM": {
+        "label": "Systeme",
+        "description": "Alertes systeme telles que l'etat des services, les erreurs et les avis de maintenance"
+      }
+    }
+  },
+  "language": {
+    "en": "English",
+    "fr": "Francais",
+    "label": "Langue"
+  }
+}

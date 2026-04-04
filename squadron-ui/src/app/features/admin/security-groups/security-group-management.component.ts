@@ -35,7 +35,8 @@ export class SecurityGroupManagementComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.groups.set(this.getMockGroups());
+        console.error('Failed to load security groups');
+        this.groups.set([]);
         this.loading.set(false);
       },
     });
@@ -82,16 +83,7 @@ export class SecurityGroupManagementComponent implements OnInit {
       this.sgService.createGroup(payload).subscribe({
         next: () => { this.closeModal(); this.loadGroups(); },
         error: () => {
-          const mock: SecurityGroup = {
-            id: crypto.randomUUID(),
-            tenantId: '1',
-            name: this.formName,
-            description: this.formDescription,
-            members: [],
-            permissions: [],
-            createdAt: new Date().toISOString(),
-          };
-          this.groups.set([mock, ...this.groups()]);
+          console.error('Failed to create security group');
           this.closeModal();
         },
       });
@@ -115,34 +107,4 @@ export class SecurityGroupManagementComponent implements OnInit {
     return type === MemberType.USER ? 'User' : 'Team';
   }
 
-  private getMockGroups(): SecurityGroup[] {
-    return [
-      {
-        id: 'sg-1', tenantId: '1', name: 'Engineering', description: 'All engineering staff',
-        members: [
-          { id: 'm1', memberType: MemberType.TEAM, memberId: 'team-1', memberName: 'Backend Team', addedAt: new Date().toISOString() },
-          { id: 'm2', memberType: MemberType.TEAM, memberId: 'team-2', memberName: 'Frontend Team', addedAt: new Date().toISOString() },
-          { id: 'm3', memberType: MemberType.USER, memberId: '1', memberName: 'John Doe', addedAt: new Date().toISOString() },
-        ],
-        permissions: [],
-        createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-      },
-      {
-        id: 'sg-2', tenantId: '1', name: 'Project Managers', description: 'Team leads and project managers',
-        members: [
-          { id: 'm4', memberType: MemberType.USER, memberId: '3', memberName: 'Bob Wilson', addedAt: new Date().toISOString() },
-        ],
-        permissions: [],
-        createdAt: new Date(Date.now() - 86400000 * 20).toISOString(),
-      },
-      {
-        id: 'sg-3', tenantId: '1', name: 'Administrators', description: 'Full system access',
-        members: [
-          { id: 'm5', memberType: MemberType.USER, memberId: '1', memberName: 'John Doe', addedAt: new Date().toISOString() },
-        ],
-        permissions: [],
-        createdAt: new Date(Date.now() - 86400000 * 60).toISOString(),
-      },
-    ];
-  }
 }

@@ -1,0 +1,189 @@
+{
+  "common": {
+    "appName": "Squadron",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "refresh": "Refresh",
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "or": "or",
+    "active": "active",
+    "completed": "completed",
+    "working": "working",
+    "tokens": "tokens",
+    "noData": "No data available"
+  },
+  "header": {
+    "searchPlaceholder": "Search tasks, projects, reviews...",
+    "settings": "Settings",
+    "signOut": "Sign out",
+    "toggleSidebar": "Toggle sidebar"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "tasks": "Tasks",
+    "projects": "Projects",
+    "reviews": "Reviews",
+    "settings": "Settings",
+    "admin": "Admin",
+    "users": "Users",
+    "teams": "Teams",
+    "securityGroups": "Security Groups",
+    "permissions": "Permissions",
+    "authProviders": "Auth Providers"
+  },
+  "login": {
+    "title": "Squadron",
+    "subtitle": "AI-Powered Development Workflow",
+    "organization": "Organization",
+    "selectOrganization": "Select organization...",
+    "usernameOrEmail": "Username or Email",
+    "enterUsername": "Enter your username",
+    "password": "Password",
+    "enterPassword": "Enter your password",
+    "rememberMe": "Remember me",
+    "forgotPassword": "Forgot password?",
+    "signingIn": "Signing in...",
+    "signIn": "Sign in",
+    "signInWithSso": "Sign in with SSO",
+    "systemStatus": "System Status",
+    "services": "Services",
+    "infrastructure": "Infrastructure",
+    "healthy": "Healthy",
+    "degraded": "Degraded",
+    "down": "Down",
+    "unableToReachBackend": "Unable to reach backend services",
+    "errors": {
+      "enterCredentials": "Please enter your username and password",
+      "invalidCredentials": "Invalid username or password",
+      "accountSuspended": "Your account has been suspended",
+      "generic": "Unable to sign in. Please try again."
+    }
+  },
+  "dashboard": {
+    "title": "Agent Dashboard",
+    "subtitle": "Real-time overview of your AI agent workforce",
+    "newTask": "New Task",
+    "activeAgents": "Active Agents",
+    "allIdle": "All agents are idle",
+    "recentActivity": "Recent Activity",
+    "noRecentActivity": "No recent activity",
+    "agentTypeBreakdown": "Agent Type Breakdown",
+    "noAgentData": "No agent data available",
+    "quickActions": "Quick Actions",
+    "viewTaskBoard": "View Task Board",
+    "pendingReviews": "Pending Reviews",
+    "browseProjects": "Browse Projects",
+    "isWorkingOn": "is working on task",
+    "task": "Task",
+    "model": "Model",
+    "stats": {
+      "activeAgents": "Active Agents",
+      "idleAgents": "Idle Agents",
+      "totalConversations": "Total Conversations",
+      "tokensUsed": "Tokens Used"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your workspace configuration and preferences",
+    "savedSuccessfully": "Settings saved successfully",
+    "loadingSettings": "Loading settings...",
+    "saveSettings": "Save Settings",
+    "tabs": {
+      "general": "General",
+      "providersProjects": "Providers & Projects",
+      "agentSquadron": "Agent Squadron",
+      "notifications": "Notifications",
+      "agentConfig": "Agent Config",
+      "platformTokens": "Platform Tokens"
+    },
+    "general": {
+      "profile": "Profile",
+      "profileDescription": "Your personal account information",
+      "displayName": "Display Name",
+      "email": "Email",
+      "workspace": "Workspace",
+      "plan": "plan",
+      "defaultBranch": "Default Branch",
+      "defaultBranchHint": "The default branch used when creating new tasks",
+      "aiAgents": "AI Agents",
+      "aiAgentsHint": "Enable AI-powered code generation and review",
+      "autoReview": "Auto Review",
+      "autoReviewHint": "Automatically request AI review on pull requests",
+      "limits": "Limits",
+      "limitsDescription": "Resource limits for your workspace",
+      "maxUsers": "Max Users",
+      "maxProjects": "Max Projects"
+    }
+  },
+  "notifications": {
+    "title": "Notification Preferences",
+    "subtitle": "Configure how you receive notifications",
+    "savedSuccessfully": "Preferences saved successfully",
+    "saveFailed": "Failed to save preferences. Please try again.",
+    "loadingPreferences": "Loading preferences...",
+    "savePreferences": "Save Preferences",
+    "channels": {
+      "title": "Notification Channels",
+      "subtitle": "Enable or disable notification delivery methods",
+      "inApp": "In-App Notifications",
+      "inAppHint": "Receive notifications within Squadron",
+      "email": "Email",
+      "emailHint": "Receive email notifications",
+      "emailAddress": "Email Address",
+      "emailPlaceholder": "you@example.com",
+      "slack": "Slack",
+      "slackHint": "Send notifications to a Slack channel",
+      "slackWebhookUrl": "Slack Webhook URL",
+      "slackPlaceholder": "https://hooks.slack.com/services/...",
+      "teams": "Microsoft Teams",
+      "teamsHint": "Send notifications to a Teams channel",
+      "teamsWebhookUrl": "Teams Webhook URL",
+      "teamsPlaceholder": "https://outlook.office.com/webhook/..."
+    },
+    "mutedEvents": {
+      "title": "Muted Event Types",
+      "subtitle": "Select event types you do not want to receive notifications for"
+    },
+    "eventTypes": {
+      "TASK_ASSIGNED": {
+        "label": "Task Assigned",
+        "description": "A task has been assigned to you or your team"
+      },
+      "TASK_STATE_CHANGED": {
+        "label": "Task State Changed",
+        "description": "A task has moved to a new workflow state (e.g. Planning, Review, QA)"
+      },
+      "REVIEW_REQUESTED": {
+        "label": "Review Requested",
+        "description": "A code review has been requested on a pull request"
+      },
+      "REVIEW_COMPLETED": {
+        "label": "Review Completed",
+        "description": "A code review has been completed with approval or changes requested"
+      },
+      "AGENT_COMPLETED": {
+        "label": "Agent Completed",
+        "description": "An AI agent has finished its work on a task"
+      },
+      "AGENT_NEEDS_INPUT": {
+        "label": "Agent Needs Input",
+        "description": "An AI agent requires your input or decision to continue"
+      },
+      "SYSTEM": {
+        "label": "System",
+        "description": "System-level alerts such as service health, errors, and maintenance notices"
+      }
+    }
+  },
+  "language": {
+    "en": "English",
+    "fr": "Francais",
+    "label": "Language"
+  }
+}

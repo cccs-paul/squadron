@@ -3,6 +3,7 @@ import { Component, signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { SidebarComponent } from './sidebar.component';
 import { AuthService } from '../../../core/auth/auth.service';
 
@@ -31,7 +32,7 @@ describe('SidebarComponent', () => {
     });
 
     TestBed.configureTestingModule({
-      imports: [TestHostComponent],
+      imports: [TestHostComponent, TranslateModule.forRoot()],
       providers: [
         provideRouter([]),
         provideHttpClient(),
@@ -70,11 +71,12 @@ describe('SidebarComponent', () => {
 
     const labels = hostFixture.nativeElement.querySelectorAll('.sidebar__label');
     expect(labels.length).toBe(5);
-    expect(labels[0].textContent.trim()).toBe('Dashboard');
-    expect(labels[1].textContent.trim()).toBe('Tasks');
-    expect(labels[2].textContent.trim()).toBe('Projects');
-    expect(labels[3].textContent.trim()).toBe('Reviews');
-    expect(labels[4].textContent.trim()).toBe('Settings');
+    // Translate pipe returns keys when no translations are loaded
+    expect(labels[0].textContent.trim()).toBe('sidebar.dashboard');
+    expect(labels[1].textContent.trim()).toBe('sidebar.tasks');
+    expect(labels[2].textContent.trim()).toBe('sidebar.projects');
+    expect(labels[3].textContent.trim()).toBe('sidebar.reviews');
+    expect(labels[4].textContent.trim()).toBe('sidebar.settings');
   });
 
   it('should_hideLabels_when_collapsed', () => {

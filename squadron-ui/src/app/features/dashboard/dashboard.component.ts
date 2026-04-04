@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { SlicePipe } from '@angular/common';
+import { LowerCasePipe, SlicePipe } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
 import { AgentDashboardService } from '../../core/services/agent-dashboard.service';
 import {
   AgentDashboard,
@@ -11,7 +12,7 @@ import {
 import { TimeAgoPipe } from '../../shared/pipes/time-ago.pipe';
 
 interface StatCard {
-  label: string;
+  labelKey: string;
   value: number | string;
   icon: string;
   color: string;
@@ -21,7 +22,7 @@ interface StatCard {
 @Component({
   selector: 'sq-dashboard',
   standalone: true,
-  imports: [RouterLink, SlicePipe, TimeAgoPipe],
+  imports: [RouterLink, SlicePipe, LowerCasePipe, TimeAgoPipe, TranslateModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
@@ -84,8 +85,12 @@ export class DashboardComponent implements OnInit {
         this.applyData(data);
         this.loading.set(false);
       },
-      error: () => {
-        this.applyMockData();
+      error: (err) => {
+        console.error('Failed to load dashboard data:', err);
+        this.stats.set([]);
+        this.activeWork.set([]);
+        this.recentActivity.set([]);
+        this.agentTypeSummaries.set([]);
         this.loading.set(false);
       },
     });
@@ -93,51 +98,14 @@ export class DashboardComponent implements OnInit {
 
   private applyData(data: AgentDashboard): void {
     this.stats.set([
-      { label: 'Active Agents', value: data.activeAgents, icon: 'active', color: '#06B6D4', bgColor: '#ECFEFF' },
-      { label: 'Idle Agents', value: data.idleAgents, icon: 'idle', color: '#9CA3AF', bgColor: '#F3F4F6' },
-      { label: 'Total Conversations', value: data.totalConversations, icon: 'conversations', color: '#4F46E5', bgColor: '#EEF2FF' },
-      { label: 'Tokens Used', value: this.formatTokens(data.totalTokensUsed), icon: 'tokens', color: '#F59E0B', bgColor: '#FEF3C7' },
+      { labelKey: 'dashboard.stats.activeAgents', value: data.activeAgents, icon: 'active', color: '#06B6D4', bgColor: '#ECFEFF' },
+      { labelKey: 'dashboard.stats.idleAgents', value: data.idleAgents, icon: 'idle', color: '#9CA3AF', bgColor: '#F3F4F6' },
+      { labelKey: 'dashboard.stats.totalConversations', value: data.totalConversations, icon: 'conversations', color: '#4F46E5', bgColor: '#EEF2FF' },
+      { labelKey: 'dashboard.stats.tokensUsed', value: this.formatTokens(data.totalTokensUsed), icon: 'tokens', color: '#F59E0B', bgColor: '#FEF3C7' },
     ]);
     this.activeWork.set(data.activeWork || []);
     this.recentActivity.set(data.recentActivity || []);
     this.agentTypeSummaries.set(data.agentTypeSummaries || []);
   }
 
-  private applyMockData(): void {
-    const now = new Date().toISOString();
-    const fiveMinAgo = new Date(Date.now() - 300_000).toISOString();
-    const tenMinAgo = new Date(Date.now() - 600_000).toISOString();
-    const thirtyMinAgo = new Date(Date.now() - 1_800_000).toISOString();
-    const oneHrAgo = new Date(Date.now() - 3_600_000).toISOString();
-
-    this.stats.set([
-      { label: 'Active Agents', value: 3, icon: 'active', color: '#06B6D4', bgColor: '#ECFEFF' },
-      { label: 'Idle Agents', value: 3, icon: 'idle', color: '#9CA3AF', bgColor: '#F3F4F6' },
-      { label: 'Total Conversations', value: 24, icon: 'conversations', color: '#4F46E5', bgColor: '#EEF2FF' },
-      { label: 'Tokens Used', value: '142.3K', icon: 'tokens', color: '#F59E0B', bgColor: '#FEF3C7' },
-    ]);
-
-    this.activeWork.set([
-      { conversationId: 'c1', taskId: 't1', agentType: 'CODING', status: 'ACTIVE', provider: 'openai', model: 'gpt-4o', totalTokens: 4200, startedAt: tenMinAgo, lastActivityAt: now },
-      { conversationId: 'c2', taskId: 't2', agentType: 'REVIEW', status: 'ACTIVE', provider: 'openai', model: 'gpt-4o', totalTokens: 1800, startedAt: fiveMinAgo, lastActivityAt: now },
-      { conversationId: 'c3', taskId: 't3', agentType: 'PLANNING', status: 'ACTIVE', provider: 'anthropic', model: 'claude-3.5', totalTokens: 900, startedAt: thirtyMinAgo, lastActivityAt: fiveMinAgo },
-    ]);
-
-    this.recentActivity.set([
-      { conversationId: 'c1', taskId: 't1', agentType: 'CODING', action: 'working', totalTokens: 4200, timestamp: now },
-      { conversationId: 'c2', taskId: 't2', agentType: 'REVIEW', action: 'working', totalTokens: 1800, timestamp: fiveMinAgo },
-      { conversationId: 'c4', taskId: 't4', agentType: 'QA', action: 'completed', totalTokens: 3100, timestamp: thirtyMinAgo },
-      { conversationId: 'c5', taskId: 't5', agentType: 'MERGE', action: 'completed', totalTokens: 600, timestamp: oneHrAgo },
-      { conversationId: 'c3', taskId: 't3', agentType: 'PLANNING', action: 'working', totalTokens: 900, timestamp: fiveMinAgo },
-    ]);
-
-    this.agentTypeSummaries.set([
-      { agentType: 'PLANNING', activeCount: 1, completedCount: 5, totalTokens: 18200 },
-      { agentType: 'CODING', activeCount: 1, completedCount: 8, totalTokens: 52400 },
-      { agentType: 'REVIEW', activeCount: 1, completedCount: 4, totalTokens: 31000 },
-      { agentType: 'QA', activeCount: 0, completedCount: 3, totalTokens: 21400 },
-      { agentType: 'MERGE', activeCount: 0, completedCount: 3, totalTokens: 12600 },
-      { agentType: 'COVERAGE', activeCount: 0, completedCount: 1, totalTokens: 6700 },
-    ]);
-  }
 }

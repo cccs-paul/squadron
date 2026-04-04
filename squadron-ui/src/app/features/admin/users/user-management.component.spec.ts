@@ -164,15 +164,13 @@ describe('UserManagementComponent', () => {
     expect(userServiceSpy.deleteUser).not.toHaveBeenCalled();
   });
 
-  it('should_fallbackToMockData_when_getUsersFails', () => {
+  it('should_showEmptyState_when_getUsersFails', () => {
     userServiceSpy.getUsers.and.returnValue(throwError(() => new Error('API error')));
 
     fixture.detectChanges();
 
-    expect(component.users().length).toBeGreaterThan(0);
+    expect(component.users().length).toBe(0);
     expect(component.loading()).toBeFalse();
-    // Mock data should have user with username 'jdoe'
-    expect(component.users().some(u => u.username === 'jdoe')).toBeTrue();
   });
 
   it('should_returnCorrectStatusClass_when_statusClassCalled', () => {

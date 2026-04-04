@@ -86,7 +86,7 @@ class GatewayConfigTest {
 
         List<Route> routes = routeLocator.getRoutes().collectList().block();
         assertThat(routes).isNotNull();
-        assertThat(routes).hasSize(16);
+        assertThat(routes).hasSize(17);
     }
 
     @Test
@@ -201,6 +201,7 @@ class GatewayConfigTest {
                 "auth-service",
                 "tenant-service",
                 "identity-service",
+                "user-service",
                 "config-service",
                 "orchestrator-projects",
                 "orchestrator-service",
@@ -276,6 +277,16 @@ class GatewayConfigTest {
         assertThat(route).isNotNull();
         assertThat(route.getUri().toString()).isEqualTo("http://squadron-agent:8085");
         // agent-squadron does NOT have stripPrefix -- it forwards /api/agents/squadron as-is
+        assertThat(route.getFilters()).isEmpty();
+    }
+
+    @Test
+    void should_defineUserServiceRoute_with_correctUri() {
+        List<Route> routes = getRoutes();
+
+        Route route = findRoute(routes, "user-service");
+        assertThat(route).isNotNull();
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-identity:8081");
         assertThat(route.getFilters()).isEmpty();
     }
 

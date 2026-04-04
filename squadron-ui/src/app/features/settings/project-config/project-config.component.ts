@@ -215,10 +215,8 @@ export class ProjectConfigComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.workflowStates.set([
-          'BACKLOG', 'PRIORITIZED', 'PLANNING', 'PROPOSE_CODE',
-          'REVIEW', 'QA', 'MERGE', 'DONE',
-        ]);
+        console.error('Failed to load project configuration data');
+        this.workflowStates.set([]);
         this.allConnections.set([]);
         this.ticketProviders.set([]);
         this.gitRemotes.set([]);
@@ -799,15 +797,13 @@ export class ProjectConfigComponent implements OnInit {
         this.projectStates.set(updated);
       },
       error: () => {
+        console.error('Failed to fetch remote statuses');
         const updated = [...this.projectStates()];
-        const conn = this.allConnections().find((c) => c.id === project.connectionId);
-        const platformType = conn?.platformType ?? 'UNKNOWN';
-        const mockStatuses = this.getMockStatuses(platformType);
         updated[index] = {
           ...updated[index],
-          remoteStatuses: mockStatuses,
+          remoteStatuses: [],
           fetchingStatuses: false,
-          fetchError: null,
+          fetchError: 'Failed to fetch remote statuses. Please check the connection.',
         };
         this.projectStates.set(updated);
       },
@@ -1009,21 +1005,6 @@ export class ProjectConfigComponent implements OnInit {
     if (!connectionId) return null;
     const conn = connections.find((c) => c.id === connectionId);
     return conn ? conn.name : null;
-  }
-
-  private getMockStatuses(platformType: string): string[] {
-    switch (platformType) {
-      case 'JIRA_CLOUD': case 'JIRA_SERVER':
-        return ['To Do', 'In Progress', 'Code Review', 'QA Testing', 'Done'];
-      case 'GITHUB':
-        return ['open', 'closed'];
-      case 'GITLAB':
-        return ['opened', 'closed'];
-      case 'AZURE_DEVOPS':
-        return ['New', 'Active', 'Resolved', 'Closed'];
-      default:
-        return ['Open', 'In Progress', 'Done'];
-    }
   }
 
   private newTicketForm(): ProviderForm {

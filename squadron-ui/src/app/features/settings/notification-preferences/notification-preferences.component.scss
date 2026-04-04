@@ -104,17 +104,38 @@
 
   &__checkbox-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.75rem;
     cursor: pointer;
     font-size: 0.875rem;
     color: var(--sq-text);
+    padding: 0.5rem 0;
 
     input[type='checkbox'] {
       width: 16px;
       height: 16px;
+      margin-top: 2px;
       accent-color: var(--sq-primary);
+      flex-shrink: 0;
     }
+  }
+
+  &__event-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  &__event-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--sq-text);
+  }
+
+  &__event-description {
+    font-size: 0.75rem;
+    color: var(--sq-text-tertiary);
+    line-height: 1.4;
   }
 
   &__actions {

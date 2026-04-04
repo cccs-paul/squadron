@@ -304,10 +304,12 @@ class WebSocketIntegrationTest {
         when(promptBuilder.buildCodingPrompt(any(), any()))
                 .thenReturn("You are a coding assistant.");
 
-        // Mock provider to stream response chunks
+        // Mock provider to stream response chunks with a small delay between items
+        // to ensure the STOMP broker has time to route each message to the subscribed client
         when(providerRegistry.getProvider(any())).thenReturn(agentProvider);
         when(agentProvider.chatStream(anyString(), any(), anyString(), any()))
-                .thenReturn(Flux.just("Hello", " World", "!"));
+                .thenReturn(Flux.just("Hello", " World", "!")
+                        .delayElements(Duration.ofMillis(50)));
 
         // Subscribe to the response topic
         CopyOnWriteArrayList<StreamChunk> receivedChunks = new CopyOnWriteArrayList<>();

@@ -47,7 +47,8 @@ export class PermissionManagementComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.permissions.set(this.getMockPermissions());
+        console.error('Failed to load permissions');
+        this.permissions.set([]);
         this.loading.set(false);
       },
     });
@@ -92,17 +93,7 @@ export class PermissionManagementComponent implements OnInit {
         this.loadPermissions();
       },
       error: () => {
-        const mock: Permission = {
-          id: crypto.randomUUID(),
-          tenantId: '1',
-          resourceType: this.formResourceType,
-          granteeType: this.formGranteeType,
-          granteeId: this.formGranteeId || crypto.randomUUID(),
-          granteeName: this.formGranteeName,
-          accessLevel: this.formAccessLevel,
-          createdAt: new Date().toISOString(),
-        };
-        this.permissions.set([mock, ...this.permissions()]);
+        console.error('Failed to grant permission');
         this.closeModal();
       },
     });
@@ -127,13 +118,4 @@ export class PermissionManagementComponent implements OnInit {
     }
   }
 
-  private getMockPermissions(): Permission[] {
-    return [
-      { id: 'p1', tenantId: '1', resourceType: ResourceType.PROJECT, granteeType: GranteeType.SECURITY_GROUP, granteeId: 'sg-1', granteeName: 'Engineering', accessLevel: AccessLevel.WRITE, createdAt: new Date(Date.now() - 86400000 * 5).toISOString() },
-      { id: 'p2', tenantId: '1', resourceType: ResourceType.ADMIN, granteeType: GranteeType.SECURITY_GROUP, granteeId: 'sg-3', granteeName: 'Administrators', accessLevel: AccessLevel.ADMIN, createdAt: new Date(Date.now() - 86400000 * 30).toISOString() },
-      { id: 'p3', tenantId: '1', resourceType: ResourceType.TASK, granteeType: GranteeType.TEAM, granteeId: 'team-1', granteeName: 'Backend Team', accessLevel: AccessLevel.WRITE, createdAt: new Date(Date.now() - 86400000 * 10).toISOString() },
-      { id: 'p4', tenantId: '1', resourceType: ResourceType.REVIEW, granteeType: GranteeType.USER, granteeId: '2', granteeName: 'Jane Smith', accessLevel: AccessLevel.READ, createdAt: new Date(Date.now() - 86400000 * 3).toISOString() },
-      { id: 'p5', tenantId: '1', resourceType: ResourceType.SETTINGS, granteeType: GranteeType.SECURITY_GROUP, granteeId: 'sg-2', granteeName: 'Project Managers', accessLevel: AccessLevel.READ, createdAt: new Date(Date.now() - 86400000 * 7).toISOString() },
-    ];
-  }
 }

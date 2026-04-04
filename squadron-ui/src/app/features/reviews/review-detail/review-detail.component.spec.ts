@@ -67,16 +67,21 @@ describe('ReviewDetailComponent', () => {
     expect(component.loading()).toBeFalse();
   });
 
-  it('should fall back to mock review on service error', () => {
+  it('should show empty state on service error', () => {
     reviewServiceSpy.getReview.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
-    expect(component.review()).toBeTruthy();
-    expect(component.review()!.comments.length).toBe(3);
+    expect(component.review()).toBeNull();
     expect(component.loading()).toBeFalse();
   });
 
   it('should approve review via service', () => {
-    reviewServiceSpy.getReview.and.returnValue(throwError(() => new Error('fail')));
+    const mockReview = {
+      id: 'r1', tenantId: '1', taskId: '7', taskTitle: 'RBAC', pullRequestUrl: 'url',
+      pullRequestNumber: 35, repositoryName: 'org/repo', status: ReviewStatus.PENDING,
+      severity: 'MAJOR', comments: [], filesChanged: 5, linesAdded: 100, linesRemoved: 10,
+      reviewerType: 'AI', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    } as any as Review;
+    reviewServiceSpy.getReview.and.returnValue(of(mockReview));
     fixture.detectChanges();
 
     const approved = { ...component.review()!, status: ReviewStatus.APPROVED };
@@ -87,7 +92,13 @@ describe('ReviewDetailComponent', () => {
   });
 
   it('should optimistically update on approve error', () => {
-    reviewServiceSpy.getReview.and.returnValue(throwError(() => new Error('fail')));
+    const mockReview = {
+      id: 'r1', tenantId: '1', taskId: '7', taskTitle: 'RBAC', pullRequestUrl: 'url',
+      pullRequestNumber: 35, repositoryName: 'org/repo', status: ReviewStatus.PENDING,
+      severity: 'MAJOR', comments: [], filesChanged: 5, linesAdded: 100, linesRemoved: 10,
+      reviewerType: 'AI', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    } as any as Review;
+    reviewServiceSpy.getReview.and.returnValue(of(mockReview));
     fixture.detectChanges();
 
     reviewServiceSpy.approveReview.and.returnValue(throwError(() => new Error('fail')));
@@ -96,7 +107,13 @@ describe('ReviewDetailComponent', () => {
   });
 
   it('should reject review by updating status locally', () => {
-    reviewServiceSpy.getReview.and.returnValue(throwError(() => new Error('fail')));
+    const mockReview = {
+      id: 'r1', tenantId: '1', taskId: '7', taskTitle: 'RBAC', pullRequestUrl: 'url',
+      pullRequestNumber: 35, repositoryName: 'org/repo', status: ReviewStatus.PENDING,
+      severity: 'MAJOR', comments: [], filesChanged: 5, linesAdded: 100, linesRemoved: 10,
+      reviewerType: 'AI', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    } as any as Review;
+    reviewServiceSpy.getReview.and.returnValue(of(mockReview));
     fixture.detectChanges();
 
     component.rejectReview();
@@ -111,7 +128,17 @@ describe('ReviewDetailComponent', () => {
   });
 
   it('should render review comments in comments tab', () => {
-    reviewServiceSpy.getReview.and.returnValue(throwError(() => new Error('fail')));
+    const mockReview = {
+      id: 'r1', tenantId: '1', taskId: '7', taskTitle: 'RBAC', pullRequestUrl: 'url',
+      pullRequestNumber: 35, repositoryName: 'org/repo', status: ReviewStatus.PENDING,
+      severity: 'MAJOR', comments: [
+        { id: 'c1', body: 'Fix this', resolved: false, filePath: 'a.ts', lineNumber: 1, severity: 'MAJOR', author: 'AI', createdAt: new Date().toISOString() },
+        { id: 'c2', body: 'Improve naming', resolved: false, filePath: 'b.ts', lineNumber: 5, severity: 'MINOR', author: 'AI', createdAt: new Date().toISOString() },
+        { id: 'c3', body: 'Good pattern', resolved: true, filePath: 'c.ts', lineNumber: 10, severity: 'INFO', author: 'AI', createdAt: new Date().toISOString() },
+      ], filesChanged: 5, linesAdded: 100, linesRemoved: 10,
+      reviewerType: 'AI', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    } as any as Review;
+    reviewServiceSpy.getReview.and.returnValue(of(mockReview));
     fixture.detectChanges();
     component.setTab('comments');
     fixture.detectChanges();
@@ -125,6 +152,7 @@ describe('ReviewDetailComponent', () => {
     fixture.detectChanges();
 
     expect(component.activeTab()).toBe('diff');
+    expect(component.review()).toBeNull();
 
     component.setTab('comments');
     expect(component.activeTab()).toBe('comments');
@@ -145,10 +173,19 @@ describe('ReviewDetailComponent', () => {
   });
 
   it('should compute unresolved and resolved counts', () => {
-    reviewServiceSpy.getReview.and.returnValue(throwError(() => new Error('fail')));
+    const mockReview = {
+      id: 'r1', tenantId: '1', taskId: '7', taskTitle: 'RBAC', pullRequestUrl: 'url',
+      pullRequestNumber: 35, repositoryName: 'org/repo', status: ReviewStatus.PENDING,
+      severity: 'MAJOR', comments: [
+        { id: 'c1', body: 'Fix this', resolved: false, filePath: 'a.ts', lineNumber: 1, severity: 'MAJOR', author: 'AI', createdAt: new Date().toISOString() },
+        { id: 'c2', body: 'Improve naming', resolved: false, filePath: 'b.ts', lineNumber: 5, severity: 'MINOR', author: 'AI', createdAt: new Date().toISOString() },
+        { id: 'c3', body: 'Good pattern', resolved: true, filePath: 'c.ts', lineNumber: 10, severity: 'INFO', author: 'AI', createdAt: new Date().toISOString() },
+      ], filesChanged: 5, linesAdded: 100, linesRemoved: 10,
+      reviewerType: 'AI', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    } as any as Review;
+    reviewServiceSpy.getReview.and.returnValue(of(mockReview));
     fixture.detectChanges();
 
-    // Mock has 3 comments: 2 unresolved, 1 resolved
     expect(component.unresolvedCount()).toBe(2);
     expect(component.resolvedCount()).toBe(1);
   });

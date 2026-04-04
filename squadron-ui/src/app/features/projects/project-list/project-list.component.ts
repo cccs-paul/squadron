@@ -15,11 +15,7 @@ export class ProjectListComponent implements OnInit {
   ngOnInit(): void {
     this.projectService.getProjects().subscribe({
       next: (res) => { this.projects.set(res.content); this.loading.set(false); },
-      error: () => { this.projects.set([
-        { id: '1', tenantId: '1', name: 'squadron-api', description: 'Main backend API service', repositoryUrl: 'https://github.com/org/squadron-api', defaultBranch: 'main', taskCount: 24, activeTaskCount: 8, members: [], createdAt: new Date(Date.now() - 604800000).toISOString() } as Project,
-        { id: '2', tenantId: '1', name: 'squadron-ui', description: 'Angular frontend application', repositoryUrl: 'https://github.com/org/squadron-ui', defaultBranch: 'main', taskCount: 15, activeTaskCount: 5, members: [], createdAt: new Date(Date.now() - 432000000).toISOString() } as Project,
-        { id: '3', tenantId: '1', name: 'squadron-infra', description: 'Infrastructure and deployment configs', repositoryUrl: 'https://github.com/org/squadron-infra', defaultBranch: 'main', taskCount: 8, activeTaskCount: 2, members: [], createdAt: new Date(Date.now() - 259200000).toISOString() } as Project,
-      ]); this.loading.set(false); },
+      error: (err) => { console.error('Failed to load projects:', err); this.projects.set([]); this.loading.set(false); },
     });
   }
 }

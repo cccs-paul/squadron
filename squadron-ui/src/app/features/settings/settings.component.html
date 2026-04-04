@@ -1,7 +1,7 @@
 <div class="settings-page">
   <div class="settings-page__header">
-    <h1>Settings</h1>
-    <p class="settings-page__subtitle">Manage your workspace configuration and preferences</p>
+    <h1>{{ 'settings.title' | translate }}</h1>
+    <p class="settings-page__subtitle">{{ 'settings.subtitle' | translate }}</p>
   </div>
 
   <div class="settings-page__tabs">
@@ -10,7 +10,7 @@
         class="settings-page__tab"
         [class.settings-page__tab--active]="activeTab() === tab.id"
         (click)="setTab(tab.id)"
-      >{{ tab.label }}</button>
+      >{{ tab.labelKey | translate }}</button>
     }
   </div>
 
@@ -19,29 +19,29 @@
       @case ('general') {
         <!-- General / Workspace Settings -->
         @if (saveSuccess()) {
-          <div class="alert alert--success">Settings saved successfully</div>
+          <div class="alert alert--success">{{ 'settings.savedSuccessfully' | translate }}</div>
         }
 
         @if (loading()) {
           <div class="settings-page__loading">
             <div class="spinner"></div>
-            <p>Loading settings...</p>
+            <p>{{ 'settings.loadingSettings' | translate }}</p>
           </div>
         } @else {
           <div class="settings-grid">
             <!-- Profile Section -->
             <section class="settings-section">
               <div class="settings-section__header">
-                <h2>Profile</h2>
-                <p>Your personal account information</p>
+                <h2>{{ 'settings.general.profile' | translate }}</h2>
+                <p>{{ 'settings.general.profileDescription' | translate }}</p>
               </div>
               <div class="settings-section__body">
                 <div class="form-group">
-                  <label class="form-label">Display Name</label>
+                  <label class="form-label">{{ 'settings.general.displayName' | translate }}</label>
                   <input class="form-input" type="text" [(ngModel)]="profileDisplayName" />
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Email</label>
+                  <label class="form-label">{{ 'settings.general.email' | translate }}</label>
                   <input class="form-input" type="email" [(ngModel)]="profileEmail" />
                 </div>
               </div>
@@ -51,19 +51,19 @@
             @if (tenant(); as t) {
               <section class="settings-section">
                 <div class="settings-section__header">
-                  <h2>Workspace</h2>
-                  <p>{{ t.name }} &middot; {{ t.plan }} plan</p>
+                  <h2>{{ 'settings.general.workspace' | translate }}</h2>
+                  <p>{{ t.name }} &middot; {{ t.plan }} {{ 'settings.general.plan' | translate }}</p>
                 </div>
                 <div class="settings-section__body">
                   <div class="form-group">
-                    <label class="form-label">Default Branch</label>
+                    <label class="form-label">{{ 'settings.general.defaultBranch' | translate }}</label>
                     <input class="form-input" type="text" [(ngModel)]="settingsDefaultBranch" placeholder="main" />
-                    <span class="form-hint">The default branch used when creating new tasks</span>
+                    <span class="form-hint">{{ 'settings.general.defaultBranchHint' | translate }}</span>
                   </div>
                   <div class="form-group form-group--row">
                     <div>
-                      <label class="form-label">AI Agents</label>
-                      <span class="form-hint">Enable AI-powered code generation and review</span>
+                      <label class="form-label">{{ 'settings.general.aiAgents' | translate }}</label>
+                      <span class="form-hint">{{ 'settings.general.aiAgentsHint' | translate }}</span>
                     </div>
                     <label class="toggle">
                       <input type="checkbox" [(ngModel)]="settingsAiEnabled" />
@@ -72,8 +72,8 @@
                   </div>
                   <div class="form-group form-group--row">
                     <div>
-                      <label class="form-label">Auto Review</label>
-                      <span class="form-hint">Automatically request AI review on pull requests</span>
+                      <label class="form-label">{{ 'settings.general.autoReview' | translate }}</label>
+                      <span class="form-hint">{{ 'settings.general.autoReviewHint' | translate }}</span>
                     </div>
                     <label class="toggle">
                       <input type="checkbox" [(ngModel)]="settingsAutoReview" />
@@ -86,17 +86,17 @@
               <!-- Limits Section -->
               <section class="settings-section">
                 <div class="settings-section__header">
-                  <h2>Limits</h2>
-                  <p>Resource limits for your workspace</p>
+                  <h2>{{ 'settings.general.limits' | translate }}</h2>
+                  <p>{{ 'settings.general.limitsDescription' | translate }}</p>
                 </div>
                 <div class="settings-section__body">
                   <div class="form-row">
                     <div class="form-group">
-                      <label class="form-label">Max Users</label>
+                      <label class="form-label">{{ 'settings.general.maxUsers' | translate }}</label>
                       <input class="form-input" type="number" [(ngModel)]="settingsMaxUsers" min="1" />
                     </div>
                     <div class="form-group">
-                      <label class="form-label">Max Projects</label>
+                      <label class="form-label">{{ 'settings.general.maxProjects' | translate }}</label>
                       <input class="form-input" type="number" [(ngModel)]="settingsMaxProjects" min="1" />
                     </div>
                   </div>
@@ -107,9 +107,9 @@
             <div class="settings-actions">
               <button class="btn btn--primary" (click)="saveSettings()" [disabled]="saving()">
                 @if (saving()) {
-                  Saving...
+                  {{ 'common.saving' | translate }}
                 } @else {
-                  Save Settings
+                  {{ 'settings.saveSettings' | translate }}
                 }
               </button>
             </div>

@@ -1,5 +1,7 @@
 package com.squadron.identity.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.common.dto.TeamDto;
 import com.squadron.common.dto.UserDto;
 import com.squadron.identity.entity.User;
@@ -9,14 +11,18 @@ import com.squadron.identity.exception.ResourceNotFoundException;
 import com.squadron.identity.repository.UserRepository;
 import com.squadron.identity.repository.UserTeamRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -24,6 +30,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserTeamRepository userTeamRepository;
+    private final ObjectMapper objectMapper;
 
     public UserDto createUser(UserDto dto) {
         User user = User.builder()
@@ -127,6 +134,42 @@ public class UserService {
                         .id(ut.getTeamId())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getUserPreferences(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        return parseSettings(user.getSettings());
+    }
+
+    public Map<String, Object> updateUserPreferences(UUID userId, Map<String, Object> preferences) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        Map<String, Object> existingSettings = parseSettings(user.getSettings());
+        existingSettings.putAll(preferences);
+
+        try {
+            user.setSettings(objectMapper.writeValueAsString(existingSettings));
+        } catch (Exception e) {
+            log.error("Failed to serialize user preferences for userId={}", userId, e);
+            throw new IllegalStateException("Failed to serialize user preferences", e);
+        }
+        userRepository.save(user);
+        return existingSettings;
+    }
+
+    private Map<String, Object> parseSettings(String settings) {
+        if (settings == null || settings.isBlank()) {
+            return new HashMap<>();
+        }
+        try {
+            return objectMapper.readValue(settings, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse user settings JSON, returning empty map: {}", e.getMessage());
+            return new HashMap<>();
+        }
     }
 
     private UserDto toDto(User user) {

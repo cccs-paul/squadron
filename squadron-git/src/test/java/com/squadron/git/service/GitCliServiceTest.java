@@ -151,6 +151,13 @@ class GitCliServiceTest {
             pb.environment().put("GIT_TERMINAL_PROMPT", "0");
             Process process = pb.start();
             int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                // Configure local git identity so commits work without global config
+                executeGitConfig(workDir, "user.name", "Test User");
+                executeGitConfig(workDir, "user.email", "test@test.com");
+            }
+
             return GitCommandResult.builder()
                     .success(exitCode == 0)
                     .output("")
@@ -165,5 +172,11 @@ class GitCliServiceTest {
                     .exitCode(-1)
                     .build();
         }
+    }
+
+    private void executeGitConfig(String workDir, String key, String value) throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder("git", "config", key, value);
+        pb.directory(new File(workDir));
+        pb.start().waitFor();
     }
 }

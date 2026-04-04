@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
-**Last updated:** 2026-04-02
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-16). Feature 16: SSH Key Integration for Git Operations — workspace git clone/push now supports SSH URLs using user-supplied SSH keys from squadron-platform. New `PlatformServiceClient` Feign client + `ResilientPlatformServiceClient` in workspace module, `GET /{id}/private-key` endpoint on platform, `WorkspaceGitService` detects SSH URLs and configures `GIT_SSH_COMMAND` with temporary key file. Backward compatible (HTTPS still works, SSH key optional). All previous features and bug fixes intact. All backend tests passing (476 platform, 191 workspace). All 798 Angular tests passing (0 failures). Angular build passing.
+**Last updated:** 2026-04-04
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-20). Features 17-20 completed in this session: (17) Agent Listener Refactor — replaced 5 hardcoded per-state NATS listeners with single unified `TaskStateDispatcher`; (18) i18n Support — English + French with `@ngx-translate`, language switcher in header and login page, backend language persistence via user preferences endpoint; (19) Verbose Notification Event Types — descriptions added to muted event types with translation keys; (20) Mock Data Removal — all 18 components cleaned of demo/mock data, replaced with proper empty states on API error. Rootless containers, Hibernate dialect cleanup, surefire argLine fix also applied. All 3,818 backend tests passing (0 failures). Angular build passing. All 19 containers healthy.
 
 ---
 
@@ -40,8 +40,10 @@
 - [x] AuthProviderConfig management
 - [x] TenantController: `GET /api/tenants/current` and `PATCH /api/tenants/current/settings` (JWT-based tenant lookup)
 - [x] TenantService: `updateTenantSettings()` with merge-style partial update, proper JSON via ObjectMapper
+- [x] UserController: `GET /api/users/{userId}/preferences` and `PATCH /api/users/{userId}/preferences` (language persistence)
+- [x] UserService: `getUserPreferences()` and `updateUserPreferences()` with JSONB merge-style update
 - [x] Flyway migrations (V1, V2)
-- [x] All tests passing (including 3 new TenantController tests, 5 new TenantService tests)
+- [x] All tests passing (including 4 new UserController tests, 6 new UserService tests)
 
 ### squadron-orchestrator (39 src / 36 test)
 - [x] Custom PostgreSQL state machine (WorkflowEngine)
@@ -66,7 +68,7 @@
 - [x] WebSocket controller
 - [x] Agent dashboard API (DTOs, service, controller, 17 tests)
 - [x] User agent squadron configuration (entity, DTO, repository, service, controller, migration, 28 tests)
-- [x] Listeners migrated to JetStreamSubscriber (Planning, Coding, Review, QA, Merge, PlanApproval)
+- [x] Listeners migrated to JetStreamSubscriber; unified TaskStateDispatcher replaces 5 individual listeners (PlanApproval kept separate)
 - [x] Feign clients (OrchestratorClient, GitServiceClient, ReviewServiceClient, WorkspaceServiceClient)
 - [x] Resilient Feign wrappers (circuit breaker + retry for all 4 Feign clients)
 - [x] Flyway migrations (V1, V2, V3)
@@ -480,6 +482,52 @@
 - [x] Tests: 2 pre-existing tests updated (WorkspaceServiceTest auto-clone stubs changed from 2-arg to 3-arg)
 - [x] Tests: SecurityConfigTest updated (added `@MockBean ResilientPlatformServiceClient`)
 - [x] All 191 workspace tests passing, all 476 platform tests passing
+
+### Feature 17: Agent Listener Refactor (Unified TaskStateDispatcher)
+- [x] Created `TaskStateDispatcher.java` — single unified NATS listener replacing 5 individual per-state listeners
+- [x] Handles all states (PLANNING, CODING, REVIEW, QA, MERGE) via switch statement dispatching to appropriate service
+- [x] Deleted: PlanningAgentListener, CodingAgentListener, ReviewAgentListener, QAAgentListener, MergeListener (and their tests)
+- [x] PlanApprovalListener kept separate (different NATS subject: `squadron.agent.plan.approved`)
+- [x] EventFlowValidationTest rewritten to use TaskStateDispatcher
+- [x] Tests: 20 test methods in TaskStateDispatcherTest (all states + error handling + unknown states)
+- [x] All squadron-agent tests passing
+
+### Feature 18: i18n Support (English + French)
+- [x] Frontend: `@ngx-translate/core@17` + `@ngx-translate/http-loader@17` with `provideTranslateHttpLoader()` (v17 API)
+- [x] Frontend: `I18nService` — init, switchLanguage, currentLang signal, localStorage persistence, browser language detection, backend persistence
+- [x] Frontend: English (`en.json`) and French (`fr.json`) comprehensive translation files in `src/assets/i18n/`
+- [x] Frontend: Language switcher dropdown in header (left of user avatar) and login page (top right)
+- [x] Frontend: Sidebar nav items use `labelKey` with translate pipe
+- [x] Frontend: Dashboard StatCard uses `labelKey` with translate pipe
+- [x] Frontend: Settings tabs use `labelKey` with translate pipe
+- [x] Frontend: All 6 affected component specs updated for TranslateModule.forRoot() and key-based assertions
+- [x] Backend: `GET /api/users/{userId}/preferences` and `PATCH /api/users/{userId}/preferences` endpoints on squadron-identity
+- [x] Backend: `UserService.getUserPreferences()` and `updateUserPreferences()` with JSONB merge-style update of `settings` field
+- [x] Backend: 4 new UserController tests + 6 new UserService tests
+- [x] Gateway: `user-service` route added for `/api/users/**` (17 routes total)
+- [x] Gateway: GatewayConfigTest updated (24 tests)
+- [x] Angular build passing, all backend tests passing
+
+### Feature 19: Verbose Notification Event Types
+- [x] Frontend: `eventTypes` changed from `string[]` to objects with `{ type, labelKey, descriptionKey }`
+- [x] Frontend: HTML template shows translated labels and descriptions
+- [x] Frontend: SCSS with `__event-info`, `__event-label`, `__event-description` classes
+- [x] Frontend: Spec updated for new event type structure
+
+### Feature 20: Mock Data Removal (18 Components)
+- [x] Removed mock/demo data from all 18 components that silently populated UI with fake data on API error
+- [x] All error handlers now set empty arrays `[]` or `null` instead of calling getMock*/applyMockData methods
+- [x] Removed methods: getMockTasks, getMockReviews, getMockUsers, getMockTeams, getMockGroups, getMockPermissions, getMockConnections, getMockProviders, getMockStatuses, applyMockData, applyMockSettings
+- [x] Components affected: project-list, project-detail, task-board, task-detail, dashboard, agent-chat, review-list, review-detail, qa-report, settings, user-management, team-management, security-group-management, permission-management, platform-connections, auth-provider-config, usage-dashboard, project-config
+- [x] All 18 corresponding spec files updated (mock data assertions → empty state assertions)
+- [x] Removed unused `PercentPipe` import from agent-chat component
+- [x] Angular build passing, all backend tests passing
+
+### Infrastructure Improvements (This Session)
+- [x] Rootless containers: nginx-unprivileged for UI, rootless Redis and Mailpit
+- [x] Hibernate dialect removal from 18 application.yml/application-integration.yml files (Spring Boot auto-detection)
+- [x] Surefire argLine fix: `-XX:+EnableDynamicAgentLoading -Xshare:off` for Java 21 + Mockito compatibility
+- [x] All 19 containers healthy with testldap-build-and-start.sh
 
 ---
 

@@ -1,11 +1,11 @@
 <div class="notification-preferences">
   <div class="notification-preferences__header">
-    <h2>Notification Preferences</h2>
-    <p class="notification-preferences__subtitle">Configure how you receive notifications</p>
+    <h2>{{ 'notifications.title' | translate }}</h2>
+    <p class="notification-preferences__subtitle">{{ 'notifications.subtitle' | translate }}</p>
   </div>
 
   @if (saveSuccess()) {
-    <div class="alert alert--success">Preferences saved successfully</div>
+    <div class="alert alert--success">{{ 'notifications.savedSuccessfully' | translate }}</div>
   }
 
   @if (saveError(); as err) {
@@ -15,21 +15,21 @@
   @if (loading()) {
     <div class="notification-preferences__loading">
       <div class="spinner"></div>
-      <p>Loading preferences...</p>
+      <p>{{ 'notifications.loadingPreferences' | translate }}</p>
     </div>
   } @else {
     <div class="notification-preferences__sections">
       <!-- Channels Section -->
       <section class="notification-preferences__section">
         <div class="notification-preferences__section-header">
-          <h3>Notification Channels</h3>
-          <p>Enable or disable notification delivery methods</p>
+          <h3>{{ 'notifications.channels.title' | translate }}</h3>
+          <p>{{ 'notifications.channels.subtitle' | translate }}</p>
         </div>
         <div class="notification-preferences__section-body">
           <div class="notification-preferences__toggle-row">
             <div>
-              <label class="notification-preferences__label">In-App Notifications</label>
-              <span class="notification-preferences__hint">Receive notifications within Squadron</span>
+              <label class="notification-preferences__label">{{ 'notifications.channels.inApp' | translate }}</label>
+              <span class="notification-preferences__hint">{{ 'notifications.channels.inAppHint' | translate }}</span>
             </div>
             <label class="toggle">
               <input type="checkbox" [(ngModel)]="enableInApp" />
@@ -39,8 +39,8 @@
 
           <div class="notification-preferences__toggle-row">
             <div>
-              <label class="notification-preferences__label">Email</label>
-              <span class="notification-preferences__hint">Receive email notifications</span>
+              <label class="notification-preferences__label">{{ 'notifications.channels.email' | translate }}</label>
+              <span class="notification-preferences__hint">{{ 'notifications.channels.emailHint' | translate }}</span>
             </div>
             <label class="toggle">
               <input type="checkbox" [(ngModel)]="enableEmail" />
@@ -50,20 +50,20 @@
 
           @if (enableEmail) {
             <div class="notification-preferences__field">
-              <label class="notification-preferences__label">Email Address</label>
+              <label class="notification-preferences__label">{{ 'notifications.channels.emailAddress' | translate }}</label>
               <input
                 class="notification-preferences__input"
                 type="email"
                 [(ngModel)]="emailAddress"
-                placeholder="you@example.com"
+                [placeholder]="'notifications.channels.emailPlaceholder' | translate"
               />
             </div>
           }
 
           <div class="notification-preferences__toggle-row">
             <div>
-              <label class="notification-preferences__label">Slack</label>
-              <span class="notification-preferences__hint">Send notifications to a Slack channel</span>
+              <label class="notification-preferences__label">{{ 'notifications.channels.slack' | translate }}</label>
+              <span class="notification-preferences__hint">{{ 'notifications.channels.slackHint' | translate }}</span>
             </div>
             <label class="toggle">
               <input type="checkbox" [(ngModel)]="enableSlack" />
@@ -73,20 +73,20 @@
 
           @if (enableSlack) {
             <div class="notification-preferences__field">
-              <label class="notification-preferences__label">Slack Webhook URL</label>
+              <label class="notification-preferences__label">{{ 'notifications.channels.slackWebhookUrl' | translate }}</label>
               <input
                 class="notification-preferences__input"
                 type="url"
                 [(ngModel)]="slackWebhookUrl"
-                placeholder="https://hooks.slack.com/services/..."
+                [placeholder]="'notifications.channels.slackPlaceholder' | translate"
               />
             </div>
           }
 
           <div class="notification-preferences__toggle-row">
             <div>
-              <label class="notification-preferences__label">Microsoft Teams</label>
-              <span class="notification-preferences__hint">Send notifications to a Teams channel</span>
+              <label class="notification-preferences__label">{{ 'notifications.channels.teams' | translate }}</label>
+              <span class="notification-preferences__hint">{{ 'notifications.channels.teamsHint' | translate }}</span>
             </div>
             <label class="toggle">
               <input type="checkbox" [(ngModel)]="enableTeams" />
@@ -96,12 +96,12 @@
 
           @if (enableTeams) {
             <div class="notification-preferences__field">
-              <label class="notification-preferences__label">Teams Webhook URL</label>
+              <label class="notification-preferences__label">{{ 'notifications.channels.teamsWebhookUrl' | translate }}</label>
               <input
                 class="notification-preferences__input"
                 type="url"
                 [(ngModel)]="teamsWebhookUrl"
-                placeholder="https://outlook.office.com/webhook/..."
+                [placeholder]="'notifications.channels.teamsPlaceholder' | translate"
               />
             </div>
           }
@@ -111,18 +111,21 @@
       <!-- Muted Events Section -->
       <section class="notification-preferences__section">
         <div class="notification-preferences__section-header">
-          <h3>Muted Event Types</h3>
-          <p>Select event types you do not want to receive notifications for</p>
+          <h3>{{ 'notifications.mutedEvents.title' | translate }}</h3>
+          <p>{{ 'notifications.mutedEvents.subtitle' | translate }}</p>
         </div>
         <div class="notification-preferences__section-body">
-          @for (eventType of eventTypes; track eventType) {
+          @for (evt of eventTypes; track evt.type) {
             <label class="notification-preferences__checkbox-row">
               <input
                 type="checkbox"
-                [checked]="isEventMuted(eventType)"
-                (change)="toggleMutedEvent(eventType)"
+                [checked]="isEventMuted(evt.type)"
+                (change)="toggleMutedEvent(evt.type)"
               />
-              <span>{{ eventType }}</span>
+              <div class="notification-preferences__event-info">
+                <span class="notification-preferences__event-label">{{ evt.labelKey | translate }}</span>
+                <span class="notification-preferences__event-description">{{ evt.descriptionKey | translate }}</span>
+              </div>
             </label>
           }
         </div>
@@ -135,9 +138,9 @@
           [disabled]="saving()"
         >
           @if (saving()) {
-            Saving...
+            {{ 'common.saving' | translate }}
           } @else {
-            Save Preferences
+            {{ 'notifications.savePreferences' | translate }}
           }
         </button>
       </div>

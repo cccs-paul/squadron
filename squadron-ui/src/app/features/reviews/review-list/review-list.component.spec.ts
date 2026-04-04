@@ -35,17 +35,16 @@ describe('ReviewListComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should load mock reviews on API error', () => {
+  it('should show empty state on API error', () => {
     fixture.detectChanges();
-    expect(component.reviews().length).toBe(3);
+    expect(component.reviews().length).toBe(0);
     expect(component.loading()).toBeFalse();
   });
 
-  it('should include review with PENDING status in mocks', () => {
+  it('should have no reviews on API error', () => {
     fixture.detectChanges();
     const pending = component.reviews().find((r) => r.status === ReviewStatus.PENDING);
-    expect(pending).toBeTruthy();
-    expect(pending!.pullRequestNumber).toBe(35);
+    expect(pending).toBeUndefined();
   });
 
   it('should load real reviews on API success', () => {
@@ -84,6 +83,6 @@ describe('ReviewListComponent', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     const rows = el.querySelectorAll('tbody tr');
-    expect(rows.length).toBe(3);
+    expect(rows.length).toBe(0);
   });
 });

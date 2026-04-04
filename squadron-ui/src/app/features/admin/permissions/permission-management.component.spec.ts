@@ -170,13 +170,12 @@ describe('PermissionManagementComponent', () => {
     expect(component.accessLevelClass(AccessLevel.READ)).toBe('success');
   });
 
-  it('should_fallbackToMockData_when_getPermissionsFails', () => {
+  it('should_showEmptyState_when_getPermissionsFails', () => {
     permServiceSpy.getPermissions.and.returnValue(throwError(() => new Error('API error')));
 
     fixture.detectChanges();
 
-    expect(component.permissions().length).toBeGreaterThan(0);
+    expect(component.permissions().length).toBe(0);
     expect(component.loading()).toBeFalse();
-    expect(component.permissions().some(p => p.granteeName === 'Engineering')).toBeTrue();
   });
 });

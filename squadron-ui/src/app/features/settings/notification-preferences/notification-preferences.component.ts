@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import {
   NotificationPreferenceService,
   NotificationPreference,
@@ -9,7 +10,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 @Component({
   selector: 'sq-notification-preferences',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslateModule],
   templateUrl: './notification-preferences.component.html',
   styleUrl: './notification-preferences.component.scss',
 })
@@ -36,14 +37,44 @@ export class NotificationPreferencesComponent implements OnInit {
     return this.authService.user()?.id ?? '';
   }
 
-  readonly eventTypes = [
-    'TASK_ASSIGNED',
-    'TASK_STATE_CHANGED',
-    'REVIEW_REQUESTED',
-    'REVIEW_COMPLETED',
-    'AGENT_COMPLETED',
-    'AGENT_NEEDS_INPUT',
-    'SYSTEM',
+  private translateService = inject(TranslateService);
+
+  readonly eventTypes: { type: string; labelKey: string; descriptionKey: string }[] = [
+    {
+      type: 'TASK_ASSIGNED',
+      labelKey: 'notifications.eventTypes.TASK_ASSIGNED.label',
+      descriptionKey: 'notifications.eventTypes.TASK_ASSIGNED.description',
+    },
+    {
+      type: 'TASK_STATE_CHANGED',
+      labelKey: 'notifications.eventTypes.TASK_STATE_CHANGED.label',
+      descriptionKey: 'notifications.eventTypes.TASK_STATE_CHANGED.description',
+    },
+    {
+      type: 'REVIEW_REQUESTED',
+      labelKey: 'notifications.eventTypes.REVIEW_REQUESTED.label',
+      descriptionKey: 'notifications.eventTypes.REVIEW_REQUESTED.description',
+    },
+    {
+      type: 'REVIEW_COMPLETED',
+      labelKey: 'notifications.eventTypes.REVIEW_COMPLETED.label',
+      descriptionKey: 'notifications.eventTypes.REVIEW_COMPLETED.description',
+    },
+    {
+      type: 'AGENT_COMPLETED',
+      labelKey: 'notifications.eventTypes.AGENT_COMPLETED.label',
+      descriptionKey: 'notifications.eventTypes.AGENT_COMPLETED.description',
+    },
+    {
+      type: 'AGENT_NEEDS_INPUT',
+      labelKey: 'notifications.eventTypes.AGENT_NEEDS_INPUT.label',
+      descriptionKey: 'notifications.eventTypes.AGENT_NEEDS_INPUT.description',
+    },
+    {
+      type: 'SYSTEM',
+      labelKey: 'notifications.eventTypes.SYSTEM.label',
+      descriptionKey: 'notifications.eventTypes.SYSTEM.description',
+    },
   ];
 
   ngOnInit(): void {
@@ -88,7 +119,7 @@ export class NotificationPreferencesComponent implements OnInit {
       },
       error: (err) => {
         this.saving.set(false);
-        this.saveError.set('Failed to save preferences. Please try again.');
+        this.saveError.set(this.translateService.instant('notifications.saveFailed'));
         setTimeout(() => this.saveError.set(null), 5000);
       },
     });

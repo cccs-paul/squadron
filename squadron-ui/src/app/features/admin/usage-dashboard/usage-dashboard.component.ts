@@ -17,7 +17,7 @@ export class UsageDashboardComponent implements OnInit {
   summary = signal<UsageSummary | null>(null);
   agentBreakdown = signal<UsageByAgent[]>([]);
 
-  readonly tenantId = 'demo-tenant-001';
+  tenantId = '';
 
   maxAgentTokens = computed(() => {
     const agents = this.agentBreakdown();
@@ -39,7 +39,9 @@ export class UsageDashboardComponent implements OnInit {
         this.loadAgentBreakdown();
       },
       error: () => {
-        this.applyMockData();
+        console.error('Failed to load tenant usage summary');
+        this.summary.set(null);
+        this.agentBreakdown.set([]);
         this.loading.set(false);
       },
     });
@@ -72,26 +74,10 @@ export class UsageDashboardComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.applyMockData();
+        console.error('Failed to load agent breakdown');
+        this.agentBreakdown.set([]);
         this.loading.set(false);
       },
     });
-  }
-
-  private applyMockData(): void {
-    this.summary.set({
-      totalInputTokens: 245000,
-      totalOutputTokens: 182000,
-      totalTokens: 427000,
-      totalCost: 6.84,
-      invocations: 156,
-    });
-    this.agentBreakdown.set([
-      { agentType: 'PLANNING', totalTokens: 52000, totalCost: 0.83, invocations: 31 },
-      { agentType: 'CODING', totalTokens: 198000, totalCost: 3.17, invocations: 62 },
-      { agentType: 'REVIEW', totalTokens: 87000, totalCost: 1.39, invocations: 35 },
-      { agentType: 'QA', totalTokens: 65000, totalCost: 1.04, invocations: 20 },
-      { agentType: 'MERGE', totalTokens: 25000, totalCost: 0.41, invocations: 8 },
-    ]);
   }
 }

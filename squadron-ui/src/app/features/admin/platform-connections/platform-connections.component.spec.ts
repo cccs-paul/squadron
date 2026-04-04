@@ -218,13 +218,12 @@ describe('PlatformConnectionsComponent', () => {
     expect(component.platformIcon(PlatformConnectionType.BITBUCKET)).toBe('Bitbucket');
   });
 
-  it('should_fallbackToMockData_when_getConnectionsFails', () => {
+  it('should_showEmptyState_when_getConnectionsFails', () => {
     platformServiceSpy.getConnections.and.returnValue(throwError(() => new Error('API error')));
 
     fixture.detectChanges();
 
-    expect(component.connections().length).toBeGreaterThan(0);
+    expect(component.connections().length).toBe(0);
     expect(component.loading()).toBeFalse();
-    expect(component.connections().some(c => c.platformType === PlatformConnectionType.GITHUB)).toBeTrue();
   });
 });

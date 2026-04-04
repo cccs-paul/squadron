@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../../core/services/user.service';
-import { Team, User, UserRole, UserStatus } from '../../../core/models/user.model';
+import { Team } from '../../../core/models/user.model';
 import { AvatarComponent } from '../../../shared/components/avatar/avatar.component';
 
 @Component({
@@ -34,8 +34,9 @@ export class TeamManagementComponent implements OnInit {
         this.teams.set(res.content);
         this.loading.set(false);
       },
-      error: () => {
-        this.teams.set(this.getMockTeams());
+      error: (err) => {
+        console.error('Failed to load teams', err);
+        this.teams.set([]);
         this.loading.set(false);
       },
     });
@@ -82,17 +83,8 @@ export class TeamManagementComponent implements OnInit {
     } else {
       this.userService.createTeam(payload).subscribe({
         next: () => { this.closeModal(); this.loadTeams(); },
-        error: () => {
-          const mockTeam: Team = {
-            id: crypto.randomUUID(),
-            tenantId: '1',
-            name: this.formName,
-            description: this.formDescription,
-            memberCount: 0,
-            members: [],
-            createdAt: new Date().toISOString(),
-          };
-          this.teams.set([mockTeam, ...this.teams()]);
+        error: (err) => {
+          console.error('Failed to create team', err);
           this.closeModal();
         },
       });
@@ -109,16 +101,4 @@ export class TeamManagementComponent implements OnInit {
     });
   }
 
-  private getMockTeams(): Team[] {
-    const mockUsers: User[] = [
-      { id: '1', tenantId: '1', username: 'jdoe', email: 'john@example.com', displayName: 'John Doe', role: UserRole.ADMIN, teams: [], status: UserStatus.ACTIVE, createdAt: new Date().toISOString() },
-      { id: '2', tenantId: '1', username: 'jsmith', email: 'jane@example.com', displayName: 'Jane Smith', role: UserRole.DEVELOPER, teams: [], status: UserStatus.ACTIVE, createdAt: new Date().toISOString() },
-      { id: '3', tenantId: '1', username: 'bwilson', email: 'bob@example.com', displayName: 'Bob Wilson', role: UserRole.DEVELOPER, teams: [], status: UserStatus.ACTIVE, createdAt: new Date().toISOString() },
-    ];
-    return [
-      { id: 'team-1', tenantId: '1', name: 'Backend Team', description: 'Handles API and microservices development', memberCount: 5, members: mockUsers, createdAt: new Date(Date.now() - 86400000 * 60).toISOString() },
-      { id: 'team-2', tenantId: '1', name: 'Frontend Team', description: 'UI/UX and Angular development', memberCount: 4, members: [mockUsers[1]], createdAt: new Date(Date.now() - 86400000 * 45).toISOString() },
-      { id: 'team-3', tenantId: '1', name: 'DevOps', description: 'Infrastructure, CI/CD, and Kubernetes', memberCount: 2, members: [mockUsers[2]], createdAt: new Date(Date.now() - 86400000 * 30).toISOString() },
-    ];
-  }
 }

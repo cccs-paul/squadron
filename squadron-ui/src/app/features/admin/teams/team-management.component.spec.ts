@@ -166,13 +166,12 @@ describe('TeamManagementComponent', () => {
     expect(userServiceSpy.deleteTeam).not.toHaveBeenCalled();
   });
 
-  it('should_fallbackToMockData_when_getTeamsFails', () => {
+  it('should_showEmptyState_when_getTeamsFails', () => {
     userServiceSpy.getTeams.and.returnValue(throwError(() => new Error('API error')));
 
     fixture.detectChanges();
 
-    expect(component.teams().length).toBeGreaterThan(0);
+    expect(component.teams().length).toBe(0);
     expect(component.loading()).toBeFalse();
-    expect(component.teams().some(t => t.name === 'Backend Team')).toBeTrue();
   });
 });

@@ -3,10 +3,12 @@ import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
+import { TranslateModule } from '@ngx-translate/core';
 import { HeaderComponent } from './header.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AuthUser } from '../../../core/auth/auth.models';
 import { NotificationService } from '../../../core/services/notification.service';
+import { I18nService } from '../../../core/services/i18n.service';
 
 describe('HeaderComponent', () => {
   let component: HeaderComponent;
@@ -40,14 +42,27 @@ describe('HeaderComponent', () => {
       toasts: signal([]),
     });
 
+    const i18nServiceMock = {
+      currentLang: signal('en'),
+      currentLangFlag: signal('EN'),
+      currentLangLabel: signal('English'),
+      supportedLanguages: [
+        { code: 'en', label: 'English', flag: 'EN' },
+        { code: 'fr', label: 'Francais', flag: 'FR' },
+      ],
+      switchLanguage: jasmine.createSpy('switchLanguage'),
+      init: jasmine.createSpy('init'),
+    };
+
     await TestBed.configureTestingModule({
-      imports: [HeaderComponent],
+      imports: [HeaderComponent, TranslateModule.forRoot()],
       providers: [
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: AuthService, useValue: authServiceSpy },
         { provide: NotificationService, useValue: notificationServiceSpy },
+        { provide: I18nService, useValue: i18nServiceMock },
       ],
     }).compileComponents();
 
@@ -118,7 +133,8 @@ describe('HeaderComponent', () => {
   it('should_haveSearchInput_when_rendered', () => {
     const searchInput = fixture.nativeElement.querySelector('.header__search-input');
     expect(searchInput).toBeTruthy();
-    expect(searchInput.placeholder).toContain('Search tasks');
+    // With TranslateModule.forRoot() and no translations loaded, the pipe returns the key
+    expect(searchInput.placeholder).toBe('header.searchPlaceholder');
   });
 
   it('should_containSettingsLink_when_profileMenuOpen', () => {
@@ -127,7 +143,8 @@ describe('HeaderComponent', () => {
 
     const settingsLink = fixture.nativeElement.querySelector('.profile-menu a[href="/settings"]');
     expect(settingsLink).toBeTruthy();
-    expect(settingsLink.textContent).toContain('Settings');
+    // Translate pipe returns the key when no translations are loaded
+    expect(settingsLink.textContent).toContain('header.settings');
   });
 
   it('should_toggleProfileMenuOnProfileClick_when_profileAreaClicked', () => {
@@ -137,5 +154,45 @@ describe('HeaderComponent', () => {
     profileDiv.click();
 
     expect(component.profileMenuOpen).toBeTrue();
+  });
+
+  it('should_toggleLangMenu_when_toggleLangMenuCalled', () => {
+    expect(component.langMenuOpen).toBeFalse();
+
+    component.toggleLangMenu();
+    expect(component.langMenuOpen).toBeTrue();
+
+    component.toggleLangMenu();
+    expect(component.langMenuOpen).toBeFalse();
+  });
+
+  it('should_closeLangMenu_when_profileMenuOpened', () => {
+    component.langMenuOpen = true;
+    component.toggleProfileMenu();
+    expect(component.langMenuOpen).toBeFalse();
+    expect(component.profileMenuOpen).toBeTrue();
+  });
+
+  it('should_closeProfileMenu_when_langMenuOpened', () => {
+    component.profileMenuOpen = true;
+    component.toggleLangMenu();
+    expect(component.profileMenuOpen).toBeFalse();
+    expect(component.langMenuOpen).toBeTrue();
+  });
+
+  it('should_showLangMenu_when_langMenuOpenIsTrue', () => {
+    component.langMenuOpen = true;
+    fixture.detectChanges();
+
+    const langMenu = fixture.nativeElement.querySelector('.lang-menu');
+    expect(langMenu).toBeTruthy();
+  });
+
+  it('should_renderLanguageOptions_when_langMenuOpen', () => {
+    component.langMenuOpen = true;
+    fixture.detectChanges();
+
+    const langItems = fixture.nativeElement.querySelectorAll('.lang-menu__item');
+    expect(langItems.length).toBe(2);
   });
 });

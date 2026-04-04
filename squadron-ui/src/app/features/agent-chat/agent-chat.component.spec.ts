@@ -58,10 +58,10 @@ describe('AgentChatComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should_loadMockMessages_when_sessionErrors', () => {
+  it('should_showEmptyState_when_sessionErrors', () => {
     agentServiceSpy.getSession.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
-    expect(component.messages().length).toBe(4);
+    expect(component.messages().length).toBe(0);
     expect(component.loading()).toBeFalse();
   });
 
@@ -95,7 +95,7 @@ describe('AgentChatComponent', () => {
     fixture.detectChanges();
     component.newMessage = '   ';
     component.sendMessage();
-    expect(component.messages().length).toBe(4);
+    expect(component.messages().length).toBe(0);
   });
 
   it('should_addUserMessage_when_sending', () => {
@@ -118,14 +118,15 @@ describe('AgentChatComponent', () => {
     expect(component.newMessage).toBe('');
   });
 
-  it('should_addMockResponse_when_noSessionAndNoWebSocket', fakeAsync(() => {
+  it('should_stopSending_when_noSessionAndNoWebSocket', fakeAsync(() => {
     agentServiceSpy.getSession.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
     const initialCount = component.messages().length;
     component.newMessage = 'Help me';
     component.sendMessage();
     tick(1100);
-    expect(component.messages().length).toBe(initialCount + 2);
+    // With no session, only the user message is added and sending stops immediately
+    expect(component.messages().length).toBe(initialCount + 1);
     expect(component.sending()).toBeFalse();
   }));
 
@@ -304,14 +305,11 @@ describe('AgentChatComponent', () => {
     expect(component.progressPercent).toBe(0.5);
   });
 
-  it('should_setMockProgress_when_sessionErrors', () => {
+  it('should_setNullProgress_when_sessionErrors', () => {
     agentServiceSpy.getSession.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
 
-    const p = component.progress();
-    expect(p).toBeTruthy();
-    expect(p!.phase).toBe('CODING');
-    expect(p!.items.length).toBe(4);
+    expect(component.progress()).toBeNull();
   });
 
   it('should_cancelAgentViaWebSocket_when_connected', () => {
@@ -406,7 +404,14 @@ describe('AgentChatComponent', () => {
     agentServiceSpy.getSession.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
 
-    // With mock progress (2/4 steps)
+    // With null progress (from error), percent should be 0
+    expect(component.progressPercent).toBe(0);
+
+    // With set progress (2/4 steps)
+    component.progress.set({
+      conversationId: 'x', agentType: 'CODING', phase: 'CODING',
+      currentStep: 'Writing tests', completedSteps: 2, totalSteps: 4, items: [],
+    });
     expect(component.progressPercent).toBe(0.5);
 
     // With zero total steps

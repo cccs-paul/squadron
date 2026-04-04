@@ -59,27 +59,9 @@ export class QAReportComponent implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        // Fallback to mock data for development
-        this.report.set({
-          id: 'qa-1',
-          tenantId: '1',
-          taskId: taskId,
-          verdict: QAVerdict.CONDITIONAL_PASS,
-          summary: 'Tests pass but coverage is below threshold. 3 test gaps detected in authentication module.',
-          coveragePercentage: 72.5,
-          testsPassed: 145,
-          testsFailed: 3,
-          testsSkipped: 7,
-          findings: [
-            { type: 'COVERAGE_GAP', message: 'AuthService.validateToken() has no unit tests', filePath: 'src/auth/auth.service.ts', lineNumber: 89, severity: 'MAJOR' },
-            { type: 'COVERAGE_GAP', message: 'Error handling branch in login() not covered', filePath: 'src/auth/auth.service.ts', lineNumber: 45, severity: 'MAJOR' },
-            { type: 'TEST_FAILURE', message: 'Expected token to be valid but got expired', filePath: 'src/auth/auth.service.spec.ts', lineNumber: 123, severity: 'CRITICAL' },
-            { type: 'COVERAGE_GAP', message: 'Missing integration test for OAuth2 callback flow', filePath: 'src/auth/oauth2.controller.ts', severity: 'MINOR' },
-            { type: 'TEST_QUALITY', message: 'Test uses hardcoded timeout instead of async utilities', filePath: 'src/auth/auth.service.spec.ts', lineNumber: 67, severity: 'MINOR' },
-          ],
-          gateResult: 'FAILED',
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-        });
+        console.error('Failed to load QA report', err);
+        this.report.set(null);
+        this.error.set('Failed to load QA report');
         this.loading.set(false);
       },
     });

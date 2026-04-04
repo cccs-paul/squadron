@@ -41,8 +41,9 @@ export class UserManagementComponent implements OnInit {
         this.users.set(res.content);
         this.loading.set(false);
       },
-      error: () => {
-        this.users.set(this.getMockUsers());
+      error: (err) => {
+        console.error('Failed to load users', err);
+        this.users.set([]);
         this.loading.set(false);
       },
     });
@@ -90,12 +91,8 @@ export class UserManagementComponent implements OnInit {
           this.closeModal();
           this.loadUsers();
         },
-        error: () => {
-          // Optimistic update for demo
-          const updated = this.users().map((u) =>
-            u.id === editing.id ? { ...u, ...payload } : u,
-          );
-          this.users.set(updated);
+        error: (err) => {
+          console.error('Failed to update user', err);
           this.closeModal();
         },
       });
@@ -105,20 +102,8 @@ export class UserManagementComponent implements OnInit {
           this.closeModal();
           this.loadUsers();
         },
-        error: () => {
-          // Add mock user for demo
-          const mockUser: User = {
-            id: crypto.randomUUID(),
-            tenantId: '1',
-            username: this.formUsername,
-            email: this.formEmail,
-            displayName: this.formDisplayName,
-            role: this.formRole,
-            teams: [],
-            status: UserStatus.ACTIVE,
-            createdAt: new Date().toISOString(),
-          };
-          this.users.set([mockUser, ...this.users()]);
+        error: (err) => {
+          console.error('Failed to create user', err);
           this.closeModal();
         },
       });
@@ -148,13 +133,4 @@ export class UserManagementComponent implements OnInit {
     }
   }
 
-  private getMockUsers(): User[] {
-    return [
-      { id: '1', tenantId: '1', username: 'jdoe', email: 'john.doe@example.com', displayName: 'John Doe', role: UserRole.ADMIN, teams: ['team-1'], status: UserStatus.ACTIVE, lastLoginAt: new Date(Date.now() - 3600000).toISOString(), createdAt: new Date(Date.now() - 86400000 * 30).toISOString() },
-      { id: '2', tenantId: '1', username: 'jsmith', email: 'jane.smith@example.com', displayName: 'Jane Smith', role: UserRole.DEVELOPER, teams: ['team-1', 'team-2'], status: UserStatus.ACTIVE, lastLoginAt: new Date(Date.now() - 7200000).toISOString(), createdAt: new Date(Date.now() - 86400000 * 25).toISOString() },
-      { id: '3', tenantId: '1', username: 'bwilson', email: 'bob.wilson@example.com', displayName: 'Bob Wilson', role: UserRole.MANAGER, teams: ['team-2'], status: UserStatus.ACTIVE, lastLoginAt: new Date(Date.now() - 86400000).toISOString(), createdAt: new Date(Date.now() - 86400000 * 20).toISOString() },
-      { id: '4', tenantId: '1', username: 'alee', email: 'alice.lee@example.com', displayName: 'Alice Lee', role: UserRole.DEVELOPER, teams: ['team-1'], status: UserStatus.INACTIVE, createdAt: new Date(Date.now() - 86400000 * 15).toISOString() },
-      { id: '5', tenantId: '1', username: 'mchen', email: 'mike.chen@example.com', displayName: 'Mike Chen', role: UserRole.VIEWER, teams: [], status: UserStatus.SUSPENDED, createdAt: new Date(Date.now() - 86400000 * 10).toISOString() },
-    ];
-  }
 }

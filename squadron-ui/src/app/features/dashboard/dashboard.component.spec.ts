@@ -4,6 +4,7 @@ import { AgentDashboardService } from '../../core/services/agent-dashboard.servi
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { of, throwError } from 'rxjs';
 import { AgentDashboard } from '../../core/models/agent.model';
 
@@ -71,7 +72,7 @@ describe('DashboardComponent', () => {
     dashboardServiceSpy.getDashboard.and.returnValue(throwError(() => new Error('api down')));
 
     await TestBed.configureTestingModule({
-      imports: [DashboardComponent],
+      imports: [DashboardComponent, TranslateModule.forRoot()],
       providers: [
         { provide: AgentDashboardService, useValue: dashboardServiceSpy },
         provideRouter([]),
@@ -89,32 +90,25 @@ describe('DashboardComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should load mock data on API error', () => {
+  it('should show empty state on API error', () => {
     fixture.detectChanges();
     expect(component.loading()).toBeFalse();
-    // Mock data has 3 active agents
-    expect(component.stats()[0].label).toBe('Active Agents');
-    expect(component.stats()[0].value).toBe(3);
-    expect(component.stats()[1].label).toBe('Idle Agents');
-    expect(component.stats()[1].value).toBe(3);
+    expect(component.stats().length).toBe(0);
   });
 
-  it('should populate active work on API error', () => {
+  it('should have empty active work on API error', () => {
     fixture.detectChanges();
-    expect(component.activeWork().length).toBe(3);
-    expect(component.activeWork()[0].agentType).toBe('CODING');
+    expect(component.activeWork().length).toBe(0);
   });
 
-  it('should populate recent activity on API error', () => {
+  it('should have empty recent activity on API error', () => {
     fixture.detectChanges();
-    expect(component.recentActivity().length).toBe(5);
-    expect(component.recentActivity()[0].agentType).toBe('CODING');
+    expect(component.recentActivity().length).toBe(0);
   });
 
-  it('should populate agent type summaries on API error', () => {
+  it('should have empty agent type summaries on API error', () => {
     fixture.detectChanges();
-    expect(component.agentTypeSummaries().length).toBe(6);
-    expect(component.agentTypeSummaries()[0].agentType).toBe('PLANNING');
+    expect(component.agentTypeSummaries().length).toBe(0);
   });
 
   it('should load real data on successful API response', () => {
@@ -155,11 +149,11 @@ describe('DashboardComponent', () => {
     expect(component.agentTypeSummaries()[0].totalTokens).toBe(52400);
   });
 
-  it('should render stat cards in the template', () => {
+  it('should render no stat cards on error', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     const statCards = el.querySelectorAll('.stat-card');
-    expect(statCards.length).toBe(4);
+    expect(statCards.length).toBe(0);
   });
 
   it('should render active work cards', () => {
@@ -180,7 +174,8 @@ describe('DashboardComponent', () => {
     const el = fixture.nativeElement as HTMLElement;
     const emptyState = el.querySelector('.empty-state');
     expect(emptyState).toBeTruthy();
-    expect(emptyState!.textContent).toContain('All agents are idle');
+    // Translate pipe returns the key when no translations are loaded
+    expect(emptyState!.textContent).toContain('dashboard.allIdle');
   });
 
   it('should have correct agentTypeColors mapping', () => {
@@ -217,5 +212,15 @@ describe('DashboardComponent', () => {
     dashboardServiceSpy.getDashboard.and.returnValue(of(emptyDashboard));
     fixture.detectChanges();
     expect(component.getMaxTokens()).toBe(1);
+  });
+
+  it('should use labelKey on stats from API data', () => {
+    dashboardServiceSpy.getDashboard.and.returnValue(of(mockDashboard));
+    fixture.detectChanges();
+
+    expect(component.stats()[0].labelKey).toBe('dashboard.stats.activeAgents');
+    expect(component.stats()[1].labelKey).toBe('dashboard.stats.idleAgents');
+    expect(component.stats()[2].labelKey).toBe('dashboard.stats.totalConversations');
+    expect(component.stats()[3].labelKey).toBe('dashboard.stats.tokensUsed');
   });
 });

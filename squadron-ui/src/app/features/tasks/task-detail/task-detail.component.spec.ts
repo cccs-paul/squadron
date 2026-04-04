@@ -66,11 +66,10 @@ describe('TaskDetailComponent', () => {
     expect(component.loading()).toBeFalse();
   });
 
-  it('should fall back to mock task on service error', () => {
+  it('should show empty state on error', () => {
     taskServiceSpy.getTask.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
-    expect(component.task()).toBeTruthy();
-    expect(component.task()!.id).toBe('task-1');
+    expect(component.task()).toBeNull();
     expect(component.loading()).toBeFalse();
   });
 

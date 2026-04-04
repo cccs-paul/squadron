@@ -38,20 +38,18 @@ describe('TaskBoardComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should create 6 columns on error (mock data)', () => {
+  it('should create 6 empty columns on error', () => {
     fixture.detectChanges();
     expect(component.columns().length).toBe(6);
     const labels = component.columns().map((c) => c.label);
     expect(labels).toEqual(['Backlog', 'Planning', 'In Progress', 'Review', 'QA', 'Done']);
   });
 
-  it('should populate mock tasks in columns on error', () => {
+  it('should have no tasks in any column on error', () => {
     fixture.detectChanges();
-    const backlog = component.columns().find((c) => c.state === TaskState.BACKLOG);
-    expect(backlog).toBeTruthy();
-    expect(backlog!.tasks.length).toBe(2);
-    const inProgress = component.columns().find((c) => c.state === TaskState.IN_PROGRESS);
-    expect(inProgress!.tasks.length).toBe(3);
+    for (const col of component.columns()) {
+      expect(col.tasks.length).toBe(0);
+    }
   });
 
   it('should set loading to false after load', () => {
@@ -87,7 +85,7 @@ describe('TaskBoardComponent', () => {
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/tasks', 'task-123']);
   });
 
-  it('should have empty QA column in mock data', () => {
+  it('should have empty QA column on error', () => {
     fixture.detectChanges();
     const qa = component.columns().find((c) => c.state === TaskState.QA);
     expect(qa!.tasks.length).toBe(0);
@@ -107,7 +105,22 @@ describe('TaskBoardComponent', () => {
   });
 
   it('should filter by priority', () => {
+    const apiData: Record<TaskState, Task[]> = {
+      [TaskState.BACKLOG]: [
+        { id: '1', tenantId: '1', projectId: '1', title: 'Add export feature', state: TaskState.BACKLOG, priority: TaskPriority.LOW, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '2', tenantId: '1', projectId: '1', title: 'Refactor module', state: TaskState.BACKLOG, priority: TaskPriority.MEDIUM, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.PLANNING]: [],
+      [TaskState.IN_PROGRESS]: [
+        { id: '3', tenantId: '1', projectId: '1', title: 'Implement dashboard', state: TaskState.IN_PROGRESS, priority: TaskPriority.HIGH, labels: ['feature'], externalId: 'SQ-42', tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.REVIEW]: [],
+      [TaskState.QA]: [],
+      [TaskState.DONE]: [],
+    };
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
     fixture.detectChanges();
+
     component.filterPriority.set('HIGH');
     const filtered = component.filteredColumns();
     for (const col of filtered) {
@@ -115,13 +128,25 @@ describe('TaskBoardComponent', () => {
         expect(task.priority).toBe(TaskPriority.HIGH);
       }
     }
-    // Verify filtering actually reduced tasks - backlog has LOW and MEDIUM, should have 0
     const backlog = filtered.find(c => c.state === TaskState.BACKLOG);
     expect(backlog!.tasks.length).toBe(0);
   });
 
   it('should filter by search query matching title', () => {
+    const apiData: Record<TaskState, Task[]> = {
+      [TaskState.BACKLOG]: [
+        { id: '1', tenantId: '1', projectId: '1', title: 'Add export feature', state: TaskState.BACKLOG, priority: TaskPriority.LOW, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '2', tenantId: '1', projectId: '1', title: 'Refactor module', state: TaskState.BACKLOG, priority: TaskPriority.MEDIUM, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.PLANNING]: [],
+      [TaskState.IN_PROGRESS]: [],
+      [TaskState.REVIEW]: [],
+      [TaskState.QA]: [],
+      [TaskState.DONE]: [],
+    };
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
     fixture.detectChanges();
+
     component.searchQuery.set('export');
     const filtered = component.filteredColumns();
     const backlog = filtered.find(c => c.state === TaskState.BACKLOG);
@@ -130,7 +155,20 @@ describe('TaskBoardComponent', () => {
   });
 
   it('should filter by search query matching labels', () => {
+    const apiData: Record<TaskState, Task[]> = {
+      [TaskState.BACKLOG]: [],
+      [TaskState.PLANNING]: [],
+      [TaskState.IN_PROGRESS]: [
+        { id: '3', tenantId: '1', projectId: '1', title: 'Fix login bug', state: TaskState.IN_PROGRESS, priority: TaskPriority.HIGH, labels: ['bug'], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '4', tenantId: '1', projectId: '1', title: 'Implement dashboard', state: TaskState.IN_PROGRESS, priority: TaskPriority.HIGH, labels: ['feature'], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.REVIEW]: [],
+      [TaskState.QA]: [],
+      [TaskState.DONE]: [],
+    };
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
     fixture.detectChanges();
+
     component.searchQuery.set('bug');
     const filtered = component.filteredColumns();
     const inProgress = filtered.find(c => c.state === TaskState.IN_PROGRESS);
@@ -139,7 +177,20 @@ describe('TaskBoardComponent', () => {
   });
 
   it('should filter by search query matching externalId', () => {
+    const apiData: Record<TaskState, Task[]> = {
+      [TaskState.BACKLOG]: [],
+      [TaskState.PLANNING]: [],
+      [TaskState.IN_PROGRESS]: [
+        { id: '3', tenantId: '1', projectId: '1', title: 'Implement dashboard', state: TaskState.IN_PROGRESS, priority: TaskPriority.HIGH, labels: ['feature'], externalId: 'SQ-42', tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '4', tenantId: '1', projectId: '1', title: 'Other task', state: TaskState.IN_PROGRESS, priority: TaskPriority.MEDIUM, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.REVIEW]: [],
+      [TaskState.QA]: [],
+      [TaskState.DONE]: [],
+    };
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
     fixture.detectChanges();
+
     component.searchQuery.set('SQ-42');
     const filtered = component.filteredColumns();
     const totalTasks = filtered.reduce((sum, col) => sum + col.tasks.length, 0);
@@ -148,7 +199,20 @@ describe('TaskBoardComponent', () => {
   });
 
   it('should combine search and priority filters', () => {
+    const apiData: Record<TaskState, Task[]> = {
+      [TaskState.BACKLOG]: [],
+      [TaskState.PLANNING]: [],
+      [TaskState.IN_PROGRESS]: [
+        { id: '3', tenantId: '1', projectId: '1', title: 'Implement dashboard', state: TaskState.IN_PROGRESS, priority: TaskPriority.HIGH, labels: ['feature'], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '4', tenantId: '1', projectId: '1', title: 'Dashboard bugfix', state: TaskState.IN_PROGRESS, priority: TaskPriority.LOW, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.REVIEW]: [],
+      [TaskState.QA]: [],
+      [TaskState.DONE]: [],
+    };
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
     fixture.detectChanges();
+
     component.searchQuery.set('dashboard');
     component.filterPriority.set('HIGH');
     const filtered = component.filteredColumns();
@@ -171,7 +235,20 @@ describe('TaskBoardComponent', () => {
   });
 
   it('should reorder within same column on drop', () => {
+    const apiData: Record<TaskState, Task[]> = {
+      [TaskState.BACKLOG]: [
+        { id: '1', tenantId: '1', projectId: '1', title: 'Add export feature', state: TaskState.BACKLOG, priority: TaskPriority.LOW, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '2', tenantId: '1', projectId: '1', title: 'Refactor module', state: TaskState.BACKLOG, priority: TaskPriority.MEDIUM, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.PLANNING]: [],
+      [TaskState.IN_PROGRESS]: [],
+      [TaskState.REVIEW]: [],
+      [TaskState.QA]: [],
+      [TaskState.DONE]: [],
+    };
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
     fixture.detectChanges();
+
     const columns = component.columns();
     const backlogCol = columns.find(c => c.state === TaskState.BACKLOG)!;
     const containerData = [...backlogCol.tasks];
@@ -191,12 +268,26 @@ describe('TaskBoardComponent', () => {
 
     component.drop(event as CdkDragDrop<Task[]>, backlogCol);
     // moveItemInArray should have swapped positions
-    expect(containerData[0].title).toContain('Refactor');
-    expect(containerData[1].title).toContain('export');
+    expect(containerData[0].title).toBe('Refactor module');
+    expect(containerData[1].title).toBe('Add export feature');
   });
 
   it('should call transitionTask when task dropped to different column', () => {
+    const apiData: Record<TaskState, Task[]> = {
+      [TaskState.BACKLOG]: [
+        { id: '1', tenantId: '1', projectId: '1', title: 'Add export feature', state: TaskState.BACKLOG, priority: TaskPriority.LOW, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.PLANNING]: [
+        { id: '5', tenantId: '1', projectId: '1', title: 'Plan sprint', state: TaskState.PLANNING, priority: TaskPriority.MEDIUM, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.IN_PROGRESS]: [],
+      [TaskState.REVIEW]: [],
+      [TaskState.QA]: [],
+      [TaskState.DONE]: [],
+    };
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
     fixture.detectChanges();
+
     const columns = component.columns();
     const sourceCol = columns.find(c => c.state === TaskState.BACKLOG)!;
     const targetCol = columns.find(c => c.state === TaskState.PLANNING)!;
@@ -222,12 +313,26 @@ describe('TaskBoardComponent', () => {
     component.drop(event as CdkDragDrop<Task[]>, targetCol);
     expect(taskServiceSpy.transitionTask).toHaveBeenCalledWith('1', TaskState.PLANNING);
     // Task should have moved from source to target
-    expect(sourceData.length).toBe(1);
+    expect(sourceData.length).toBe(0);
     expect(targetData.length).toBe(2);
   });
 
   it('should revert transfer on failed transition', () => {
+    const apiData: Record<TaskState, Task[]> = {
+      [TaskState.BACKLOG]: [
+        { id: '1', tenantId: '1', projectId: '1', title: 'Add export feature', state: TaskState.BACKLOG, priority: TaskPriority.LOW, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.PLANNING]: [],
+      [TaskState.IN_PROGRESS]: [
+        { id: '3', tenantId: '1', projectId: '1', title: 'Implement dashboard', state: TaskState.IN_PROGRESS, priority: TaskPriority.HIGH, labels: [], tokenUsage: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      ],
+      [TaskState.REVIEW]: [],
+      [TaskState.QA]: [],
+      [TaskState.DONE]: [],
+    };
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
     fixture.detectChanges();
+
     const columns = component.columns();
     const sourceCol = columns.find(c => c.state === TaskState.BACKLOG)!;
     const targetCol = columns.find(c => c.state === TaskState.IN_PROGRESS)!;

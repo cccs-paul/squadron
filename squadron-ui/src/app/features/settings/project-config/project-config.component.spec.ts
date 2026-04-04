@@ -175,7 +175,7 @@ describe('ProjectConfigComponent', () => {
     expect(component.loading()).toBeFalse();
   });
 
-  it('should_handleApiError_withFallbackData', () => {
+  it('should_handleApiError_withEmptyState', () => {
     projectServiceSpy.getProjectsByTenant.and.returnValue(throwError(() => new Error('fail')));
     projectServiceSpy.getWorkflowStates.and.returnValue(throwError(() => new Error('fail')));
     platformServiceSpy.getConnectionsByTenant.and.returnValue(throwError(() => new Error('fail')));
@@ -189,7 +189,7 @@ describe('ProjectConfigComponent', () => {
     expect(component.gitRemotes().length).toBe(0);
     expect(component.sshKeys().length).toBe(0);
     expect(component.projectStates().length).toBe(0);
-    expect(component.workflowStates().length).toBe(8);
+    expect(component.workflowStates().length).toBe(0);
   });
 
   // --- Wizard step navigation ---
@@ -986,11 +986,11 @@ describe('ProjectConfigComponent', () => {
     expect(component.canFetchStatuses(component.projectStates()[1])).toBeFalse();
   });
 
-  it('should_fallbackToMockStatuses_when_fetchFails', () => {
+  it('should_showEmptyStatuses_when_fetchFails', () => {
     platformServiceSpy.getProjectStatuses.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
     component.fetchRemoteStatuses(0);
-    expect(component.projectStates()[0].remoteStatuses.length).toBeGreaterThan(0);
+    expect(component.projectStates()[0].remoteStatuses.length).toBe(0);
     expect(component.projectStates()[0].fetchingStatuses).toBeFalse();
   });
 

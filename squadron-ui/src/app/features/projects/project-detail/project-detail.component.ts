@@ -35,7 +35,7 @@ export class ProjectDetailComponent implements OnInit {
     if (id) {
       this.projectService.getProject(id).subscribe({
         next: (p) => this.project.set(p),
-        error: () => this.project.set({ id: id!, tenantId: '1', name: 'squadron-api', description: 'Main backend API service', repositoryUrl: 'https://github.com/org/squadron-api', defaultBranch: 'main', taskCount: 24, activeTaskCount: 8, members: [], createdAt: new Date().toISOString() } as Project),
+        error: (err) => { console.error('Failed to load project:', err); this.project.set(null); },
       });
     }
   }

@@ -35,18 +35,16 @@ describe('ProjectListComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should load mock projects on API error', () => {
+  it('should show empty state on error', () => {
     fixture.detectChanges();
-    expect(component.projects().length).toBe(3);
+    expect(component.projects().length).toBe(0);
     expect(component.loading()).toBeFalse();
   });
 
-  it('should include squadron-api in mock projects', () => {
+  it('should have no projects on API error', () => {
     fixture.detectChanges();
     const names = component.projects().map((p) => p.name);
-    expect(names).toContain('squadron-api');
-    expect(names).toContain('squadron-ui');
-    expect(names).toContain('squadron-infra');
+    expect(names).toEqual([]);
   });
 
   it('should load real projects on API success', () => {
@@ -71,17 +69,15 @@ describe('ProjectListComponent', () => {
     expect(component.loading()).toBeFalse();
   });
 
-  it('should render project cards', () => {
+  it('should render no project cards on error', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     const cards = el.querySelectorAll('.project-card');
-    expect(cards.length).toBe(3);
+    expect(cards.length).toBe(0);
   });
 
-  it('should display task counts in mock projects', () => {
+  it('should have empty projects array on error', () => {
     fixture.detectChanges();
-    const api = component.projects().find((p) => p.name === 'squadron-api');
-    expect(api!.taskCount).toBe(24);
-    expect(api!.activeTaskCount).toBe(8);
+    expect(component.projects().length).toBe(0);
   });
 });

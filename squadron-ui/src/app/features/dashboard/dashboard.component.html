@@ -1,22 +1,22 @@
 <div class="dashboard">
   <div class="dashboard__header">
     <div>
-      <h1 class="dashboard__title">Agent Dashboard</h1>
-      <p class="dashboard__subtitle">Real-time overview of your AI agent workforce</p>
+      <h1 class="dashboard__title">{{ 'dashboard.title' | translate }}</h1>
+      <p class="dashboard__subtitle">{{ 'dashboard.subtitle' | translate }}</p>
     </div>
     <div class="dashboard__actions">
       <a routerLink="/tasks" class="sq-btn sq-btn--primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
-        New Task
+        {{ 'dashboard.newTask' | translate }}
       </a>
     </div>
   </div>
 
   <!-- Stats Cards -->
   <div class="stats-grid">
-    @for (stat of stats(); track stat.label) {
+    @for (stat of stats(); track stat.labelKey) {
       <div class="stat-card sq-card">
         <div class="stat-card__icon" [style.background]="stat.bgColor">
           @switch (stat.icon) {
@@ -45,7 +45,7 @@
         </div>
         <div class="stat-card__content">
           <span class="stat-card__value">{{ stat.value }}</span>
-          <span class="stat-card__label">{{ stat.label }}</span>
+          <span class="stat-card__label">{{ stat.labelKey | translate }}</span>
         </div>
       </div>
     }
@@ -54,8 +54,8 @@
   <!-- Active Work -->
   <div class="sq-card dashboard__active-work">
     <div class="card-header">
-      <h3>Active Agents</h3>
-      <span class="card-header__badge">{{ activeWork().length }} working</span>
+      <h3>{{ 'dashboard.activeAgents' | translate }}</h3>
+      <span class="card-header__badge">{{ activeWork().length }} {{ 'common.working' | translate }}</span>
     </div>
     <div class="card-body">
       @if (activeWork().length > 0) {
@@ -67,15 +67,15 @@
               </div>
               <div class="work-card__details">
                 <div class="work-card__row">
-                  <span class="work-card__label">Task</span>
+                  <span class="work-card__label">{{ 'dashboard.task' | translate }}</span>
                   <span class="work-card__value">{{ work.taskId | slice:0:8 }}...</span>
                 </div>
                 <div class="work-card__row">
-                  <span class="work-card__label">Model</span>
+                  <span class="work-card__label">{{ 'dashboard.model' | translate }}</span>
                   <span class="work-card__value">{{ work.provider }}/{{ work.model }}</span>
                 </div>
                 <div class="work-card__row">
-                  <span class="work-card__label">Tokens</span>
+                  <span class="work-card__label">{{ 'common.tokens' | translate }}</span>
                   <span class="work-card__value">{{ formatTokens(work.totalTokens) }}</span>
                 </div>
               </div>
@@ -91,7 +91,7 @@
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--sq-text-tertiary)" stroke-width="1.5" stroke-linecap="round">
             <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
           </svg>
-          <p>All agents are idle</p>
+          <p>{{ 'dashboard.allIdle' | translate }}</p>
         </div>
       }
     </div>
@@ -101,7 +101,7 @@
     <!-- Recent Activity Timeline -->
     <div class="sq-card dashboard__activity">
       <div class="card-header">
-        <h3>Recent Activity</h3>
+        <h3>{{ 'dashboard.recentActivity' | translate }}</h3>
       </div>
       <div class="card-body">
         <div class="activity-list">
@@ -112,16 +112,16 @@
                 <p class="activity-item__text">
                   <span class="activity-item__agent-badge" [style.background]="getAgentBg(activity.agentType)" [style.color]="getAgentColor(activity.agentType)">{{ activity.agentType }}</span>
                   @if (activity.action === 'working') {
-                    <span> is working on task {{ activity.taskId | slice:0:8 }}...</span>
+                    <span> {{ 'dashboard.isWorkingOn' | translate }} {{ activity.taskId | slice:0:8 }}...</span>
                   } @else {
-                    <span> {{ activity.action }} task {{ activity.taskId | slice:0:8 }}...</span>
+                    <span> {{ activity.action }} {{ 'dashboard.task' | translate | lowercase }} {{ activity.taskId | slice:0:8 }}...</span>
                   }
                 </p>
-                <span class="activity-item__meta">{{ formatTokens(activity.totalTokens) }} tokens &middot; {{ activity.timestamp | timeAgo }}</span>
+                <span class="activity-item__meta">{{ formatTokens(activity.totalTokens) }} {{ 'common.tokens' | translate }} &middot; {{ activity.timestamp | timeAgo }}</span>
               </div>
             </div>
           } @empty {
-            <p class="activity-empty">No recent activity</p>
+            <p class="activity-empty">{{ 'dashboard.noRecentActivity' | translate }}</p>
           }
         </div>
       </div>
@@ -130,7 +130,7 @@
     <!-- Agent Type Summaries -->
     <div class="sq-card dashboard__summaries">
       <div class="card-header">
-        <h3>Agent Type Breakdown</h3>
+        <h3>{{ 'dashboard.agentTypeBreakdown' | translate }}</h3>
       </div>
       <div class="card-body">
         <div class="summaries">
@@ -138,20 +138,20 @@
             <div class="summary-row">
               <div class="summary-row__header">
                 <span class="summary-row__badge" [style.background]="getAgentBg(summary.agentType)" [style.color]="getAgentColor(summary.agentType)">{{ summary.agentType }}</span>
-                <span class="summary-row__tokens">{{ formatTokens(summary.totalTokens) }} tokens</span>
+                <span class="summary-row__tokens">{{ formatTokens(summary.totalTokens) }} {{ 'common.tokens' | translate }}</span>
               </div>
               <div class="summary-row__bar-wrapper">
                 <div class="summary-row__bar" [style.width.%]="(summary.totalTokens / getMaxTokens()) * 100" [style.background]="getAgentColor(summary.agentType)"></div>
               </div>
               <div class="summary-row__counts">
                 @if (summary.activeCount > 0) {
-                  <span class="summary-row__active">{{ summary.activeCount }} active</span>
+                  <span class="summary-row__active">{{ summary.activeCount }} {{ 'common.active' | translate }}</span>
                 }
-                <span class="summary-row__completed">{{ summary.completedCount }} completed</span>
+                <span class="summary-row__completed">{{ summary.completedCount }} {{ 'common.completed' | translate }}</span>
               </div>
             </div>
           } @empty {
-            <p class="activity-empty">No agent data available</p>
+            <p class="activity-empty">{{ 'dashboard.noAgentData' | translate }}</p>
           }
         </div>
       </div>
@@ -161,7 +161,7 @@
   <!-- Quick Actions -->
   <div class="sq-card dashboard__quick-actions">
     <div class="card-header">
-      <h3>Quick Actions</h3>
+      <h3>{{ 'dashboard.quickActions' | translate }}</h3>
     </div>
     <div class="card-body quick-actions-grid">
       <a routerLink="/tasks" class="quick-action">
@@ -170,7 +170,7 @@
             <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
           </svg>
         </div>
-        <span>View Task Board</span>
+        <span>{{ 'dashboard.viewTaskBoard' | translate }}</span>
       </a>
       <a routerLink="/reviews" class="quick-action">
         <div class="quick-action__icon" style="background: #FEF3C7; color: #F59E0B;">
@@ -179,7 +179,7 @@
             <polyline points="14 2 14 8 20 8"/>
           </svg>
         </div>
-        <span>Pending Reviews</span>
+        <span>{{ 'dashboard.pendingReviews' | translate }}</span>
       </a>
       <a routerLink="/projects" class="quick-action">
         <div class="quick-action__icon" style="background: #ECFEFF; color: #06B6D4;">
@@ -187,7 +187,7 @@
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
           </svg>
         </div>
-        <span>Browse Projects</span>
+        <span>{{ 'dashboard.browseProjects' | translate }}</span>
       </a>
       <a routerLink="/settings" class="quick-action">
         <div class="quick-action__icon" style="background: #F3F4F6; color: #6B7280;">
@@ -196,7 +196,7 @@
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9"/>
           </svg>
         </div>
-        <span>Settings</span>
+        <span>{{ 'sidebar.settings' | translate }}</span>
       </a>
     </div>
   </div>

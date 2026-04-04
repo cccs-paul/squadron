@@ -12,6 +12,7 @@ import { SshKeyService } from '../../core/services/ssh-key.service';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { NEVER, of, throwError } from 'rxjs';
 import { signal } from '@angular/core';
 import { Tenant, TenantPlan } from '../../core/models/tenant.model';
@@ -115,7 +116,7 @@ describe('SettingsComponent', () => {
     sshKeyServiceSpy.getSshKeysByTenant.and.returnValue(of([]));
 
     await TestBed.configureTestingModule({
-      imports: [SettingsComponent],
+      imports: [SettingsComponent, TranslateModule.forRoot()],
       providers: [
         { provide: TenantService, useValue: tenantServiceSpy },
         { provide: AuthService, useValue: authServiceStub },
@@ -190,12 +191,13 @@ describe('SettingsComponent', () => {
     const el = fixture.nativeElement as HTMLElement;
     const tabButtons = el.querySelectorAll('.settings-page__tab');
     expect(tabButtons.length).toBe(6);
-    expect(tabButtons[0].textContent).toContain('General');
-    expect(tabButtons[1].textContent).toContain('Providers & Projects');
-    expect(tabButtons[2].textContent).toContain('Agent Squadron');
-    expect(tabButtons[3].textContent).toContain('Notifications');
-    expect(tabButtons[4].textContent).toContain('Agent Config');
-    expect(tabButtons[5].textContent).toContain('Platform Tokens');
+    // Translate pipe returns keys when no translations are loaded
+    expect(tabButtons[0].textContent).toContain('settings.tabs.general');
+    expect(tabButtons[1].textContent).toContain('settings.tabs.providersProjects');
+    expect(tabButtons[2].textContent).toContain('settings.tabs.agentSquadron');
+    expect(tabButtons[3].textContent).toContain('settings.tabs.notifications');
+    expect(tabButtons[4].textContent).toContain('settings.tabs.agentConfig');
+    expect(tabButtons[5].textContent).toContain('settings.tabs.platformTokens');
   });
 
   it('should mark active tab button', () => {
@@ -204,7 +206,7 @@ describe('SettingsComponent', () => {
     const el = fixture.nativeElement as HTMLElement;
     const activeTab = el.querySelector('.settings-page__tab--active');
     expect(activeTab).toBeTruthy();
-    expect(activeTab!.textContent).toContain('General');
+    expect(activeTab!.textContent).toContain('settings.tabs.general');
   });
 
   it('should switch active tab button on click', () => {
@@ -217,7 +219,7 @@ describe('SettingsComponent', () => {
     fixture.detectChanges();
 
     const activeTab = el.querySelector('.settings-page__tab--active');
-    expect(activeTab!.textContent).toContain('Agent Squadron');
+    expect(activeTab!.textContent).toContain('settings.tabs.agentSquadron');
   });
 
   // --- Sub-component rendering ---
@@ -296,11 +298,10 @@ describe('SettingsComponent', () => {
     expect(component.loading()).toBeFalse();
   });
 
-  it('should fall back to mock settings on error', () => {
+  it('should show empty state on error', () => {
     tenantServiceSpy.getTenant.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
-    expect(component.tenant()).toBeTruthy();
-    expect(component.tenant()!.name).toBe('Acme Corp');
+    expect(component.tenant()).toBeNull();
     expect(component.settingsDefaultBranch).toBe('main');
     expect(component.loading()).toBeFalse();
   });
@@ -353,7 +354,8 @@ describe('SettingsComponent', () => {
     tenantServiceSpy.getTenant.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.textContent).toContain('Settings');
+    // Translate pipe returns the key; 'settings.title' contains 'Settings'
+    expect(el.textContent).toContain('settings.title');
   });
 
   it('should show loading spinner while loading', () => {
@@ -373,6 +375,19 @@ describe('SettingsComponent', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.alert--success')).toBeTruthy();
-    expect(el.textContent).toContain('Settings saved successfully');
+    // Translate pipe returns the key
+    expect(el.textContent).toContain('settings.savedSuccessfully');
+  });
+
+  // --- Tab labelKey format ---
+
+  it('should use labelKey on tabs', () => {
+    tenantServiceSpy.getTenant.and.returnValue(throwError(() => new Error('fail')));
+    fixture.detectChanges();
+
+    for (const tab of component.tabs) {
+      expect(tab.labelKey).toBeTruthy();
+      expect(tab.labelKey).toContain('settings.tabs.');
+    }
   });
 });

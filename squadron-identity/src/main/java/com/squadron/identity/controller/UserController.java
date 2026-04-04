@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -72,5 +74,19 @@ public class UserController {
     public ResponseEntity<ApiResponse<List<TeamDto>>> getUserTeams(@PathVariable UUID userId) {
         List<TeamDto> teams = userService.getUserTeams(userId);
         return ResponseEntity.ok(ApiResponse.success(teams));
+    }
+
+    @GetMapping("/{userId}/preferences")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getUserPreferences(@PathVariable UUID userId) {
+        Map<String, Object> preferences = userService.getUserPreferences(userId);
+        return ResponseEntity.ok(ApiResponse.success(preferences));
+    }
+
+    @PatchMapping("/{userId}/preferences")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updateUserPreferences(
+            @PathVariable UUID userId,
+            @RequestBody Map<String, Object> preferences) {
+        Map<String, Object> updated = userService.updateUserPreferences(userId, preferences);
+        return ResponseEntity.ok(ApiResponse.success(updated));
     }
 }

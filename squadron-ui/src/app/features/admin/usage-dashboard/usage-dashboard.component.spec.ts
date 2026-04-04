@@ -79,12 +79,9 @@ describe('UsageDashboardComponent', () => {
     usageServiceSpy.getTenantSummary.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
 
-    // Falls back to mock data, so summary should exist
-    expect(component.summary()).toBeTruthy();
-    // Now test with explicit null
-    component.summary.set(null);
-    component.agentBreakdown.set([]);
-    fixture.detectChanges();
+    // Error handler sets summary to null and agentBreakdown to empty
+    expect(component.summary()).toBeNull();
+    expect(component.agentBreakdown().length).toBe(0);
 
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.usage-dashboard__empty')).toBeTruthy();
@@ -122,12 +119,12 @@ describe('UsageDashboardComponent', () => {
     expect(component.getBarWidth(52000)).toBeCloseTo(26.3, 0);
   });
 
-  it('should fall back to mock data on API error', () => {
+  it('should show empty state on API error', () => {
     usageServiceSpy.getTenantSummary.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
 
-    expect(component.summary()!.totalTokens).toBe(427000);
-    expect(component.agentBreakdown().length).toBe(5);
+    expect(component.summary()).toBeNull();
+    expect(component.agentBreakdown().length).toBe(0);
     expect(component.loading()).toBeFalse();
   });
 });

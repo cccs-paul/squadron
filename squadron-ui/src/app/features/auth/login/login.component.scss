@@ -1,3 +1,72 @@
+.login-lang-switcher {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+
+  &__btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--sq-surface);
+    border: 1px solid var(--sq-border);
+    border-radius: var(--sq-radius);
+    color: var(--sq-text-secondary);
+    cursor: pointer;
+    font-family: var(--sq-font);
+    font-size: 12px;
+    font-weight: 600;
+    transition: all var(--sq-transition);
+    box-shadow: var(--sq-shadow-sm);
+
+    &:hover {
+      background: var(--sq-bg);
+      color: var(--sq-text);
+      border-color: var(--sq-text-tertiary);
+    }
+  }
+}
+
+.login-lang-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 140px;
+  background: var(--sq-surface);
+  border: 1px solid var(--sq-border);
+  border-radius: var(--sq-radius-md);
+  box-shadow: var(--sq-shadow-lg);
+  z-index: 1001;
+  padding: 4px;
+  animation: sq-slide-up 150ms ease;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    border-radius: var(--sq-radius-sm);
+    font-family: var(--sq-font);
+    font-size: 13px;
+    color: var(--sq-text);
+    cursor: pointer;
+    transition: background var(--sq-transition);
+
+    &:hover {
+      background: var(--sq-bg);
+    }
+
+    &--active {
+      color: var(--sq-primary);
+      font-weight: 600;
+    }
+  }
+}
+
 .login-card {
   background: var(--sq-surface);
   border-radius: var(--sq-radius-xl);

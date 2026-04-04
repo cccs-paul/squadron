@@ -89,11 +89,11 @@ describe('QAReportComponent', () => {
     expect(component.loading()).toBeFalse();
   });
 
-  it('should show fallback on service error', () => {
+  it('should show empty state on service error', () => {
     qaServiceSpy.getLatestReport.and.returnValue(throwError(() => new Error('fail')));
     const { component } = createComponent(true);
-    expect(component.report()).toBeTruthy();
-    expect(component.report()!.verdict).toBe(QAVerdict.CONDITIONAL_PASS);
+    expect(component.report()).toBeNull();
+    expect(component.error()).toBe('Failed to load QA report');
     expect(component.loading()).toBeFalse();
   });
 

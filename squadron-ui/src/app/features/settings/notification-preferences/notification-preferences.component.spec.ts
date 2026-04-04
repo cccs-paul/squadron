@@ -7,6 +7,7 @@ import {
 import { AuthService } from '../../../core/auth/auth.service';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 
@@ -50,7 +51,7 @@ describe('NotificationPreferencesComponent', () => {
     } as any;
 
     await TestBed.configureTestingModule({
-      imports: [NotificationPreferencesComponent],
+      imports: [NotificationPreferencesComponent, TranslateModule.forRoot()],
       providers: [
         { provide: NotificationPreferenceService, useValue: prefServiceSpy },
         { provide: AuthService, useValue: authServiceMock },
@@ -136,7 +137,8 @@ describe('NotificationPreferencesComponent', () => {
     component.savePreferences();
 
     expect(component.saving()).toBeFalse();
-    expect(component.saveError()).toBe('Failed to save preferences. Please try again.');
+    // translateService.instant() returns the key when no translations loaded
+    expect(component.saveError()).toBe('notifications.saveFailed');
   });
 
   it('should show muted event types', () => {
@@ -157,6 +159,41 @@ describe('NotificationPreferencesComponent', () => {
 
     component.toggleMutedEvent('SYSTEM');
     expect(component.isEventMuted('SYSTEM')).toBeFalse();
+  });
+
+  it('should display event type labels and descriptions', () => {
+    prefServiceSpy.getPreferences.and.returnValue(of(mockPrefs));
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const labels = el.querySelectorAll('.notification-preferences__event-label');
+    const descriptions = el.querySelectorAll('.notification-preferences__event-description');
+
+    expect(labels.length).toBe(7);
+    expect(descriptions.length).toBe(7);
+
+    // Translate pipe returns the keys when no translations are loaded
+    expect(labels[0].textContent?.trim()).toBe('notifications.eventTypes.TASK_ASSIGNED.label');
+    expect(descriptions[0].textContent?.trim()).toBe('notifications.eventTypes.TASK_ASSIGNED.description');
+
+    expect(labels[6].textContent?.trim()).toBe('notifications.eventTypes.SYSTEM.label');
+    expect(descriptions[6].textContent?.trim()).toBe('notifications.eventTypes.SYSTEM.description');
+  });
+
+  it('should have eventTypes with type, labelKey, and descriptionKey', () => {
+    prefServiceSpy.getPreferences.and.returnValue(of(mockPrefs));
+    fixture.detectChanges();
+
+    expect(component.eventTypes.length).toBe(7);
+    for (const evt of component.eventTypes) {
+      expect(evt.type).toBeTruthy();
+      expect(evt.labelKey).toBeTruthy();
+      expect(evt.descriptionKey).toBeTruthy();
+    }
+    expect(component.eventTypes.map(e => e.type)).toEqual([
+      'TASK_ASSIGNED', 'TASK_STATE_CHANGED', 'REVIEW_REQUESTED',
+      'REVIEW_COMPLETED', 'AGENT_COMPLETED', 'AGENT_NEEDS_INPUT', 'SYSTEM',
+    ]);
   });
 
   it('should fall back to defaults on load error', () => {

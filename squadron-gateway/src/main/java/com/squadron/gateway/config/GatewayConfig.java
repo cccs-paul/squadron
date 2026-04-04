@@ -54,6 +54,9 @@ public class GatewayConfig {
                 .route("identity-service", r -> r
                         .path("/api/identity/**")
                         .uri(identityUri))
+                .route("user-service", r -> r
+                        .path("/api/users/**")
+                        .uri(identityUri))
                 .route("config-service", r -> r
                         .path("/api/config/**")
                         .uri(configUri))

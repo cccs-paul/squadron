@@ -34,14 +34,9 @@ export class TaskDetailComponent implements OnInit {
     if (id) {
       this.taskService.getTask(id).subscribe({
         next: (task) => { this.task.set(task); this.loading.set(false); },
-        error: () => {
-          this.task.set({
-            id: id, tenantId: '1', projectId: '1', title: 'Implement user dashboard', description: 'Create a comprehensive dashboard view that shows task statistics, recent activity, and quick action buttons. The dashboard should include charts for task distribution and a real-time activity feed.',
-            state: TaskState.IN_PROGRESS, priority: TaskPriority.HIGH, labels: ['feature', 'frontend'], tokenUsage: 24500,
-            assigneeName: 'AI Agent', externalId: 'SQ-42', externalUrl: 'https://github.com/org/repo/issues/42',
-            pullRequestUrl: 'https://github.com/org/repo/pull/43',
-            createdAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: new Date(Date.now() - 3600000).toISOString(),
-          } as Task);
+        error: (err) => {
+          console.error('Failed to load task:', err);
+          this.task.set(null);
           this.loading.set(false);
         },
       });

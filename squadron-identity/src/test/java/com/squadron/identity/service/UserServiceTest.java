@@ -1,5 +1,7 @@
 package com.squadron.identity.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.common.dto.TeamDto;
 import com.squadron.common.dto.UserDto;
 import com.squadron.identity.entity.User;
@@ -16,13 +18,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,6 +37,8 @@ class UserServiceTest {
     private UserRepository userRepository;
     @Mock
     private UserTeamRepository userTeamRepository;
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private UserService userService;
@@ -246,5 +253,111 @@ class UserServiceTest {
         when(userRepository.existsById(userId)).thenReturn(false);
 
         assertThrows(ResourceNotFoundException.class, () -> userService.getUserTeams(userId));
+    }
+
+    // --- User Preferences Tests ---
+
+    @Test
+    void should_returnEmptyPreferences_when_settingsIsNull() throws Exception {
+        User userWithNullSettings = User.builder()
+                .id(userId)
+                .tenantId(tenantId)
+                .externalId("ext-123")
+                .email("test@example.com")
+                .settings(null)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(userWithNullSettings));
+
+        Map<String, Object> prefs = userService.getUserPreferences(userId);
+
+        assertNotNull(prefs);
+        assertTrue(prefs.isEmpty());
+    }
+
+    @Test
+    void should_returnPreferences_when_settingsHasLanguage() throws Exception {
+        User userWithSettings = User.builder()
+                .id(userId)
+                .tenantId(tenantId)
+                .externalId("ext-123")
+                .email("test@example.com")
+                .settings("{\"language\":\"fr\"}")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(userWithSettings));
+        Map<String, Object> parsed = new HashMap<>();
+        parsed.put("language", "fr");
+        when(objectMapper.readValue(eq("{\"language\":\"fr\"}"), any(TypeReference.class))).thenReturn(parsed);
+
+        Map<String, Object> prefs = userService.getUserPreferences(userId);
+
+        assertNotNull(prefs);
+        assertEquals("fr", prefs.get("language"));
+    }
+
+    @Test
+    void should_throwNotFound_when_getUserPreferencesForNonExistentUser() {
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> userService.getUserPreferences(userId));
+    }
+
+    @Test
+    void should_mergeAndPersistPreferences_when_updateUserPreferences() throws Exception {
+        User userWithSettings = User.builder()
+                .id(userId)
+                .tenantId(tenantId)
+                .externalId("ext-123")
+                .email("test@example.com")
+                .settings("{\"theme\":\"dark\"}")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(userWithSettings));
+
+        Map<String, Object> existing = new HashMap<>();
+        existing.put("theme", "dark");
+        when(objectMapper.readValue(eq("{\"theme\":\"dark\"}"), any(TypeReference.class))).thenReturn(existing);
+        when(objectMapper.writeValueAsString(any(Map.class))).thenReturn("{\"theme\":\"dark\",\"language\":\"fr\"}");
+        when(userRepository.save(userWithSettings)).thenReturn(userWithSettings);
+
+        Map<String, Object> result = userService.updateUserPreferences(userId, Map.of("language", "fr"));
+
+        assertNotNull(result);
+        assertEquals("dark", result.get("theme"));
+        assertEquals("fr", result.get("language"));
+        verify(userRepository).save(userWithSettings);
+    }
+
+    @Test
+    void should_throwNotFound_when_updatePreferencesForNonExistentUser() {
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                userService.updateUserPreferences(userId, Map.of("language", "en")));
+    }
+
+    @Test
+    void should_handleMalformedSettings_when_getUserPreferences() throws Exception {
+        User userWithBadSettings = User.builder()
+                .id(userId)
+                .tenantId(tenantId)
+                .externalId("ext-123")
+                .email("test@example.com")
+                .settings("not-valid-json")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(userWithBadSettings));
+        when(objectMapper.readValue(eq("not-valid-json"), any(TypeReference.class)))
+                .thenThrow(new com.fasterxml.jackson.core.JsonParseException(null, "bad json"));
+
+        Map<String, Object> prefs = userService.getUserPreferences(userId);
+
+        assertNotNull(prefs);
+        assertTrue(prefs.isEmpty());
     }
 }

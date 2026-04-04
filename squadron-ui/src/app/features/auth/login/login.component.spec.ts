@@ -2,9 +2,12 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { LoginComponent } from './login.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { HealthService, HealthStatus } from '../../../core/services/health.service';
+import { I18nService } from '../../../core/services/i18n.service';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
+import { signal } from '@angular/core';
 
 describe('LoginComponent', () => {
   let component: LoginComponent;
@@ -38,16 +41,29 @@ describe('LoginComponent', () => {
     healthServiceSpy = jasmine.createSpyObj('HealthService', ['getHealthStatus']);
     routerSpy = jasmine.createSpyObj('Router', ['navigate']);
 
+    const i18nServiceMock = {
+      currentLang: signal('en'),
+      currentLangFlag: signal('EN'),
+      currentLangLabel: signal('English'),
+      supportedLanguages: [
+        { code: 'en', label: 'English', flag: 'EN' },
+        { code: 'fr', label: 'Francais', flag: 'FR' },
+      ],
+      switchLanguage: jasmine.createSpy('switchLanguage'),
+      init: jasmine.createSpy('init'),
+    };
+
     authServiceSpy.isAuthenticated.and.returnValue(false);
     authServiceSpy.getAvailableTenants.and.returnValue(of([]));
     healthServiceSpy.getHealthStatus.and.returnValue(of(mockHealthStatus));
 
     await TestBed.configureTestingModule({
-      imports: [LoginComponent, FormsModule],
+      imports: [LoginComponent, FormsModule, TranslateModule.forRoot()],
       providers: [
         { provide: AuthService, useValue: authServiceSpy },
         { provide: HealthService, useValue: healthServiceSpy },
         { provide: Router, useValue: routerSpy },
+        { provide: I18nService, useValue: i18nServiceMock },
       ],
     }).compileComponents();
 
@@ -86,7 +102,8 @@ describe('LoginComponent', () => {
     component.username = '';
     component.password = '';
     component.login();
-    expect(component.error()).toBe('Please enter your username and password');
+    // translateService.instant() returns the key when no translations loaded
+    expect(component.error()).toBe('login.errors.enterCredentials');
   });
 
   it('should call authService.login with correct params on valid form', () => {
@@ -117,7 +134,7 @@ describe('LoginComponent', () => {
     component.username = 'admin';
     component.password = 'wrong';
     component.login();
-    expect(component.error()).toBe('Invalid username or password');
+    expect(component.error()).toBe('login.errors.invalidCredentials');
     expect(component.loading()).toBeFalse();
   });
 
@@ -126,7 +143,7 @@ describe('LoginComponent', () => {
     component.username = 'admin';
     component.password = 'secret';
     component.login();
-    expect(component.error()).toBe('Your account has been suspended');
+    expect(component.error()).toBe('login.errors.accountSuspended');
   });
 
   it('should show generic error for other error codes', () => {
@@ -134,7 +151,7 @@ describe('LoginComponent', () => {
     component.username = 'admin';
     component.password = 'secret';
     component.login();
-    expect(component.error()).toBe('Unable to sign in. Please try again.');
+    expect(component.error()).toBe('login.errors.generic');
   });
 
   it('should call loginWithOidc on SSO button', () => {
@@ -263,11 +280,20 @@ describe('LoginComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     const empty = compiled.querySelector('.health-panel__empty');
     expect(empty).toBeTruthy();
-    expect(empty?.textContent?.trim()).toBe('Unable to reach backend services');
+    // Translate pipe returns the key when no translations are loaded
+    expect(empty?.textContent?.trim()).toBe('login.unableToReachBackend');
   });
 
   it('should return object keys correctly', () => {
     const obj = { a: 1, b: 2, c: 3 };
     expect(component.objectKeys(obj as any)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('should_toggleLangMenu', () => {
+    expect(component.langMenuOpen).toBeFalse();
+    component.toggleLangMenu();
+    expect(component.langMenuOpen).toBeTrue();
+    component.toggleLangMenu();
+    expect(component.langMenuOpen).toBeFalse();
   });
 });

@@ -2,12 +2,7 @@ package com.squadron.agent.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.squadron.agent.listener.CodingAgentListener;
-import com.squadron.agent.listener.MergeListener;
-import com.squadron.agent.listener.PlanApprovalListener;
-import com.squadron.agent.listener.PlanningAgentListener;
-import com.squadron.agent.listener.QAAgentListener;
-import com.squadron.agent.listener.ReviewAgentListener;
+import com.squadron.agent.listener.TaskStateDispatcher;
 import com.squadron.agent.service.AgentService;
 import com.squadron.agent.service.CodingAgentService;
 import com.squadron.agent.service.MergeService;
@@ -15,12 +10,10 @@ import com.squadron.agent.service.PlanService;
 import com.squadron.agent.service.QAAgentService;
 import com.squadron.agent.service.ReviewAgentService;
 import com.squadron.common.config.JetStreamSubscriber;
-import com.squadron.common.event.AgentCompletedEvent;
 import com.squadron.common.event.TaskStateChangedEvent;
 import io.nats.client.Connection;
 import io.nats.client.JetStream;
 import io.nats.client.JetStreamManagement;
-import io.nats.client.Message;
 import io.nats.client.Nats;
 import io.nats.client.api.StreamConfiguration;
 import io.nats.client.api.StorageType;
@@ -28,36 +21,32 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 /**
  * Cross-service event flow validation test.
  * <p>
- * Uses a real NATS server (via Testcontainers) to verify that NATS listener
- * infrastructure correctly routes events to the appropriate agent handlers.
+ * Uses a real NATS server (via Testcontainers) to verify that the unified
+ * {@link TaskStateDispatcher} correctly routes events to the appropriate
+ * agent handlers based on the target workflow state.
  * Service dependencies (AgentService, CodingAgentService, etc.) are mocked so
  * we only validate the event routing and deserialization, not downstream logic.
  */
@@ -86,12 +75,8 @@ class EventFlowValidationTest {
     private Connection subscriberConnection;
     private JetStreamSubscriber jetStreamSubscriber;
 
-    // Listeners under test
-    private PlanningAgentListener planningAgentListener;
-    private CodingAgentListener codingAgentListener;
-    private ReviewAgentListener reviewAgentListener;
-    private QAAgentListener qaAgentListener;
-    private MergeListener mergeListener;
+    // Unified dispatcher under test
+    private TaskStateDispatcher taskStateDispatcher;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -118,21 +103,12 @@ class EventFlowValidationTest {
         jetStreamSubscriber = new JetStreamSubscriber(subscriberConnection);
         jetStreamSubscriber.setJetStream(js);
 
-        // Instantiate all listeners with real NATS subscriber + mocked services
-        planningAgentListener = new PlanningAgentListener(
-                jetStreamSubscriber, objectMapper, agentService, planService);
-
-        codingAgentListener = new CodingAgentListener(
-                jetStreamSubscriber, objectMapper, codingAgentService);
-
-        reviewAgentListener = new ReviewAgentListener(
-                jetStreamSubscriber, objectMapper, reviewAgentService);
-
-        qaAgentListener = new QAAgentListener(
-                jetStreamSubscriber, objectMapper, qaAgentService);
-
-        mergeListener = new MergeListener(
-                jetStreamSubscriber, objectMapper, mergeService);
+        // Instantiate the unified dispatcher with real NATS subscriber + mocked services
+        taskStateDispatcher = new TaskStateDispatcher(
+                jetStreamSubscriber, objectMapper,
+                agentService, planService,
+                codingAgentService, reviewAgentService,
+                qaAgentService, mergeService);
     }
 
     @AfterEach
@@ -154,9 +130,8 @@ class EventFlowValidationTest {
     // ========================================================================
 
     @Test
-    void should_routePlanningEvent_toPlanningAgentListener() throws Exception {
-        // Subscribe the planning listener
-        planningAgentListener.subscribe();
+    void should_routePlanningEvent_toPlanningAgentHandler() throws Exception {
+        taskStateDispatcher.subscribe();
 
         UUID taskId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
@@ -165,11 +140,9 @@ class EventFlowValidationTest {
         TaskStateChangedEvent event = createStateChangedEvent(
                 taskId, tenantId, triggeredBy, "PRIORITIZED", "PLANNING");
 
-        // Publish the event
         publishEvent("squadron.tasks.state-changed", event);
 
-        // Wait and verify the planning agent was triggered
-        // The listener calls agentService.chat() when state is PLANNING
+        // The dispatcher calls agentService.chat() when state is PLANNING
         verify(agentService, timeout(5000)).chat(any(), eq(tenantId), eq(triggeredBy));
     }
 
@@ -178,8 +151,8 @@ class EventFlowValidationTest {
     // ========================================================================
 
     @Test
-    void should_routeProposeCodeEvent_toCodingAgentListener() throws Exception {
-        codingAgentListener.subscribe();
+    void should_routeProposeCodeEvent_toCodingAgentHandler() throws Exception {
+        taskStateDispatcher.subscribe();
 
         UUID taskId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
@@ -198,8 +171,8 @@ class EventFlowValidationTest {
     // ========================================================================
 
     @Test
-    void should_routeReviewEvent_toReviewAgentListener() throws Exception {
-        reviewAgentListener.subscribe();
+    void should_routeReviewEvent_toReviewAgentHandler() throws Exception {
+        taskStateDispatcher.subscribe();
 
         UUID taskId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
@@ -218,8 +191,8 @@ class EventFlowValidationTest {
     // ========================================================================
 
     @Test
-    void should_routeQAEvent_toQAAgentListener() throws Exception {
-        qaAgentListener.subscribe();
+    void should_routeQAEvent_toQAAgentHandler() throws Exception {
+        taskStateDispatcher.subscribe();
 
         UUID taskId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
@@ -238,8 +211,8 @@ class EventFlowValidationTest {
     // ========================================================================
 
     @Test
-    void should_routeMergeEvent_toMergeListener() throws Exception {
-        mergeListener.subscribe();
+    void should_routeMergeEvent_toMergeHandler() throws Exception {
+        taskStateDispatcher.subscribe();
 
         UUID taskId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
@@ -259,12 +232,7 @@ class EventFlowValidationTest {
 
     @Test
     void should_ignoreIrrelevantState_DONE() throws Exception {
-        // Subscribe all listeners
-        planningAgentListener.subscribe();
-        codingAgentListener.subscribe();
-        reviewAgentListener.subscribe();
-        qaAgentListener.subscribe();
-        mergeListener.subscribe();
+        taskStateDispatcher.subscribe();
 
         UUID taskId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
@@ -288,10 +256,7 @@ class EventFlowValidationTest {
 
     @Test
     void should_ignoreIrrelevantState_BACKLOG() throws Exception {
-        codingAgentListener.subscribe();
-        reviewAgentListener.subscribe();
-        qaAgentListener.subscribe();
-        mergeListener.subscribe();
+        taskStateDispatcher.subscribe();
 
         UUID taskId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
@@ -304,6 +269,7 @@ class EventFlowValidationTest {
 
         Thread.sleep(2000);
 
+        verifyNoInteractions(agentService);
         verifyNoInteractions(codingAgentService);
         verifyNoInteractions(reviewAgentService);
         verifyNoInteractions(qaAgentService);
@@ -362,9 +328,8 @@ class EventFlowValidationTest {
 
     @Test
     void should_handleMalformedEventData_gracefully() throws Exception {
-        // Subscribe all listeners - none should throw
-        planningAgentListener.subscribe();
-        codingAgentListener.subscribe();
+        // Subscribe the dispatcher - it should not throw on bad data
+        taskStateDispatcher.subscribe();
 
         // Publish invalid JSON via JetStream
         JetStream js = publisherConnection.jetStream();
@@ -381,7 +346,7 @@ class EventFlowValidationTest {
 
     @Test
     void should_handleEmptyEventData_gracefully() throws Exception {
-        codingAgentListener.subscribe();
+        taskStateDispatcher.subscribe();
 
         // Publish empty data via JetStream
         JetStream js = publisherConnection.jetStream();
@@ -398,10 +363,8 @@ class EventFlowValidationTest {
     // ========================================================================
 
     @Test
-    void should_routeMultipleEvents_toCorrectListeners() throws Exception {
-        planningAgentListener.subscribe();
-        codingAgentListener.subscribe();
-        reviewAgentListener.subscribe();
+    void should_routeMultipleEvents_toCorrectHandlers() throws Exception {
+        taskStateDispatcher.subscribe();
 
         UUID tenantId = UUID.randomUUID();
         UUID triggeredBy = UUID.randomUUID();
@@ -421,7 +384,7 @@ class EventFlowValidationTest {
                 UUID.randomUUID(), tenantId, triggeredBy, "PROPOSE_CODE", "REVIEW");
         publishEvent("squadron.tasks.state-changed", reviewEvent);
 
-        // All three services should be invoked
+        // All three services should be invoked via the unified dispatcher
         verify(agentService, timeout(5000)).chat(any(), eq(tenantId), eq(triggeredBy));
         verify(codingAgentService, timeout(5000)).executeCodeGeneration(any(TaskStateChangedEvent.class));
         verify(reviewAgentService, timeout(5000)).executeReview(any(TaskStateChangedEvent.class));

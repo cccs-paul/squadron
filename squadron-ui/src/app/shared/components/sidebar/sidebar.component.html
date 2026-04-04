@@ -44,7 +44,7 @@
             }
           </span>
           @if (!collapsed()) {
-            <span class="sidebar__label">{{ item.label }}</span>
+            <span class="sidebar__label">{{ item.labelKey | translate }}</span>
           }
         </a>
       }
@@ -53,7 +53,7 @@
     @if (isAdmin()) {
       <div class="sidebar__section">
         @if (!collapsed()) {
-          <div class="sidebar__section-title">Administration</div>
+          <div class="sidebar__section-title">{{ 'sidebar.admin' | translate }}</div>
         }
         @for (item of adminItems; track item.route) {
           <a class="sidebar__link" [routerLink]="item.route" routerLinkActive="sidebar__link--active">
@@ -90,7 +90,7 @@
               }
             </span>
             @if (!collapsed()) {
-              <span class="sidebar__label">{{ item.label }}</span>
+              <span class="sidebar__label">{{ item.labelKey | translate }}</span>
             }
           </a>
         }

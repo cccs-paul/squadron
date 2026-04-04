@@ -80,12 +80,12 @@ export class TaskBoardComponent implements OnInit {
         );
         this.loading.set(false);
       },
-      error: () => {
-        // Mock data for demo
+      error: (err) => {
+        console.error('Failed to load tasks:', err);
         this.columns.set(
           columnDefs.map((col) => ({
             ...col,
-            tasks: this.getMockTasks(col.state),
+            tasks: [],
           })),
         );
         this.loading.set(false);
@@ -123,43 +123,4 @@ export class TaskBoardComponent implements OnInit {
     }
   }
 
-  private getMockTasks(state: TaskState): Task[] {
-    const mockTasks: Record<string, Partial<Task>[]> = {
-      BACKLOG: [
-        { id: '1', title: 'Add export to CSV feature', priority: TaskPriority.LOW, labels: ['feature'], assigneeName: 'Jane Smith' },
-        { id: '2', title: 'Refactor auth module', priority: TaskPriority.MEDIUM, labels: ['tech-debt'] },
-      ],
-      PLANNING: [
-        { id: '3', title: 'Design notification system', priority: TaskPriority.HIGH, labels: ['design'], assigneeName: 'AI Agent' },
-      ],
-      IN_PROGRESS: [
-        { id: '4', title: 'Implement user dashboard', priority: TaskPriority.HIGH, labels: ['feature', 'frontend'], assigneeName: 'AI Agent', externalId: 'SQ-42' },
-        { id: '5', title: 'Fix memory leak in WS handler', priority: TaskPriority.CRITICAL, labels: ['bug'], assigneeName: 'John Doe', externalId: 'SQ-38' },
-        { id: '6', title: 'Add rate limiting middleware', priority: TaskPriority.MEDIUM, labels: ['security'], assigneeName: 'AI Agent' },
-      ],
-      REVIEW: [
-        { id: '7', title: 'Implement RBAC permissions', priority: TaskPriority.HIGH, labels: ['security', 'backend'], assigneeName: 'AI Agent', externalId: 'SQ-35' },
-        { id: '8', title: 'Update API documentation', priority: TaskPriority.LOW, labels: ['docs'], assigneeName: 'Jane Smith' },
-      ],
-      QA: [],
-      DONE: [
-        { id: '9', title: 'Setup CI/CD pipeline', priority: TaskPriority.HIGH, labels: ['infra'], assigneeName: 'DevOps Bot' },
-      ],
-    };
-
-    return (mockTasks[state] || []).map((t) => ({
-      id: t.id!,
-      tenantId: '1',
-      projectId: '1',
-      title: t.title!,
-      state,
-      priority: t.priority || TaskPriority.MEDIUM,
-      labels: t.labels || [],
-      tokenUsage: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      assigneeName: t.assigneeName,
-      externalId: t.externalId,
-    } as Task));
-  }
 }

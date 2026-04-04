@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -198,5 +200,57 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].name").value("Alpha"));
+    }
+
+    @Test
+    void should_returnPreferences_when_getUserPreferences() throws Exception {
+        UUID userId = UUID.randomUUID();
+        Map<String, Object> prefs = Map.of("language", "fr", "theme", "dark");
+        when(userService.getUserPreferences(userId)).thenReturn(prefs);
+
+        mockMvc.perform(get("/api/users/{userId}/preferences", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.language").value("fr"))
+                .andExpect(jsonPath("$.data.theme").value("dark"));
+    }
+
+    @Test
+    void should_return404_when_getUserPreferencesNotFound() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(userService.getUserPreferences(userId))
+                .thenThrow(new ResourceNotFoundException("User", "id", userId));
+
+        mockMvc.perform(get("/api/users/{userId}/preferences", userId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void should_returnUpdatedPreferences_when_patchPreferences() throws Exception {
+        UUID userId = UUID.randomUUID();
+        Map<String, Object> updated = Map.of("language", "en", "theme", "dark");
+        when(userService.updateUserPreferences(eq(userId), any(Map.class))).thenReturn(updated);
+
+        mockMvc.perform(patch("/api/users/{userId}/preferences", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"language\":\"en\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.language").value("en"))
+                .andExpect(jsonPath("$.data.theme").value("dark"));
+    }
+
+    @Test
+    void should_return404_when_patchPreferencesUserNotFound() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(userService.updateUserPreferences(eq(userId), any(Map.class)))
+                .thenThrow(new ResourceNotFoundException("User", "id", userId));
+
+        mockMvc.perform(patch("/api/users/{userId}/preferences", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"language\":\"fr\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
     }
 }

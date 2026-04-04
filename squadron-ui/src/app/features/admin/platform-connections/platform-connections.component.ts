@@ -52,7 +52,8 @@ export class PlatformConnectionsComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.connections.set(this.getMockConnections());
+        console.error('Failed to load platform connections');
+        this.connections.set([]);
         this.loading.set(false);
       },
     });
@@ -107,17 +108,7 @@ export class PlatformConnectionsComponent implements OnInit {
       this.platformService.createConnection(payload).subscribe({
         next: () => { this.closeModal(); this.loadConnections(); },
         error: () => {
-          const mock: PlatformConnection = {
-            id: crypto.randomUUID(),
-            tenantId: '1',
-            name: this.formName,
-            platformType: this.formType,
-            baseUrl: this.formBaseUrl,
-            status: ConnectionStatus.ACTIVE,
-            config,
-            createdAt: new Date().toISOString(),
-          };
-          this.connections.set([mock, ...this.connections()]);
+          console.error('Failed to create platform connection');
           this.closeModal();
         },
       });
@@ -140,11 +131,8 @@ export class PlatformConnectionsComponent implements OnInit {
         this.loadConnections();
       },
       error: () => {
+        console.error('Failed to sync connection');
         this.syncingId.set(null);
-        // Simulate sync success
-        this.connections.set(this.connections().map((c) =>
-          c.id === conn.id ? { ...c, lastSyncAt: new Date().toISOString() } : c,
-        ));
       },
     });
   }
@@ -179,25 +167,4 @@ export class PlatformConnectionsComponent implements OnInit {
     }
   }
 
-  private getMockConnections(): PlatformConnection[] {
-    return [
-      {
-        id: 'pc-1', tenantId: '1', name: 'GitHub - Organization', platformType: PlatformConnectionType.GITHUB,
-        baseUrl: 'https://api.github.com', status: ConnectionStatus.ACTIVE,
-        lastSyncAt: new Date(Date.now() - 1800000).toISOString(),
-        config: {}, createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-      },
-      {
-        id: 'pc-2', tenantId: '1', name: 'Jira Cloud', platformType: PlatformConnectionType.JIRA_CLOUD,
-        baseUrl: 'https://myorg.atlassian.net', status: ConnectionStatus.ACTIVE,
-        lastSyncAt: new Date(Date.now() - 3600000).toISOString(),
-        config: {}, createdAt: new Date(Date.now() - 86400000 * 20).toISOString(),
-      },
-      {
-        id: 'pc-3', tenantId: '1', name: 'GitLab Self-Hosted', platformType: PlatformConnectionType.GITLAB,
-        baseUrl: 'https://gitlab.example.com', status: ConnectionStatus.ERROR,
-        config: {}, createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-      },
-    ];
-  }
 }

@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, OnDestroy, signal, ElementRef, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { DecimalPipe, PercentPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AgentService, AgentSession, AgentMessage } from '../../core/services/agent.service';
 import { WebSocketService, ConnectionState } from '../../core/services/websocket.service';
@@ -12,7 +12,7 @@ import { TimeAgoPipe } from '../../shared/pipes/time-ago.pipe';
 @Component({
   selector: 'sq-agent-chat',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, PercentPipe, AvatarComponent, TimeAgoPipe],
+  imports: [FormsModule, DecimalPipe, AvatarComponent, TimeAgoPipe],
   templateUrl: './agent-chat.component.html',
   styleUrl: './agent-chat.component.scss',
 })
@@ -62,29 +62,11 @@ export class AgentChatComponent implements OnInit, OnDestroy {
           this.conversationId = session.id;
           this.connectAndSubscribe(session.id);
         },
-        error: () => {
+        error: (err) => {
+          console.error('Failed to load agent session:', err);
           this.loading.set(false);
-          this.messages.set([
-            { id: '1', sessionId: 's1', role: 'SYSTEM', content: 'Agent session started for task SQ-42', createdAt: new Date(Date.now() - 3600000).toISOString() },
-            { id: '2', sessionId: 's1', role: 'AGENT', content: 'I\'ve analyzed the task requirements. Here\'s my plan:\n\n1. **Create dashboard layout** - Set up the main grid structure\n2. **Implement stat cards** - Build the overview statistics components\n3. **Add activity feed** - Create the recent activity timeline\n4. **Build chart component** - Implement the task distribution bar chart\n\nShall I proceed with this plan?', createdAt: new Date(Date.now() - 3500000).toISOString(), tokenUsage: 1250 },
-            { id: '3', sessionId: 's1', role: 'USER', content: 'Yes, proceed with the plan. Make sure to use responsive design.', createdAt: new Date(Date.now() - 3400000).toISOString() },
-            { id: '4', sessionId: 's1', role: 'AGENT', content: 'Starting implementation now. I\'ll begin with the dashboard layout component.\n\n```typescript\n@Component({\n  selector: \'sq-dashboard\',\n  template: `\n    <div class="dashboard">\n      <div class="stats-grid">...</div>\n      <div class="dashboard-grid">...</div>\n    </div>\n  `\n})\nexport class DashboardComponent {\n  // Implementation\n}\n```\n\nThe stat cards are complete. Moving on to the activity feed...', createdAt: new Date(Date.now() - 3000000).toISOString(), tokenUsage: 4500 },
-          ]);
-          // Mock progress for demonstration
-          this.progress.set({
-            conversationId: 'mock',
-            agentType: 'CODING',
-            phase: 'CODING',
-            currentStep: 'Implementing dashboard components',
-            completedSteps: 2,
-            totalSteps: 4,
-            items: [
-              { content: 'Create dashboard layout', status: 'completed', priority: 'high' },
-              { content: 'Implement stat cards', status: 'completed', priority: 'high' },
-              { content: 'Add activity feed', status: 'in_progress', priority: 'medium' },
-              { content: 'Build chart component', status: 'pending', priority: 'medium' },
-            ],
-          });
+          this.messages.set([]);
+          this.progress.set(null);
         },
       });
     }
@@ -136,15 +118,8 @@ export class AgentChatComponent implements OnInit, OnDestroy {
         error: () => this.sending.set(false),
       });
     } else {
-      // Mock mode — no backend
-      setTimeout(() => {
-        this.messages.update((msgs) => [...msgs, {
-          id: crypto.randomUUID(), sessionId: 'mock', role: 'AGENT' as const,
-          content: 'I received your message. Processing...', createdAt: new Date().toISOString(), tokenUsage: 150,
-        }]);
-        this.sending.set(false);
-        this.scrollToBottom();
-      }, 1000);
+      // No session available — cannot send message
+      this.sending.set(false);
     }
   }
 

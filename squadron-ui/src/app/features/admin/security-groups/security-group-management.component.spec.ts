@@ -148,13 +148,12 @@ describe('SecurityGroupManagementComponent', () => {
     expect(component.memberTypeLabel(MemberType.TEAM)).toBe('Team');
   });
 
-  it('should_fallbackToMockData_when_getGroupsFails', () => {
+  it('should_showEmptyState_when_getGroupsFails', () => {
     sgServiceSpy.getGroups.and.returnValue(throwError(() => new Error('API error')));
 
     fixture.detectChanges();
 
-    expect(component.groups().length).toBeGreaterThan(0);
+    expect(component.groups().length).toBe(0);
     expect(component.loading()).toBeFalse();
-    expect(component.groups().some(g => g.name === 'Engineering')).toBeTrue();
   });
 });

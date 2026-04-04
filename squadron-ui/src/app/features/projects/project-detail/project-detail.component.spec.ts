@@ -58,12 +58,10 @@ describe('ProjectDetailComponent', () => {
     expect(component.project()!.name).toBe('squadron-api');
   });
 
-  it('should fall back to mock project on error', () => {
+  it('should show empty state on error', () => {
     projectServiceSpy.getProject.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
-    expect(component.project()).toBeTruthy();
-    expect(component.project()!.id).toBe('p1');
-    expect(component.project()!.name).toBe('squadron-api');
+    expect(component.project()).toBeNull();
   });
 
   it('should render project name', () => {
