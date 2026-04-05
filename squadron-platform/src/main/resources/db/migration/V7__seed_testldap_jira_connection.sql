@@ -21,7 +21,7 @@ VALUES (
     'a0000000-0000-0000-0000-000000000001',            -- Planet Express tenant
     'JIRA_SERVER',
     'Jira Server (Test)',
-    'http://jira-server:8090',                          -- Docker internal URL
+    'http://jira-server:8080',                          -- Docker internal URL (Tomcat port)
     'PAT',
     '{"personalAccessToken": "REPLACE_ME_WITH_JIRA_PAT"}'::jsonb,
     'ACTIVE',

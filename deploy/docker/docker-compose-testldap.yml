@@ -1,8 +1,9 @@
-# Squadron - Docker Compose Test LDAP + Jira Server Overlay
+# Squadron - Docker Compose Test LDAP + Jira Server + GitLab CE Overlay
 #
 # Extends the main docker-compose.yml to add:
 #   1. A test OpenLDAP server (rroemhild/docker-test-openldap)
 #   2. A Jira Server (Data Center) instance for integration testing
+#   3. A GitLab Community Edition instance for git hosting & integration testing
 #
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose-testldap.yml up -d
@@ -28,9 +29,19 @@
 #   URL:  http://localhost:8090
 #   Note: Requires manual first-time setup via the web UI.
 #         See testldap-build-and-start.sh output for setup instructions.
+#
+# GitLab CE:
+#   URL:  http://localhost:8929
+#   SSH:  ssh://git@localhost:2424
+#   Note: Uses bundled PostgreSQL (not the shared instance).
+#         LDAP authentication pre-configured (Planet Express directory).
+#         See testldap-build-and-start.sh output for setup instructions.
 
 volumes:
   jira-data:
+  gitlab-config:
+  gitlab-logs:
+  gitlab-data:
 
 services:
   openldap-test:
@@ -64,7 +75,7 @@ services:
     container_name: squadron-jira-server
     restart: "no"
     ports:
-      - "8090:8090"
+      - "8090:8080"
     environment:
       # Database — connect to the shared PostgreSQL instance
       ATL_JDBC_URL: jdbc:postgresql://postgres:5432/jira
@@ -72,7 +83,7 @@ services:
       ATL_JDBC_PASSWORD: squadron
       ATL_DB_DRIVER: org.postgresql.Driver
       ATL_DB_TYPE: postgres72
-      # Proxy / base URL
+      # Proxy / base URL — so Jira generates external links with port 8090
       ATL_PROXY_NAME: localhost
       ATL_PROXY_PORT: "8090"
       ATL_TOMCAT_SCHEME: http
@@ -87,7 +98,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsSL http://localhost:8090/status 2>/dev/null | grep -qE '(RUNNING|FIRST_RUN)' || exit 1"]
+      test: ["CMD-SHELL", "curl -sSL http://localhost:8080/status 2>/dev/null | grep -qE '(RUNNING|FIRST_RUN|ERROR)' || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 40
@@ -98,5 +109,108 @@ services:
           memory: 1536M
         reservations:
           memory: 768M
+    networks:
+      - squadron-net
+
+  # =========================================================================
+  # GitLab Community Edition - for git hosting & integration testing
+  # =========================================================================
+  # Uses the official GitLab CE image with its own bundled PostgreSQL
+  # (separate from the shared Squadron PostgreSQL instance).
+  #
+  # LDAP authentication is pre-configured to use the test OpenLDAP server
+  # (Planet Express / Futurama characters).
+  #
+  # First boot takes 3-5 minutes.  The initial root password is auto-generated
+  # and can be retrieved with:
+  #   docker exec squadron-gitlab-ce cat /etc/gitlab/initial_root_password
+  #
+  # Ports:
+  #   HTTP: 8929 (host) -> 80 (container)
+  #   SSH:  2424 (host) -> 22 (container)
+  # =========================================================================
+  gitlab-ce:
+    image: gitlab/gitlab-ce:17.4.0-ce.0
+    container_name: squadron-gitlab-ce
+    restart: "no"
+    hostname: gitlab-ce
+    ports:
+      - "8929:80"
+      - "2424:22"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        ## External URL — must match the published HTTP port
+        external_url 'http://localhost:8929'
+
+        ## Listen on port 80 inside the container (mapped to 8929 on host)
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
+
+        ## SSH — use port 2424 on the host
+        gitlab_rails['gitlab_shell_ssh_port'] = 2424
+
+        ## ----------------------------------------------------------------
+        ## LDAP — Planet Express test directory
+        ## ----------------------------------------------------------------
+        gitlab_rails['ldap_enabled'] = true
+        gitlab_rails['ldap_servers'] = {
+          'planetexpress' => {
+            'label'                   => 'Planet Express LDAP',
+            'host'                    => 'openldap-test',
+            'port'                    => 10389,
+            'uid'                     => 'uid',
+            'encryption'              => 'plain',
+            'bind_dn'                 => 'cn=admin,dc=planetexpress,dc=com',
+            'password'                => 'GoodNewsEveryone',
+            'base'                    => 'ou=people,dc=planetexpress,dc=com',
+            'allow_username_or_email_login' => true,
+            'active_directory'        => false
+          }
+        }
+
+        ## ----------------------------------------------------------------
+        ## Performance tuning — keep resource usage low for dev/test
+        ## ----------------------------------------------------------------
+        ## Reduce Puma (web) workers and threads
+        puma['worker_processes'] = 2
+
+        ## Reduce Sidekiq concurrency
+        sidekiq['concurrency'] = 5
+
+        ## Disable monitoring services to save memory
+        prometheus_monitoring['enable'] = false
+        alertmanager['enable'] = false
+        grafana['enable'] = false
+        node_exporter['enable'] = false
+        redis_exporter['enable'] = false
+        postgres_exporter['enable'] = false
+        gitlab_exporter['enable'] = false
+
+        ## Disable container registry (not needed for testing)
+        registry['enable'] = false
+
+        ## Disable GitLab Pages (not needed for testing)
+        pages_external_url nil
+        gitlab_pages['enable'] = false
+    volumes:
+      - gitlab-config:/etc/gitlab
+      - gitlab-logs:/var/log/gitlab
+      - gitlab-data:/var/opt/gitlab
+    shm_size: '256m'
+    depends_on:
+      openldap-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sSf http://localhost:80/-/readiness?all=1 2>/dev/null | grep -q 'master_check' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 180s
+    deploy:
+      resources:
+        limits:
+          memory: 4096M
+        reservations:
+          memory: 2048M
     networks:
       - squadron-net

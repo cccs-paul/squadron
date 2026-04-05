@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-04-04
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-20). Features 17-20 completed in this session: (17) Agent Listener Refactor — replaced 5 hardcoded per-state NATS listeners with single unified `TaskStateDispatcher`; (18) i18n Support — English + French with `@ngx-translate`, language switcher in header and login page, backend language persistence via user preferences endpoint; (19) Verbose Notification Event Types — descriptions added to muted event types with translation keys; (20) Mock Data Removal — all 18 components cleaned of demo/mock data, replaced with proper empty states on API error. Rootless containers, Hibernate dialect cleanup, surefire argLine fix also applied. All 3,818 backend tests passing (0 failures). Angular build passing. All 19 containers healthy.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-21). Feature 21: Jira Server Test Instance — `atlassian/jira-software:9.12-jdk17` integrated into docker-compose-testldap.yml with shared PostgreSQL, Flyway V7 platform connection seed, and console setup instructions. Features 17-20 completed previously: (17) Agent Listener Refactor; (18) i18n Support (English + French, all 23 components); (19) Verbose Notification Event Types; (20) Mock Data Removal. Rootless containers, Hibernate dialect cleanup, surefire argLine fix also applied. All 3,818 backend tests passing (0 failures). Angular build passing. All 20 containers healthy (including Jira Server).
 
 ---
 
@@ -155,7 +155,8 @@
 - [x] Parent POM with dependency management
 - [x] All 24 Flyway migrations (V1-V6 for platform, V1-V4 for orchestrator, V1-V3 for identity/agent/git, V1-V2 for review/notification, V1 for config/workspace)
 - [x] Test LDAP integration (docker-compose-testldap.yml, seed data)
-- [x] All 19 containers healthy with testldap-build-and-start.sh
+- [x] Jira Server test instance (docker-compose-testldap.yml, Flyway V7 seed, setup instructions)
+- [x] All 20 containers healthy with testldap-build-and-start.sh
 
 ---
 
@@ -527,7 +528,18 @@
 - [x] Rootless containers: nginx-unprivileged for UI, rootless Redis and Mailpit
 - [x] Hibernate dialect removal from 18 application.yml/application-integration.yml files (Spring Boot auto-detection)
 - [x] Surefire argLine fix: `-XX:+EnableDynamicAgentLoading -Xshare:off` for Java 21 + Mockito compatibility
-- [x] All 19 containers healthy with testldap-build-and-start.sh
+- [x] All 20 containers healthy with testldap-build-and-start.sh
+
+### Feature 21: Jira Server Test Instance
+- [x] Docker: `atlassian/jira-software:9.12-jdk17` added to `docker-compose-testldap.yml` with shared PostgreSQL, memory limits (1536M), and healthcheck
+- [x] Database: `jira` database added to `init-databases.sql` (auto-created on first startup)
+- [x] Flyway V7: `V7__seed_testldap_jira_connection.sql` seeds `JIRA_SERVER` platform connection for Planet Express tenant with placeholder PAT
+- [x] Scripts: `testldap-build-and-start.sh` updated with Jira in infra services, console setup instructions, LDAP integration guide
+- [x] Scripts: `testldap-stop.sh` updated with Jira references
+- [x] Backend: `RepositoryIntegrationTest` fixed to filter by tenantId (V7 seed adds extra row)
+- [x] Port mapping: host 8090 → container 8080 (Tomcat default), healthcheck uses internal port 8080
+- [x] Healthcheck matches `RUNNING`, `FIRST_RUN`, and `ERROR` states (ERROR = setup wizard not yet completed)
+- [x] All 20 containers healthy (Jira starts in background, 2-5 min first boot)
 
 ---
 

@@ -3,7 +3,8 @@
 # Squadron - Stop All Containers
 #
 # Stops all Squadron containers launched by testldap-build-and-start.sh,
-# including infrastructure, backend services, frontend, test LDAP, and Jira Server.
+# including infrastructure, backend services, frontend, test LDAP, Jira Server,
+# and GitLab CE.
 #
 # Usage:
 #   ./testldap-stop.sh              # Stop all containers (preserve data)

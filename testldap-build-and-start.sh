@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Squadron - Build and Start with Test LDAP + Jira Server
+# Squadron - Build and Start with Test LDAP + Jira Server + GitLab CE
 #
 # Builds all Docker images and launches the application with its dependencies,
-# a test OpenLDAP server (rroemhild/docker-test-openldap), and a Jira Server
-# (Data Center) instance using Docker Compose.
+# a test OpenLDAP server (rroemhild/docker-test-openldap), a Jira Server
+# (Data Center) instance, and a GitLab Community Edition instance using
+# Docker Compose.
 #
 # The test LDAP provides a pre-populated directory under
 # dc=planetexpress,dc=com with Futurama character accounts.
@@ -49,6 +50,7 @@ INFRA_SERVICES=(
     ollama
     openldap-test
     jira-server
+    gitlab-ce
 )
 
 # Services that have Docker healthchecks defined and must become healthy
@@ -64,6 +66,7 @@ HEALTHCHECK_SERVICES=(
 # Services checked separately with extended timeouts
 SLOW_HEALTHCHECK_SERVICES=(
     jira-server
+    gitlab-ce
 )
 
 # Backend service list
@@ -92,12 +95,12 @@ log_step()    { echo -e "\n${BOLD}${CYAN}==> $*${NC}"; }
 
 usage() {
     cat <<EOF
-${BOLD}Squadron - Build and Start with Test LDAP${NC}
+${BOLD}Squadron - Build and Start with Test LDAP + Jira Server + GitLab CE${NC}
 
 Usage: $(basename "$0") [OPTIONS]
 
 Options:
-  --infra           Start only infrastructure services (PostgreSQL, Redis, NATS, etc.) + LDAP
+  --infra           Start only infrastructure services (PostgreSQL, Redis, NATS, etc.) + LDAP + Jira + GitLab
   --skip-build      Start services without rebuilding Docker images
   --skip-tests      Build Maven artifacts without running tests
   --clean           Remove all containers/volumes and start fresh
@@ -128,6 +131,14 @@ Jira Server (Data Center):
   Database:         PostgreSQL (database: jira, same server)
   Startup time:     2-5 minutes on first boot (setup wizard required)
 
+GitLab CE:
+  Image:            gitlab/gitlab-ce:17.4.0-ce.0
+  URL:              http://localhost:8929
+  SSH:              ssh://git@localhost:2424
+  Database:         Bundled PostgreSQL (self-contained)
+  LDAP:             Pre-configured (Planet Express directory)
+  Startup time:     3-5 minutes on first boot
+
 Environment Variables:
   OPENAI_API_KEY    OpenAI API key (default: sk-placeholder)
   OPENAI_BASE_URL   OpenAI base URL (default: https://api.openai.com)
@@ -140,7 +151,7 @@ Examples:
   $(basename "$0") --skip-build             # Quick restart without rebuilding
   $(basename "$0") --clean                  # Fresh start with clean data
   $(basename "$0") --stop                   # Shut everything down
-  $(basename "$0") --logs openldap-test     # Watch LDAP service logs
+  $(basename "$0") --logs gitlab-ce         # Watch GitLab service logs
 
 EOF
     exit 0
@@ -391,6 +402,58 @@ wait_for_healthy() {
 }
 
 # =============================================================================
+# Database Provisioning
+# =============================================================================
+
+# Ensure all required databases exist in PostgreSQL.
+# init-databases.sql only runs on first volume creation; if the postgres volume
+# already existed when a new database (e.g. jira) was added, that database
+# will be missing.  This function fills the gap by creating any missing
+# databases via docker exec after PostgreSQL is healthy.
+ensure_databases() {
+    log_info "Ensuring all required databases exist..."
+
+    local container="squadron-postgres"
+    local pg_user="squadron"
+
+    # List of databases that must exist (matches init-databases.sql)
+    local databases=(
+        keycloak
+        squadron_identity
+        squadron_config
+        squadron_orchestrator
+        squadron_platform
+        squadron_agent
+        squadron_workspace
+        squadron_git
+        squadron_review
+        squadron_notification
+        jira
+    )
+
+    local created=0
+    for db in "${databases[@]}"; do
+        local exists
+        exists=$(docker exec "$container" psql -U "$pg_user" -d postgres -tAc \
+            "SELECT 1 FROM pg_database WHERE datname = '${db}';" 2>/dev/null || true)
+        if [ "$exists" != "1" ]; then
+            log_info "  Creating missing database: ${db}"
+            docker exec "$container" psql -U "$pg_user" -d postgres -c \
+                "CREATE DATABASE ${db} OWNER ${pg_user};" 2>/dev/null || true
+            docker exec "$container" psql -U "$pg_user" -d "${db}" -c \
+                "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";" 2>/dev/null || true
+            created=$((created + 1))
+        fi
+    done
+
+    if [ $created -gt 0 ]; then
+        log_success "Created ${created} missing database(s)"
+    else
+        log_success "All databases already exist"
+    fi
+}
+
+# =============================================================================
 # Compose Functions
 # =============================================================================
 
@@ -419,7 +482,7 @@ start_infrastructure() {
     done
     log_success "Image pull complete"
 
-    log_info "Starting PostgreSQL, Redis, NATS, Keycloak, Mailpit, PgBouncer, Ollama, OpenLDAP, Jira Server..."
+    log_info "Starting PostgreSQL, Redis, NATS, Keycloak, Mailpit, PgBouncer, Ollama, OpenLDAP, Jira Server, GitLab CE..."
     run_compose up -d --no-build "${INFRA_SERVICES[@]}" 2>&1 | while IFS= read -r line; do
         [[ -n "$line" ]] && log_info "  $line"
     done
@@ -443,6 +506,10 @@ start_infrastructure() {
             failed+=("$service")
         fi
     done
+
+    # Ensure all required databases exist (handles pre-existing postgres volumes
+    # where init-databases.sql didn't create newer databases like 'jira')
+    ensure_databases
 
     # PgBouncer and Mailpit don't have healthchecks; verify they're running
     for service in pgbouncer mailpit; do
@@ -471,12 +538,16 @@ start_infrastructure() {
 
     log_success "All infrastructure services are up and healthy"
 
-    # Jira Server starts slowly (2-5 minutes). Check if it's progressing but
-    # don't block the rest of the startup on it.
+    # Jira Server and GitLab CE start slowly (3-5 minutes each). Check if they're
+    # progressing but don't block the rest of the startup on them.
     log_info ""
     log_info "Jira Server is starting in the background (takes 2-5 minutes on first boot)."
     log_info "Run '$(basename "$0") --logs jira-server' to watch its progress."
     log_info "It will be available at http://localhost:8090 once ready."
+    log_info ""
+    log_info "GitLab CE is starting in the background (takes 3-5 minutes on first boot)."
+    log_info "Run '$(basename "$0") --logs gitlab-ce' to watch its progress."
+    log_info "It will be available at http://localhost:8929 once ready."
 }
 
 start_services() {
@@ -555,7 +626,7 @@ pull_ollama_model() {
 }
 
 stop_all() {
-    log_step "Stopping all Squadron services (including test LDAP + Jira Server)"
+    log_step "Stopping all Squadron services (including test LDAP + Jira Server + GitLab CE)"
     run_compose --profile services --profile frontend down --remove-orphans 2>&1 | while IFS= read -r line; do
         [[ -n "$line" ]] && log_info "  $line"
     done
@@ -571,7 +642,7 @@ clean_all() {
 }
 
 show_status() {
-    log_step "Squadron Service Status (with Test LDAP + Jira Server)"
+    log_step "Squadron Service Status (with Test LDAP + Jira Server + GitLab CE)"
     echo ""
     run_compose --profile services --profile frontend ps
 }
@@ -588,7 +659,7 @@ show_logs() {
 print_access_info() {
     echo ""
     echo -e "${BOLD}${GREEN}=================================================${NC}"
-    echo -e "${BOLD}${GREEN}  Squadron is running! (with Test LDAP + Jira Server)${NC}"
+    echo -e "${BOLD}${GREEN}  Squadron is running! (with Test LDAP + Jira Server + GitLab CE)${NC}"
     echo -e "${BOLD}${GREEN}=================================================${NC}"
     echo ""
     echo -e "  ${BOLD}${GREEN}>>> Open in your browser: ${CYAN}http://localhost:4200${NC} ${BOLD}${GREEN}<<<${NC}"
@@ -660,6 +731,36 @@ print_access_info() {
     echo -e "       Bind Password: ${CYAN}GoodNewsEveryone${NC}"
     echo -e "       User Base:     ${CYAN}ou=people${NC}"
     echo -e "    3. Synchronize the directory — Futurama users will appear in Jira"
+    echo ""
+    echo -e "${BOLD}${MAGENTA}GitLab CE (Community Edition):${NC}"
+    echo -e "  ${CYAN}URL:${NC}          http://localhost:8929"
+    echo -e "  ${CYAN}SSH:${NC}          ssh://git@localhost:2424"
+    echo -e "  ${CYAN}Database:${NC}     Bundled PostgreSQL (self-contained)"
+    echo -e "  ${CYAN}LDAP:${NC}        Pre-configured (Planet Express directory)"
+    echo -e "  ${CYAN}Status:${NC}       Starting in background (3-5 minutes on first boot)"
+    echo ""
+    echo -e "  ${BOLD}First-Time Setup:${NC}"
+    echo -e "    1. Wait for GitLab to finish starting (check with: $(basename "$0") --logs gitlab-ce)"
+    echo -e "    2. Retrieve the initial root password:"
+    echo -e "       ${CYAN}docker exec squadron-gitlab-ce cat /etc/gitlab/initial_root_password${NC}"
+    echo -e "    3. Open ${CYAN}http://localhost:8929${NC} and log in as ${BOLD}root${NC} with the retrieved password"
+    echo -e "    4. Change the root password when prompted"
+    echo ""
+    echo -e "  ${BOLD}Create a Personal Access Token (PAT):${NC}"
+    echo -e "    1. In GitLab: Click avatar (top-left) → ${BOLD}Preferences${NC} → ${BOLD}Access Tokens${NC}"
+    echo -e "    2. Add new token: name=${BOLD}squadron${NC}, scopes=${BOLD}api${NC}"
+    echo -e "    3. Copy the token value"
+    echo ""
+    echo -e "  ${BOLD}Connect GitLab to Squadron:${NC}"
+    echo -e "    1. In Squadron (${CYAN}http://localhost:4200${NC}):"
+    echo -e "       Settings → Providers & Projects → Edit '${BOLD}GitLab CE (Test)${NC}' connection"
+    echo -e "       Paste the PAT into the credentials field"
+    echo -e "    2. Test the connection — you should see your GitLab projects"
+    echo ""
+    echo -e "  ${BOLD}LDAP Users (already configured):${NC}"
+    echo -e "    LDAP users can sign in at ${CYAN}http://localhost:8929${NC} using the"
+    echo -e "    ${BOLD}Planet Express LDAP${NC} tab on the login page."
+    echo -e "    (e.g. fry/fry, leela/leela, bender/bender)"
     echo ""
     echo -e "${BOLD}Useful Commands:${NC}"
     echo -e "  $(basename "$0") --status      Show service status"
@@ -787,7 +888,7 @@ main() {
     echo "  ╚══════╝ ╚══▀▀═╝  ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝"
     echo -e "${NC}"
     echo -e "  ${BOLD}AI-Powered Software Development Workflow Platform${NC}"
-    echo -e "  ${MAGENTA}${BOLD}+ Test LDAP (Planet Express) + Jira Server${NC}"
+    echo -e "  ${MAGENTA}${BOLD}+ Test LDAP (Planet Express) + Jira Server + GitLab CE${NC}"
     echo ""
 
     # Clean if requested
@@ -841,7 +942,7 @@ main() {
         log_success "Total startup time: ${minutes}m ${seconds}s"
     else
         echo ""
-        echo -e "${BOLD}${GREEN}Infrastructure is running! (with Test LDAP + Jira Server)${NC}"
+        echo -e "${BOLD}${GREEN}Infrastructure is running! (with Test LDAP + Jira Server + GitLab CE)${NC}"
         echo ""
         echo -e "  ${CYAN}PostgreSQL:${NC}  localhost:5432"
         echo -e "  ${CYAN}PgBouncer:${NC}   localhost:6432"
@@ -863,6 +964,10 @@ main() {
         echo ""
         echo -e "  ${MAGENTA}${BOLD}Jira Server:${NC}"
         echo -e "  ${CYAN}URL:${NC}         http://localhost:8090 (starting in background)"
+        echo ""
+        echo -e "  ${MAGENTA}${BOLD}GitLab CE:${NC}"
+        echo -e "  ${CYAN}URL:${NC}         http://localhost:8929 (starting in background)"
+        echo -e "  ${CYAN}SSH:${NC}         ssh://git@localhost:2424"
         echo ""
         echo -e "Run services with: ${BOLD}mvn spring-boot:run${NC} from each module directory"
         echo ""
