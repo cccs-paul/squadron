@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { AgentConfigComponent } from './agent-config.component';
 import { AgentConfigService, AgentConfig } from '../../../core/services/agent-config.service';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -48,7 +49,7 @@ describe('AgentConfigComponent', () => {
     } as any;
 
     await TestBed.configureTestingModule({
-      imports: [AgentConfigComponent],
+      imports: [AgentConfigComponent, TranslateModule.forRoot()],
       providers: [
         { provide: AgentConfigService, useValue: configServiceSpy },
         { provide: AuthService, useValue: authServiceMock },

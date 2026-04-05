@@ -1,46 +1,46 @@
 <div class="usage-dashboard">
   <div class="usage-dashboard__header">
-    <h2>Token Usage</h2>
-    <p class="usage-dashboard__subtitle">Monitor AI agent token consumption and costs</p>
+    <h2>{{ 'admin.usage.title' | translate }}</h2>
+    <p class="usage-dashboard__subtitle">{{ 'admin.usage.subtitle' | translate }}</p>
   </div>
 
   @if (loading()) {
     <div class="usage-dashboard__loading">
       <div class="spinner"></div>
-      <p>Loading usage data...</p>
+      <p>{{ 'admin.usage.loading' | translate }}</p>
     </div>
   } @else {
     @if (summary(); as s) {
       <div class="usage-dashboard__summary">
         <div class="usage-dashboard__card">
-          <h3>Total Tokens</h3>
+          <h3>{{ 'admin.usage.cards.totalTokens' | translate }}</h3>
           <span class="usage-dashboard__value">{{ formatTokens(s.totalTokens) }}</span>
         </div>
         <div class="usage-dashboard__card">
-          <h3>Input Tokens</h3>
+          <h3>{{ 'admin.usage.cards.inputTokens' | translate }}</h3>
           <span class="usage-dashboard__value">{{ formatTokens(s.totalInputTokens) }}</span>
         </div>
         <div class="usage-dashboard__card">
-          <h3>Output Tokens</h3>
+          <h3>{{ 'admin.usage.cards.outputTokens' | translate }}</h3>
           <span class="usage-dashboard__value">{{ formatTokens(s.totalOutputTokens) }}</span>
         </div>
         <div class="usage-dashboard__card">
-          <h3>Total Cost</h3>
+          <h3>{{ 'admin.usage.cards.totalCost' | translate }}</h3>
           <span class="usage-dashboard__value">{{ formatCost(s.totalCost) }}</span>
         </div>
       </div>
 
       <div class="usage-dashboard__agents">
-        <h3>Usage by Agent Type</h3>
+        <h3>{{ 'admin.usage.agentBreakdown.title' | translate }}</h3>
         @if (agentBreakdown().length) {
           <table class="usage-dashboard__table">
             <thead>
               <tr>
-                <th>Agent Type</th>
-                <th>Tokens</th>
-                <th>Cost</th>
-                <th>Invocations</th>
-                <th>Distribution</th>
+                <th>{{ 'admin.usage.agentBreakdown.columns.agentType' | translate }}</th>
+                <th>{{ 'admin.usage.agentBreakdown.columns.tokens' | translate }}</th>
+                <th>{{ 'admin.usage.agentBreakdown.columns.cost' | translate }}</th>
+                <th>{{ 'admin.usage.agentBreakdown.columns.invocations' | translate }}</th>
+                <th>{{ 'admin.usage.agentBreakdown.columns.distribution' | translate }}</th>
               </tr>
             </thead>
             <tbody>
@@ -66,13 +66,13 @@
           </table>
         } @else {
           <div class="usage-dashboard__empty">
-            <p>No agent usage data available.</p>
+            <p>{{ 'admin.usage.agentBreakdown.emptyState' | translate }}</p>
           </div>
         }
       </div>
     } @else {
       <div class="usage-dashboard__empty">
-        <p>No usage data available for this tenant.</p>
+        <p>{{ 'admin.usage.emptyState' | translate }}</p>
       </div>
     }
   }

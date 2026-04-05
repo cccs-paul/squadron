@@ -1,15 +1,15 @@
 <div class="review-list">
   <div class="review-list__header">
     <div>
-      <h1>Code Reviews</h1>
-      <p>Review pull requests and provide feedback</p>
+      <h1>{{ 'reviews.list.title' | translate }}</h1>
+      <p>{{ 'reviews.list.subtitle' | translate }}</p>
     </div>
     <select class="sq-select" [(ngModel)]="filterStatus" (ngModelChange)="loadReviews()">
-      <option value="">All Statuses</option>
-      <option value="PENDING">Pending</option>
-      <option value="IN_PROGRESS">In Progress</option>
-      <option value="APPROVED">Approved</option>
-      <option value="CHANGES_REQUESTED">Changes Requested</option>
+      <option value="">{{ 'reviews.list.allStatuses' | translate }}</option>
+      <option value="PENDING">{{ 'reviews.status.PENDING' | translate }}</option>
+      <option value="IN_PROGRESS">{{ 'reviews.status.IN_PROGRESS' | translate }}</option>
+      <option value="APPROVED">{{ 'reviews.status.APPROVED' | translate }}</option>
+      <option value="CHANGES_REQUESTED">{{ 'reviews.status.CHANGES_REQUESTED' | translate }}</option>
     </select>
   </div>
 
@@ -17,12 +17,12 @@
     <table class="sq-table">
       <thead>
         <tr>
-          <th>Pull Request</th>
-          <th>Task</th>
-          <th>Status</th>
-          <th>Changes</th>
-          <th>Reviewer</th>
-          <th>Updated</th>
+          <th>{{ 'reviews.list.pullRequest' | translate }}</th>
+          <th>{{ 'reviews.list.task' | translate }}</th>
+          <th>{{ 'reviews.list.status' | translate }}</th>
+          <th>{{ 'reviews.list.changes' | translate }}</th>
+          <th>{{ 'reviews.list.reviewer' | translate }}</th>
+          <th>{{ 'reviews.list.updated' | translate }}</th>
         </tr>
       </thead>
       <tbody>
@@ -35,18 +35,18 @@
               </div>
             </td>
             <td><span class="task-title">{{ review.taskTitle }}</span></td>
-            <td><span class="sq-badge" [class]="'sq-badge--' + statusClass(review.status)">{{ review.status.replace('_', ' ') }}</span></td>
+            <td><span class="sq-badge" [class]="'sq-badge--' + statusClass(review.status)">{{ 'reviews.status.' + review.status | translate }}</span></td>
             <td>
               <span class="changes">
                 <span class="changes--add">+{{ review.linesAdded }}</span>
                 <span class="changes--remove">-{{ review.linesRemoved }}</span>
               </span>
             </td>
-            <td><span class="sq-badge sq-badge--neutral">{{ review.reviewerType }}</span></td>
+            <td><span class="sq-badge sq-badge--neutral">{{ 'reviews.reviewerType.' + review.reviewerType | translate }}</span></td>
             <td><span class="date">{{ review.updatedAt | timeAgo }}</span></td>
           </tr>
         } @empty {
-          <tr><td colspan="6" class="empty-row">No reviews found</td></tr>
+          <tr><td colspan="6" class="empty-row">{{ 'reviews.list.noReviews' | translate }}</td></tr>
         }
       </tbody>
     </table>

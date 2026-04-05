@@ -15,7 +15,18 @@
     "completed": "termine",
     "working": "en cours",
     "tokens": "jetons",
-    "noData": "Aucune donnee disponible"
+    "noData": "Aucune donnee disponible",
+    "create": "Creer",
+    "update": "Mettre a jour",
+    "remove": "Retirer",
+    "test": "Tester",
+    "enabled": "Active",
+    "actions": "Actions",
+    "status": "Statut",
+    "never": "Jamais",
+    "removing": "Suppression...",
+    "testing": "Test en cours...",
+    "syncing": "Synchronisation..."
   },
   "header": {
     "searchPlaceholder": "Rechercher des taches, projets, revues...",
@@ -119,6 +130,134 @@
       "limitsDescription": "Limites de ressources pour votre espace de travail",
       "maxUsers": "Nombre maximum d'utilisateurs",
       "maxProjects": "Nombre maximum de projets"
+    },
+    "agentConfig": {
+      "title": "Configuration des agents",
+      "subtitle": "Configurez les parametres des agents IA pour votre espace de travail",
+      "modelSettings": {
+        "title": "Parametres du modele",
+        "subtitle": "Configuration par defaut du modele IA pour tous les types d'agents"
+      },
+      "overrides": {
+        "title": "Surcharges par agent",
+        "subtitle": "Surcharger les parametres par defaut pour des types d'agents specifiques"
+      },
+      "labels": {
+        "provider": "Fournisseur",
+        "modelName": "Nom du modele",
+        "temperature": "Temperature :",
+        "maxTokens": "Jetons maximum",
+        "systemPrompt": "Invite systeme",
+        "model": "Modele"
+      },
+      "placeholders": {
+        "modelName": "gpt-4",
+        "maxTokens": "4096",
+        "systemPrompt": "Invite systeme optionnelle pour tous les agents...",
+        "selectAgentType": "Selectionner le type d'agent..."
+      },
+      "temperature": {
+        "precise": "Precis (0.0)",
+        "creative": "Creatif (1.0)"
+      },
+      "validation": {
+        "maxTokensRange": "Doit etre entre 1 et 128 000"
+      },
+      "alerts": {
+        "saveSuccess": "Configuration enregistree avec succes"
+      },
+      "loading": "Chargement de la configuration...",
+      "buttons": {
+        "remove": "Retirer",
+        "addOverride": "Ajouter une surcharge",
+        "saving": "Enregistrement...",
+        "saveConfiguration": "Enregistrer la configuration"
+      },
+      "errors": {
+        "maxTokensRange": "Les jetons maximum doivent etre entre 1 et 128000.",
+        "saveFailed": "Echec de l'enregistrement de la configuration. Veuillez reessayer."
+      }
+    },
+    "userTokens": {
+      "title": "Jetons de plateforme",
+      "subtitle": "Liez vos jetons d'acces personnels pour permettre a Squadron d'agir en votre nom",
+      "linkedAccounts": {
+        "title": "Comptes lies",
+        "subtitle": "Comptes de plateforme actuellement lies a votre profil",
+        "empty": "Aucun jeton de plateforme lie. Liez un jeton ci-dessous pour commencer."
+      },
+      "linkNew": {
+        "title": "Lier un nouveau jeton",
+        "subtitle": "Connecter un jeton d'acces personnel d'une plateforme externe",
+        "allLinked": "Toutes les connexions disponibles sont deja liees."
+      },
+      "alerts": {
+        "linkSuccess": "Jeton lie avec succes"
+      },
+      "loading": "Chargement des jetons...",
+      "labels": {
+        "linked": "Lie",
+        "expires": "Expire",
+        "platformConnection": "Connexion de plateforme",
+        "personalAccessToken": "Jeton d'acces personnel"
+      },
+      "placeholders": {
+        "selectConnection": "Selectionner une connexion...",
+        "enterToken": "Entrez votre jeton..."
+      },
+      "hints": {
+        "tokenEncrypted": "Votre jeton est chiffre avant le stockage"
+      },
+      "buttons": {
+        "unlink": "Delier",
+        "linkAToken": "Lier un jeton",
+        "linking": "Liaison...",
+        "linkToken": "Lier le jeton",
+        "cancel": "Annuler"
+      },
+      "unknownConnection": "Connexion inconnue",
+      "errors": {
+        "missingFields": "Veuillez selectionner une connexion et entrer un jeton.",
+        "linkFailed": "Echec de la liaison du jeton. Verifiez votre jeton et reessayez."
+      }
+    },
+    "squadronConfig": {
+      "title": "Mon escadron d'agents",
+      "subtitle": "Configurez vos agents IA personnels. Vous pouvez avoir jusqu'a {{maxAgents}} agents.",
+      "loading": "Chargement de l'escadron...",
+      "alerts": {
+        "saveSuccess": "Modifications enregistrees avec succes."
+      },
+      "labels": {
+        "type": "Type",
+        "provider": "Fournisseur",
+        "model": "Modele",
+        "maxTokens": "Jetons maximum",
+        "temperature": "Temperature",
+        "enabled": "Active"
+      },
+      "placeholders": {
+        "agentName": "Nom de l'agent",
+        "provider": "ex. openai-compatible",
+        "model": "ex. gpt-4o"
+      },
+      "buttons": {
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "edit": "Modifier",
+        "remove": "Retirer",
+        "addAgent": "+ Ajouter un agent",
+        "resetToDefaults": "Reinitialiser par defaut"
+      },
+      "errors": {
+        "saveFailed": "Echec de l'enregistrement de l'agent. Veuillez reessayer.",
+        "addFailed": "Echec de l'ajout de l'agent.",
+        "removeFailed": "Echec de la suppression de l'agent.",
+        "resetFailed": "Echec de la reinitialisation de l'escadron."
+      },
+      "defaults": {
+        "agentName": "Agent {{number}}"
+      }
     }
   },
   "notifications": {
@@ -179,11 +318,768 @@
         "label": "Systeme",
         "description": "Alertes systeme telles que l'etat des services, les erreurs et les avis de maintenance"
       }
+    },
+    "bell": {
+      "ariaLabel": "Notifications"
+    },
+    "dropdown": {
+      "heading": "Notifications",
+      "markAllRead": "Tout marquer comme lu",
+      "empty": "Aucune notification"
+    },
+    "toast": {
+      "dismissAriaLabel": "Fermer"
     }
   },
   "language": {
     "en": "English",
     "fr": "Francais",
     "label": "Langue"
+  },
+  "tasks": {
+    "board": {
+      "title": "Tableau des taches",
+      "subtitle": "Glissez et deposez les taches entre les colonnes",
+      "searchPlaceholder": "Rechercher des taches...",
+      "filter": {
+        "allPriorities": "Toutes les priorites"
+      },
+      "emptyColumn": "Aucune tache",
+      "column": {
+        "backlog": "File d'attente",
+        "planning": "Planification",
+        "inProgress": "En cours",
+        "review": "Revue",
+        "qa": "AQ",
+        "done": "Termine"
+      }
+    },
+    "detail": {
+      "loading": "Chargement de la tache...",
+      "backToBoard": "Retour au tableau",
+      "description": "Description",
+      "transitions": "Deplacer vers",
+      "pullRequest": "Demande de fusion",
+      "labels": {
+        "heading": "Etiquettes",
+        "empty": "Aucune etiquette"
+      },
+      "sidebar": {
+        "assignee": "Responsable",
+        "unassigned": "Non assigne",
+        "tokenUsage": "Utilisation des jetons",
+        "tokenCount": "{{count}} jetons",
+        "created": "Cree",
+        "externalLink": "Lien externe",
+        "openInPlatform": "Ouvrir dans la plateforme"
+      },
+      "meta": {
+        "updated": "Mis a jour"
+      }
+    },
+    "priority": {
+      "critical": "Critique",
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Basse"
+    },
+    "state": {
+      "BACKLOG": "File d'attente",
+      "PLANNING": "Planification",
+      "IN_PROGRESS": "En cours",
+      "REVIEW": "Revue",
+      "QA": "AQ",
+      "DONE": "Termine",
+      "CANCELLED": "Annule"
+    }
+  },
+  "reviews": {
+    "list": {
+      "title": "Revues de code",
+      "subtitle": "Revoir les demandes de fusion et fournir des commentaires",
+      "filter": {
+        "allStatuses": "Tous les statuts",
+        "pending": "En attente",
+        "inProgress": "En cours",
+        "approved": "Approuve",
+        "changesRequested": "Modifications demandees"
+      },
+      "columns": {
+        "pullRequest": "Demande de fusion",
+        "task": "Tache",
+        "status": "Statut",
+        "changes": "Modifications",
+        "reviewer": "Reviseur",
+        "updated": "Mis a jour"
+      },
+      "emptyState": "Aucune revue trouvee"
+    },
+    "detail": {
+      "loading": "Chargement de la revue...",
+      "backLink": "Retour aux revues",
+      "actions": {
+        "approve": "Approuver",
+        "reject": "Rejeter"
+      },
+      "stats": {
+        "filesChanged": "Fichiers modifies",
+        "linesAdded": "Lignes ajoutees",
+        "linesRemoved": "Lignes supprimees",
+        "comments": "Commentaires",
+        "unresolved": "Non resolus",
+        "resolved": "Resolus"
+      },
+      "tabs": {
+        "diff": "Diff",
+        "comments": "Commentaires"
+      },
+      "comments": {
+        "title": "Commentaires de revue",
+        "resolvedBadge": "Resolu",
+        "emptyState": "Aucun commentaire pour l'instant"
+      }
+    },
+    "status": {
+      "PENDING": "En attente",
+      "IN_PROGRESS": "En cours",
+      "APPROVED": "Approuve",
+      "CHANGES_REQUESTED": "Modifications demandees",
+      "REJECTED": "Rejete"
+    },
+    "reviewerType": {
+      "AI": "IA",
+      "HUMAN": "Humain"
+    }
+  },
+  "projects": {
+    "list": {
+      "heading": "Projets",
+      "subheading": "Gerez vos depots et projets",
+      "newProjectButton": "Nouveau projet",
+      "emptyState": "Aucun projet pour l'instant. Creez votre premier projet pour commencer."
+    },
+    "card": {
+      "tasksLabel": "taches",
+      "activeLabel": "actives"
+    },
+    "detail": {
+      "backLink": "Retour aux projets",
+      "labels": {
+        "repository": "Depot",
+        "defaultBranch": "Branche par defaut",
+        "totalTasks": "Total des taches",
+        "activeTasks": "Taches actives"
+      }
+    }
+  },
+  "agentChat": {
+    "title": "Discussion avec l'agent",
+    "meta": {
+      "statusLabel": "Statut :",
+      "tokensLabel": "Jetons :"
+    },
+    "actions": {
+      "cancel": "Annuler"
+    },
+    "progress": {
+      "stepsUnit": "etapes"
+    },
+    "message": {
+      "authorAgent": "Agent IA",
+      "authorUser": "Vous",
+      "authorSystem": "Systeme",
+      "streamingIndicator": "diffusion...",
+      "tokensUnit": "jetons"
+    },
+    "status": {
+      "interruptedBanner": "L'agent a ete interrompu. Vous pouvez envoyer un nouveau message pour continuer.",
+      "interruptedByUser": "L'agent a ete interrompu par l'utilisateur."
+    },
+    "input": {
+      "placeholder": "Tapez un message..."
+    },
+    "error": {
+      "prefix": "Erreur :",
+      "unknownError": "Une erreur inconnue s'est produite"
+    }
+  },
+  "diffViewer": {
+    "title": "Modifications du code",
+    "stats": {
+      "filesChanged": "fichiers modifies"
+    },
+    "loading": "Chargement du diff...",
+    "comments": {
+      "resolved": "Resolu",
+      "placeholder": "Ajouter un commentaire de revue...",
+      "cancel": "Annuler"
+    },
+    "emptyState": "Aucune modification de fichier trouvee.",
+    "error": {
+      "loadFailed": "Echec du chargement du diff"
+    }
+  },
+  "qaReport": {
+    "loading": "Chargement du rapport AQ...",
+    "navigation": {
+      "backToTask": "Retour a la tache"
+    },
+    "title": "Rapport AQ",
+    "header": {
+      "gatePrefix": "Porte :"
+    },
+    "coverage": {
+      "title": "Couverture du code",
+      "meetsThreshold": "La couverture atteint le seuil",
+      "belowThreshold": "La couverture est en dessous du seuil recommande",
+      "criticallyLow": "Couverture critique"
+    },
+    "testResults": {
+      "title": "Resultats des tests",
+      "passRateLabel": "taux de reussite ({{total}} au total)",
+      "passed": "Reussis",
+      "failed": "Echoues",
+      "skipped": "Ignores"
+    },
+    "summary": {
+      "title": "Resume"
+    },
+    "findings": {
+      "title": "Constatations",
+      "criticalGroup": "Critique",
+      "majorGroup": "Majeur",
+      "minorInfoGroup": "Mineur / Info",
+      "emptyState": "Aucune constatation rapportee"
+    },
+    "error": {
+      "loadFailed": "Echec du chargement du rapport AQ"
+    }
+  },
+  "projectConfig": {
+    "header": {
+      "title": "Assistant de configuration",
+      "subtitle": "Configurez vos integrations etape par etape : fournisseurs de tickets, depots Git, projets et flux de travail"
+    },
+    "loading": "Chargement de la configuration...",
+    "nav": {
+      "previous": "Precedent",
+      "next": "Suivant"
+    },
+    "steps": {
+      "ticketProviders": "Fournisseurs de tickets",
+      "gitRemotes": "Depots Git",
+      "projects": "Projets",
+      "branchWorkflow": "Branches et flux de travail"
+    },
+    "ticketProviders": {
+      "title": "Fournisseurs de tickets",
+      "description": "Connectez vos systemes de suivi des problemes. Squadron synchronisera les taches depuis ces plateformes.",
+      "cancelToggle": "Annuler",
+      "addProvider": "+ Ajouter un fournisseur",
+      "saveSuccess": "Fournisseur de tickets ajoute avec succes",
+      "form": {
+        "title": "Nouveau fournisseur de tickets",
+        "providerNameLabel": "Nom du fournisseur",
+        "providerNamePlaceholder": "ex. Jira Cloud - Production",
+        "platformLabel": "Plateforme",
+        "baseUrlLabel": "URL de base",
+        "baseUrlPlaceholder": "ex. https://jira.mycompany.com",
+        "baseUrlHint": "Requis pour les instances auto-hebergees",
+        "cloudUrlLabel": "URL de l'instance cloud",
+        "cloudUrlPlaceholder": "ex. https://myorg.atlassian.net",
+        "cloudUrlHint": "Votre URL Atlassian cloud",
+        "authLabel": "Authentification",
+        "enterPrefix": "Entrez",
+        "cancel": "Annuler",
+        "saving": "Enregistrement...",
+        "saveProvider": "Enregistrer le fournisseur"
+      },
+      "empty": {
+        "title": "Aucun fournisseur de tickets",
+        "description": "Connectez Jira, Azure DevOps ou un autre systeme de suivi pour synchroniser les taches automatiquement."
+      },
+      "card": {
+        "removing": "Suppression...",
+        "remove": "Retirer"
+      },
+      "errors": {
+        "saveFailed": "Echec de l'enregistrement du fournisseur. Verifiez votre configuration et reessayez."
+      }
+    },
+    "gitRemotes": {
+      "title": "Depots Git",
+      "description": "Configurez les plateformes Git pour l'hebergement du code. Ajoutez des cles SSH pour les operations securisees.",
+      "cancelToggle": "Annuler",
+      "addRemote": "+ Ajouter un depot Git",
+      "saveSuccess": "Depot Git ajoute avec succes",
+      "form": {
+        "title": "Nouveau depot Git",
+        "connectionNameLabel": "Nom de la connexion",
+        "connectionNamePlaceholder": "ex. GitHub - Mon Org",
+        "platformLabel": "Plateforme",
+        "baseUrlLabel": "URL de base",
+        "baseUrlPlaceholder": "ex. https://gitlab.mycompany.com, https://bitbucket.mycompany.com",
+        "baseUrlHint": "Requis pour les instances auto-hebergees",
+        "cloudDetected": "Cloud detecte - pas d'URL necessaire",
+        "authLabel": "Authentification",
+        "enterPrefix": "Entrez",
+        "cancel": "Annuler",
+        "saving": "Enregistrement...",
+        "saveRemote": "Enregistrer le depot Git"
+      },
+      "empty": {
+        "title": "Aucun depot Git configure",
+        "description": "Ajoutez des connexions GitHub, GitLab ou Bitbucket pour l'hebergement du code et l'acces SSH."
+      },
+      "card": {
+        "sshKeyCount": "{{count}} cle(s) SSH",
+        "removing": "Suppression...",
+        "remove": "Retirer"
+      },
+      "sshKey": {
+        "remove": "Retirer",
+        "removing": "..."
+      },
+      "errors": {
+        "saveFailed": "Echec de l'enregistrement du depot Git. Verifiez votre configuration."
+      }
+    },
+    "sshKeys": {
+      "title": "Cles SSH",
+      "description": "Ajoutez des paires de cles SSH pour des operations Git securisees",
+      "cancelToggle": "Annuler",
+      "addKey": "+ Ajouter une cle SSH",
+      "saveSuccess": "Cle SSH ajoutee avec succes",
+      "form": {
+        "title": "Nouvelle cle SSH",
+        "gitRemoteLabel": "Depot Git",
+        "selectConnectionPlaceholder": "-- Selectionner une connexion --",
+        "keyNameLabel": "Nom de la cle",
+        "keyNamePlaceholder": "ex. deploy-key-prod",
+        "keyTypeLabel": "Type de cle",
+        "keyTypeEd25519": "ED25519 (Recommande)",
+        "keyTypeRsa": "RSA",
+        "publicKeyLabel": "Cle publique",
+        "publicKeyPlaceholder": "ssh-ed25519 AAAA...",
+        "privateKeyLabel": "Cle privee",
+        "privateKeyPlaceholder": "-----BEGIN OPENSSH PRIVATE KEY-----",
+        "privateKeyHint": "Stockee chiffree. Jamais transmise apres la creation.",
+        "cancel": "Annuler",
+        "saving": "Enregistrement...",
+        "saveKey": "Enregistrer la cle SSH"
+      },
+      "errors": {
+        "saveFailed": "Echec de l'enregistrement de la cle SSH. Verifiez la paire de cles."
+      }
+    },
+    "projects": {
+      "title": "Projets",
+      "description": "Importez des projets depuis vos fournisseurs configures. Definissez les URL de clonage Git et les branches par defaut.",
+      "cancelToggle": "Annuler",
+      "importProjects": "+ Importer des projets",
+      "noProviders": {
+        "title": "Aucun fournisseur configure",
+        "description": "Retournez a l'etape 1 ou 2 et ajoutez au moins un fournisseur avant d'importer des projets.",
+        "goToTicketProviders": "Aller aux fournisseurs de tickets"
+      },
+      "import": {
+        "title": "Importer des projets depuis un fournisseur",
+        "providerLabel": "Fournisseur",
+        "selectProviderPlaceholder": "-- Selectionner un fournisseur --",
+        "fetching": "Recuperation...",
+        "fetchProjects": "Recuperer les projets",
+        "noProjectsFound": "Aucun projet trouve sur ce fournisseur.",
+        "selectedCount": "{{selected}} sur {{total}} selectionnes",
+        "selectAll": "Tout selectionner",
+        "deselectAll": "Tout deselectionner",
+        "alreadyImported": "Deja importe",
+        "projectNameLabel": "Nom du projet",
+        "defaultBranchLabel": "Branche par defaut",
+        "gitCloneUrlLabel": "URL de clonage Git",
+        "gitCloneUrlPlaceholder": "ex. git@github.com:org/repo.git ou https://github.com/org/repo.git",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Breve description du projet",
+        "importingProgress": "Importation {{done}}/{{total}}...",
+        "cancel": "Annuler",
+        "importing": "Importation...",
+        "importButton": "Importer {{count}} projet(s)"
+      },
+      "empty": {
+        "title": "Aucun projet pour l'instant",
+        "description": "Cliquez sur \"+ Importer des projets\" pour importer depuis un fournisseur configure."
+      },
+      "errors": {
+        "fetchFailed": "Echec de la recuperation des projets. Verifiez la connexion.",
+        "partialImportFailure": "{{errors}} projet(s) n'ont pas pu etre importes. Le reste a ete importe avec succes."
+      }
+    },
+    "branchWorkflow": {
+      "title": "Nommage des branches et flux de travail",
+      "description": "Configurez les modeles de nommage de branches et mappez les etats de flux de travail vers les statuts de votre plateforme externe.",
+      "noProjects": {
+        "title": "Aucun projet a configurer",
+        "description": "Importez des projets a l'etape 3 avant de configurer le nommage des branches et les mappages de flux de travail.",
+        "goToProjects": "Aller aux projets"
+      },
+      "mappings": {
+        "saveSuccess": "Mappages enregistres avec succes",
+        "loading": "Chargement des mappages...",
+        "title": "Mappages de flux de travail",
+        "squadronStateColumn": "Etat Squadron",
+        "externalStatusColumn": "Statut externe",
+        "selectStatusPlaceholder": "-- Selectionner un statut --",
+        "externalStatusPlaceholder": "ex. En cours",
+        "removeMappingTooltip": "Supprimer le mappage",
+        "empty": "Aucun mappage de flux de travail. Cliquez sur \"Ajouter un mappage\" pour mapper les etats.",
+        "addMapping": "+ Ajouter un mappage",
+        "saving": "Enregistrement...",
+        "saveMappings": "Enregistrer les mappages"
+      },
+      "branchNaming": {
+        "title": "Nommage des branches",
+        "templateLabel": "Modele de nommage des branches",
+        "templatePlaceholder": "{strategy}/{ticket}-{description}",
+        "templateHint": "Variables : {strategy}, {ticket}, {description}, {type}, {user}",
+        "previewLabel": "Apercu :"
+      },
+      "platformConnection": {
+        "title": "Connexion de plateforme",
+        "connectionLabel": "Connexion",
+        "noConnectionPlaceholder": "-- Pas de connexion --",
+        "externalKeyLabel": "Cle de projet externe",
+        "externalKeyPlaceholder": "ex. SQ, my-org/my-repo",
+        "fetching": "Recuperation...",
+        "fetchStatuses": "Recuperer les statuts",
+        "remoteStatusesLabel": "Statuts distants :"
+      },
+      "notConfigured": "Non configure",
+      "mappingCount": "{{count}} mappage(s)",
+      "errors": {
+        "noProviderLinked": "Le projet doit etre lie a un fournisseur avec une cle de projet externe.",
+        "fetchStatusesFailed": "Echec de la recuperation des statuts distants. Verifiez la connexion.",
+        "saveMappingsFailed": "Echec de l'enregistrement des mappages. Veuillez reessayer."
+      }
+    },
+    "platforms": {
+      "github": "GitHub",
+      "gitlab": "GitLab",
+      "jiraCloud": "Jira Cloud",
+      "jiraServer": "Jira Server / DC",
+      "azureDevops": "Azure DevOps",
+      "bitbucket": "Bitbucket"
+    },
+    "platformDescriptions": {
+      "jiraCloud": "Jira heberge par Atlassian dans le cloud",
+      "jiraServer": "Jira Server ou Data Center auto-heberge",
+      "azureDevops": "Services Microsoft Azure DevOps",
+      "github": "GitHub.com ou GitHub Enterprise",
+      "gitlab": "GitLab.com ou GitLab auto-gere",
+      "bitbucket": "Bitbucket Cloud ou Bitbucket Server"
+    },
+    "authTypes": {
+      "apiToken": "Jeton API",
+      "oauth2": "OAuth 2.0",
+      "pat": "JAP",
+      "basicAuth": "Auth. basique",
+      "app": "Application",
+      "appPassword": "Mot de passe d'application"
+    },
+    "authFields": {
+      "email": "Courriel",
+      "apiToken": "Jeton API",
+      "clientId": "ID client",
+      "clientSecret": "Secret client",
+      "personalAccessToken": "Jeton d'acces personnel",
+      "username": "Nom d'utilisateur",
+      "password": "Mot de passe",
+      "appId": "ID d'application",
+      "privateKey": "Cle privee",
+      "appPassword": "Mot de passe d'application"
+    },
+    "branchStrategies": {
+      "trunkBased": {
+        "label": "Trunk-Based",
+        "description": "Tout le travail converge vers une seule branche principale"
+      },
+      "gitflow": {
+        "label": "Gitflow",
+        "description": "Branches de fonctionnalite, developpement, release et correctif"
+      },
+      "githubFlow": {
+        "label": "GitHub Flow",
+        "description": "Branches de fonctionnalite fusionnees directement dans main"
+      },
+      "gitlabFlow": {
+        "label": "GitLab Flow",
+        "description": "Branches de fonctionnalite avec branches d'environnement"
+      },
+      "releaseBranching": {
+        "label": "Release Branching",
+        "description": "Branches separees pour chaque version"
+      }
+    },
+    "errors": {
+      "notAuthenticated": "Non authentifie"
+    }
+  },
+  "admin": {
+    "users": {
+      "title": "Gestion des utilisateurs",
+      "subtitle": "Gerez les utilisateurs et leurs roles au sein de votre organisation",
+      "addUser": "Ajouter un utilisateur",
+      "searchPlaceholder": "Rechercher des utilisateurs par nom ou courriel...",
+      "loading": "Chargement des utilisateurs...",
+      "columns": {
+        "user": "Utilisateur",
+        "email": "Courriel",
+        "role": "Role",
+        "status": "Statut",
+        "teams": "Equipes",
+        "lastLogin": "Derniere connexion",
+        "actions": "Actions"
+      },
+      "teamCount": "{{count}} equipe(s)",
+      "neverLoggedIn": "Jamais",
+      "emptyState": "Aucun utilisateur trouve",
+      "modal": {
+        "editTitle": "Modifier l'utilisateur",
+        "createTitle": "Creer un utilisateur",
+        "cancel": "Annuler",
+        "update": "Mettre a jour",
+        "create": "Creer"
+      },
+      "form": {
+        "usernameLabel": "Nom d'utilisateur",
+        "usernamePlaceholder": "ex. jdoe",
+        "displayNameLabel": "Nom d'affichage",
+        "displayNamePlaceholder": "ex. Jean Dupont",
+        "emailLabel": "Courriel",
+        "emailPlaceholder": "ex. jean@exemple.com",
+        "roleLabel": "Role"
+      },
+      "confirmDelete": "Supprimer l'utilisateur \"{{name}}\" ?",
+      "errors": {
+        "loadFailed": "Echec du chargement des utilisateurs",
+        "updateFailed": "Echec de la mise a jour de l'utilisateur",
+        "createFailed": "Echec de la creation de l'utilisateur"
+      }
+    },
+    "teams": {
+      "title": "Gestion des equipes",
+      "subtitle": "Organisez les utilisateurs en equipes pour la collaboration et le controle d'acces",
+      "createTeam": "Creer une equipe",
+      "loading": "Chargement des equipes...",
+      "memberCount": "{{count}} membres",
+      "membersHeading": "Membres",
+      "noMembers": "Aucun membre pour l'instant",
+      "emptyState": "Aucune equipe creee. Creez votre premiere equipe pour commencer.",
+      "modal": {
+        "editTitle": "Modifier l'equipe",
+        "createTitle": "Creer une equipe",
+        "cancel": "Annuler",
+        "update": "Mettre a jour",
+        "create": "Creer"
+      },
+      "form": {
+        "nameLabel": "Nom de l'equipe",
+        "namePlaceholder": "ex. Equipe Backend",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Breve description de l'equipe..."
+      },
+      "confirmDelete": "Supprimer l'equipe \"{{name}}\" ?",
+      "errors": {
+        "loadFailed": "Echec du chargement des equipes",
+        "createFailed": "Echec de la creation de l'equipe"
+      }
+    },
+    "securityGroups": {
+      "title": "Groupes de securite",
+      "subtitle": "Definissez des groupes pour gerer les permissions a grande echelle",
+      "createGroup": "Creer un groupe",
+      "loading": "Chargement des groupes de securite...",
+      "memberCount": "{{count}} membre(s)",
+      "membersHeading": "Membres",
+      "noMembers": "Aucun membre dans ce groupe",
+      "emptyState": "Aucun groupe de securite trouve",
+      "memberAddedPrefix": "Ajoute",
+      "createdPrefix": "Cree",
+      "selectPrompt": "Selectionnez un groupe de securite pour voir les details",
+      "modal": {
+        "editTitle": "Modifier le groupe",
+        "createTitle": "Creer un groupe de securite",
+        "cancel": "Annuler",
+        "update": "Mettre a jour",
+        "create": "Creer"
+      },
+      "form": {
+        "nameLabel": "Nom du groupe",
+        "namePlaceholder": "ex. Ingenierie",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Decrivez l'objectif du groupe..."
+      },
+      "confirmDelete": "Supprimer le groupe de securite \"{{name}}\" ?",
+      "memberType": {
+        "user": "Utilisateur",
+        "team": "Equipe"
+      },
+      "errors": {
+        "loadFailed": "Echec du chargement des groupes de securite",
+        "createFailed": "Echec de la creation du groupe de securite"
+      }
+    },
+    "permissions": {
+      "title": "Permissions",
+      "subtitle": "Controlez l'acces aux ressources de votre organisation",
+      "grantPermission": "Accorder une permission",
+      "filters": {
+        "resourceType": "Type de ressource",
+        "allResources": "Toutes les ressources",
+        "granteeType": "Type de beneficiaire",
+        "allGrantees": "Tous les beneficiaires"
+      },
+      "loading": "Chargement des permissions...",
+      "columns": {
+        "grantee": "Beneficiaire",
+        "type": "Type",
+        "resource": "Ressource",
+        "accessLevel": "Niveau d'acces",
+        "granted": "Accorde",
+        "actions": "Actions"
+      },
+      "actions": {
+        "revoke": "Revoquer"
+      },
+      "emptyState": "Aucune permission correspondant aux filtres",
+      "modal": {
+        "title": "Accorder une permission",
+        "cancel": "Annuler",
+        "grant": "Accorder"
+      },
+      "form": {
+        "granteeTypeLabel": "Type de beneficiaire",
+        "granteeNameLabel": "Nom du beneficiaire",
+        "granteeNamePlaceholder": "ex. Jean Dupont ou Equipe Backend",
+        "resourceTypeLabel": "Type de ressource",
+        "accessLevelLabel": "Niveau d'acces"
+      },
+      "confirmRevoke": "Revoquer l'acces {{accessLevel}} pour \"{{name}}\" sur {{resourceType}} ?",
+      "errors": {
+        "loadFailed": "Echec du chargement des permissions",
+        "grantFailed": "Echec de l'attribution de la permission"
+      }
+    },
+    "authProviders": {
+      "title": "Fournisseurs d'authentification",
+      "subtitle": "Configurez les fournisseurs d'identite pour l'authentification unique",
+      "addProvider": "Ajouter un fournisseur",
+      "loading": "Chargement des fournisseurs d'authentification...",
+      "addedPrefix": "Ajoute",
+      "testing": "Test en cours...",
+      "emptyState": "Aucun fournisseur d'authentification configure. Ajoutez-en un pour activer le SSO.",
+      "modal": {
+        "editTitle": "Modifier le fournisseur",
+        "createTitle": "Ajouter un fournisseur d'authentification",
+        "cancel": "Annuler",
+        "update": "Mettre a jour",
+        "create": "Creer"
+      },
+      "form": {
+        "nameLabel": "Nom",
+        "namePlaceholder": "ex. OIDC entreprise",
+        "typeLabel": "Type",
+        "issuerUrlLabel": "URL de l'emetteur",
+        "issuerUrlPlaceholder": "https://auth.exemple.com/realms/corp",
+        "clientIdLabel": "ID client",
+        "clientIdPlaceholder": "squadron-app",
+        "clientSecretLabel": "Secret client",
+        "clientSecretPlaceholder": "Entrez le secret...",
+        "enabledLabel": "Active"
+      },
+      "types": {
+        "oidc": "OpenID Connect",
+        "keycloak": "Keycloak",
+        "ldap": "LDAP",
+        "saml": "SAML"
+      },
+      "confirmDelete": "Supprimer le fournisseur d'authentification \"{{name}}\" ?",
+      "errors": {
+        "loadFailed": "Echec du chargement des fournisseurs d'authentification",
+        "createFailed": "Echec de la creation du fournisseur d'authentification",
+        "testFailed": "Echec du test du fournisseur d'authentification",
+        "connectionTestFailed": "Le test de connexion a echoue"
+      }
+    },
+    "platformConnections": {
+      "title": "Connexions de plateforme",
+      "subtitle": "Connectez-vous aux plateformes Git et de billetterie",
+      "addConnection": "Ajouter une connexion",
+      "loading": "Chargement des connexions...",
+      "detail": {
+        "baseUrl": "URL de base",
+        "lastSynced": "Derniere synchronisation",
+        "created": "Cree"
+      },
+      "testing": "Test en cours...",
+      "syncing": "Synchronisation...",
+      "emptyState": "Aucune connexion de plateforme configuree. Ajoutez une connexion pour commencer a importer des taches et synchroniser le code.",
+      "modal": {
+        "editTitle": "Modifier la connexion",
+        "createTitle": "Ajouter une connexion de plateforme",
+        "cancel": "Annuler",
+        "update": "Mettre a jour",
+        "create": "Creer"
+      },
+      "form": {
+        "nameLabel": "Nom",
+        "namePlaceholder": "ex. GitHub - Organisation",
+        "platformLabel": "Plateforme",
+        "baseUrlLabel": "URL de base",
+        "baseUrlPlaceholder": "https://api.github.com",
+        "accessTokenLabel": "Jeton d'acces",
+        "accessTokenPlaceholder": "Entrez le jeton..."
+      },
+      "platforms": {
+        "github": "GitHub",
+        "gitlab": "GitLab",
+        "jiraCloud": "Jira Cloud",
+        "jiraServer": "Jira Server / DC",
+        "azureDevops": "Azure DevOps",
+        "bitbucket": "Bitbucket"
+      },
+      "confirmDelete": "Supprimer la connexion \"{{name}}\" ?",
+      "errors": {
+        "loadFailed": "Echec du chargement des connexions de plateforme",
+        "createFailed": "Echec de la creation de la connexion de plateforme",
+        "syncFailed": "Echec de la synchronisation de la connexion"
+      }
+    },
+    "usage": {
+      "title": "Utilisation des jetons",
+      "subtitle": "Surveillez la consommation de jetons et les couts des agents IA",
+      "loading": "Chargement des donnees d'utilisation...",
+      "cards": {
+        "totalTokens": "Jetons totaux",
+        "inputTokens": "Jetons d'entree",
+        "outputTokens": "Jetons de sortie",
+        "totalCost": "Cout total"
+      },
+      "agentBreakdown": {
+        "title": "Utilisation par type d'agent",
+        "columns": {
+          "agentType": "Type d'agent",
+          "tokens": "Jetons",
+          "cost": "Cout",
+          "invocations": "Invocations",
+          "distribution": "Distribution"
+        },
+        "emptyState": "Aucune donnee d'utilisation d'agent disponible."
+      },
+      "emptyState": "Aucune donnee d'utilisation disponible pour ce tenant."
+    }
+  },
+  "auth": {
+    "oidcCallback": {
+      "completingSignIn": "Connexion en cours..."
+    }
   }
 }

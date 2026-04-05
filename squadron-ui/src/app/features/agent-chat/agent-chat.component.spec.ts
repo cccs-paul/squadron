@@ -7,6 +7,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError, Subject } from 'rxjs';
 import { StreamChunk, AgentProgress } from '../../core/models/agent.model';
+import { TranslateModule } from '@ngx-translate/core';
 
 describe('AgentChatComponent', () => {
   let component: AgentChatComponent;
@@ -33,7 +34,7 @@ describe('AgentChatComponent', () => {
     agentServiceSpy.subscribeToProgress.and.returnValue(progressSubject.asObservable());
 
     await TestBed.configureTestingModule({
-      imports: [AgentChatComponent],
+      imports: [AgentChatComponent, TranslateModule.forRoot()],
       providers: [
         { provide: AgentService, useValue: agentServiceSpy },
         { provide: WebSocketService, useValue: wsServiceSpy },

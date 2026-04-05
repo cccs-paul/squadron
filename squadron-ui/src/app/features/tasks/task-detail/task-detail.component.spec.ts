@@ -6,6 +6,7 @@ import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
+import { TranslateModule } from '@ngx-translate/core';
 import { Task, TaskState, TaskPriority } from '../../../core/models/task.model';
 
 describe('TaskDetailComponent', () => {
@@ -33,7 +34,7 @@ describe('TaskDetailComponent', () => {
     taskServiceSpy = jasmine.createSpyObj('TaskService', ['getTask', 'transitionTask']);
 
     await TestBed.configureTestingModule({
-      imports: [TaskDetailComponent],
+      imports: [TaskDetailComponent, TranslateModule.forRoot()],
       providers: [
         provideRouter([]),
         provideHttpClient(),

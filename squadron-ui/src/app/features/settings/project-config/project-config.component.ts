@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ProjectService } from '../../../core/services/project.service';
 import { PlatformService } from '../../../core/services/platform.service';
 import { SshKeyService } from '../../../core/services/ssh-key.service';
@@ -66,34 +67,34 @@ const CLOUD_PLATFORMS = new Set(['GITHUB', 'GITLAB', 'JIRA_CLOUD']);
 
 const AUTH_TYPE_OPTIONS: Record<string, { label: string; fields: { key: string; label: string; secret: boolean }[] }[]> = {
   JIRA_CLOUD: [
-    { label: 'API Token', fields: [{ key: 'email', label: 'Email', secret: false }, { key: 'apiToken', label: 'API Token', secret: true }] },
-    { label: 'OAuth 2.0', fields: [{ key: 'clientId', label: 'Client ID', secret: false }, { key: 'clientSecret', label: 'Client Secret', secret: true }] },
+    { label: 'projectConfig.authTypes.apiToken', fields: [{ key: 'email', label: 'projectConfig.authFields.email', secret: false }, { key: 'apiToken', label: 'projectConfig.authFields.apiToken', secret: true }] },
+    { label: 'projectConfig.authTypes.oauth2', fields: [{ key: 'clientId', label: 'projectConfig.authFields.clientId', secret: false }, { key: 'clientSecret', label: 'projectConfig.authFields.clientSecret', secret: true }] },
   ],
   JIRA_SERVER: [
-    { label: 'PAT', fields: [{ key: 'pat', label: 'Personal Access Token', secret: true }] },
-    { label: 'Basic Auth', fields: [{ key: 'username', label: 'Username', secret: false }, { key: 'password', label: 'Password', secret: true }] },
+    { label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
+    { label: 'projectConfig.authTypes.basicAuth', fields: [{ key: 'username', label: 'projectConfig.authFields.username', secret: false }, { key: 'password', label: 'projectConfig.authFields.password', secret: true }] },
   ],
   GITHUB: [
-    { label: 'PAT', fields: [{ key: 'pat', label: 'Personal Access Token', secret: true }] },
-    { label: 'App', fields: [{ key: 'appId', label: 'App ID', secret: false }, { key: 'privateKey', label: 'Private Key', secret: true }] },
+    { label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
+    { label: 'projectConfig.authTypes.app', fields: [{ key: 'appId', label: 'projectConfig.authFields.appId', secret: false }, { key: 'privateKey', label: 'projectConfig.authFields.privateKey', secret: true }] },
   ],
   GITLAB: [
-    { label: 'PAT', fields: [{ key: 'pat', label: 'Personal Access Token', secret: true }] },
+    { label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
   ],
   AZURE_DEVOPS: [
-    { label: 'PAT', fields: [{ key: 'pat', label: 'Personal Access Token', secret: true }] },
+    { label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
   ],
   BITBUCKET: [
-    { label: 'App Password', fields: [{ key: 'username', label: 'Username', secret: false }, { key: 'password', label: 'App Password', secret: true }] },
+    { label: 'projectConfig.authTypes.appPassword', fields: [{ key: 'username', label: 'projectConfig.authFields.username', secret: false }, { key: 'password', label: 'projectConfig.authFields.appPassword', secret: true }] },
   ],
 };
 
 const BRANCH_STRATEGIES: { value: string; label: string; description: string }[] = [
-  { value: 'TRUNK_BASED', label: 'Trunk-Based', description: 'All work flows to a single main branch' },
-  { value: 'GITFLOW', label: 'Gitflow', description: 'Feature, develop, release, and hotfix branches' },
-  { value: 'GITHUB_FLOW', label: 'GitHub Flow', description: 'Feature branches merged directly to main' },
-  { value: 'GITLAB_FLOW', label: 'GitLab Flow', description: 'Feature branches with environment branches' },
-  { value: 'RELEASE_BRANCHING', label: 'Release Branching', description: 'Separate branches for each release' },
+  { value: 'TRUNK_BASED', label: 'projectConfig.branchStrategies.trunkBased.label', description: 'projectConfig.branchStrategies.trunkBased.description' },
+  { value: 'GITFLOW', label: 'projectConfig.branchStrategies.gitflow.label', description: 'projectConfig.branchStrategies.gitflow.description' },
+  { value: 'GITHUB_FLOW', label: 'projectConfig.branchStrategies.githubFlow.label', description: 'projectConfig.branchStrategies.githubFlow.description' },
+  { value: 'GITLAB_FLOW', label: 'projectConfig.branchStrategies.gitlabFlow.label', description: 'projectConfig.branchStrategies.gitlabFlow.description' },
+  { value: 'RELEASE_BRANCHING', label: 'projectConfig.branchStrategies.releaseBranching.label', description: 'projectConfig.branchStrategies.releaseBranching.description' },
 ];
 
 const TICKET_PLATFORM_TYPES = ['JIRA_CLOUD', 'JIRA_SERVER', 'AZURE_DEVOPS'];
@@ -102,7 +103,7 @@ const GIT_PLATFORM_TYPES = ['GITHUB', 'GITLAB', 'BITBUCKET'];
 @Component({
   selector: 'sq-project-config',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslateModule],
   templateUrl: './project-config.component.html',
   styleUrl: './project-config.component.scss',
 })
@@ -111,6 +112,7 @@ export class ProjectConfigComponent implements OnInit {
   private platformService = inject(PlatformService);
   private sshKeyService = inject(SshKeyService);
   private authService = inject(AuthService);
+  private translate = inject(TranslateService);
 
   loading = signal(true);
   loadError = signal<string | null>(null);
@@ -165,10 +167,10 @@ export class ProjectConfigComponent implements OnInit {
   readonly branchStrategies = BRANCH_STRATEGIES;
 
   readonly steps: { id: WizardStep; label: string; number: number }[] = [
-    { id: 'ticket-providers', label: 'Ticket Providers', number: 1 },
-    { id: 'git-remotes', label: 'Git Remotes', number: 2 },
-    { id: 'projects', label: 'Projects', number: 3 },
-    { id: 'branch-workflow', label: 'Branch & Workflow', number: 4 },
+    { id: 'ticket-providers', label: 'projectConfig.steps.ticketProviders', number: 1 },
+    { id: 'git-remotes', label: 'projectConfig.steps.gitRemotes', number: 2 },
+    { id: 'projects', label: 'projectConfig.steps.projects', number: 3 },
+    { id: 'branch-workflow', label: 'projectConfig.steps.branchWorkflow', number: 4 },
   ];
 
   ngOnInit(): void {
@@ -181,7 +183,7 @@ export class ProjectConfigComponent implements OnInit {
 
     const user = this.authService.user();
     if (!user) {
-      this.loadError.set('Not authenticated');
+      this.loadError.set(this.translate.instant('projectConfig.errors.notAuthenticated'));
       this.loading.set(false);
       return;
     }
@@ -275,27 +277,29 @@ export class ProjectConfigComponent implements OnInit {
   }
 
   platformIcon(type: string): string {
-    switch (type) {
-      case 'GITHUB': return 'GitHub';
-      case 'GITLAB': return 'GitLab';
-      case 'JIRA_CLOUD': return 'Jira Cloud';
-      case 'JIRA_SERVER': return 'Jira Server / DC';
-      case 'AZURE_DEVOPS': return 'Azure DevOps';
-      case 'BITBUCKET': return 'Bitbucket';
-      default: return type;
-    }
+    const keyMap: Record<string, string> = {
+      'GITHUB': 'projectConfig.platforms.github',
+      'GITLAB': 'projectConfig.platforms.gitlab',
+      'JIRA_CLOUD': 'projectConfig.platforms.jiraCloud',
+      'JIRA_SERVER': 'projectConfig.platforms.jiraServer',
+      'AZURE_DEVOPS': 'projectConfig.platforms.azureDevops',
+      'BITBUCKET': 'projectConfig.platforms.bitbucket',
+    };
+    const key = keyMap[type];
+    return key ? this.translate.instant(key) : type;
   }
 
   platformDescription(type: string): string {
-    switch (type) {
-      case 'JIRA_CLOUD': return 'Atlassian-hosted Jira in the cloud';
-      case 'JIRA_SERVER': return 'Self-hosted Jira Server or Data Center';
-      case 'AZURE_DEVOPS': return 'Microsoft Azure DevOps Services';
-      case 'GITHUB': return 'GitHub.com or GitHub Enterprise';
-      case 'GITLAB': return 'GitLab.com or self-managed GitLab';
-      case 'BITBUCKET': return 'Bitbucket Cloud or Bitbucket Server';
-      default: return '';
-    }
+    const keyMap: Record<string, string> = {
+      'JIRA_CLOUD': 'projectConfig.platformDescriptions.jiraCloud',
+      'JIRA_SERVER': 'projectConfig.platformDescriptions.jiraServer',
+      'AZURE_DEVOPS': 'projectConfig.platformDescriptions.azureDevops',
+      'GITHUB': 'projectConfig.platformDescriptions.github',
+      'GITLAB': 'projectConfig.platformDescriptions.gitlab',
+      'BITBUCKET': 'projectConfig.platformDescriptions.bitbucket',
+    };
+    const key = keyMap[type];
+    return key ? this.translate.instant(key) : '';
   }
 
   // ===== STEP 1: Ticket Providers =====
@@ -368,7 +372,7 @@ export class ProjectConfigComponent implements OnInit {
         setTimeout(() => this.ticketSaveSuccess.set(false), 3000);
       },
       error: (err: any) => {
-        const msg = err?.error?.message || 'Failed to save provider. Please check your configuration and try again.';
+        const msg = err?.error?.message || this.translate.instant('projectConfig.ticketProviders.errors.saveFailed');
         this.ticketSaveError.set(msg);
         this.savingTicketProvider.set(false);
       },
@@ -459,7 +463,7 @@ export class ProjectConfigComponent implements OnInit {
         setTimeout(() => this.gitSaveSuccess.set(false), 3000);
       },
       error: (err: any) => {
-        const msg = err?.error?.message || 'Failed to save Git remote. Please check your configuration.';
+        const msg = err?.error?.message || this.translate.instant('projectConfig.gitRemotes.errors.saveFailed');
         this.gitSaveError.set(msg);
         this.savingGitRemote.set(false);
       },
@@ -533,7 +537,7 @@ export class ProjectConfigComponent implements OnInit {
         setTimeout(() => this.sshKeySaveSuccess.set(false), 3000);
       },
       error: (err: any) => {
-        const msg = err?.error?.message || 'Failed to save SSH key. Please verify the key pair.';
+        const msg = err?.error?.message || this.translate.instant('projectConfig.sshKeys.errors.saveFailed');
         this.sshKeySaveError.set(msg);
         this.savingSshKey.set(false);
       },
@@ -614,7 +618,7 @@ export class ProjectConfigComponent implements OnInit {
         this.importLoading.set(false);
       },
       error: (err: any) => {
-        const msg = err?.error?.message || err?.message || 'Failed to fetch projects. Please check the connection.';
+        const msg = err?.error?.message || err?.message || this.translate.instant('projectConfig.projects.errors.fetchFailed');
         this.importError.set(msg);
         this.importFetchComplete.set(true);
         this.importLoading.set(false);
@@ -769,7 +773,7 @@ export class ProjectConfigComponent implements OnInit {
     const project = state.project;
 
     if (!project.connectionId || !project.externalProjectId) {
-      state.fetchError = 'Project must be linked to a provider with an external project key.';
+      state.fetchError = this.translate.instant('projectConfig.branchWorkflow.errors.noProviderLinked');
       states[index] = state;
       this.projectStates.set(states);
       setTimeout(() => {
@@ -803,7 +807,7 @@ export class ProjectConfigComponent implements OnInit {
           ...updated[index],
           remoteStatuses: [],
           fetchingStatuses: false,
-          fetchError: 'Failed to fetch remote statuses. Please check the connection.',
+          fetchError: this.translate.instant('projectConfig.branchWorkflow.errors.fetchStatusesFailed'),
         };
         this.projectStates.set(updated);
       },
@@ -917,7 +921,7 @@ export class ProjectConfigComponent implements OnInit {
         }, 3000);
       },
       error: (err: any) => {
-        const msg = err?.error?.message || 'Failed to save mappings. Please try again.';
+        const msg = err?.error?.message || this.translate.instant('projectConfig.branchWorkflow.errors.saveMappingsFailed');
         const updated = [...this.projectStates()];
         updated[index] = {
           ...updated[index],
@@ -960,9 +964,9 @@ export class ProjectConfigComponent implements OnInit {
 
   getMappingLabel(ps: ProjectMappingState): string {
     if (ps.expanded) {
-      return `${ps.mappings.length} mapping${ps.mappings.length !== 1 ? 's' : ''}`;
+      return this.translate.instant('projectConfig.branchWorkflow.mappingCount', { count: ps.mappings.length });
     }
-    return 'Not configured';
+    return this.translate.instant('projectConfig.branchWorkflow.notConfigured');
   }
 
   // --- Private helpers ---
@@ -984,7 +988,7 @@ export class ProjectConfigComponent implements OnInit {
   private finishImport(errors: number): void {
     this.importSaving.set(false);
     if (errors > 0) {
-      this.importSaveError.set(`${errors} project(s) failed to import. The rest were imported successfully.`);
+      this.importSaveError.set(this.translate.instant('projectConfig.projects.errors.partialImportFailure', { errors }));
     } else {
       this.showImportPanel.set(false);
       this.resetImportState();
@@ -1008,11 +1012,11 @@ export class ProjectConfigComponent implements OnInit {
   }
 
   private newTicketForm(): ProviderForm {
-    return { name: '', platformType: 'JIRA_CLOUD', baseUrl: '', authType: 'API Token', credentials: {} };
+    return { name: '', platformType: 'JIRA_CLOUD', baseUrl: '', authType: 'projectConfig.authTypes.apiToken', credentials: {} };
   }
 
   private newGitForm(): ProviderForm {
-    return { name: '', platformType: 'GITHUB', baseUrl: 'https://api.github.com', authType: 'PAT', credentials: {} };
+    return { name: '', platformType: 'GITHUB', baseUrl: 'https://api.github.com', authType: 'projectConfig.authTypes.pat', credentials: {} };
   }
 
   private newSshKeyForm(): SshKeyForm {

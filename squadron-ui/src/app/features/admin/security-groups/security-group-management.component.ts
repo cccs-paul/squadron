@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SecurityGroupService } from '../../../core/services/security-group.service';
 import { SecurityGroup, MemberType } from '../../../core/models/security.model';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
@@ -7,12 +8,13 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 @Component({
   selector: 'sq-security-group-management',
   standalone: true,
-  imports: [FormsModule, TimeAgoPipe],
+  imports: [FormsModule, TimeAgoPipe, TranslateModule],
   templateUrl: './security-group-management.component.html',
   styleUrl: './security-group-management.component.scss',
 })
 export class SecurityGroupManagementComponent implements OnInit {
   private sgService = inject(SecurityGroupService);
+  private translate = inject(TranslateService);
 
   groups = signal<SecurityGroup[]>([]);
   loading = signal(true);
@@ -91,7 +93,7 @@ export class SecurityGroupManagementComponent implements OnInit {
   }
 
   deleteGroup(group: SecurityGroup): void {
-    if (!confirm(`Delete security group "${group.name}"?`)) return;
+    if (!confirm(this.translate.instant('admin.securityGroups.confirmDelete', { name: group.name }))) return;
     this.sgService.deleteGroup(group.id).subscribe({
       next: () => this.loadGroups(),
       error: () => {
@@ -104,7 +106,9 @@ export class SecurityGroupManagementComponent implements OnInit {
   }
 
   memberTypeLabel(type: MemberType): string {
-    return type === MemberType.USER ? 'User' : 'Team';
+    return type === MemberType.USER
+      ? this.translate.instant('admin.securityGroups.memberType.user')
+      : this.translate.instant('admin.securityGroups.memberType.team');
   }
 
 }

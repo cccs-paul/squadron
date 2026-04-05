@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { OidcCallbackComponent } from './oidc-callback.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
@@ -28,7 +29,7 @@ describe('OidcCallbackComponent', () => {
     routerSpy = jasmine.createSpyObj('Router', ['navigate']);
 
     await TestBed.configureTestingModule({
-      imports: [OidcCallbackComponent],
+      imports: [OidcCallbackComponent, TranslateModule.forRoot()],
       providers: [
         { provide: AuthService, useValue: authServiceSpy },
         { provide: Router, useValue: routerSpy },
@@ -93,6 +94,6 @@ describe('OidcCallbackComponent', () => {
     createComponent({ code: 'abc', state: 'xyz' });
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.textContent).toContain('Completing sign in');
+    expect(el.textContent).toContain('auth.oidcCallback.completingSignIn');
   });
 });

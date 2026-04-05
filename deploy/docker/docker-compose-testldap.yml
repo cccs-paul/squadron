@@ -1,7 +1,8 @@
-# Squadron - Docker Compose Test LDAP Overlay
+# Squadron - Docker Compose Test LDAP + Jira Server Overlay
 #
-# Extends the main docker-compose.yml to add a test OpenLDAP server
-# using the rroemhild/docker-test-openldap image.
+# Extends the main docker-compose.yml to add:
+#   1. A test OpenLDAP server (rroemhild/docker-test-openldap)
+#   2. A Jira Server (Data Center) instance for integration testing
 #
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose-testldap.yml up -d
@@ -22,6 +23,14 @@
 #   zoidberg / zoidberg
 #   hermes / hermes
 #   amy / amy
+#
+# Jira Server (Data Center):
+#   URL:  http://localhost:8090
+#   Note: Requires manual first-time setup via the web UI.
+#         See testldap-build-and-start.sh output for setup instructions.
+
+volumes:
+  jira-data:
 
 services:
   openldap-test:
@@ -37,5 +46,57 @@ services:
       timeout: 10s
       retries: 20
       start_period: 10s
+    networks:
+      - squadron-net
+
+  # =========================================================================
+  # Jira Server (Data Center) - for integration testing
+  # =========================================================================
+  # Uses the official Atlassian Jira Software image.
+  # On first boot Jira runs a setup wizard at http://localhost:8090.
+  # A free evaluation license can be obtained from Atlassian.
+  #
+  # Jira uses the same PostgreSQL instance (database: jira) that is
+  # initialised by init-databases.sql.
+  # =========================================================================
+  jira-server:
+    image: atlassian/jira-software:9.12-jdk17
+    container_name: squadron-jira-server
+    restart: "no"
+    ports:
+      - "8090:8090"
+    environment:
+      # Database — connect to the shared PostgreSQL instance
+      ATL_JDBC_URL: jdbc:postgresql://postgres:5432/jira
+      ATL_JDBC_USER: squadron
+      ATL_JDBC_PASSWORD: squadron
+      ATL_DB_DRIVER: org.postgresql.Driver
+      ATL_DB_TYPE: postgres72
+      # Proxy / base URL
+      ATL_PROXY_NAME: localhost
+      ATL_PROXY_PORT: "8090"
+      ATL_TOMCAT_SCHEME: http
+      # JVM memory (keep small for dev)
+      JVM_MINIMUM_MEMORY: 512m
+      JVM_MAXIMUM_MEMORY: 1024m
+      # Skip bundled plugins to speed up startup
+      ATL_JIRA_ENABLE_BUNDLED_PLUGINS: "false"
+    volumes:
+      - jira-data:/var/atlassian/application-data/jira
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:8090/status 2>/dev/null | grep -qE '(RUNNING|FIRST_RUN)' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+        reservations:
+          memory: 768M
     networks:
       - squadron-net

@@ -1,23 +1,23 @@
 <div class="task-board">
   <div class="task-board__header">
     <div>
-      <h1 class="task-board__title">Task Board</h1>
-      <p class="task-board__subtitle">Drag and drop tasks between columns</p>
+      <h1 class="task-board__title">{{ 'tasks.board.title' | translate }}</h1>
+      <p class="task-board__subtitle">{{ 'tasks.board.subtitle' | translate }}</p>
     </div>
     <div class="task-board__filters">
       <input
         type="text"
         class="sq-input task-board__search"
-        placeholder="Search tasks..."
+        [placeholder]="'tasks.board.searchPlaceholder' | translate"
         [ngModel]="searchQuery()"
         (ngModelChange)="searchQuery.set($event)"
       />
       <select class="sq-select" [ngModel]="filterPriority()" (ngModelChange)="filterPriority.set($event)">
-        <option value="">All Priorities</option>
-        <option value="CRITICAL">Critical</option>
-        <option value="HIGH">High</option>
-        <option value="MEDIUM">Medium</option>
-        <option value="LOW">Low</option>
+        <option value="">{{ 'tasks.board.filter.allPriorities' | translate }}</option>
+        <option value="CRITICAL">{{ 'tasks.priority.critical' | translate }}</option>
+        <option value="HIGH">{{ 'tasks.priority.high' | translate }}</option>
+        <option value="MEDIUM">{{ 'tasks.priority.medium' | translate }}</option>
+        <option value="LOW">{{ 'tasks.priority.low' | translate }}</option>
       </select>
     </div>
   </div>
@@ -28,7 +28,7 @@
         <div class="board__column-header">
           <div class="board__column-title">
             <span class="board__column-dot" [style.background]="column.color"></span>
-            {{ column.label }}
+            {{ column.label | translate }}
             <span class="board__column-count">{{ column.tasks.length }}</span>
           </div>
         </div>
@@ -46,7 +46,7 @@
             </div>
           } @empty {
             <div class="board__empty">
-              <p>No tasks</p>
+              <p>{{ 'tasks.board.noTasks' | translate }}</p>
             </div>
           }
         </div>

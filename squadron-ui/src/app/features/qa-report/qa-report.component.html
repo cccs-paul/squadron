@@ -1,15 +1,15 @@
 @if (loading()) {
-  <div class="loading">Loading QA report...</div>
+  <div class="loading">{{ 'qaReport.loading' | translate }}</div>
 } @else {
   @if (report(); as r) {
   <div class="qa-report">
     <div class="qa-report__header">
       <a [routerLink]="['/tasks', r.taskId]" class="back-link">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-        Back to Task
+        {{ 'qaReport.backToTask' | translate }}
       </a>
       <div class="qa-report__title-bar">
-        <h1>QA Report</h1>
+        <h1>{{ 'qaReport.title' | translate }}</h1>
         <div class="qa-report__badges">
           <span class="sq-badge" [class]="'sq-badge--' + verdictClass(r.verdict)">{{ r.verdict }}</span>
           <span class="sq-badge" [class]="r.gateResult === 'PASSED' ? 'sq-badge--success' : 'sq-badge--error'">
@@ -22,7 +22,7 @@
     <div class="qa-report__cards">
       <!-- Coverage Card -->
       <div class="sq-card coverage-card">
-        <div class="card-header"><h3>Code Coverage</h3></div>
+        <div class="card-header"><h3>{{ 'qaReport.coverage' | translate }}</h3></div>
         <div class="card-body">
           <div class="coverage-value">{{ r.coveragePercentage }}%</div>
           <div class="coverage-bar">
@@ -30,11 +30,11 @@
           </div>
           <p class="coverage-label">
             @if (r.coveragePercentage >= 80) {
-              Coverage meets threshold
+              {{ 'qaReport.coverageMeetsThreshold' | translate }}
             } @else if (r.coveragePercentage >= 60) {
-              Coverage below recommended threshold
+              {{ 'qaReport.coverageBelowThreshold' | translate }}
             } @else {
-              Coverage critically low
+              {{ 'qaReport.coverageCriticallyLow' | translate }}
             }
           </p>
         </div>
@@ -42,7 +42,7 @@
 
       <!-- Test Results Card -->
       <div class="sq-card test-results-card">
-        <div class="card-header"><h3>Test Results</h3></div>
+        <div class="card-header"><h3>{{ 'qaReport.testSummary' | translate }}</h3></div>
         <div class="card-body">
           <div class="test-summary">
             <span class="test-summary__rate">{{ passRate() }}%</span>
@@ -50,21 +50,21 @@
           </div>
           <div class="test-bars">
             <div class="test-bar-row">
-              <span class="test-bar-label">Passed</span>
+              <span class="test-bar-label">{{ 'qaReport.passed' | translate }}</span>
               <div class="test-bar">
                 <div class="test-bar__fill test-bar__fill--passed" [style.width.%]="totalTests() > 0 ? (r.testsPassed / totalTests()) * 100 : 0"></div>
               </div>
               <span class="test-bar-count">{{ r.testsPassed }}</span>
             </div>
             <div class="test-bar-row">
-              <span class="test-bar-label">Failed</span>
+              <span class="test-bar-label">{{ 'qaReport.failed' | translate }}</span>
               <div class="test-bar">
                 <div class="test-bar__fill test-bar__fill--failed" [style.width.%]="totalTests() > 0 ? (r.testsFailed / totalTests()) * 100 : 0"></div>
               </div>
               <span class="test-bar-count">{{ r.testsFailed }}</span>
             </div>
             <div class="test-bar-row">
-              <span class="test-bar-label">Skipped</span>
+              <span class="test-bar-label">{{ 'qaReport.skipped' | translate }}</span>
               <div class="test-bar">
                 <div class="test-bar__fill test-bar__fill--skipped" [style.width.%]="totalTests() > 0 ? (r.testsSkipped / totalTests()) * 100 : 0"></div>
               </div>
@@ -77,7 +77,7 @@
 
     <!-- Summary Card -->
     <div class="sq-card summary-card">
-      <div class="card-header"><h3>Summary</h3></div>
+      <div class="card-header"><h3>{{ 'qaReport.summary' | translate }}</h3></div>
       <div class="card-body">
         <p class="summary-text">{{ r.summary }}</p>
       </div>
@@ -85,7 +85,7 @@
 
     <!-- Findings Section -->
     <div class="findings-section">
-      <h2>Findings ({{ r.findings.length }})</h2>
+      <h2>{{ 'qaReport.findings' | translate }} ({{ r.findings.length }})</h2>
 
       @if (criticalFindings().length > 0) {
         <div class="findings-group">
@@ -157,7 +157,7 @@
       }
 
       @if (r.findings.length === 0) {
-        <div class="no-findings">No findings reported</div>
+        <div class="no-findings">{{ 'qaReport.noFindings' | translate }}</div>
       }
     </div>
   </div>

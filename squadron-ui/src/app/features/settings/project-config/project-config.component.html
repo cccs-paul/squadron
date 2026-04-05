@@ -1,8 +1,8 @@
 <div class="project-config">
   <div class="project-config__header">
-    <h2>Setup Wizard</h2>
+    <h2>{{ 'projectConfig.header.title' | translate }}</h2>
     <p class="project-config__subtitle">
-      Configure your integrations step by step: ticket providers, Git remotes, projects, and workflow
+      {{ 'projectConfig.header.subtitle' | translate }}
     </p>
   </div>
 
@@ -22,7 +22,7 @@
             {{ step.number }}
           }
         </span>
-        <span class="wizard-step__label">{{ step.label }}</span>
+        <span class="wizard-step__label">{{ step.label | translate }}</span>
       </button>
       @if (step.number < steps.length) {
         <div class="wizard-steps__connector"
@@ -35,7 +35,7 @@
   @if (loading()) {
     <div class="project-config__loading">
       <div class="spinner"></div>
-      <p>Loading configuration...</p>
+      <p>{{ 'projectConfig.loading' | translate }}</p>
     </div>
   } @else if (loadError()) {
     <div class="alert alert--error">{{ loadError() }}</div>
@@ -47,21 +47,21 @@
         <div class="step-panel">
           <div class="step-panel__header">
             <div>
-              <h3 class="step-panel__title">Ticket Providers</h3>
-              <p class="step-panel__desc">Connect your issue tracking systems. Squadron will sync tasks from these platforms.</p>
+              <h3 class="step-panel__title">{{ 'projectConfig.ticketProviders.title' | translate }}</h3>
+              <p class="step-panel__desc">{{ 'projectConfig.ticketProviders.description' | translate }}</p>
             </div>
             <button class="btn btn--primary btn--sm" (click)="toggleTicketForm()">
-              @if (showTicketForm()) { Cancel } @else { + Add Provider }
+              @if (showTicketForm()) { {{ 'projectConfig.ticketProviders.cancelToggle' | translate }} } @else { {{ 'projectConfig.ticketProviders.addProvider' | translate }} }
             </button>
           </div>
 
           @if (ticketSaveSuccess()) {
-            <div class="alert alert--success">Ticket provider added successfully</div>
+            <div class="alert alert--success">{{ 'projectConfig.ticketProviders.saveSuccess' | translate }}</div>
           }
 
           @if (showTicketForm()) {
             <div class="form-card">
-              <h4 class="form-card__title">New Ticket Provider</h4>
+              <h4 class="form-card__title">{{ 'projectConfig.ticketProviders.form.title' | translate }}</h4>
 
               @if (ticketSaveError()) {
                 <div class="alert alert--error">{{ ticketSaveError() }}</div>
@@ -69,11 +69,11 @@
 
               <div class="form-card__row">
                 <div class="form-card__field">
-                  <label class="form-card__label">Provider Name</label>
-                  <input class="form-input" type="text" [(ngModel)]="ticketForm.name" placeholder="e.g. Jira Cloud - Production" />
+                  <label class="form-card__label">{{ 'projectConfig.ticketProviders.form.providerNameLabel' | translate }}</label>
+                  <input class="form-input" type="text" [(ngModel)]="ticketForm.name" [placeholder]="'projectConfig.ticketProviders.form.providerNamePlaceholder' | translate" />
                 </div>
                 <div class="form-card__field">
-                  <label class="form-card__label">Platform</label>
+                  <label class="form-card__label">{{ 'projectConfig.ticketProviders.form.platformLabel' | translate }}</label>
                   <select class="form-select" [(ngModel)]="ticketForm.platformType" (ngModelChange)="onTicketPlatformTypeChange()">
                     @for (pt of ticketPlatformTypes; track pt) {
                       <option [value]="pt">{{ platformIcon(pt) }}</option>
@@ -85,27 +85,27 @@
               @if (!isCloudPlatform(ticketForm.platformType)) {
                 <div class="form-card__row">
                   <div class="form-card__field form-card__field--full">
-                    <label class="form-card__label">Base URL</label>
-                    <input class="form-input" type="text" [(ngModel)]="ticketForm.baseUrl" placeholder="e.g. https://jira.mycompany.com" />
-                    <span class="form-hint">Required for self-hosted instances</span>
+                    <label class="form-card__label">{{ 'projectConfig.ticketProviders.form.baseUrlLabel' | translate }}</label>
+                    <input class="form-input" type="text" [(ngModel)]="ticketForm.baseUrl" [placeholder]="'projectConfig.ticketProviders.form.baseUrlPlaceholder' | translate" />
+                    <span class="form-hint">{{ 'projectConfig.ticketProviders.form.baseUrlHint' | translate }}</span>
                   </div>
                 </div>
               } @else if (ticketForm.platformType === 'JIRA_CLOUD') {
                 <div class="form-card__row">
                   <div class="form-card__field form-card__field--full">
-                    <label class="form-card__label">Cloud Instance URL</label>
-                    <input class="form-input" type="text" [(ngModel)]="ticketForm.baseUrl" placeholder="e.g. https://myorg.atlassian.net" />
-                    <span class="form-hint">Your Atlassian cloud URL</span>
+                    <label class="form-card__label">{{ 'projectConfig.ticketProviders.form.cloudUrlLabel' | translate }}</label>
+                    <input class="form-input" type="text" [(ngModel)]="ticketForm.baseUrl" [placeholder]="'projectConfig.ticketProviders.form.cloudUrlPlaceholder' | translate" />
+                    <span class="form-hint">{{ 'projectConfig.ticketProviders.form.cloudUrlHint' | translate }}</span>
                   </div>
                 </div>
               }
 
               <div class="form-card__row">
                 <div class="form-card__field">
-                  <label class="form-card__label">Authentication</label>
+                  <label class="form-card__label">{{ 'projectConfig.ticketProviders.form.authLabel' | translate }}</label>
                   <select class="form-select" [(ngModel)]="ticketForm.authType" (ngModelChange)="onTicketAuthTypeChange()">
                     @for (opt of getTicketAuthTypeOptions(); track opt.label) {
-                      <option [value]="opt.label">{{ opt.label }}</option>
+                      <option [value]="opt.label">{{ opt.label | translate }}</option>
                     }
                   </select>
                 </div>
@@ -114,22 +114,22 @@
               @for (field of getTicketAuthFields(); track field.key) {
                 <div class="form-card__row">
                   <div class="form-card__field form-card__field--full">
-                    <label class="form-card__label">{{ field.label }}</label>
+                    <label class="form-card__label">{{ field.label | translate }}</label>
                     <input
                       class="form-input"
                       [type]="field.secret ? 'password' : 'text'"
                       [ngModel]="ticketForm.credentials[field.key] || ''"
                       (ngModelChange)="ticketForm.credentials[field.key] = $event"
-                      [placeholder]="'Enter ' + field.label"
+                      [placeholder]="('projectConfig.ticketProviders.form.enterPrefix' | translate) + ' ' + (field.label | translate)"
                     />
                   </div>
                 </div>
               }
 
               <div class="form-card__actions">
-                <button class="btn btn--secondary" (click)="toggleTicketForm()">Cancel</button>
+                <button class="btn btn--secondary" (click)="toggleTicketForm()">{{ 'projectConfig.ticketProviders.form.cancel' | translate }}</button>
                 <button class="btn btn--primary" (click)="saveTicketProvider()" [disabled]="!canSaveTicketProvider() || savingTicketProvider()">
-                  @if (savingTicketProvider()) { Saving... } @else { Save Provider }
+                  @if (savingTicketProvider()) { {{ 'projectConfig.ticketProviders.form.saving' | translate }} } @else { {{ 'projectConfig.ticketProviders.form.saveProvider' | translate }} }
                 </button>
               </div>
             </div>
@@ -138,8 +138,8 @@
           @if (ticketProviders().length === 0 && !showTicketForm()) {
             <div class="empty-state">
               <div class="empty-state__icon">&#128203;</div>
-              <h4 class="empty-state__title">No ticket providers yet</h4>
-              <p class="empty-state__desc">Connect Jira, Azure DevOps, or another issue tracker to sync tasks automatically.</p>
+              <h4 class="empty-state__title">{{ 'projectConfig.ticketProviders.empty.title' | translate }}</h4>
+              <p class="empty-state__desc">{{ 'projectConfig.ticketProviders.empty.description' | translate }}</p>
             </div>
           } @else if (ticketProviders().length > 0) {
             <div class="provider-list">
@@ -161,7 +161,7 @@
                       (click)="deleteTicketProvider(conn.id)"
                       [disabled]="deletingConnectionId() === conn.id"
                     >
-                      @if (deletingConnectionId() === conn.id) { Removing... } @else { Remove }
+                      @if (deletingConnectionId() === conn.id) { {{ 'projectConfig.ticketProviders.card.removing' | translate }} } @else { {{ 'projectConfig.ticketProviders.card.remove' | translate }} }
                     </button>
                   </div>
                 </div>
@@ -176,21 +176,21 @@
         <div class="step-panel">
           <div class="step-panel__header">
             <div>
-              <h3 class="step-panel__title">Git Remotes</h3>
-              <p class="step-panel__desc">Configure Git platforms for code hosting. Add SSH keys for secure clone/push operations.</p>
+              <h3 class="step-panel__title">{{ 'projectConfig.gitRemotes.title' | translate }}</h3>
+              <p class="step-panel__desc">{{ 'projectConfig.gitRemotes.description' | translate }}</p>
             </div>
             <button class="btn btn--primary btn--sm" (click)="toggleGitForm()">
-              @if (showGitForm()) { Cancel } @else { + Add Git Remote }
+              @if (showGitForm()) { {{ 'projectConfig.gitRemotes.cancelToggle' | translate }} } @else { {{ 'projectConfig.gitRemotes.addRemote' | translate }} }
             </button>
           </div>
 
           @if (gitSaveSuccess()) {
-            <div class="alert alert--success">Git remote added successfully</div>
+            <div class="alert alert--success">{{ 'projectConfig.gitRemotes.saveSuccess' | translate }}</div>
           }
 
           @if (showGitForm()) {
             <div class="form-card">
-              <h4 class="form-card__title">New Git Remote</h4>
+              <h4 class="form-card__title">{{ 'projectConfig.gitRemotes.form.title' | translate }}</h4>
 
               @if (gitSaveError()) {
                 <div class="alert alert--error">{{ gitSaveError() }}</div>
@@ -198,11 +198,11 @@
 
               <div class="form-card__row">
                 <div class="form-card__field">
-                  <label class="form-card__label">Connection Name</label>
-                  <input class="form-input" type="text" [(ngModel)]="gitForm.name" placeholder="e.g. GitHub - My Org" />
+                  <label class="form-card__label">{{ 'projectConfig.gitRemotes.form.connectionNameLabel' | translate }}</label>
+                  <input class="form-input" type="text" [(ngModel)]="gitForm.name" [placeholder]="'projectConfig.gitRemotes.form.connectionNamePlaceholder' | translate" />
                 </div>
                 <div class="form-card__field">
-                  <label class="form-card__label">Platform</label>
+                  <label class="form-card__label">{{ 'projectConfig.gitRemotes.form.platformLabel' | translate }}</label>
                   <select class="form-select" [(ngModel)]="gitForm.platformType" (ngModelChange)="onGitPlatformTypeChange()">
                     @for (pt of gitPlatformTypes; track pt) {
                       <option [value]="pt">{{ platformIcon(pt) }}</option>
@@ -214,9 +214,9 @@
               @if (!isCloudPlatform(gitForm.platformType)) {
                 <div class="form-card__row">
                   <div class="form-card__field form-card__field--full">
-                    <label class="form-card__label">Base URL</label>
-                    <input class="form-input" type="text" [(ngModel)]="gitForm.baseUrl" placeholder="e.g. https://gitlab.mycompany.com, https://bitbucket.mycompany.com" />
-                    <span class="form-hint">Required for self-hosted instances</span>
+                    <label class="form-card__label">{{ 'projectConfig.gitRemotes.form.baseUrlLabel' | translate }}</label>
+                    <input class="form-input" type="text" [(ngModel)]="gitForm.baseUrl" [placeholder]="'projectConfig.gitRemotes.form.baseUrlPlaceholder' | translate" />
+                    <span class="form-hint">{{ 'projectConfig.gitRemotes.form.baseUrlHint' | translate }}</span>
                   </div>
                 </div>
               } @else {
@@ -224,7 +224,7 @@
                   <div class="form-card__field form-card__field--full">
                     <div class="cloud-notice">
                       <span class="cloud-notice__icon">&#9729;</span>
-                      <span>{{ platformIcon(gitForm.platformType) }} Cloud detected - no URL needed</span>
+                      <span>{{ platformIcon(gitForm.platformType) }} {{ 'projectConfig.gitRemotes.form.cloudDetected' | translate }}</span>
                     </div>
                   </div>
                 </div>
@@ -232,10 +232,10 @@
 
               <div class="form-card__row">
                 <div class="form-card__field">
-                  <label class="form-card__label">Authentication</label>
+                  <label class="form-card__label">{{ 'projectConfig.gitRemotes.form.authLabel' | translate }}</label>
                   <select class="form-select" [(ngModel)]="gitForm.authType" (ngModelChange)="onGitAuthTypeChange()">
                     @for (opt of getGitAuthTypeOptions(); track opt.label) {
-                      <option [value]="opt.label">{{ opt.label }}</option>
+                      <option [value]="opt.label">{{ opt.label | translate }}</option>
                     }
                   </select>
                 </div>
@@ -244,22 +244,22 @@
               @for (field of getGitAuthFields(); track field.key) {
                 <div class="form-card__row">
                   <div class="form-card__field form-card__field--full">
-                    <label class="form-card__label">{{ field.label }}</label>
+                    <label class="form-card__label">{{ field.label | translate }}</label>
                     <input
                       class="form-input"
                       [type]="field.secret ? 'password' : 'text'"
                       [ngModel]="gitForm.credentials[field.key] || ''"
                       (ngModelChange)="gitForm.credentials[field.key] = $event"
-                      [placeholder]="'Enter ' + field.label"
+                      [placeholder]="('projectConfig.gitRemotes.form.enterPrefix' | translate) + ' ' + (field.label | translate)"
                     />
                   </div>
                 </div>
               }
 
               <div class="form-card__actions">
-                <button class="btn btn--secondary" (click)="toggleGitForm()">Cancel</button>
+                <button class="btn btn--secondary" (click)="toggleGitForm()">{{ 'projectConfig.gitRemotes.form.cancel' | translate }}</button>
                 <button class="btn btn--primary" (click)="saveGitRemote()" [disabled]="!canSaveGitRemote() || savingGitRemote()">
-                  @if (savingGitRemote()) { Saving... } @else { Save Git Remote }
+                  @if (savingGitRemote()) { {{ 'projectConfig.gitRemotes.form.saving' | translate }} } @else { {{ 'projectConfig.gitRemotes.form.saveRemote' | translate }} }
                 </button>
               </div>
             </div>
@@ -268,8 +268,8 @@
           @if (gitRemotes().length === 0 && !showGitForm()) {
             <div class="empty-state">
               <div class="empty-state__icon">&#128279;</div>
-              <h4 class="empty-state__title">No Git remotes configured</h4>
-              <p class="empty-state__desc">Add GitHub, GitLab, or Bitbucket connections for code hosting and SSH access.</p>
+              <h4 class="empty-state__title">{{ 'projectConfig.gitRemotes.empty.title' | translate }}</h4>
+              <p class="empty-state__desc">{{ 'projectConfig.gitRemotes.empty.description' | translate }}</p>
             </div>
           } @else if (gitRemotes().length > 0) {
             <div class="provider-list">
@@ -284,7 +284,7 @@
                   </div>
                   <div class="provider-card__actions">
                     <span class="provider-card__key-count">
-                      {{ getSshKeysForConnection(conn.id).length }} SSH key{{ getSshKeysForConnection(conn.id).length !== 1 ? 's' : '' }}
+                      {{ 'projectConfig.gitRemotes.card.sshKeyCount' | translate:{ count: getSshKeysForConnection(conn.id).length } }}
                     </span>
                     <span class="provider-card__status provider-card__status--{{ conn.status.toLowerCase() }}">
                       {{ conn.status }}
@@ -294,7 +294,7 @@
                       (click)="deleteGitRemote(conn.id)"
                       [disabled]="deletingConnectionId() === conn.id"
                     >
-                      @if (deletingConnectionId() === conn.id) { Removing... } @else { Remove }
+                      @if (deletingConnectionId() === conn.id) { {{ 'projectConfig.gitRemotes.card.removing' | translate }} } @else { {{ 'projectConfig.gitRemotes.card.remove' | translate }} }
                     </button>
                   </div>
                 </div>
@@ -316,7 +316,7 @@
                           (click)="deleteSshKey(key.id)"
                           [disabled]="deletingSshKeyId() === key.id"
                         >
-                          @if (deletingSshKeyId() === key.id) { ... } @else { Remove }
+                          @if (deletingSshKeyId() === key.id) { {{ 'projectConfig.gitRemotes.sshKey.removing' | translate }} } @else { {{ 'projectConfig.gitRemotes.sshKey.remove' | translate }} }
                         </button>
                       </div>
                     }
@@ -331,21 +331,21 @@
             <div class="ssh-section">
               <div class="ssh-section__header">
                 <div>
-                  <h4 class="ssh-section__title">SSH Keys</h4>
-                  <p class="ssh-section__desc">Add SSH key pairs for secure Git clone and push operations</p>
+                  <h4 class="ssh-section__title">{{ 'projectConfig.sshKeys.title' | translate }}</h4>
+                  <p class="ssh-section__desc">{{ 'projectConfig.sshKeys.description' | translate }}</p>
                 </div>
                 <button class="btn btn--secondary btn--sm" (click)="toggleSshKeyForm()">
-                  @if (showSshKeyForm()) { Cancel } @else { + Add SSH Key }
+                  @if (showSshKeyForm()) { {{ 'projectConfig.sshKeys.cancelToggle' | translate }} } @else { {{ 'projectConfig.sshKeys.addKey' | translate }} }
                 </button>
               </div>
 
               @if (sshKeySaveSuccess()) {
-                <div class="alert alert--success">SSH key added successfully</div>
+                <div class="alert alert--success">{{ 'projectConfig.sshKeys.saveSuccess' | translate }}</div>
               }
 
               @if (showSshKeyForm()) {
                 <div class="form-card form-card--nested">
-                  <h4 class="form-card__title">New SSH Key</h4>
+                  <h4 class="form-card__title">{{ 'projectConfig.sshKeys.form.title' | translate }}</h4>
 
                   @if (sshKeySaveError()) {
                     <div class="alert alert--error">{{ sshKeySaveError() }}</div>
@@ -353,59 +353,59 @@
 
                   <div class="form-card__row">
                     <div class="form-card__field">
-                      <label class="form-card__label">Git Remote</label>
+                      <label class="form-card__label">{{ 'projectConfig.sshKeys.form.gitRemoteLabel' | translate }}</label>
                       <select class="form-select" [(ngModel)]="sshKeyForm.connectionId">
-                        <option value="">-- Select connection --</option>
+                        <option value="">{{ 'projectConfig.sshKeys.form.selectConnectionPlaceholder' | translate }}</option>
                         @for (conn of gitRemotes(); track conn.id) {
                           <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
                         }
                       </select>
                     </div>
                     <div class="form-card__field">
-                      <label class="form-card__label">Key Name</label>
-                      <input class="form-input" type="text" [(ngModel)]="sshKeyForm.name" placeholder="e.g. deploy-key-prod" />
+                      <label class="form-card__label">{{ 'projectConfig.sshKeys.form.keyNameLabel' | translate }}</label>
+                      <input class="form-input" type="text" [(ngModel)]="sshKeyForm.name" [placeholder]="'projectConfig.sshKeys.form.keyNamePlaceholder' | translate" />
                     </div>
                   </div>
 
                   <div class="form-card__row">
                     <div class="form-card__field">
-                      <label class="form-card__label">Key Type</label>
+                      <label class="form-card__label">{{ 'projectConfig.sshKeys.form.keyTypeLabel' | translate }}</label>
                       <select class="form-select" [(ngModel)]="sshKeyForm.keyType">
-                        <option value="ED25519">ED25519 (Recommended)</option>
-                        <option value="RSA">RSA</option>
+                        <option value="ED25519">{{ 'projectConfig.sshKeys.form.keyTypeEd25519' | translate }}</option>
+                        <option value="RSA">{{ 'projectConfig.sshKeys.form.keyTypeRsa' | translate }}</option>
                       </select>
                     </div>
                   </div>
 
                   <div class="form-card__row">
                     <div class="form-card__field form-card__field--full">
-                      <label class="form-card__label">Public Key</label>
+                      <label class="form-card__label">{{ 'projectConfig.sshKeys.form.publicKeyLabel' | translate }}</label>
                       <textarea
                         class="form-textarea"
                         rows="3"
                         [(ngModel)]="sshKeyForm.publicKey"
-                        placeholder="ssh-ed25519 AAAA..."
+                        [placeholder]="'projectConfig.sshKeys.form.publicKeyPlaceholder' | translate"
                       ></textarea>
                     </div>
                   </div>
 
                   <div class="form-card__row">
                     <div class="form-card__field form-card__field--full">
-                      <label class="form-card__label">Private Key</label>
+                      <label class="form-card__label">{{ 'projectConfig.sshKeys.form.privateKeyLabel' | translate }}</label>
                       <textarea
                         class="form-textarea form-textarea--secret"
                         rows="4"
                         [(ngModel)]="sshKeyForm.privateKey"
-                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                        [placeholder]="'projectConfig.sshKeys.form.privateKeyPlaceholder' | translate"
                       ></textarea>
-                      <span class="form-hint">Stored encrypted. Never transmitted after creation.</span>
+                      <span class="form-hint">{{ 'projectConfig.sshKeys.form.privateKeyHint' | translate }}</span>
                     </div>
                   </div>
 
                   <div class="form-card__actions">
-                    <button class="btn btn--secondary" (click)="toggleSshKeyForm()">Cancel</button>
+                    <button class="btn btn--secondary" (click)="toggleSshKeyForm()">{{ 'projectConfig.sshKeys.form.cancel' | translate }}</button>
                     <button class="btn btn--primary" (click)="saveSshKey()" [disabled]="!canSaveSshKey() || savingSshKey()">
-                      @if (savingSshKey()) { Saving... } @else { Save SSH Key }
+                      @if (savingSshKey()) { {{ 'projectConfig.sshKeys.form.saving' | translate }} } @else { {{ 'projectConfig.sshKeys.form.saveKey' | translate }} }
                     </button>
                   </div>
                 </div>
@@ -420,12 +420,12 @@
         <div class="step-panel">
           <div class="step-panel__header">
             <div>
-              <h3 class="step-panel__title">Projects</h3>
-              <p class="step-panel__desc">Import projects from your configured providers. Set Git clone URLs and default branches.</p>
+              <h3 class="step-panel__title">{{ 'projectConfig.projects.title' | translate }}</h3>
+              <p class="step-panel__desc">{{ 'projectConfig.projects.description' | translate }}</p>
             </div>
             @if (allConnections().length > 0) {
               <button class="btn btn--primary btn--sm" (click)="toggleImportPanel()">
-                @if (showImportPanel()) { Cancel } @else { + Import Projects }
+                @if (showImportPanel()) { {{ 'projectConfig.projects.cancelToggle' | translate }} } @else { {{ 'projectConfig.projects.importProjects' | translate }} }
               </button>
             }
           </div>
@@ -433,15 +433,15 @@
           @if (allConnections().length === 0) {
             <div class="empty-state">
               <div class="empty-state__icon">&#9888;</div>
-              <h4 class="empty-state__title">No providers configured</h4>
-              <p class="empty-state__desc">Go back to Step 1 or 2 and add at least one provider before importing projects.</p>
-              <button class="btn btn--secondary" (click)="setStep('ticket-providers')">Go to Ticket Providers</button>
+              <h4 class="empty-state__title">{{ 'projectConfig.projects.noProviders.title' | translate }}</h4>
+              <p class="empty-state__desc">{{ 'projectConfig.projects.noProviders.description' | translate }}</p>
+              <button class="btn btn--secondary" (click)="setStep('ticket-providers')">{{ 'projectConfig.projects.noProviders.goToTicketProviders' | translate }}</button>
             </div>
           } @else {
             <!-- IMPORT PANEL -->
             @if (showImportPanel()) {
               <div class="form-card">
-                <h4 class="form-card__title">Import Projects from Provider</h4>
+                <h4 class="form-card__title">{{ 'projectConfig.projects.import.title' | translate }}</h4>
 
                 @if (importSaveError()) {
                   <div class="alert alert--error">{{ importSaveError() }}</div>
@@ -449,9 +449,9 @@
 
                 <div class="form-card__row">
                   <div class="form-card__field">
-                    <label class="form-card__label">Provider</label>
+                    <label class="form-card__label">{{ 'projectConfig.projects.import.providerLabel' | translate }}</label>
                     <select class="form-select" [ngModel]="importConnectionId()" (ngModelChange)="onImportConnectionChange($event)">
-                      <option value="">-- Select provider --</option>
+                      <option value="">{{ 'projectConfig.projects.import.selectProviderPlaceholder' | translate }}</option>
                       @for (conn of allConnections(); track conn.id) {
                         <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
                       }
@@ -464,9 +464,9 @@
                       [disabled]="!importConnectionId() || importLoading()"
                     >
                       @if (importLoading()) {
-                        <span class="spinner spinner--inline"></span> Fetching...
+                        <span class="spinner spinner--inline"></span> {{ 'projectConfig.projects.import.fetching' | translate }}
                       } @else {
-                        Fetch Projects
+                        {{ 'projectConfig.projects.import.fetchProjects' | translate }}
                       }
                     </button>
                   </div>
@@ -477,18 +477,18 @@
                 }
 
                 @if (importFetchComplete() && !importError() && importCandidates().length === 0) {
-                  <div class="alert alert--info">No projects found on this provider.</div>
+                  <div class="alert alert--info">{{ 'projectConfig.projects.import.noProjectsFound' | translate }}</div>
                 }
 
                 @if (importCandidates().length > 0) {
                   <div class="import-list">
                     <div class="import-list__toolbar">
                       <span class="import-list__count">
-                        {{ getSelectedCandidates().length }} of {{ importCandidates().length }} selected
+                        {{ 'projectConfig.projects.import.selectedCount' | translate:{ selected: getSelectedCandidates().length, total: importCandidates().length } }}
                       </span>
                       <div class="import-list__toolbar-actions">
-                        <button class="btn btn--secondary btn--xs" (click)="selectAllCandidates()">Select All</button>
-                        <button class="btn btn--secondary btn--xs" (click)="deselectAllCandidates()">Deselect All</button>
+                        <button class="btn btn--secondary btn--xs" (click)="selectAllCandidates()">{{ 'projectConfig.projects.import.selectAll' | translate }}</button>
+                        <button class="btn btn--secondary btn--xs" (click)="deselectAllCandidates()">{{ 'projectConfig.projects.import.deselectAll' | translate }}</button>
                       </div>
                     </div>
 
@@ -512,7 +512,7 @@
                             </div>
                           </label>
                           @if (isAlreadyImported(candidate)) {
-                            <span class="import-card__imported-badge">Already imported</span>
+                            <span class="import-card__imported-badge">{{ 'projectConfig.projects.import.alreadyImported' | translate }}</span>
                           }
                         </div>
 
@@ -524,13 +524,13 @@
                           <div class="import-card__details">
                             <div class="import-card__row">
                               <div class="import-card__field">
-                                <label class="form-card__label">Project Name</label>
+                                <label class="form-card__label">{{ 'projectConfig.projects.import.projectNameLabel' | translate }}</label>
                                 <input class="form-input" type="text"
                                   [ngModel]="candidate.name"
                                   (ngModelChange)="updateCandidateName(ci, $event)" />
                               </div>
                               <div class="import-card__field">
-                                <label class="form-card__label">Default Branch</label>
+                                <label class="form-card__label">{{ 'projectConfig.projects.import.defaultBranchLabel' | translate }}</label>
                                 <input class="form-input" type="text"
                                   [ngModel]="candidate.defaultBranch"
                                   (ngModelChange)="updateCandidateBranch(ci, $event)" />
@@ -538,20 +538,20 @@
                             </div>
                             <div class="import-card__row">
                               <div class="import-card__field import-card__field--full">
-                                <label class="form-card__label">Git Clone URL</label>
+                                <label class="form-card__label">{{ 'projectConfig.projects.import.gitCloneUrlLabel' | translate }}</label>
                                 <input class="form-input" type="text"
                                   [ngModel]="candidate.repositoryUrl"
                                   (ngModelChange)="updateCandidateRepoUrl(ci, $event)"
-                                  placeholder="e.g. git@github.com:org/repo.git or https://github.com/org/repo.git" />
+                                  [placeholder]="'projectConfig.projects.import.gitCloneUrlPlaceholder' | translate" />
                               </div>
                             </div>
                             <div class="import-card__row">
                               <div class="import-card__field import-card__field--full">
-                                <label class="form-card__label">Description</label>
+                                <label class="form-card__label">{{ 'projectConfig.projects.import.descriptionLabel' | translate }}</label>
                                 <input class="form-input" type="text"
                                   [ngModel]="candidate.description"
                                   (ngModelChange)="updateCandidateDescription(ci, $event)"
-                                  placeholder="Brief project description" />
+                                  [placeholder]="'projectConfig.projects.import.descriptionPlaceholder' | translate" />
                               </div>
                             </div>
                           </div>
@@ -562,14 +562,14 @@
 
                   <div class="form-card__actions">
                     @if (importProgress(); as progress) {
-                      <span class="import-progress">Importing {{ progress.done }}/{{ progress.total }}...</span>
+                      <span class="import-progress">{{ 'projectConfig.projects.import.importingProgress' | translate:{ done: progress.done, total: progress.total } }}</span>
                     }
-                    <button class="btn btn--secondary" (click)="toggleImportPanel()">Cancel</button>
+                    <button class="btn btn--secondary" (click)="toggleImportPanel()">{{ 'projectConfig.projects.import.cancel' | translate }}</button>
                     <button class="btn btn--primary" (click)="importSelected()" [disabled]="!canImport()">
                       @if (importSaving()) {
-                        Importing...
+                        {{ 'projectConfig.projects.import.importing' | translate }}
                       } @else {
-                        Import {{ getSelectedCandidates().length }} Project{{ getSelectedCandidates().length !== 1 ? 's' : '' }}
+                        {{ 'projectConfig.projects.import.importButton' | translate:{ count: getSelectedCandidates().length } }}
                       }
                     </button>
                   </div>
@@ -602,8 +602,8 @@
             } @else if (!showImportPanel()) {
               <div class="empty-state">
                 <div class="empty-state__icon">&#128194;</div>
-                <h4 class="empty-state__title">No projects yet</h4>
-                <p class="empty-state__desc">Click "+ Import Projects" to import from a configured provider.</p>
+                <h4 class="empty-state__title">{{ 'projectConfig.projects.empty.title' | translate }}</h4>
+                <p class="empty-state__desc">{{ 'projectConfig.projects.empty.description' | translate }}</p>
               </div>
             }
           }
@@ -615,17 +615,17 @@
         <div class="step-panel">
           <div class="step-panel__header">
             <div>
-              <h3 class="step-panel__title">Branch Naming &amp; Workflow</h3>
-              <p class="step-panel__desc">Configure branch naming templates and map workflow states to your external platform statuses.</p>
+              <h3 class="step-panel__title">{{ 'projectConfig.branchWorkflow.title' | translate }}</h3>
+              <p class="step-panel__desc">{{ 'projectConfig.branchWorkflow.description' | translate }}</p>
             </div>
           </div>
 
           @if (projectStates().length === 0) {
             <div class="empty-state">
               <div class="empty-state__icon">&#9888;</div>
-              <h4 class="empty-state__title">No projects to configure</h4>
-              <p class="empty-state__desc">Import projects in Step 3 before configuring branch naming and workflow mappings.</p>
-              <button class="btn btn--secondary" (click)="setStep('projects')">Go to Projects</button>
+              <h4 class="empty-state__title">{{ 'projectConfig.branchWorkflow.noProjects.title' | translate }}</h4>
+              <p class="empty-state__desc">{{ 'projectConfig.branchWorkflow.noProjects.description' | translate }}</p>
+              <button class="btn btn--secondary" (click)="setStep('projects')">{{ 'projectConfig.branchWorkflow.noProjects.goToProjects' | translate }}</button>
             </div>
           } @else {
             <div class="project-list">
@@ -647,7 +647,7 @@
                   @if (ps.expanded) {
                     <div class="project-card__body">
                       @if (ps.saveSuccess) {
-                        <div class="alert alert--success">Mappings saved successfully</div>
+                        <div class="alert alert--success">{{ 'projectConfig.branchWorkflow.mappings.saveSuccess' | translate }}</div>
                       }
                       @if (ps.saveError) {
                         <div class="alert alert--error">{{ ps.saveError }}</div>
@@ -658,21 +658,21 @@
 
                       <!-- Branch Naming Template -->
                       <div class="config-section">
-                        <h4 class="config-section__title">Branch Naming</h4>
+                        <h4 class="config-section__title">{{ 'projectConfig.branchWorkflow.branchNaming.title' | translate }}</h4>
                         <div class="config-section__row">
                           <div class="config-section__field">
-                            <label class="form-card__label">Branch Naming Template</label>
+                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.branchNaming.templateLabel' | translate }}</label>
                             <input class="form-input" type="text"
                               [ngModel]="ps.project.branchNamingTemplate || '{strategy}/{ticket}-{description}'"
                               (ngModelChange)="updateBranchNamingTemplate(i, $event)"
-                              placeholder="{strategy}/{ticket}-{description}" />
+                              [placeholder]="'projectConfig.branchWorkflow.branchNaming.templatePlaceholder' | translate" />
                             <span class="form-hint">
-                              Variables: &#123;strategy&#125;, &#123;ticket&#125;, &#123;description&#125;, &#123;type&#125;, &#123;user&#125;
+                              {{ 'projectConfig.branchWorkflow.branchNaming.templateHint' | translate }}
                             </span>
                           </div>
                         </div>
                         <div class="template-preview">
-                          <span class="template-preview__label">Preview:</span>
+                          <span class="template-preview__label">{{ 'projectConfig.branchWorkflow.branchNaming.previewLabel' | translate }}</span>
                           <code class="template-preview__code">
                             {{ (ps.project.branchNamingTemplate || '{strategy}/{ticket}-{description}')
                               .replace('{strategy}', 'feature')
@@ -687,30 +687,30 @@
 
                       <!-- Platform Connection -->
                       <div class="config-section">
-                        <h4 class="config-section__title">Platform Connection</h4>
+                        <h4 class="config-section__title">{{ 'projectConfig.branchWorkflow.platformConnection.title' | translate }}</h4>
                         <div class="config-section__row config-section__row--cols">
                           <div class="config-section__field">
-                            <label class="form-card__label">Connection</label>
+                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.platformConnection.connectionLabel' | translate }}</label>
                             <select class="form-select" [ngModel]="ps.project.connectionId || ''" (ngModelChange)="updateProjectConnection(i, $event)">
-                              <option value="">-- No connection --</option>
+                              <option value="">{{ 'projectConfig.branchWorkflow.platformConnection.noConnectionPlaceholder' | translate }}</option>
                               @for (conn of allConnections(); track conn.id) {
                                 <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
                               }
                             </select>
                           </div>
                           <div class="config-section__field">
-                            <label class="form-card__label">External Project Key</label>
+                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.platformConnection.externalKeyLabel' | translate }}</label>
                             <input class="form-input" type="text"
                               [ngModel]="ps.project.externalProjectId || ''"
                               (ngModelChange)="updateExternalProjectId(i, $event)"
-                              placeholder="e.g. SQ, my-org/my-repo" />
+                              [placeholder]="'projectConfig.branchWorkflow.platformConnection.externalKeyPlaceholder' | translate" />
                           </div>
                           <div class="config-section__action">
                             <button class="btn btn--secondary" (click)="fetchRemoteStatuses(i)" [disabled]="!canFetchStatuses(ps)">
                               @if (ps.fetchingStatuses) {
-                                <span class="spinner spinner--inline"></span> Fetching...
+                                <span class="spinner spinner--inline"></span> {{ 'projectConfig.branchWorkflow.platformConnection.fetching' | translate }}
                               } @else {
-                                Fetch Statuses
+                                {{ 'projectConfig.branchWorkflow.platformConnection.fetchStatuses' | translate }}
                               }
                             </button>
                           </div>
@@ -718,7 +718,7 @@
 
                         @if (ps.remoteStatuses.length > 0) {
                           <div class="statuses-display">
-                            <span class="statuses-display__label">Remote statuses:</span>
+                            <span class="statuses-display__label">{{ 'projectConfig.branchWorkflow.platformConnection.remoteStatusesLabel' | translate }}</span>
                             <div class="statuses-display__list">
                               @for (status of ps.remoteStatuses; track status) {
                                 <span class="status-chip">{{ status }}</span>
@@ -732,15 +732,15 @@
                       @if (ps.loading) {
                         <div class="project-config__loading project-config__loading--small">
                           <div class="spinner spinner--small"></div>
-                          <p>Loading mappings...</p>
+                          <p>{{ 'projectConfig.branchWorkflow.mappings.loading' | translate }}</p>
                         </div>
                       } @else {
                         <div class="config-section">
-                          <h4 class="config-section__title">Workflow Mappings</h4>
+                          <h4 class="config-section__title">{{ 'projectConfig.branchWorkflow.mappings.title' | translate }}</h4>
                           <div class="mapping-table">
                             <div class="mapping-table__header-row">
-                              <span class="mapping-table__col-label">Squadron State</span>
-                              <span class="mapping-table__col-label">External Status</span>
+                              <span class="mapping-table__col-label">{{ 'projectConfig.branchWorkflow.mappings.squadronStateColumn' | translate }}</span>
+                              <span class="mapping-table__col-label">{{ 'projectConfig.branchWorkflow.mappings.externalStatusColumn' | translate }}</span>
                               <span class="mapping-table__col-action"></span>
                             </div>
 
@@ -754,32 +754,32 @@
 
                                 @if (ps.remoteStatuses.length > 0) {
                                   <select class="mapping-table__select" [ngModel]="m.externalStatus" (ngModelChange)="updateMappingStatus(i, mi, $event)">
-                                    <option value="">-- Select status --</option>
+                                    <option value="">{{ 'projectConfig.branchWorkflow.mappings.selectStatusPlaceholder' | translate }}</option>
                                     @for (rs of ps.remoteStatuses; track rs) {
                                       <option [value]="rs">{{ rs }}</option>
                                     }
                                   </select>
                                 } @else {
-                                  <input class="mapping-table__input" type="text" [ngModel]="m.externalStatus" (ngModelChange)="updateMappingStatus(i, mi, $event)" placeholder="e.g. In Progress" />
+                                  <input class="mapping-table__input" type="text" [ngModel]="m.externalStatus" (ngModelChange)="updateMappingStatus(i, mi, $event)" [placeholder]="'projectConfig.branchWorkflow.mappings.externalStatusPlaceholder' | translate" />
                                 }
 
-                                <button class="mapping-table__remove" (click)="removeMapping(i, mi)" title="Remove mapping">&times;</button>
+                                <button class="mapping-table__remove" (click)="removeMapping(i, mi)" [title]="'projectConfig.branchWorkflow.mappings.removeMappingTooltip' | translate">&times;</button>
                               </div>
                             }
 
                             @if (ps.mappings.length === 0) {
                               <div class="mapping-table__empty">
-                                No workflow mappings. Click "Add Mapping" to map states.
+                                {{ 'projectConfig.branchWorkflow.mappings.empty' | translate }}
                               </div>
                             }
                           </div>
 
                           <div class="config-section__actions">
                             @if (ps.mappings.length < workflowStates().length) {
-                              <button class="btn btn--secondary" (click)="addMapping(i)">+ Add Mapping</button>
+                              <button class="btn btn--secondary" (click)="addMapping(i)">{{ 'projectConfig.branchWorkflow.mappings.addMapping' | translate }}</button>
                             }
                             <button class="btn btn--primary" (click)="saveMappings(i)" [disabled]="ps.saving">
-                              @if (ps.saving) { Saving... } @else { Save Mappings }
+                              @if (ps.saving) { {{ 'projectConfig.branchWorkflow.mappings.saving' | translate }} } @else { {{ 'projectConfig.branchWorkflow.mappings.saveMappings' | translate }} }
                             </button>
                           </div>
                         </div>
@@ -797,14 +797,14 @@
       <div class="wizard-nav">
         @if (getStepIndex(activeStep()) > 0) {
           <button class="btn btn--secondary" (click)="prevStep()">
-            &#8592; Previous
+            &#8592; {{ 'projectConfig.nav.previous' | translate }}
           </button>
         } @else {
           <span></span>
         }
         @if (getStepIndex(activeStep()) < steps.length - 1) {
           <button class="btn btn--primary" (click)="nextStep()">
-            Next &#8594;
+            {{ 'projectConfig.nav.next' | translate }} &#8594;
           </button>
         }
       </div>

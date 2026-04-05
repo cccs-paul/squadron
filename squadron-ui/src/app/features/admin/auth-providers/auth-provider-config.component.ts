@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { PermissionService } from '../../../core/services/permission.service';
 import { AuthProvider, AuthProviderType } from '../../../core/models/security.model';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
@@ -7,12 +8,13 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 @Component({
   selector: 'sq-auth-provider-config',
   standalone: true,
-  imports: [FormsModule, TimeAgoPipe],
+  imports: [FormsModule, TimeAgoPipe, TranslateModule],
   templateUrl: './auth-provider-config.component.html',
   styleUrl: './auth-provider-config.component.scss',
 })
 export class AuthProviderConfigComponent implements OnInit {
   private permissionService = inject(PermissionService);
+  private translate = inject(TranslateService);
 
   providers = signal<AuthProvider[]>([]);
   loading = signal(true);
@@ -131,14 +133,14 @@ export class AuthProviderConfigComponent implements OnInit {
       },
       error: () => {
         console.error('Failed to test auth provider');
-        this.testResult.set({ success: false, message: 'Connection test failed' });
+        this.testResult.set({ success: false, message: this.translate.instant('admin.authProviders.errors.connectionTestFailed') });
         this.testingId.set(null);
       },
     });
   }
 
   deleteProvider(provider: AuthProvider): void {
-    if (!confirm(`Delete auth provider "${provider.name}"?`)) return;
+    if (!confirm(this.translate.instant('admin.authProviders.confirmDelete', { name: provider.name }))) return;
     this.permissionService.deleteAuthProvider(provider.id).subscribe({
       next: () => this.loadProviders(),
       error: () => {
@@ -149,10 +151,10 @@ export class AuthProviderConfigComponent implements OnInit {
 
   typeIcon(type: AuthProviderType): string {
     switch (type) {
-      case AuthProviderType.OIDC: return 'OpenID Connect';
-      case AuthProviderType.KEYCLOAK: return 'Keycloak';
-      case AuthProviderType.LDAP: return 'LDAP';
-      case AuthProviderType.SAML: return 'SAML';
+      case AuthProviderType.OIDC: return this.translate.instant('admin.authProviders.types.oidc');
+      case AuthProviderType.KEYCLOAK: return this.translate.instant('admin.authProviders.types.keycloak');
+      case AuthProviderType.LDAP: return this.translate.instant('admin.authProviders.types.ldap');
+      case AuthProviderType.SAML: return this.translate.instant('admin.authProviders.types.saml');
       default: return type;
     }
   }

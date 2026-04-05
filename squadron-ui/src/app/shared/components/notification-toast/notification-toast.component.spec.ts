@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { NotificationToastComponent } from './notification-toast.component';
 import { NotificationService, ToastNotification } from '../../../core/services/notification.service';
 
@@ -27,7 +28,7 @@ describe('NotificationToastComponent', () => {
     });
 
     await TestBed.configureTestingModule({
-      imports: [NotificationToastComponent],
+      imports: [NotificationToastComponent, TranslateModule.forRoot()],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),

@@ -6,6 +6,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
 import { ReviewStatus } from '../../../core/models/review.model';
+import { TranslateModule } from '@ngx-translate/core';
 
 describe('ReviewListComponent', () => {
   let component: ReviewListComponent;
@@ -17,7 +18,7 @@ describe('ReviewListComponent', () => {
     reviewServiceSpy.getReviews.and.returnValue(throwError(() => new Error('api down')));
 
     await TestBed.configureTestingModule({
-      imports: [ReviewListComponent],
+      imports: [ReviewListComponent, TranslateModule.forRoot()],
       providers: [
         { provide: ReviewService, useValue: reviewServiceSpy },
         provideRouter([]),

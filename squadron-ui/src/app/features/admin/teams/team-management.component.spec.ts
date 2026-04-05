@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { provideRouter } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { of, throwError } from 'rxjs';
 import { TeamManagementComponent } from './team-management.component';
 import { UserService } from '../../../core/services/user.service';
@@ -48,7 +49,7 @@ describe('TeamManagementComponent', () => {
     userServiceSpy.getTeams.and.returnValue(of(mockPage));
 
     await TestBed.configureTestingModule({
-      imports: [TeamManagementComponent, FormsModule],
+      imports: [TeamManagementComponent, FormsModule, TranslateModule.forRoot()],
       providers: [
         { provide: UserService, useValue: userServiceSpy },
         provideRouter([]),

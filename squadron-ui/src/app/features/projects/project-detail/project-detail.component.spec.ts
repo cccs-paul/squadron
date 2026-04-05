@@ -4,6 +4,7 @@ import { ProjectDetailComponent } from './project-detail.component';
 import { ProjectService } from '../../../core/services/project.service';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { TranslateModule } from '@ngx-translate/core';
 import { Project } from '../../../core/models/project.model';
 
 describe('ProjectDetailComponent', () => {
@@ -28,7 +29,7 @@ describe('ProjectDetailComponent', () => {
     projectServiceSpy = jasmine.createSpyObj('ProjectService', ['getProject']);
 
     await TestBed.configureTestingModule({
-      imports: [ProjectDetailComponent],
+      imports: [ProjectDetailComponent, TranslateModule.forRoot()],
       providers: [
         { provide: ProjectService, useValue: projectServiceSpy },
         {
@@ -90,6 +91,6 @@ describe('ProjectDetailComponent', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.back-link')).toBeTruthy();
-    expect(el.textContent).toContain('Back to Projects');
+    expect(el.textContent).toContain('projects.detail.backToProjects');
   });
 });

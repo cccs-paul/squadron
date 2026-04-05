@@ -1,13 +1,13 @@
 <div class="page-header">
   <div class="page-header__title">
-    <h1>Auth Providers</h1>
-    <p class="page-header__subtitle">Configure identity providers for single sign-on</p>
+    <h1>{{ 'admin.authProviders.title' | translate }}</h1>
+    <p class="page-header__subtitle">{{ 'admin.authProviders.subtitle' | translate }}</p>
   </div>
   <button class="btn btn--primary" (click)="openCreateModal()">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </svg>
-    Add Provider
+    {{ 'admin.authProviders.addProvider' | translate }}
   </button>
 </div>
 
@@ -25,7 +25,7 @@
 @if (loading()) {
   <div class="loading-state">
     <div class="spinner"></div>
-    <p>Loading auth providers...</p>
+    <p>{{ 'admin.authProviders.loading' | translate }}</p>
   </div>
 } @else {
   <div class="provider-grid">
@@ -43,23 +43,23 @@
           @if (provider.config['issuerUrl']) {
             <p class="provider-card__url">{{ provider.config['issuerUrl'] }}</p>
           }
-          <p class="provider-card__date">Added {{ provider.createdAt | timeAgo }}</p>
+          <p class="provider-card__date">{{ 'admin.authProviders.addedPrefix' | translate }} {{ provider.createdAt | timeAgo }}</p>
         </div>
         <div class="provider-card__actions">
           <button class="btn btn--secondary btn--sm" (click)="testProvider(provider)" [disabled]="testingId() === provider.id">
             @if (testingId() === provider.id) {
-              Testing...
+              {{ 'admin.authProviders.testing' | translate }}
             } @else {
-              Test
+              {{ 'common.test' | translate }}
             }
           </button>
-          <button class="btn btn--secondary btn--sm" (click)="openEditModal(provider)">Edit</button>
-          <button class="btn btn--danger btn--sm" (click)="deleteProvider(provider)">Delete</button>
+          <button class="btn btn--secondary btn--sm" (click)="openEditModal(provider)">{{ 'common.edit' | translate }}</button>
+          <button class="btn btn--danger btn--sm" (click)="deleteProvider(provider)">{{ 'common.delete' | translate }}</button>
         </div>
       </div>
     } @empty {
       <div class="empty-state">
-        <p>No auth providers configured. Add one to enable SSO.</p>
+        <p>{{ 'admin.authProviders.emptyState' | translate }}</p>
       </div>
     }
   </div>
@@ -69,7 +69,7 @@
   <div class="modal-overlay" (click)="closeModal()">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal__header">
-        <h2>{{ editingProvider() ? 'Edit Provider' : 'Add Auth Provider' }}</h2>
+        <h2>{{ editingProvider() ? ('admin.authProviders.modal.editTitle' | translate) : ('admin.authProviders.modal.createTitle' | translate) }}</h2>
         <button class="btn-icon" (click)="closeModal()">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -78,11 +78,11 @@
       </div>
       <div class="modal__body">
         <div class="form-group">
-          <label class="form-label">Name</label>
-          <input class="form-input" type="text" [(ngModel)]="formName" placeholder="e.g. Corporate OIDC" />
+          <label class="form-label">{{ 'admin.authProviders.form.nameLabel' | translate }}</label>
+          <input class="form-input" type="text" [(ngModel)]="formName" [placeholder]="'admin.authProviders.form.namePlaceholder' | translate" />
         </div>
         <div class="form-group">
-          <label class="form-label">Type</label>
+          <label class="form-label">{{ 'admin.authProviders.form.typeLabel' | translate }}</label>
           <select class="form-input" [(ngModel)]="formType">
             @for (type of providerTypes; track type) {
               <option [value]="type">{{ typeIcon(type) }}</option>
@@ -90,19 +90,19 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Issuer URL</label>
-          <input class="form-input" type="url" [(ngModel)]="formIssuerUrl" placeholder="https://auth.example.com/realms/corp" />
+          <label class="form-label">{{ 'admin.authProviders.form.issuerUrlLabel' | translate }}</label>
+          <input class="form-input" type="url" [(ngModel)]="formIssuerUrl" [placeholder]="'admin.authProviders.form.issuerUrlPlaceholder' | translate" />
         </div>
         <div class="form-group">
-          <label class="form-label">Client ID</label>
-          <input class="form-input" type="text" [(ngModel)]="formClientId" placeholder="squadron-app" />
+          <label class="form-label">{{ 'admin.authProviders.form.clientIdLabel' | translate }}</label>
+          <input class="form-input" type="text" [(ngModel)]="formClientId" [placeholder]="'admin.authProviders.form.clientIdPlaceholder' | translate" />
         </div>
         <div class="form-group">
-          <label class="form-label">Client Secret</label>
-          <input class="form-input" type="password" [(ngModel)]="formClientSecret" placeholder="Enter secret..." />
+          <label class="form-label">{{ 'admin.authProviders.form.clientSecretLabel' | translate }}</label>
+          <input class="form-input" type="password" [(ngModel)]="formClientSecret" [placeholder]="'admin.authProviders.form.clientSecretPlaceholder' | translate" />
         </div>
         <div class="form-group form-group--row">
-          <label class="form-label">Enabled</label>
+          <label class="form-label">{{ 'admin.authProviders.form.enabledLabel' | translate }}</label>
           <label class="toggle">
             <input type="checkbox" [(ngModel)]="formEnabled" />
             <span class="toggle__slider"></span>
@@ -110,9 +110,9 @@
         </div>
       </div>
       <div class="modal__footer">
-        <button class="btn btn--secondary" (click)="closeModal()">Cancel</button>
+        <button class="btn btn--secondary" (click)="closeModal()">{{ 'admin.authProviders.modal.cancel' | translate }}</button>
         <button class="btn btn--primary" (click)="saveProvider()" [disabled]="!formName">
-          {{ editingProvider() ? 'Update' : 'Create' }}
+          {{ editingProvider() ? ('admin.authProviders.modal.update' | translate) : ('admin.authProviders.modal.create' | translate) }}
         </button>
       </div>
     </div>

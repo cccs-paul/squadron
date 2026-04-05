@@ -34,6 +34,10 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'squadron_review')\gex
 SELECT 'CREATE DATABASE squadron_notification OWNER squadron'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'squadron_notification')\gexec
 
+-- Create the Jira database (used by jira-server in testldap overlay)
+SELECT 'CREATE DATABASE jira OWNER squadron'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'jira')\gexec
+
 -- Enable UUID extension on all databases
 \c squadron_identity
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -63,4 +67,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 \c keycloak
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+\c jira
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

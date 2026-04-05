@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { ReviewService } from '../../../core/services/review.service';
 import { Review, ReviewStatus } from '../../../core/models/review.model';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'sq-review-list',
   standalone: true,
-  imports: [RouterLink, FormsModule, TimeAgoPipe],
+  imports: [RouterLink, FormsModule, TimeAgoPipe, TranslateModule],
   templateUrl: './review-list.component.html',
   styleUrl: './review-list.component.scss',
 })

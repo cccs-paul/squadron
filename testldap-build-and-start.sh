@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Squadron - Build and Start with Test LDAP
+# Squadron - Build and Start with Test LDAP + Jira Server
 #
-# Builds all Docker images and launches the application with its dependencies
-# and a test OpenLDAP server (rroemhild/docker-test-openldap) using Docker
-# Compose.
+# Builds all Docker images and launches the application with its dependencies,
+# a test OpenLDAP server (rroemhild/docker-test-openldap), and a Jira Server
+# (Data Center) instance using Docker Compose.
 #
 # The test LDAP provides a pre-populated directory under
 # dc=planetexpress,dc=com with Futurama character accounts.
@@ -48,6 +48,7 @@ INFRA_SERVICES=(
     pgbouncer
     ollama
     openldap-test
+    jira-server
 )
 
 # Services that have Docker healthchecks defined and must become healthy
@@ -58,6 +59,11 @@ HEALTHCHECK_SERVICES=(
     keycloak
     ollama
     openldap-test
+)
+
+# Services checked separately with extended timeouts
+SLOW_HEALTHCHECK_SERVICES=(
+    jira-server
 )
 
 # Backend service list
@@ -115,6 +121,12 @@ Test LDAP Details:
     professor / professor    fry / fry          leela / leela
     bender / bender          zoidberg / zoidberg
     hermes / hermes          amy / amy
+
+Jira Server (Data Center):
+  Image:            atlassian/jira-software:9.12-jdk17
+  URL:              http://localhost:8090
+  Database:         PostgreSQL (database: jira, same server)
+  Startup time:     2-5 minutes on first boot (setup wizard required)
 
 Environment Variables:
   OPENAI_API_KEY    OpenAI API key (default: sk-placeholder)
@@ -407,7 +419,7 @@ start_infrastructure() {
     done
     log_success "Image pull complete"
 
-    log_info "Starting PostgreSQL, Redis, NATS, Keycloak, Mailpit, PgBouncer, Ollama, OpenLDAP..."
+    log_info "Starting PostgreSQL, Redis, NATS, Keycloak, Mailpit, PgBouncer, Ollama, OpenLDAP, Jira Server..."
     run_compose up -d --no-build "${INFRA_SERVICES[@]}" 2>&1 | while IFS= read -r line; do
         [[ -n "$line" ]] && log_info "  $line"
     done
@@ -458,6 +470,13 @@ start_infrastructure() {
     fi
 
     log_success "All infrastructure services are up and healthy"
+
+    # Jira Server starts slowly (2-5 minutes). Check if it's progressing but
+    # don't block the rest of the startup on it.
+    log_info ""
+    log_info "Jira Server is starting in the background (takes 2-5 minutes on first boot)."
+    log_info "Run '$(basename "$0") --logs jira-server' to watch its progress."
+    log_info "It will be available at http://localhost:8090 once ready."
 }
 
 start_services() {
@@ -536,7 +555,7 @@ pull_ollama_model() {
 }
 
 stop_all() {
-    log_step "Stopping all Squadron services (including test LDAP)"
+    log_step "Stopping all Squadron services (including test LDAP + Jira Server)"
     run_compose --profile services --profile frontend down --remove-orphans 2>&1 | while IFS= read -r line; do
         [[ -n "$line" ]] && log_info "  $line"
     done
@@ -552,7 +571,7 @@ clean_all() {
 }
 
 show_status() {
-    log_step "Squadron Service Status (with Test LDAP)"
+    log_step "Squadron Service Status (with Test LDAP + Jira Server)"
     echo ""
     run_compose --profile services --profile frontend ps
 }
@@ -569,7 +588,7 @@ show_logs() {
 print_access_info() {
     echo ""
     echo -e "${BOLD}${GREEN}=================================================${NC}"
-    echo -e "${BOLD}${GREEN}  Squadron is running! (with Test LDAP)${NC}"
+    echo -e "${BOLD}${GREEN}  Squadron is running! (with Test LDAP + Jira Server)${NC}"
     echo -e "${BOLD}${GREEN}=================================================${NC}"
     echo ""
     echo -e "  ${BOLD}${GREEN}>>> Open in your browser: ${CYAN}http://localhost:4200${NC} ${BOLD}${GREEN}<<<${NC}"
@@ -609,6 +628,38 @@ print_access_info() {
     echo -e "  ${BOLD}Test with:${NC}"
     echo -e "    ldapsearch -H ldap://localhost:10389 -x -b \"ou=people,dc=planetexpress,dc=com\" \\"
     echo -e "      -D \"cn=admin,dc=planetexpress,dc=com\" -w GoodNewsEveryone \"(objectClass=inetOrgPerson)\""
+    echo ""
+    echo -e "${BOLD}${MAGENTA}Jira Server (Data Center):${NC}"
+    echo -e "  ${CYAN}URL:${NC}          http://localhost:8090"
+    echo -e "  ${CYAN}Database:${NC}     PostgreSQL (database: jira, user: squadron/squadron)"
+    echo -e "  ${CYAN}Status:${NC}       Starting in background (2-5 minutes on first boot)"
+    echo ""
+    echo -e "  ${BOLD}First-Time Setup:${NC}"
+    echo -e "    1. Open ${CYAN}http://localhost:8090${NC} in your browser"
+    echo -e "    2. Choose ${BOLD}\"I'll set it up myself\"${NC}"
+    echo -e "    3. Database is already configured (PostgreSQL, host: postgres, db: jira)"
+    echo -e "    4. Get a free evaluation license from ${CYAN}https://my.atlassian.com/license/evaluation${NC}"
+    echo -e "    5. Create an admin account (e.g. admin / admin)"
+    echo -e "    6. Skip the email/avatar steps"
+    echo -e "    7. Create a sample project (e.g. key: ${BOLD}PE${NC}, name: ${BOLD}Planet Express${NC})"
+    echo ""
+    echo -e "  ${BOLD}Connect Jira to Squadron:${NC}"
+    echo -e "    1. In Jira: Profile (top-right) → ${BOLD}Personal Access Tokens${NC} → Create token"
+    echo -e "       Name it 'squadron' and copy the token value"
+    echo -e "    2. In Squadron (${CYAN}http://localhost:4200${NC}):"
+    echo -e "       Settings → Providers & Projects → Edit 'Jira Server (Test)' connection"
+    echo -e "       Paste the PAT into the credentials field"
+    echo -e "    3. Test the connection — you should see your Jira projects"
+    echo ""
+    echo -e "  ${BOLD}Optional — Configure LDAP Authentication in Jira:${NC}"
+    echo -e "    1. In Jira: Administration → User Management → User Directories → Add Directory"
+    echo -e "    2. Choose ${BOLD}LDAP${NC}, use these settings:"
+    echo -e "       Server:        ${CYAN}openldap-test${NC}    Port: ${CYAN}10389${NC}"
+    echo -e "       Base DN:       ${CYAN}dc=planetexpress,dc=com${NC}"
+    echo -e "       Bind DN:       ${CYAN}cn=admin,dc=planetexpress,dc=com${NC}"
+    echo -e "       Bind Password: ${CYAN}GoodNewsEveryone${NC}"
+    echo -e "       User Base:     ${CYAN}ou=people${NC}"
+    echo -e "    3. Synchronize the directory — Futurama users will appear in Jira"
     echo ""
     echo -e "${BOLD}Useful Commands:${NC}"
     echo -e "  $(basename "$0") --status      Show service status"
@@ -736,7 +787,7 @@ main() {
     echo "  ╚══════╝ ╚══▀▀═╝  ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝"
     echo -e "${NC}"
     echo -e "  ${BOLD}AI-Powered Software Development Workflow Platform${NC}"
-    echo -e "  ${MAGENTA}${BOLD}+ Test LDAP (Planet Express)${NC}"
+    echo -e "  ${MAGENTA}${BOLD}+ Test LDAP (Planet Express) + Jira Server${NC}"
     echo ""
 
     # Clean if requested
@@ -790,7 +841,7 @@ main() {
         log_success "Total startup time: ${minutes}m ${seconds}s"
     else
         echo ""
-        echo -e "${BOLD}${GREEN}Infrastructure is running! (with Test LDAP)${NC}"
+        echo -e "${BOLD}${GREEN}Infrastructure is running! (with Test LDAP + Jira Server)${NC}"
         echo ""
         echo -e "  ${CYAN}PostgreSQL:${NC}  localhost:5432"
         echo -e "  ${CYAN}PgBouncer:${NC}   localhost:6432"
@@ -809,6 +860,9 @@ main() {
         echo ""
         echo -e "  ${BOLD}Test Users:${NC}  professor, fry, leela, bender, zoidberg, hermes, amy"
         echo -e "               (password = uid, e.g. fry/fry)"
+        echo ""
+        echo -e "  ${MAGENTA}${BOLD}Jira Server:${NC}"
+        echo -e "  ${CYAN}URL:${NC}         http://localhost:8090 (starting in background)"
         echo ""
         echo -e "Run services with: ${BOLD}mvn spring-boot:run${NC} from each module directory"
         echo ""

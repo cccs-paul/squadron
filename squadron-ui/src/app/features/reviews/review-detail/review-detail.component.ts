@@ -6,11 +6,12 @@ import { Review, ReviewStatus } from '../../../core/models/review.model';
 import { DiffResult } from '../../../core/models/diff.model';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { DiffViewerComponent } from '../../diff-viewer/diff-viewer.component';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'sq-review-detail',
   standalone: true,
-  imports: [RouterLink, TimeAgoPipe, DiffViewerComponent],
+  imports: [RouterLink, TimeAgoPipe, DiffViewerComponent, TranslateModule],
   templateUrl: './review-detail.component.html',
   styleUrl: './review-detail.component.scss',
 })

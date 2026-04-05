@@ -4,17 +4,17 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
-      <h2>Agent Chat</h2>
+      <h2>{{ 'agentChat.title' | translate }}</h2>
     </div>
     <div class="agent-chat__meta">
       @if (session(); as s) {
         <div class="agent-chat__stats">
           <span class="stat">
-            <span class="stat__label">Status:</span>
+            <span class="stat__label">{{ 'agentChat.status' | translate }}:</span>
             <span class="stat__value" [class]="'stat__value--' + s.status.toLowerCase()">{{ s.status }}</span>
           </span>
           <span class="stat">
-            <span class="stat__label">Tokens:</span>
+            <span class="stat__label">{{ 'agentChat.tokens' | translate }}:</span>
             <span class="stat__value">{{ s.totalTokens | number }}</span>
           </span>
         </div>
@@ -24,11 +24,11 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
           </svg>
-          Cancel
+          {{ 'agentChat.cancel' | translate }}
         </button>
       }
       <span class="connection-indicator" [class]="'connection-indicator--' + connectionState()">
-        {{ connectionState() }}
+        {{ 'agentChat.connection.' + connectionState() | translate }}
       </span>
     </div>
   </div>
@@ -45,7 +45,7 @@
         <div class="progress-panel__bar">
           <div class="progress-panel__bar-fill" [style.width]="(progressPercent * 100) + '%'"></div>
         </div>
-        <div class="progress-panel__count">{{ p.completedSteps }}/{{ p.totalSteps }} steps</div>
+        <div class="progress-panel__count">{{ p.completedSteps }}/{{ p.totalSteps }} {{ 'agentChat.progress.steps' | translate }}</div>
         <div class="progress-panel__items">
           @for (item of p.items; track item.content) {
             <div class="progress-item" [class]="'progress-item--' + item.status">
@@ -92,16 +92,16 @@
               <div class="message__header">
                 <span class="message__author">
                   @switch (msg.role) {
-                    @case ('AGENT') { AI Agent }
-                    @case ('USER') { You }
-                    @case ('SYSTEM') { System }
+                    @case ('AGENT') { {{ 'agentChat.aiAgent' | translate }} }
+                    @case ('USER') { {{ 'agentChat.you' | translate }} }
+                    @case ('SYSTEM') { {{ 'agentChat.system' | translate }} }
                   }
                 </span>
                 <span class="message__time">{{ msg.createdAt | timeAgo }}</span>
               </div>
               <div class="message__body" [innerHTML]="formatCodeBlocks(msg.content)"></div>
               @if (msg.tokenUsage) {
-                <span class="message__tokens">{{ msg.tokenUsage | number }} tokens</span>
+                <span class="message__tokens">{{ msg.tokenUsage | number }} {{ 'agentChat.tokens' | translate }}</span>
               }
             </div>
           </div>
@@ -118,8 +118,8 @@
             </div>
             <div class="message__content">
               <div class="message__header">
-                <span class="message__author">AI Agent</span>
-                <span class="message__time streaming-badge">streaming...</span>
+                <span class="message__author">{{ 'agentChat.aiAgent' | translate }}</span>
+                <span class="message__time streaming-badge">{{ 'agentChat.streaming' | translate }}</span>
               </div>
               <div class="message__body" [innerHTML]="formatCodeBlocks(streamingContent())"></div>
             </div>
@@ -138,7 +138,7 @@
         }
 
         @if (interrupted()) {
-          <div class="interrupted-banner">Agent was interrupted. You can send a new message to continue.</div>
+          <div class="interrupted-banner">{{ 'agentChat.interrupted' | translate }}</div>
         }
       </div>
 
@@ -146,7 +146,7 @@
         <input
           type="text"
           class="sq-input chat-input"
-          placeholder="Type a message..."
+          [placeholder]="'agentChat.placeholder' | translate"
           [(ngModel)]="newMessage"
           (keyup.enter)="sendMessage()"
           [disabled]="sending()"

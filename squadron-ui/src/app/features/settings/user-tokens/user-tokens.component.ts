@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../../core/auth/auth.service';
 import { UserTokenService } from '../../../core/services/user-token.service';
 import { UserPlatformToken, ConnectionInfo, PatLinkRequest } from '../../../core/models/user-token.model';
@@ -7,7 +8,7 @@ import { UserPlatformToken, ConnectionInfo, PatLinkRequest } from '../../../core
 @Component({
   selector: 'sq-user-tokens',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslateModule],
   templateUrl: './user-tokens.component.html',
   styleUrl: './user-tokens.component.scss',
 })

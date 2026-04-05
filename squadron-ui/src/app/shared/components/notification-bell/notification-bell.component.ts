@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, OnDestroy } from '@angular/core';
+import { TranslateModule } from '@ngx-translate/core';
 import { NotificationService } from '../../../core/services/notification.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { TimeAgoPipe } from '../../pipes/time-ago.pipe';
@@ -7,7 +8,7 @@ import { TruncatePipe } from '../../pipes/truncate.pipe';
 @Component({
   selector: 'sq-notification-bell',
   standalone: true,
-  imports: [TimeAgoPipe, TruncatePipe],
+  imports: [TimeAgoPipe, TruncatePipe, TranslateModule],
   templateUrl: './notification-bell.component.html',
   styleUrl: './notification-bell.component.scss',
 })

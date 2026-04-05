@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { UserService } from '../../../core/services/user.service';
 import { Team } from '../../../core/models/user.model';
 import { AvatarComponent } from '../../../shared/components/avatar/avatar.component';
@@ -7,12 +8,13 @@ import { AvatarComponent } from '../../../shared/components/avatar/avatar.compon
 @Component({
   selector: 'sq-team-management',
   standalone: true,
-  imports: [FormsModule, AvatarComponent],
+  imports: [FormsModule, AvatarComponent, TranslateModule],
   templateUrl: './team-management.component.html',
   styleUrl: './team-management.component.scss',
 })
 export class TeamManagementComponent implements OnInit {
   private userService = inject(UserService);
+  private translate = inject(TranslateService);
 
   teams = signal<Team[]>([]);
   loading = signal(true);
@@ -92,7 +94,7 @@ export class TeamManagementComponent implements OnInit {
   }
 
   deleteTeam(team: Team): void {
-    if (!confirm(`Delete team "${team.name}"?`)) return;
+    if (!confirm(this.translate.instant('admin.teams.confirmDelete', { name: team.name }))) return;
     this.userService.deleteTeam(team.id).subscribe({
       next: () => this.loadTeams(),
       error: () => {

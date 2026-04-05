@@ -1,11 +1,11 @@
 <div class="agent-config">
   <div class="agent-config__header">
-    <h2>Agent Configuration</h2>
-    <p class="agent-config__subtitle">Configure AI agent settings for your workspace</p>
+    <h2>{{ 'settings.agentConfig.title' | translate }}</h2>
+    <p class="agent-config__subtitle">{{ 'settings.agentConfig.subtitle' | translate }}</p>
   </div>
 
   @if (saveSuccess()) {
-    <div class="alert alert--success">Configuration saved successfully</div>
+    <div class="alert alert--success">{{ 'settings.agentConfig.saveSuccess' | translate }}</div>
   }
 
   @if (saveError(); as err) {
@@ -15,19 +15,19 @@
   @if (loading()) {
     <div class="agent-config__loading">
       <div class="spinner"></div>
-      <p>Loading configuration...</p>
+      <p>{{ 'settings.agentConfig.loading' | translate }}</p>
     </div>
   } @else {
     <div class="agent-config__sections">
       <!-- Model Settings -->
       <section class="agent-config__section">
         <div class="agent-config__section-header">
-          <h3>Model Settings</h3>
-          <p>Default AI model configuration for all agent types</p>
+          <h3>{{ 'settings.agentConfig.modelSettings' | translate }}</h3>
+          <p>{{ 'settings.agentConfig.modelSettingsDesc' | translate }}</p>
         </div>
         <div class="agent-config__section-body">
           <div class="agent-config__field">
-            <label class="agent-config__label">Provider</label>
+            <label class="agent-config__label">{{ 'settings.agentConfig.provider' | translate }}</label>
             <select class="agent-config__select" [(ngModel)]="provider">
               @for (p of providers; track p) {
                 <option [value]="p">{{ p }}</option>
@@ -36,7 +36,7 @@
           </div>
 
           <div class="agent-config__field">
-            <label class="agent-config__label">Model Name</label>
+            <label class="agent-config__label">{{ 'settings.agentConfig.modelName' | translate }}</label>
             <input
               class="agent-config__input"
               type="text"
@@ -46,7 +46,7 @@
           </div>
 
           <div class="agent-config__field">
-            <label class="agent-config__label">Temperature: {{ temperature }}</label>
+            <label class="agent-config__label">{{ 'settings.agentConfig.temperature' | translate }}: {{ temperature }}</label>
             <input
               class="agent-config__range"
               type="range"
@@ -56,13 +56,13 @@
               step="0.1"
             />
             <div class="agent-config__range-labels">
-              <span>Precise (0.0)</span>
-              <span>Creative (1.0)</span>
+              <span>{{ 'settings.agentConfig.precise' | translate }}</span>
+              <span>{{ 'settings.agentConfig.creative' | translate }}</span>
             </div>
           </div>
 
           <div class="agent-config__field">
-            <label class="agent-config__label">Max Tokens</label>
+            <label class="agent-config__label">{{ 'settings.agentConfig.maxTokens' | translate }}</label>
             <input
               class="agent-config__input"
               type="number"
@@ -72,17 +72,17 @@
               placeholder="4096"
             />
             @if (!validateMaxTokens()) {
-              <span class="agent-config__error-hint">Must be between 1 and 128,000</span>
+              <span class="agent-config__error-hint">{{ 'settings.agentConfig.maxTokensError' | translate }}</span>
             }
           </div>
 
           <div class="agent-config__field">
-            <label class="agent-config__label">System Prompt</label>
+            <label class="agent-config__label">{{ 'settings.agentConfig.systemPrompt' | translate }}</label>
             <textarea
               class="agent-config__textarea"
               [(ngModel)]="systemPrompt"
               rows="4"
-              placeholder="Optional system prompt for all agents..."
+              [placeholder]="'settings.agentConfig.systemPromptPlaceholder' | translate"
             ></textarea>
           </div>
         </div>
@@ -91,19 +91,19 @@
       <!-- Agent Overrides -->
       <section class="agent-config__section">
         <div class="agent-config__section-header">
-          <h3>Per-Agent Overrides</h3>
-          <p>Override default settings for specific agent types</p>
+          <h3>{{ 'settings.agentConfig.overrides' | translate }}</h3>
+          <p>{{ 'settings.agentConfig.overridesDesc' | translate }}</p>
         </div>
         <div class="agent-config__section-body">
           @for (type of getOverrideTypes(); track type) {
             <div class="agent-config__override">
               <div class="agent-config__override-header">
                 <span class="agent-config__override-badge">{{ type }}</span>
-                <button class="agent-config__remove-btn" (click)="removeOverride(type)">Remove</button>
+                <button class="agent-config__remove-btn" (click)="removeOverride(type)">{{ 'settings.agentConfig.remove' | translate }}</button>
               </div>
               <div class="agent-config__override-fields">
                 <div class="agent-config__field">
-                  <label class="agent-config__label">Provider</label>
+                  <label class="agent-config__label">{{ 'settings.agentConfig.provider' | translate }}</label>
                   <select class="agent-config__select" [(ngModel)]="agentOverrides[type].provider">
                     @for (p of providers; track p) {
                       <option [value]="p">{{ p }}</option>
@@ -111,7 +111,7 @@
                   </select>
                 </div>
                 <div class="agent-config__field">
-                  <label class="agent-config__label">Model</label>
+                  <label class="agent-config__label">{{ 'settings.agentConfig.model' | translate }}</label>
                   <input
                     class="agent-config__input"
                     type="text"
@@ -119,7 +119,7 @@
                   />
                 </div>
                 <div class="agent-config__field">
-                  <label class="agent-config__label">Temperature: {{ agentOverrides[type].temperature }}</label>
+                  <label class="agent-config__label">{{ 'settings.agentConfig.temperature' | translate }}: {{ agentOverrides[type].temperature }}</label>
                   <input
                     class="agent-config__range"
                     type="range"
@@ -130,7 +130,7 @@
                   />
                 </div>
                 <div class="agent-config__field">
-                  <label class="agent-config__label">Max Tokens</label>
+                  <label class="agent-config__label">{{ 'settings.agentConfig.maxTokens' | translate }}</label>
                   <input
                     class="agent-config__input"
                     type="number"
@@ -146,7 +146,7 @@
           @if (getAvailableAgentTypes().length) {
             <div class="agent-config__add-override">
               <select class="agent-config__select" [(ngModel)]="selectedOverrideType">
-                <option value="">Select agent type...</option>
+                <option value="">{{ 'settings.agentConfig.selectAgentType' | translate }}</option>
                 @for (type of getAvailableAgentTypes(); track type) {
                   <option [value]="type">{{ type }}</option>
                 }
@@ -156,7 +156,7 @@
                 (click)="addOverride(selectedOverrideType)"
                 [disabled]="!selectedOverrideType"
               >
-                Add Override
+                {{ 'settings.agentConfig.addOverride' | translate }}
               </button>
             </div>
           }
@@ -170,9 +170,9 @@
           [disabled]="saving()"
         >
           @if (saving()) {
-            Saving...
+            {{ 'settings.agentConfig.saving' | translate }}
           } @else {
-            Save Configuration
+            {{ 'settings.agentConfig.saveConfig' | translate }}
           }
         </button>
       </div>

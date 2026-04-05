@@ -7,6 +7,7 @@ import { of, throwError } from 'rxjs';
 import { DiffFile, DiffResult } from '../../core/models/diff.model';
 import { ReviewComment, ReviewSeverity, ReviewCategory, ReviewerType } from '../../core/models/review.model';
 import { Component } from '@angular/core';
+import { TranslateModule } from '@ngx-translate/core';
 
 const mockDiffResult: DiffResult = {
   files: [
@@ -86,7 +87,7 @@ describe('DiffViewerComponent', () => {
     diffServiceSpy.getTaskDiff.and.returnValue(of(mockDiffResult));
 
     await TestBed.configureTestingModule({
-      imports: [TestHostComponent, DiffViewerComponent],
+      imports: [TestHostComponent, DiffViewerComponent, TranslateModule.forRoot()],
       providers: [
         { provide: DiffService, useValue: diffServiceSpy },
         provideHttpClient(),

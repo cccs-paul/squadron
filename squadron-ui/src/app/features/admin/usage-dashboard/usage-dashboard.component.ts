@@ -1,11 +1,12 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { TranslateModule } from '@ngx-translate/core';
 import { UsageService } from '../../../core/services/usage.service';
 import { UsageSummary, UsageByAgent } from '../../../core/models/usage.model';
 
 @Component({
   selector: 'sq-usage-dashboard',
   standalone: true,
-  imports: [],
+  imports: [TranslateModule],
   templateUrl: './usage-dashboard.component.html',
   styleUrl: './usage-dashboard.component.scss',
 })

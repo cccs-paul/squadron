@@ -1,9 +1,11 @@
 import { Component, inject } from '@angular/core';
+import { TranslateModule } from '@ngx-translate/core';
 import { NotificationService, ToastNotification } from '../../../core/services/notification.service';
 
 @Component({
   selector: 'sq-notification-toast',
   standalone: true,
+  imports: [TranslateModule],
   template: `
     @if (toasts().length > 0) {
       <div class="toast-container">
@@ -13,7 +15,7 @@ import { NotificationService, ToastNotification } from '../../../core/services/n
               <span class="toast__title">{{ toast.title }}</span>
               <span class="toast__message">{{ toast.message }}</span>
             </div>
-            <button class="toast__close" (click)="dismiss(toast.id)" aria-label="Dismiss">&times;</button>
+            <button class="toast__close" (click)="dismiss(toast.id)" [attr.aria-label]="'notifications.toast.dismissAriaLabel' | translate">&times;</button>
           </div>
         }
       </div>

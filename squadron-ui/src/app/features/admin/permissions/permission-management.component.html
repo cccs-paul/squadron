@@ -1,30 +1,30 @@
 <div class="page-header">
   <div class="page-header__title">
-    <h1>Permissions</h1>
-    <p class="page-header__subtitle">Control access to resources across your organization</p>
+    <h1>{{ 'admin.permissions.title' | translate }}</h1>
+    <p class="page-header__subtitle">{{ 'admin.permissions.subtitle' | translate }}</p>
   </div>
   <button class="btn btn--primary" (click)="openGrantModal()">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </svg>
-    Grant Permission
+    {{ 'admin.permissions.grantPermission' | translate }}
   </button>
 </div>
 
 <div class="filters">
   <div class="filter-group">
-    <label>Resource Type</label>
+    <label>{{ 'admin.permissions.filters.resourceType' | translate }}</label>
     <select [(ngModel)]="filterResource" (ngModelChange)="loadPermissions()">
-      <option value="">All Resources</option>
+      <option value="">{{ 'admin.permissions.filters.allResources' | translate }}</option>
       @for (rt of resourceTypes; track rt) {
         <option [value]="rt">{{ rt }}</option>
       }
     </select>
   </div>
   <div class="filter-group">
-    <label>Grantee Type</label>
+    <label>{{ 'admin.permissions.filters.granteeType' | translate }}</label>
     <select [(ngModel)]="filterGrantee" (ngModelChange)="loadPermissions()">
-      <option value="">All Grantees</option>
+      <option value="">{{ 'admin.permissions.filters.allGrantees' | translate }}</option>
       @for (gt of granteeTypes; track gt) {
         <option [value]="gt">{{ gt.replace('_', ' ') }}</option>
       }
@@ -35,19 +35,19 @@
 @if (loading()) {
   <div class="loading-state">
     <div class="spinner"></div>
-    <p>Loading permissions...</p>
+    <p>{{ 'admin.permissions.loading' | translate }}</p>
   </div>
 } @else {
   <div class="table-container">
     <table class="data-table">
       <thead>
         <tr>
-          <th>Grantee</th>
-          <th>Type</th>
-          <th>Resource</th>
-          <th>Access Level</th>
-          <th>Granted</th>
-          <th>Actions</th>
+          <th>{{ 'admin.permissions.columns.grantee' | translate }}</th>
+          <th>{{ 'admin.permissions.columns.type' | translate }}</th>
+          <th>{{ 'admin.permissions.columns.resource' | translate }}</th>
+          <th>{{ 'admin.permissions.columns.accessLevel' | translate }}</th>
+          <th>{{ 'admin.permissions.columns.granted' | translate }}</th>
+          <th>{{ 'admin.permissions.columns.actions' | translate }}</th>
         </tr>
       </thead>
       <tbody>
@@ -67,7 +67,7 @@
             </td>
             <td class="text-muted">{{ perm.createdAt | timeAgo }}</td>
             <td>
-              <button class="btn-icon btn-icon--danger" title="Revoke" (click)="revokePermission(perm)">
+              <button class="btn-icon btn-icon--danger" [title]="'admin.permissions.actions.revoke' | translate" (click)="revokePermission(perm)">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
@@ -76,7 +76,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="6" class="empty-state">No permissions found matching filters</td>
+            <td colspan="6" class="empty-state">{{ 'admin.permissions.emptyState' | translate }}</td>
           </tr>
         }
       </tbody>
@@ -88,7 +88,7 @@
   <div class="modal-overlay" (click)="closeModal()">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal__header">
-        <h2>Grant Permission</h2>
+        <h2>{{ 'admin.permissions.modal.title' | translate }}</h2>
         <button class="btn-icon" (click)="closeModal()">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -97,7 +97,7 @@
       </div>
       <div class="modal__body">
         <div class="form-group">
-          <label class="form-label">Grantee Type</label>
+          <label class="form-label">{{ 'admin.permissions.form.granteeTypeLabel' | translate }}</label>
           <select class="form-input" [(ngModel)]="formGranteeType">
             @for (gt of granteeTypes; track gt) {
               <option [value]="gt">{{ gt.replace('_', ' ') }}</option>
@@ -105,11 +105,11 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Grantee Name</label>
-          <input class="form-input" type="text" [(ngModel)]="formGranteeName" placeholder="e.g. Jane Smith or Backend Team" />
+          <label class="form-label">{{ 'admin.permissions.form.granteeNameLabel' | translate }}</label>
+          <input class="form-input" type="text" [(ngModel)]="formGranteeName" [placeholder]="'admin.permissions.form.granteeNamePlaceholder' | translate" />
         </div>
         <div class="form-group">
-          <label class="form-label">Resource Type</label>
+          <label class="form-label">{{ 'admin.permissions.form.resourceTypeLabel' | translate }}</label>
           <select class="form-input" [(ngModel)]="formResourceType">
             @for (rt of resourceTypes; track rt) {
               <option [value]="rt">{{ rt }}</option>
@@ -117,7 +117,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Access Level</label>
+          <label class="form-label">{{ 'admin.permissions.form.accessLevelLabel' | translate }}</label>
           <select class="form-input" [(ngModel)]="formAccessLevel">
             @for (al of accessLevels; track al) {
               <option [value]="al">{{ al }}</option>
@@ -126,8 +126,8 @@
         </div>
       </div>
       <div class="modal__footer">
-        <button class="btn btn--secondary" (click)="closeModal()">Cancel</button>
-        <button class="btn btn--primary" (click)="grantPermission()" [disabled]="!formGranteeName">Grant</button>
+        <button class="btn btn--secondary" (click)="closeModal()">{{ 'admin.permissions.modal.cancel' | translate }}</button>
+        <button class="btn btn--primary" (click)="grantPermission()" [disabled]="!formGranteeName">{{ 'admin.permissions.modal.grant' | translate }}</button>
       </div>
     </div>
   </div>

@@ -7,6 +7,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
 import { TaskState, TaskPriority, Task } from '../../../core/models/task.model';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
+import { TranslateModule } from '@ngx-translate/core';
 
 describe('TaskBoardComponent', () => {
   let component: TaskBoardComponent;
@@ -20,7 +21,7 @@ describe('TaskBoardComponent', () => {
     taskServiceSpy.getTasksByState.and.returnValue(throwError(() => new Error('api down')));
 
     await TestBed.configureTestingModule({
-      imports: [TaskBoardComponent],
+      imports: [TaskBoardComponent, TranslateModule.forRoot()],
       providers: [
         { provide: TaskService, useValue: taskServiceSpy },
         { provide: Router, useValue: routerSpy },
@@ -42,7 +43,7 @@ describe('TaskBoardComponent', () => {
     fixture.detectChanges();
     expect(component.columns().length).toBe(6);
     const labels = component.columns().map((c) => c.label);
-    expect(labels).toEqual(['Backlog', 'Planning', 'In Progress', 'Review', 'QA', 'Done']);
+    expect(labels).toEqual(['tasks.board.column.backlog', 'tasks.board.column.planning', 'tasks.board.column.inProgress', 'tasks.board.column.review', 'tasks.board.column.qa', 'tasks.board.column.done']);
   });
 
   it('should have no tasks in any column on error', () => {

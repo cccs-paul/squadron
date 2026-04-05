@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { TranslateModule } from '@ngx-translate/core';
 import { AuthProviderConfigComponent } from './auth-provider-config.component';
 import { PermissionService } from '../../../core/services/permission.service';
 import { AuthProvider, AuthProviderType } from '../../../core/models/security.model';
@@ -40,7 +41,7 @@ describe('AuthProviderConfigComponent', () => {
     permServiceSpy.getAuthProviders.and.returnValue(of(mockProviders));
 
     await TestBed.configureTestingModule({
-      imports: [AuthProviderConfigComponent, FormsModule],
+      imports: [AuthProviderConfigComponent, FormsModule, TranslateModule.forRoot()],
       providers: [
         { provide: PermissionService, useValue: permServiceSpy },
         provideRouter([]),
@@ -149,7 +150,7 @@ describe('AuthProviderConfigComponent', () => {
 
     // After error, testingId is cleared and failure result is set
     expect(component.testingId()).toBeNull();
-    expect(component.testResult()).toEqual({ success: false, message: 'Connection test failed' });
+    expect(component.testResult()).toEqual({ success: false, message: 'admin.authProviders.errors.connectionTestFailed' });
   });
 
   it('should_callDeleteAuthProvider_when_deleteProviderCalledAndConfirmed', () => {
@@ -172,10 +173,10 @@ describe('AuthProviderConfigComponent', () => {
   });
 
   it('should_returnCorrectTypeIcon_when_typeIconCalled', () => {
-    expect(component.typeIcon(AuthProviderType.OIDC)).toBe('OpenID Connect');
-    expect(component.typeIcon(AuthProviderType.KEYCLOAK)).toBe('Keycloak');
-    expect(component.typeIcon(AuthProviderType.LDAP)).toBe('LDAP');
-    expect(component.typeIcon(AuthProviderType.SAML)).toBe('SAML');
+    expect(component.typeIcon(AuthProviderType.OIDC)).toBe('admin.authProviders.types.oidc');
+    expect(component.typeIcon(AuthProviderType.KEYCLOAK)).toBe('admin.authProviders.types.keycloak');
+    expect(component.typeIcon(AuthProviderType.LDAP)).toBe('admin.authProviders.types.ldap');
+    expect(component.typeIcon(AuthProviderType.SAML)).toBe('admin.authProviders.types.saml');
   });
 
   it('should_showEmptyState_when_getAuthProvidersFails', () => {

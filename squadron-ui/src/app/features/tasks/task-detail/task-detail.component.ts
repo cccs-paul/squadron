@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
 import { TaskService } from '../../../core/services/task.service';
 import { Task, TaskState, TaskPriority } from '../../../core/models/task.model';
 import { AvatarComponent } from '../../../shared/components/avatar/avatar.component';
@@ -9,7 +10,7 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 @Component({
   selector: 'sq-task-detail',
   standalone: true,
-  imports: [RouterLink, AvatarComponent, TimeAgoPipe, DecimalPipe],
+  imports: [RouterLink, AvatarComponent, TimeAgoPipe, DecimalPipe, TranslateModule],
   templateUrl: './task-detail.component.html',
   styleUrl: './task-detail.component.scss',
 })

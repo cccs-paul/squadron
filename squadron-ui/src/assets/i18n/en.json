@@ -15,7 +15,18 @@
     "completed": "completed",
     "working": "working",
     "tokens": "tokens",
-    "noData": "No data available"
+    "noData": "No data available",
+    "create": "Create",
+    "update": "Update",
+    "remove": "Remove",
+    "test": "Test",
+    "enabled": "Enabled",
+    "actions": "Actions",
+    "status": "Status",
+    "never": "Never",
+    "removing": "Removing...",
+    "testing": "Testing...",
+    "syncing": "Syncing..."
   },
   "header": {
     "searchPlaceholder": "Search tasks, projects, reviews...",
@@ -119,6 +130,134 @@
       "limitsDescription": "Resource limits for your workspace",
       "maxUsers": "Max Users",
       "maxProjects": "Max Projects"
+    },
+    "agentConfig": {
+      "title": "Agent Configuration",
+      "subtitle": "Configure AI agent settings for your workspace",
+      "modelSettings": {
+        "title": "Model Settings",
+        "subtitle": "Default AI model configuration for all agent types"
+      },
+      "overrides": {
+        "title": "Per-Agent Overrides",
+        "subtitle": "Override default settings for specific agent types"
+      },
+      "labels": {
+        "provider": "Provider",
+        "modelName": "Model Name",
+        "temperature": "Temperature:",
+        "maxTokens": "Max Tokens",
+        "systemPrompt": "System Prompt",
+        "model": "Model"
+      },
+      "placeholders": {
+        "modelName": "gpt-4",
+        "maxTokens": "4096",
+        "systemPrompt": "Optional system prompt for all agents...",
+        "selectAgentType": "Select agent type..."
+      },
+      "temperature": {
+        "precise": "Precise (0.0)",
+        "creative": "Creative (1.0)"
+      },
+      "validation": {
+        "maxTokensRange": "Must be between 1 and 128,000"
+      },
+      "alerts": {
+        "saveSuccess": "Configuration saved successfully"
+      },
+      "loading": "Loading configuration...",
+      "buttons": {
+        "remove": "Remove",
+        "addOverride": "Add Override",
+        "saving": "Saving...",
+        "saveConfiguration": "Save Configuration"
+      },
+      "errors": {
+        "maxTokensRange": "Max tokens must be between 1 and 128000.",
+        "saveFailed": "Failed to save configuration. Please try again."
+      }
+    },
+    "userTokens": {
+      "title": "Platform Tokens",
+      "subtitle": "Link your personal access tokens to allow Squadron to act on your behalf",
+      "linkedAccounts": {
+        "title": "Linked Accounts",
+        "subtitle": "Platform accounts currently linked to your profile",
+        "empty": "No platform tokens linked yet. Link a token below to get started."
+      },
+      "linkNew": {
+        "title": "Link New Token",
+        "subtitle": "Connect a personal access token from an external platform",
+        "allLinked": "All available connections are already linked."
+      },
+      "alerts": {
+        "linkSuccess": "Token linked successfully"
+      },
+      "loading": "Loading tokens...",
+      "labels": {
+        "linked": "Linked",
+        "expires": "Expires",
+        "platformConnection": "Platform Connection",
+        "personalAccessToken": "Personal Access Token"
+      },
+      "placeholders": {
+        "selectConnection": "Select a connection...",
+        "enterToken": "Enter your token..."
+      },
+      "hints": {
+        "tokenEncrypted": "Your token is encrypted before storage"
+      },
+      "buttons": {
+        "unlink": "Unlink",
+        "linkAToken": "Link a Token",
+        "linking": "Linking...",
+        "linkToken": "Link Token",
+        "cancel": "Cancel"
+      },
+      "unknownConnection": "Unknown connection",
+      "errors": {
+        "missingFields": "Please select a connection and enter a token.",
+        "linkFailed": "Failed to link token. Please check your token and try again."
+      }
+    },
+    "squadronConfig": {
+      "title": "My Agent Squadron",
+      "subtitle": "Configure your personal AI agents. You can have up to {{maxAgents}} agents.",
+      "loading": "Loading squadron...",
+      "alerts": {
+        "saveSuccess": "Changes saved successfully."
+      },
+      "labels": {
+        "type": "Type",
+        "provider": "Provider",
+        "model": "Model",
+        "maxTokens": "Max Tokens",
+        "temperature": "Temperature",
+        "enabled": "Enabled"
+      },
+      "placeholders": {
+        "agentName": "Agent name",
+        "provider": "e.g. openai-compatible",
+        "model": "e.g. gpt-4o"
+      },
+      "buttons": {
+        "save": "Save",
+        "cancel": "Cancel",
+        "edit": "Edit",
+        "remove": "Remove",
+        "addAgent": "+ Add Agent",
+        "resetToDefaults": "Reset to Defaults"
+      },
+      "errors": {
+        "saveFailed": "Failed to save agent. Please try again.",
+        "addFailed": "Failed to add agent.",
+        "removeFailed": "Failed to remove agent.",
+        "resetFailed": "Failed to reset squadron."
+      },
+      "defaults": {
+        "agentName": "Agent {{number}}"
+      }
     }
   },
   "notifications": {
@@ -179,11 +318,768 @@
         "label": "System",
         "description": "System-level alerts such as service health, errors, and maintenance notices"
       }
+    },
+    "bell": {
+      "ariaLabel": "Notifications"
+    },
+    "dropdown": {
+      "heading": "Notifications",
+      "markAllRead": "Mark all read",
+      "empty": "No notifications"
+    },
+    "toast": {
+      "dismissAriaLabel": "Dismiss"
     }
   },
   "language": {
     "en": "English",
     "fr": "Francais",
     "label": "Language"
+  },
+  "tasks": {
+    "board": {
+      "title": "Task Board",
+      "subtitle": "Drag and drop tasks between columns",
+      "searchPlaceholder": "Search tasks...",
+      "filter": {
+        "allPriorities": "All Priorities"
+      },
+      "emptyColumn": "No tasks",
+      "column": {
+        "backlog": "Backlog",
+        "planning": "Planning",
+        "inProgress": "In Progress",
+        "review": "Review",
+        "qa": "QA",
+        "done": "Done"
+      }
+    },
+    "detail": {
+      "loading": "Loading task...",
+      "backToBoard": "Back to Board",
+      "description": "Description",
+      "transitions": "Move to",
+      "pullRequest": "Pull Request",
+      "labels": {
+        "heading": "Labels",
+        "empty": "No labels"
+      },
+      "sidebar": {
+        "assignee": "Assignee",
+        "unassigned": "Unassigned",
+        "tokenUsage": "Token Usage",
+        "tokenCount": "{{count}} tokens",
+        "created": "Created",
+        "externalLink": "External Link",
+        "openInPlatform": "Open in platform"
+      },
+      "meta": {
+        "updated": "Updated"
+      }
+    },
+    "priority": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "state": {
+      "BACKLOG": "Backlog",
+      "PLANNING": "Planning",
+      "IN_PROGRESS": "In Progress",
+      "REVIEW": "Review",
+      "QA": "QA",
+      "DONE": "Done",
+      "CANCELLED": "Cancelled"
+    }
+  },
+  "reviews": {
+    "list": {
+      "title": "Code Reviews",
+      "subtitle": "Review pull requests and provide feedback",
+      "filter": {
+        "allStatuses": "All Statuses",
+        "pending": "Pending",
+        "inProgress": "In Progress",
+        "approved": "Approved",
+        "changesRequested": "Changes Requested"
+      },
+      "columns": {
+        "pullRequest": "Pull Request",
+        "task": "Task",
+        "status": "Status",
+        "changes": "Changes",
+        "reviewer": "Reviewer",
+        "updated": "Updated"
+      },
+      "emptyState": "No reviews found"
+    },
+    "detail": {
+      "loading": "Loading review...",
+      "backLink": "Back to Reviews",
+      "actions": {
+        "approve": "Approve",
+        "reject": "Reject"
+      },
+      "stats": {
+        "filesChanged": "Files changed",
+        "linesAdded": "Lines added",
+        "linesRemoved": "Lines removed",
+        "comments": "Comments",
+        "unresolved": "Unresolved",
+        "resolved": "Resolved"
+      },
+      "tabs": {
+        "diff": "Diff",
+        "comments": "Comments"
+      },
+      "comments": {
+        "title": "Review Comments",
+        "resolvedBadge": "Resolved",
+        "emptyState": "No comments yet"
+      }
+    },
+    "status": {
+      "PENDING": "Pending",
+      "IN_PROGRESS": "In Progress",
+      "APPROVED": "Approved",
+      "CHANGES_REQUESTED": "Changes Requested",
+      "REJECTED": "Rejected"
+    },
+    "reviewerType": {
+      "AI": "AI",
+      "HUMAN": "Human"
+    }
+  },
+  "projects": {
+    "list": {
+      "heading": "Projects",
+      "subheading": "Manage your repositories and projects",
+      "newProjectButton": "New Project",
+      "emptyState": "No projects yet. Create your first project to get started."
+    },
+    "card": {
+      "tasksLabel": "tasks",
+      "activeLabel": "active"
+    },
+    "detail": {
+      "backLink": "Back to Projects",
+      "labels": {
+        "repository": "Repository",
+        "defaultBranch": "Default Branch",
+        "totalTasks": "Total Tasks",
+        "activeTasks": "Active Tasks"
+      }
+    }
+  },
+  "agentChat": {
+    "title": "Agent Chat",
+    "meta": {
+      "statusLabel": "Status:",
+      "tokensLabel": "Tokens:"
+    },
+    "actions": {
+      "cancel": "Cancel"
+    },
+    "progress": {
+      "stepsUnit": "steps"
+    },
+    "message": {
+      "authorAgent": "AI Agent",
+      "authorUser": "You",
+      "authorSystem": "System",
+      "streamingIndicator": "streaming...",
+      "tokensUnit": "tokens"
+    },
+    "status": {
+      "interruptedBanner": "Agent was interrupted. You can send a new message to continue.",
+      "interruptedByUser": "Agent was interrupted by user."
+    },
+    "input": {
+      "placeholder": "Type a message..."
+    },
+    "error": {
+      "prefix": "Error:",
+      "unknownError": "Unknown error occurred"
+    }
+  },
+  "diffViewer": {
+    "title": "Code Changes",
+    "stats": {
+      "filesChanged": "files changed"
+    },
+    "loading": "Loading diff...",
+    "comments": {
+      "resolved": "Resolved",
+      "placeholder": "Add a review comment...",
+      "cancel": "Cancel"
+    },
+    "emptyState": "No file changes found.",
+    "error": {
+      "loadFailed": "Failed to load diff"
+    }
+  },
+  "qaReport": {
+    "loading": "Loading QA report...",
+    "navigation": {
+      "backToTask": "Back to Task"
+    },
+    "title": "QA Report",
+    "header": {
+      "gatePrefix": "Gate:"
+    },
+    "coverage": {
+      "title": "Code Coverage",
+      "meetsThreshold": "Coverage meets threshold",
+      "belowThreshold": "Coverage below recommended threshold",
+      "criticallyLow": "Coverage critically low"
+    },
+    "testResults": {
+      "title": "Test Results",
+      "passRateLabel": "pass rate ({{total}} total)",
+      "passed": "Passed",
+      "failed": "Failed",
+      "skipped": "Skipped"
+    },
+    "summary": {
+      "title": "Summary"
+    },
+    "findings": {
+      "title": "Findings",
+      "criticalGroup": "Critical",
+      "majorGroup": "Major",
+      "minorInfoGroup": "Minor / Info",
+      "emptyState": "No findings reported"
+    },
+    "error": {
+      "loadFailed": "Failed to load QA report"
+    }
+  },
+  "projectConfig": {
+    "header": {
+      "title": "Setup Wizard",
+      "subtitle": "Configure your integrations step by step: ticket providers, Git remotes, projects, and workflow"
+    },
+    "loading": "Loading configuration...",
+    "nav": {
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "steps": {
+      "ticketProviders": "Ticket Providers",
+      "gitRemotes": "Git Remotes",
+      "projects": "Projects",
+      "branchWorkflow": "Branch & Workflow"
+    },
+    "ticketProviders": {
+      "title": "Ticket Providers",
+      "description": "Connect your issue tracking systems. Squadron will sync tasks from these platforms.",
+      "cancelToggle": "Cancel",
+      "addProvider": "+ Add Provider",
+      "saveSuccess": "Ticket provider added successfully",
+      "form": {
+        "title": "New Ticket Provider",
+        "providerNameLabel": "Provider Name",
+        "providerNamePlaceholder": "e.g. Jira Cloud - Production",
+        "platformLabel": "Platform",
+        "baseUrlLabel": "Base URL",
+        "baseUrlPlaceholder": "e.g. https://jira.mycompany.com",
+        "baseUrlHint": "Required for self-hosted instances",
+        "cloudUrlLabel": "Cloud Instance URL",
+        "cloudUrlPlaceholder": "e.g. https://myorg.atlassian.net",
+        "cloudUrlHint": "Your Atlassian cloud URL",
+        "authLabel": "Authentication",
+        "enterPrefix": "Enter",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "saveProvider": "Save Provider"
+      },
+      "empty": {
+        "title": "No ticket providers yet",
+        "description": "Connect Jira, Azure DevOps, or another issue tracker to sync tasks automatically."
+      },
+      "card": {
+        "removing": "Removing...",
+        "remove": "Remove"
+      },
+      "errors": {
+        "saveFailed": "Failed to save provider. Please check your configuration and try again."
+      }
+    },
+    "gitRemotes": {
+      "title": "Git Remotes",
+      "description": "Configure Git platforms for code hosting. Add SSH keys for secure clone/push operations.",
+      "cancelToggle": "Cancel",
+      "addRemote": "+ Add Git Remote",
+      "saveSuccess": "Git remote added successfully",
+      "form": {
+        "title": "New Git Remote",
+        "connectionNameLabel": "Connection Name",
+        "connectionNamePlaceholder": "e.g. GitHub - My Org",
+        "platformLabel": "Platform",
+        "baseUrlLabel": "Base URL",
+        "baseUrlPlaceholder": "e.g. https://gitlab.mycompany.com, https://bitbucket.mycompany.com",
+        "baseUrlHint": "Required for self-hosted instances",
+        "cloudDetected": "Cloud detected - no URL needed",
+        "authLabel": "Authentication",
+        "enterPrefix": "Enter",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "saveRemote": "Save Git Remote"
+      },
+      "empty": {
+        "title": "No Git remotes configured",
+        "description": "Add GitHub, GitLab, or Bitbucket connections for code hosting and SSH access."
+      },
+      "card": {
+        "sshKeyCount": "{{count}} SSH key(s)",
+        "removing": "Removing...",
+        "remove": "Remove"
+      },
+      "sshKey": {
+        "remove": "Remove",
+        "removing": "..."
+      },
+      "errors": {
+        "saveFailed": "Failed to save Git remote. Please check your configuration."
+      }
+    },
+    "sshKeys": {
+      "title": "SSH Keys",
+      "description": "Add SSH key pairs for secure Git clone and push operations",
+      "cancelToggle": "Cancel",
+      "addKey": "+ Add SSH Key",
+      "saveSuccess": "SSH key added successfully",
+      "form": {
+        "title": "New SSH Key",
+        "gitRemoteLabel": "Git Remote",
+        "selectConnectionPlaceholder": "-- Select connection --",
+        "keyNameLabel": "Key Name",
+        "keyNamePlaceholder": "e.g. deploy-key-prod",
+        "keyTypeLabel": "Key Type",
+        "keyTypeEd25519": "ED25519 (Recommended)",
+        "keyTypeRsa": "RSA",
+        "publicKeyLabel": "Public Key",
+        "publicKeyPlaceholder": "ssh-ed25519 AAAA...",
+        "privateKeyLabel": "Private Key",
+        "privateKeyPlaceholder": "-----BEGIN OPENSSH PRIVATE KEY-----",
+        "privateKeyHint": "Stored encrypted. Never transmitted after creation.",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "saveKey": "Save SSH Key"
+      },
+      "errors": {
+        "saveFailed": "Failed to save SSH key. Please verify the key pair."
+      }
+    },
+    "projects": {
+      "title": "Projects",
+      "description": "Import projects from your configured providers. Set Git clone URLs and default branches.",
+      "cancelToggle": "Cancel",
+      "importProjects": "+ Import Projects",
+      "noProviders": {
+        "title": "No providers configured",
+        "description": "Go back to Step 1 or 2 and add at least one provider before importing projects.",
+        "goToTicketProviders": "Go to Ticket Providers"
+      },
+      "import": {
+        "title": "Import Projects from Provider",
+        "providerLabel": "Provider",
+        "selectProviderPlaceholder": "-- Select provider --",
+        "fetching": "Fetching...",
+        "fetchProjects": "Fetch Projects",
+        "noProjectsFound": "No projects found on this provider.",
+        "selectedCount": "{{selected}} of {{total}} selected",
+        "selectAll": "Select All",
+        "deselectAll": "Deselect All",
+        "alreadyImported": "Already imported",
+        "projectNameLabel": "Project Name",
+        "defaultBranchLabel": "Default Branch",
+        "gitCloneUrlLabel": "Git Clone URL",
+        "gitCloneUrlPlaceholder": "e.g. git@github.com:org/repo.git or https://github.com/org/repo.git",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Brief project description",
+        "importingProgress": "Importing {{done}}/{{total}}...",
+        "cancel": "Cancel",
+        "importing": "Importing...",
+        "importButton": "Import {{count}} Project(s)"
+      },
+      "empty": {
+        "title": "No projects yet",
+        "description": "Click \"+ Import Projects\" to import from a configured provider."
+      },
+      "errors": {
+        "fetchFailed": "Failed to fetch projects. Please check the connection.",
+        "partialImportFailure": "{{errors}} project(s) failed to import. The rest were imported successfully."
+      }
+    },
+    "branchWorkflow": {
+      "title": "Branch Naming & Workflow",
+      "description": "Configure branch naming templates and map workflow states to your external platform statuses.",
+      "noProjects": {
+        "title": "No projects to configure",
+        "description": "Import projects in Step 3 before configuring branch naming and workflow mappings.",
+        "goToProjects": "Go to Projects"
+      },
+      "mappings": {
+        "saveSuccess": "Mappings saved successfully",
+        "loading": "Loading mappings...",
+        "title": "Workflow Mappings",
+        "squadronStateColumn": "Squadron State",
+        "externalStatusColumn": "External Status",
+        "selectStatusPlaceholder": "-- Select status --",
+        "externalStatusPlaceholder": "e.g. In Progress",
+        "removeMappingTooltip": "Remove mapping",
+        "empty": "No workflow mappings. Click \"Add Mapping\" to map states.",
+        "addMapping": "+ Add Mapping",
+        "saving": "Saving...",
+        "saveMappings": "Save Mappings"
+      },
+      "branchNaming": {
+        "title": "Branch Naming",
+        "templateLabel": "Branch Naming Template",
+        "templatePlaceholder": "{strategy}/{ticket}-{description}",
+        "templateHint": "Variables: {strategy}, {ticket}, {description}, {type}, {user}",
+        "previewLabel": "Preview:"
+      },
+      "platformConnection": {
+        "title": "Platform Connection",
+        "connectionLabel": "Connection",
+        "noConnectionPlaceholder": "-- No connection --",
+        "externalKeyLabel": "External Project Key",
+        "externalKeyPlaceholder": "e.g. SQ, my-org/my-repo",
+        "fetching": "Fetching...",
+        "fetchStatuses": "Fetch Statuses",
+        "remoteStatusesLabel": "Remote statuses:"
+      },
+      "notConfigured": "Not configured",
+      "mappingCount": "{{count}} mapping(s)",
+      "errors": {
+        "noProviderLinked": "Project must be linked to a provider with an external project key.",
+        "fetchStatusesFailed": "Failed to fetch remote statuses. Please check the connection.",
+        "saveMappingsFailed": "Failed to save mappings. Please try again."
+      }
+    },
+    "platforms": {
+      "github": "GitHub",
+      "gitlab": "GitLab",
+      "jiraCloud": "Jira Cloud",
+      "jiraServer": "Jira Server / DC",
+      "azureDevops": "Azure DevOps",
+      "bitbucket": "Bitbucket"
+    },
+    "platformDescriptions": {
+      "jiraCloud": "Atlassian-hosted Jira in the cloud",
+      "jiraServer": "Self-hosted Jira Server or Data Center",
+      "azureDevops": "Microsoft Azure DevOps Services",
+      "github": "GitHub.com or GitHub Enterprise",
+      "gitlab": "GitLab.com or self-managed GitLab",
+      "bitbucket": "Bitbucket Cloud or Bitbucket Server"
+    },
+    "authTypes": {
+      "apiToken": "API Token",
+      "oauth2": "OAuth 2.0",
+      "pat": "PAT",
+      "basicAuth": "Basic Auth",
+      "app": "App",
+      "appPassword": "App Password"
+    },
+    "authFields": {
+      "email": "Email",
+      "apiToken": "API Token",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "personalAccessToken": "Personal Access Token",
+      "username": "Username",
+      "password": "Password",
+      "appId": "App ID",
+      "privateKey": "Private Key",
+      "appPassword": "App Password"
+    },
+    "branchStrategies": {
+      "trunkBased": {
+        "label": "Trunk-Based",
+        "description": "All work flows to a single main branch"
+      },
+      "gitflow": {
+        "label": "Gitflow",
+        "description": "Feature, develop, release, and hotfix branches"
+      },
+      "githubFlow": {
+        "label": "GitHub Flow",
+        "description": "Feature branches merged directly to main"
+      },
+      "gitlabFlow": {
+        "label": "GitLab Flow",
+        "description": "Feature branches with environment branches"
+      },
+      "releaseBranching": {
+        "label": "Release Branching",
+        "description": "Separate branches for each release"
+      }
+    },
+    "errors": {
+      "notAuthenticated": "Not authenticated"
+    }
+  },
+  "admin": {
+    "users": {
+      "title": "User Management",
+      "subtitle": "Manage users and their roles within your organization",
+      "addUser": "Add User",
+      "searchPlaceholder": "Search users by name or email...",
+      "loading": "Loading users...",
+      "columns": {
+        "user": "User",
+        "email": "Email",
+        "role": "Role",
+        "status": "Status",
+        "teams": "Teams",
+        "lastLogin": "Last Login",
+        "actions": "Actions"
+      },
+      "teamCount": "{{count}} team(s)",
+      "neverLoggedIn": "Never",
+      "emptyState": "No users found",
+      "modal": {
+        "editTitle": "Edit User",
+        "createTitle": "Create User",
+        "cancel": "Cancel",
+        "update": "Update",
+        "create": "Create"
+      },
+      "form": {
+        "usernameLabel": "Username",
+        "usernamePlaceholder": "e.g. jdoe",
+        "displayNameLabel": "Display Name",
+        "displayNamePlaceholder": "e.g. John Doe",
+        "emailLabel": "Email",
+        "emailPlaceholder": "e.g. john@example.com",
+        "roleLabel": "Role"
+      },
+      "confirmDelete": "Delete user \"{{name}}\"?",
+      "errors": {
+        "loadFailed": "Failed to load users",
+        "updateFailed": "Failed to update user",
+        "createFailed": "Failed to create user"
+      }
+    },
+    "teams": {
+      "title": "Team Management",
+      "subtitle": "Organize users into teams for collaboration and access control",
+      "createTeam": "Create Team",
+      "loading": "Loading teams...",
+      "memberCount": "{{count}} members",
+      "membersHeading": "Members",
+      "noMembers": "No members yet",
+      "emptyState": "No teams created yet. Create your first team to get started.",
+      "modal": {
+        "editTitle": "Edit Team",
+        "createTitle": "Create Team",
+        "cancel": "Cancel",
+        "update": "Update",
+        "create": "Create"
+      },
+      "form": {
+        "nameLabel": "Team Name",
+        "namePlaceholder": "e.g. Backend Team",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Brief description of the team..."
+      },
+      "confirmDelete": "Delete team \"{{name}}\"?",
+      "errors": {
+        "loadFailed": "Failed to load teams",
+        "createFailed": "Failed to create team"
+      }
+    },
+    "securityGroups": {
+      "title": "Security Groups",
+      "subtitle": "Define groups to manage permissions at scale",
+      "createGroup": "Create Group",
+      "loading": "Loading security groups...",
+      "memberCount": "{{count}} member(s)",
+      "membersHeading": "Members",
+      "noMembers": "No members in this group",
+      "emptyState": "No security groups found",
+      "memberAddedPrefix": "Added",
+      "createdPrefix": "Created",
+      "selectPrompt": "Select a security group to view details",
+      "modal": {
+        "editTitle": "Edit Group",
+        "createTitle": "Create Security Group",
+        "cancel": "Cancel",
+        "update": "Update",
+        "create": "Create"
+      },
+      "form": {
+        "nameLabel": "Group Name",
+        "namePlaceholder": "e.g. Engineering",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Describe the group's purpose..."
+      },
+      "confirmDelete": "Delete security group \"{{name}}\"?",
+      "memberType": {
+        "user": "User",
+        "team": "Team"
+      },
+      "errors": {
+        "loadFailed": "Failed to load security groups",
+        "createFailed": "Failed to create security group"
+      }
+    },
+    "permissions": {
+      "title": "Permissions",
+      "subtitle": "Control access to resources across your organization",
+      "grantPermission": "Grant Permission",
+      "filters": {
+        "resourceType": "Resource Type",
+        "allResources": "All Resources",
+        "granteeType": "Grantee Type",
+        "allGrantees": "All Grantees"
+      },
+      "loading": "Loading permissions...",
+      "columns": {
+        "grantee": "Grantee",
+        "type": "Type",
+        "resource": "Resource",
+        "accessLevel": "Access Level",
+        "granted": "Granted",
+        "actions": "Actions"
+      },
+      "actions": {
+        "revoke": "Revoke"
+      },
+      "emptyState": "No permissions found matching filters",
+      "modal": {
+        "title": "Grant Permission",
+        "cancel": "Cancel",
+        "grant": "Grant"
+      },
+      "form": {
+        "granteeTypeLabel": "Grantee Type",
+        "granteeNameLabel": "Grantee Name",
+        "granteeNamePlaceholder": "e.g. Jane Smith or Backend Team",
+        "resourceTypeLabel": "Resource Type",
+        "accessLevelLabel": "Access Level"
+      },
+      "confirmRevoke": "Revoke {{accessLevel}} access for \"{{name}}\" on {{resourceType}}?",
+      "errors": {
+        "loadFailed": "Failed to load permissions",
+        "grantFailed": "Failed to grant permission"
+      }
+    },
+    "authProviders": {
+      "title": "Auth Providers",
+      "subtitle": "Configure identity providers for single sign-on",
+      "addProvider": "Add Provider",
+      "loading": "Loading auth providers...",
+      "addedPrefix": "Added",
+      "testing": "Testing...",
+      "emptyState": "No auth providers configured. Add one to enable SSO.",
+      "modal": {
+        "editTitle": "Edit Provider",
+        "createTitle": "Add Auth Provider",
+        "cancel": "Cancel",
+        "update": "Update",
+        "create": "Create"
+      },
+      "form": {
+        "nameLabel": "Name",
+        "namePlaceholder": "e.g. Corporate OIDC",
+        "typeLabel": "Type",
+        "issuerUrlLabel": "Issuer URL",
+        "issuerUrlPlaceholder": "https://auth.example.com/realms/corp",
+        "clientIdLabel": "Client ID",
+        "clientIdPlaceholder": "squadron-app",
+        "clientSecretLabel": "Client Secret",
+        "clientSecretPlaceholder": "Enter secret...",
+        "enabledLabel": "Enabled"
+      },
+      "types": {
+        "oidc": "OpenID Connect",
+        "keycloak": "Keycloak",
+        "ldap": "LDAP",
+        "saml": "SAML"
+      },
+      "confirmDelete": "Delete auth provider \"{{name}}\"?",
+      "errors": {
+        "loadFailed": "Failed to load auth providers",
+        "createFailed": "Failed to create auth provider",
+        "testFailed": "Failed to test auth provider",
+        "connectionTestFailed": "Connection test failed"
+      }
+    },
+    "platformConnections": {
+      "title": "Platform Connections",
+      "subtitle": "Connect to Git and ticketing platforms",
+      "addConnection": "Add Connection",
+      "loading": "Loading connections...",
+      "detail": {
+        "baseUrl": "Base URL",
+        "lastSynced": "Last Synced",
+        "created": "Created"
+      },
+      "testing": "Testing...",
+      "syncing": "Syncing...",
+      "emptyState": "No platform connections configured. Add a connection to start importing tasks and syncing code.",
+      "modal": {
+        "editTitle": "Edit Connection",
+        "createTitle": "Add Platform Connection",
+        "cancel": "Cancel",
+        "update": "Update",
+        "create": "Create"
+      },
+      "form": {
+        "nameLabel": "Name",
+        "namePlaceholder": "e.g. GitHub - Organization",
+        "platformLabel": "Platform",
+        "baseUrlLabel": "Base URL",
+        "baseUrlPlaceholder": "https://api.github.com",
+        "accessTokenLabel": "Access Token",
+        "accessTokenPlaceholder": "Enter token..."
+      },
+      "platforms": {
+        "github": "GitHub",
+        "gitlab": "GitLab",
+        "jiraCloud": "Jira Cloud",
+        "jiraServer": "Jira Server / DC",
+        "azureDevops": "Azure DevOps",
+        "bitbucket": "Bitbucket"
+      },
+      "confirmDelete": "Delete connection \"{{name}}\"?",
+      "errors": {
+        "loadFailed": "Failed to load platform connections",
+        "createFailed": "Failed to create platform connection",
+        "syncFailed": "Failed to sync connection"
+      }
+    },
+    "usage": {
+      "title": "Token Usage",
+      "subtitle": "Monitor AI agent token consumption and costs",
+      "loading": "Loading usage data...",
+      "cards": {
+        "totalTokens": "Total Tokens",
+        "inputTokens": "Input Tokens",
+        "outputTokens": "Output Tokens",
+        "totalCost": "Total Cost"
+      },
+      "agentBreakdown": {
+        "title": "Usage by Agent Type",
+        "columns": {
+          "agentType": "Agent Type",
+          "tokens": "Tokens",
+          "cost": "Cost",
+          "invocations": "Invocations",
+          "distribution": "Distribution"
+        },
+        "emptyState": "No agent usage data available."
+      },
+      "emptyState": "No usage data available for this tenant."
+    }
+  },
+  "auth": {
+    "oidcCallback": {
+      "completingSignIn": "Completing sign in..."
+    }
   }
 }

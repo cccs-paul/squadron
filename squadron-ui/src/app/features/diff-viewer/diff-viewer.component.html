@@ -1,15 +1,15 @@
 <div class="diff-viewer">
   <div class="diff-viewer__header">
-    <h2 class="diff-viewer__title">Code Changes</h2>
+    <h2 class="diff-viewer__title">{{ 'diffViewer.title' | translate }}</h2>
     <div class="diff-viewer__stats">
       <span class="diff-viewer__stat diff-viewer__stat--additions">+{{ totalAdditions() }}</span>
       <span class="diff-viewer__stat diff-viewer__stat--deletions">-{{ totalDeletions() }}</span>
-      <span class="diff-viewer__stat">{{ fileCount() }} files changed</span>
+      <span class="diff-viewer__stat">{{ fileCount() }} {{ 'diffViewer.filesChanged' | translate }}</span>
     </div>
   </div>
 
   @if (loading()) {
-    <div class="diff-viewer__loading">Loading diff...</div>
+    <div class="diff-viewer__loading">{{ 'diffViewer.loading' | translate }}</div>
   } @else if (error()) {
     <div class="diff-viewer__error">{{ error() }}</div>
   } @else if (diff()) {
@@ -81,7 +81,7 @@
                                 <span class="sq-badge" [class]="'sq-badge--' + severityClass(comment.severity)">{{ comment.severity }}</span>
                                 <span class="sq-badge sq-badge--neutral">{{ comment.category }}</span>
                                 @if (comment.resolved) {
-                                  <span class="sq-badge sq-badge--success">Resolved</span>
+                                  <span class="sq-badge sq-badge--success">{{ 'diffViewer.resolved' | translate }}</span>
                                 }
                               </div>
                               <p class="inline-comment__body">{{ comment.body }}</p>
@@ -97,7 +97,7 @@
                             <div class="comment-form">
                               <textarea
                                 class="sq-input comment-form__textarea"
-                                placeholder="Add a review comment..."
+                                [placeholder]="'diffViewer.addComment' | translate"
                                 [(ngModel)]="newCommentBody"
                                 rows="3"
                               ></textarea>
@@ -112,7 +112,7 @@
                                     <option [value]="c">{{ c }}</option>
                                   }
                                 </select>
-                                <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="cancelComment()">Cancel</button>
+                                <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="cancelComment()">{{ 'diffViewer.cancel' | translate }}</button>
                               </div>
                             </div>
                           </td>
@@ -126,7 +126,7 @@
           }
         </div>
       } @empty {
-        <div class="diff-viewer__empty">No file changes found.</div>
+        <div class="diff-viewer__empty">{{ 'diffViewer.noChanges' | translate }}</div>
       }
     </div>
   }

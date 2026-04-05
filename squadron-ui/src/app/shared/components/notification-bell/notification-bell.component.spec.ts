@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { of } from 'rxjs';
 import { NotificationBellComponent } from './notification-bell.component';
 import { NotificationService } from '../../../core/services/notification.service';
@@ -100,7 +101,7 @@ describe('NotificationBellComponent', () => {
     });
 
     await TestBed.configureTestingModule({
-      imports: [NotificationBellComponent],
+      imports: [NotificationBellComponent, TranslateModule.forRoot()],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -192,7 +193,7 @@ describe('NotificationBellComponent', () => {
 
     const emptyMsg = fixture.nativeElement.querySelector('.dropdown__empty');
     expect(emptyMsg).toBeTruthy();
-    expect(emptyMsg.textContent).toContain('No notifications');
+    expect(emptyMsg.textContent).toContain('notifications.dropdown.empty');
   });
 
   it('should_callMarkAsRead_when_notificationClicked', () => {

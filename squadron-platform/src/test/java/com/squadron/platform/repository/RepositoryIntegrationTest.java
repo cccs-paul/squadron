@@ -217,9 +217,14 @@ class RepositoryIntegrationTest {
                 platformConnectionRepository.findByPlatformTypeInAndStatus(
                         List.of("JIRA_CLOUD", "JIRA_SERVER"), "ACTIVE");
 
-        assertThat(results).hasSize(2);
-        assertThat(results).allMatch(c -> "ACTIVE".equals(c.getStatus()));
-        assertThat(results).extracting(PlatformConnection::getPlatformType)
+        // Filter to test tenant only (V7 migration may seed additional rows)
+        List<PlatformConnection> tenantResults = results.stream()
+                .filter(c -> tenantId.equals(c.getTenantId()))
+                .toList();
+
+        assertThat(tenantResults).hasSize(2);
+        assertThat(tenantResults).allMatch(c -> "ACTIVE".equals(c.getStatus()));
+        assertThat(tenantResults).extracting(PlatformConnection::getPlatformType)
                 .containsExactlyInAnyOrder("JIRA_CLOUD", "JIRA_SERVER");
     }
 

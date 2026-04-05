@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { TranslateModule } from '@ngx-translate/core';
 import { TaskService } from '../../../core/services/task.service';
 import { Task, TaskState, TaskPriority } from '../../../core/models/task.model';
 import { TaskCardComponent } from '../task-card/task-card.component';
@@ -16,7 +17,7 @@ interface BoardColumn {
 @Component({
   selector: 'sq-task-board',
   standalone: true,
-  imports: [FormsModule, TaskCardComponent, CdkDropList, CdkDrag],
+  imports: [FormsModule, TaskCardComponent, CdkDropList, CdkDrag, TranslateModule],
   templateUrl: './task-board.component.html',
   styleUrl: './task-board.component.scss',
 })
@@ -62,12 +63,12 @@ export class TaskBoardComponent implements OnInit {
   private loadTasks(): void {
     this.loading.set(true);
     const columnDefs: Omit<BoardColumn, 'tasks'>[] = [
-      { state: TaskState.BACKLOG, label: 'Backlog', color: '#9CA3AF' },
-      { state: TaskState.PLANNING, label: 'Planning', color: '#818CF8' },
-      { state: TaskState.IN_PROGRESS, label: 'In Progress', color: '#06B6D4' },
-      { state: TaskState.REVIEW, label: 'Review', color: '#F59E0B' },
-      { state: TaskState.QA, label: 'QA', color: '#8B5CF6' },
-      { state: TaskState.DONE, label: 'Done', color: '#10B981' },
+      { state: TaskState.BACKLOG, label: 'tasks.board.column.backlog', color: '#9CA3AF' },
+      { state: TaskState.PLANNING, label: 'tasks.board.column.planning', color: '#818CF8' },
+      { state: TaskState.IN_PROGRESS, label: 'tasks.board.column.inProgress', color: '#06B6D4' },
+      { state: TaskState.REVIEW, label: 'tasks.board.column.review', color: '#F59E0B' },
+      { state: TaskState.QA, label: 'tasks.board.column.qa', color: '#8B5CF6' },
+      { state: TaskState.DONE, label: 'tasks.board.column.done', color: '#10B981' },
     ];
 
     this.taskService.getTasksByState().subscribe({

@@ -8,11 +8,12 @@ import { WebSocketService, ConnectionState } from '../../core/services/websocket
 import { StreamChunk, ChatRequest, AgentProgress } from '../../core/models/agent.model';
 import { AvatarComponent } from '../../shared/components/avatar/avatar.component';
 import { TimeAgoPipe } from '../../shared/pipes/time-ago.pipe';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'sq-agent-chat',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, AvatarComponent, TimeAgoPipe],
+  imports: [FormsModule, DecimalPipe, AvatarComponent, TimeAgoPipe, TranslateModule],
   templateUrl: './agent-chat.component.html',
   styleUrl: './agent-chat.component.scss',
 })

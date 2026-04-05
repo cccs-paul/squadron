@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { TranslateModule } from '@ngx-translate/core';
 import { PermissionManagementComponent } from './permission-management.component';
 import { PermissionService } from '../../../core/services/permission.service';
 import {
@@ -53,7 +54,7 @@ describe('PermissionManagementComponent', () => {
     permServiceSpy.getPermissions.and.returnValue(of(mockPage));
 
     await TestBed.configureTestingModule({
-      imports: [PermissionManagementComponent, FormsModule],
+      imports: [PermissionManagementComponent, FormsModule, TranslateModule.forRoot()],
       providers: [
         { provide: PermissionService, useValue: permServiceSpy },
         provideRouter([]),

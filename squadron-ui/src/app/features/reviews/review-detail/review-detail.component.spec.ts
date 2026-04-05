@@ -9,6 +9,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
 import { Review, ReviewStatus } from '../../../core/models/review.model';
 import { DiffResult } from '../../../core/models/diff.model';
+import { TranslateModule } from '@ngx-translate/core';
 
 describe('ReviewDetailComponent', () => {
   let component: ReviewDetailComponent;
@@ -28,7 +29,7 @@ describe('ReviewDetailComponent', () => {
     diffServiceSpy.getTaskDiff.and.returnValue(of(mockDiffResult));
 
     await TestBed.configureTestingModule({
-      imports: [ReviewDetailComponent],
+      imports: [ReviewDetailComponent, TranslateModule.forRoot()],
       providers: [
         provideRouter([]),
         provideHttpClient(),

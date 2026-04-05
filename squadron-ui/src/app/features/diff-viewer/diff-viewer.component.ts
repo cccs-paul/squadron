@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { DiffService } from '../../core/services/diff.service';
 import { DiffFile, DiffResult } from '../../core/models/diff.model';
 import { ReviewComment, ReviewSeverity, ReviewCategory } from '../../core/models/review.model';
@@ -14,7 +15,7 @@ export interface DiffLine {
 @Component({
   selector: 'sq-diff-viewer',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslateModule],
   templateUrl: './diff-viewer.component.html',
   styleUrl: './diff-viewer.component.scss',
 })

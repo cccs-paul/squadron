@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { PermissionService } from '../../../core/services/permission.service';
 import {
   Permission,
@@ -12,12 +13,13 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 @Component({
   selector: 'sq-permission-management',
   standalone: true,
-  imports: [FormsModule, TimeAgoPipe],
+  imports: [FormsModule, TimeAgoPipe, TranslateModule],
   templateUrl: './permission-management.component.html',
   styleUrl: './permission-management.component.scss',
 })
 export class PermissionManagementComponent implements OnInit {
   private permissionService = inject(PermissionService);
+  private translate = inject(TranslateService);
 
   permissions = signal<Permission[]>([]);
   loading = signal(true);
@@ -100,7 +102,7 @@ export class PermissionManagementComponent implements OnInit {
   }
 
   revokePermission(perm: Permission): void {
-    if (!confirm(`Revoke ${perm.accessLevel} access for "${perm.granteeName}" on ${perm.resourceType}?`)) return;
+    if (!confirm(this.translate.instant('admin.permissions.confirmRevoke', { accessLevel: perm.accessLevel, name: perm.granteeName, resourceType: perm.resourceType }))) return;
     this.permissionService.revokePermission(perm.id).subscribe({
       next: () => this.loadPermissions(),
       error: () => {

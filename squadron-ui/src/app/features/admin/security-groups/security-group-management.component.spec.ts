@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { TranslateModule } from '@ngx-translate/core';
 import { SecurityGroupManagementComponent } from './security-group-management.component';
 import { SecurityGroupService } from '../../../core/services/security-group.service';
 import { SecurityGroup, MemberType } from '../../../core/models/security.model';
@@ -49,7 +50,7 @@ describe('SecurityGroupManagementComponent', () => {
     sgServiceSpy.getGroups.and.returnValue(of(mockPage));
 
     await TestBed.configureTestingModule({
-      imports: [SecurityGroupManagementComponent, FormsModule],
+      imports: [SecurityGroupManagementComponent, FormsModule, TranslateModule.forRoot()],
       providers: [
         { provide: SecurityGroupService, useValue: sgServiceSpy },
         provideRouter([]),
@@ -144,8 +145,8 @@ describe('SecurityGroupManagementComponent', () => {
   });
 
   it('should_returnCorrectMemberTypeLabel_when_memberTypeLabelCalled', () => {
-    expect(component.memberTypeLabel(MemberType.USER)).toBe('User');
-    expect(component.memberTypeLabel(MemberType.TEAM)).toBe('Team');
+    expect(component.memberTypeLabel(MemberType.USER)).toBe('admin.securityGroups.memberType.user');
+    expect(component.memberTypeLabel(MemberType.TEAM)).toBe('admin.securityGroups.memberType.team');
   });
 
   it('should_showEmptyState_when_getGroupsFails', () => {

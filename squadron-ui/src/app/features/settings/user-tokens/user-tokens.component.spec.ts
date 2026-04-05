@@ -6,6 +6,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
+import { TranslateModule } from '@ngx-translate/core';
 import { UserPlatformToken, ConnectionInfo } from '../../../core/models/user-token.model';
 
 describe('UserTokensComponent', () => {
@@ -91,7 +92,7 @@ describe('UserTokensComponent', () => {
     ]);
 
     await TestBed.configureTestingModule({
-      imports: [UserTokensComponent],
+      imports: [UserTokensComponent, TranslateModule.forRoot()],
       providers: [
         { provide: UserTokenService, useValue: tokenServiceSpy },
         { provide: AuthService, useValue: mockAuthService },
@@ -141,7 +142,7 @@ describe('UserTokensComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     const emptyMsg = compiled.querySelector('.user-tokens__empty');
     expect(emptyMsg).toBeTruthy();
-    expect(emptyMsg?.textContent).toContain('No platform tokens linked yet');
+    expect(emptyMsg?.textContent).toContain('settings.userTokens.noTokens');
   });
 
   it('should_showTokenCards_when_tokensExist', () => {

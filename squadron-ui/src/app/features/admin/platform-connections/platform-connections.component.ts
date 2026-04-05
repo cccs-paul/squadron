@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { PlatformService } from '../../../core/services/platform.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import {
@@ -12,13 +13,14 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 @Component({
   selector: 'sq-platform-connections',
   standalone: true,
-  imports: [FormsModule, TimeAgoPipe],
+  imports: [FormsModule, TimeAgoPipe, TranslateModule],
   templateUrl: './platform-connections.component.html',
   styleUrl: './platform-connections.component.scss',
 })
 export class PlatformConnectionsComponent implements OnInit {
   private platformService = inject(PlatformService);
   private authService = inject(AuthService);
+  private translate = inject(TranslateService);
 
   connections = signal<PlatformConnection[]>([]);
   loading = signal(true);
@@ -138,7 +140,7 @@ export class PlatformConnectionsComponent implements OnInit {
   }
 
   deleteConnection(conn: PlatformConnection): void {
-    if (!confirm(`Delete connection "${conn.name}"?`)) return;
+    if (!confirm(this.translate.instant('admin.platformConnections.confirmDelete', { name: conn.name }))) return;
     this.platformService.deleteConnection(conn.id).subscribe({
       next: () => this.loadConnections(),
       error: () => {
@@ -157,12 +159,12 @@ export class PlatformConnectionsComponent implements OnInit {
 
   platformIcon(type: PlatformConnectionType): string {
     switch (type) {
-      case PlatformConnectionType.GITHUB: return 'GitHub';
-      case PlatformConnectionType.GITLAB: return 'GitLab';
-      case PlatformConnectionType.JIRA_CLOUD: return 'Jira Cloud';
-      case PlatformConnectionType.JIRA_SERVER: return 'Jira Server / DC';
-      case PlatformConnectionType.AZURE_DEVOPS: return 'Azure DevOps';
-      case PlatformConnectionType.BITBUCKET: return 'Bitbucket';
+      case PlatformConnectionType.GITHUB: return this.translate.instant('admin.platformConnections.platforms.github');
+      case PlatformConnectionType.GITLAB: return this.translate.instant('admin.platformConnections.platforms.gitlab');
+      case PlatformConnectionType.JIRA_CLOUD: return this.translate.instant('admin.platformConnections.platforms.jiraCloud');
+      case PlatformConnectionType.JIRA_SERVER: return this.translate.instant('admin.platformConnections.platforms.jiraServer');
+      case PlatformConnectionType.AZURE_DEVOPS: return this.translate.instant('admin.platformConnections.platforms.azureDevops');
+      case PlatformConnectionType.BITBUCKET: return this.translate.instant('admin.platformConnections.platforms.bitbucket');
       default: return type;
     }
   }

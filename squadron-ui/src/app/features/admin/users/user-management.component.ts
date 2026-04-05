@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { UserService } from '../../../core/services/user.service';
 import { User, UserRole, UserStatus } from '../../../core/models/user.model';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
@@ -8,12 +9,13 @@ import { AvatarComponent } from '../../../shared/components/avatar/avatar.compon
 @Component({
   selector: 'sq-user-management',
   standalone: true,
-  imports: [FormsModule, TimeAgoPipe, AvatarComponent],
+  imports: [FormsModule, TimeAgoPipe, AvatarComponent, TranslateModule],
   templateUrl: './user-management.component.html',
   styleUrl: './user-management.component.scss',
 })
 export class UserManagementComponent implements OnInit {
   private userService = inject(UserService);
+  private translate = inject(TranslateService);
 
   users = signal<User[]>([]);
   loading = signal(true);
@@ -111,7 +113,7 @@ export class UserManagementComponent implements OnInit {
   }
 
   deleteUser(user: User): void {
-    if (!confirm(`Delete user "${user.displayName}"?`)) return;
+    if (!confirm(this.translate.instant('admin.users.confirmDelete', { name: user.displayName }))) return;
     this.userService.deleteUser(user.id).subscribe({
       next: () => this.loadUsers(),
       error: () => {

@@ -8,6 +8,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
 import { QAReport, QAVerdict } from '../../core/models/qa-report.model';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   standalone: true,
@@ -58,7 +59,7 @@ describe('QAReportComponent', () => {
     qaServiceSpy = jasmine.createSpyObj('QAReportService', ['getLatestReport', 'getReports', 'checkGate']);
 
     await TestBed.configureTestingModule({
-      imports: [QAReportComponent, TestHostComponent],
+      imports: [QAReportComponent, TestHostComponent, TranslateModule.forRoot()],
       providers: [
         provideRouter([]),
         provideHttpClient(),

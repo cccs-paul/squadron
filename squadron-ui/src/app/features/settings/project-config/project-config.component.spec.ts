@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { ProjectConfigComponent, WizardStep } from './project-config.component';
 import { ProjectService } from '../../../core/services/project.service';
 import { PlatformService } from '../../../core/services/platform.service';
@@ -116,7 +117,7 @@ describe('ProjectConfigComponent', () => {
     sshKeyServiceSpy.deleteSshKey.and.returnValue(of(void 0));
 
     await TestBed.configureTestingModule({
-      imports: [ProjectConfigComponent],
+      imports: [ProjectConfigComponent, TranslateModule.forRoot()],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -171,7 +172,7 @@ describe('ProjectConfigComponent', () => {
   it('should_showErrorState_when_notAuthenticated', () => {
     (authServiceSpy.user as jasmine.Spy).and.returnValue(null);
     fixture.detectChanges();
-    expect(component.loadError()).toBe('Not authenticated');
+    expect(component.loadError()).toBe('projectConfig.errors.notAuthenticated');
     expect(component.loading()).toBeFalse();
   });
 
@@ -283,12 +284,12 @@ describe('ProjectConfigComponent', () => {
   });
 
   it('should_returnPlatformIcon', () => {
-    expect(component.platformIcon('GITHUB')).toBe('GitHub');
-    expect(component.platformIcon('JIRA_CLOUD')).toBe('Jira Cloud');
-    expect(component.platformIcon('JIRA_SERVER')).toBe('Jira Server / DC');
-    expect(component.platformIcon('GITLAB')).toBe('GitLab');
-    expect(component.platformIcon('AZURE_DEVOPS')).toBe('Azure DevOps');
-    expect(component.platformIcon('BITBUCKET')).toBe('Bitbucket');
+    expect(component.platformIcon('GITHUB')).toBe('projectConfig.platforms.github');
+    expect(component.platformIcon('JIRA_CLOUD')).toBe('projectConfig.platforms.jiraCloud');
+    expect(component.platformIcon('JIRA_SERVER')).toBe('projectConfig.platforms.jiraServer');
+    expect(component.platformIcon('GITLAB')).toBe('projectConfig.platforms.gitlab');
+    expect(component.platformIcon('AZURE_DEVOPS')).toBe('projectConfig.platforms.azureDevops');
+    expect(component.platformIcon('BITBUCKET')).toBe('projectConfig.platforms.bitbucket');
     expect(component.platformIcon('OTHER')).toBe('OTHER');
   });
 
@@ -324,14 +325,14 @@ describe('ProjectConfigComponent', () => {
     component.ticketForm.platformType = 'JIRA_CLOUD';
     const options = component.getTicketAuthTypeOptions();
     expect(options.length).toBe(2);
-    expect(options[0].label).toBe('API Token');
-    expect(options[1].label).toBe('OAuth 2.0');
+    expect(options[0].label).toBe('projectConfig.authTypes.apiToken');
+    expect(options[1].label).toBe('projectConfig.authTypes.oauth2');
   });
 
   it('should_returnTicketAuthFields_forSelectedAuthType', () => {
     fixture.detectChanges();
     component.ticketForm.platformType = 'JIRA_CLOUD';
-    component.ticketForm.authType = 'API Token';
+    component.ticketForm.authType = 'projectConfig.authTypes.apiToken';
     const fields = component.getTicketAuthFields();
     expect(fields.length).toBe(2);
     expect(fields[0].key).toBe('email');
@@ -341,13 +342,13 @@ describe('ProjectConfigComponent', () => {
   it('should_resetAuthTypeAndCredentials_when_ticketPlatformTypeChanges', () => {
     fixture.detectChanges();
     component.ticketForm.platformType = 'JIRA_CLOUD';
-    component.ticketForm.authType = 'API Token';
+    component.ticketForm.authType = 'projectConfig.authTypes.apiToken';
     component.ticketForm.credentials = { email: 'test@test.com', apiToken: 'abc' };
 
     component.ticketForm.platformType = 'AZURE_DEVOPS';
     component.onTicketPlatformTypeChange();
 
-    expect(component.ticketForm.authType).toBe('PAT');
+    expect(component.ticketForm.authType).toBe('projectConfig.authTypes.pat');
     expect(component.ticketForm.credentials).toEqual({});
   });
 
@@ -367,7 +368,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.ticketForm = {
       name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
-      authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
+      authType: 'projectConfig.authTypes.apiToken', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
     expect(component.canSaveTicketProvider()).toBeTrue();
   });
@@ -376,7 +377,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.ticketForm = {
       name: 'My Jira', platformType: 'JIRA_SERVER', baseUrl: '',
-      authType: 'PAT', credentials: { pat: 'abc123' },
+      authType: 'projectConfig.authTypes.pat', credentials: { pat: 'abc123' },
     };
     expect(component.canSaveTicketProvider()).toBeFalse();
 
@@ -390,7 +391,7 @@ describe('ProjectConfigComponent', () => {
     const initialCount = component.ticketProviders().length;
     component.ticketForm = {
       name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
-      authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
+      authType: 'projectConfig.authTypes.apiToken', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
 
     component.saveTicketProvider();
@@ -409,7 +410,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.ticketForm = {
       name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
-      authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
+      authType: 'projectConfig.authTypes.apiToken', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
 
     component.saveTicketProvider();
@@ -423,7 +424,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.ticketForm = {
       name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
-      authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
+      authType: 'projectConfig.authTypes.apiToken', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
     component.saveTicketProvider();
     expect(component.ticketSaveSuccess()).toBeTrue();
@@ -460,14 +461,14 @@ describe('ProjectConfigComponent', () => {
     component.gitForm.platformType = 'GITHUB';
     const options = component.getGitAuthTypeOptions();
     expect(options.length).toBe(2);
-    expect(options[0].label).toBe('PAT');
-    expect(options[1].label).toBe('App');
+    expect(options[0].label).toBe('projectConfig.authTypes.pat');
+    expect(options[1].label).toBe('projectConfig.authTypes.app');
   });
 
   it('should_returnGitAuthFields_forSelectedAuthType', () => {
     fixture.detectChanges();
     component.gitForm.platformType = 'GITHUB';
-    component.gitForm.authType = 'PAT';
+    component.gitForm.authType = 'projectConfig.authTypes.pat';
     const fields = component.getGitAuthFields();
     expect(fields.length).toBe(1);
     expect(fields[0].key).toBe('pat');
@@ -482,7 +483,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.gitForm = {
       name: 'GitHub - MyOrg', platformType: 'GITHUB', baseUrl: 'https://api.github.com',
-      authType: 'PAT', credentials: { pat: 'ghp_abc123' },
+      authType: 'projectConfig.authTypes.pat', credentials: { pat: 'ghp_abc123' },
     };
     expect(component.canSaveGitRemote()).toBeTrue();
   });
@@ -492,7 +493,7 @@ describe('ProjectConfigComponent', () => {
     const initialGitCount = component.gitRemotes().length;
     component.gitForm = {
       name: 'GitHub - MyOrg', platformType: 'GITHUB', baseUrl: 'https://api.github.com',
-      authType: 'PAT', credentials: { pat: 'ghp_abc123' },
+      authType: 'projectConfig.authTypes.pat', credentials: { pat: 'ghp_abc123' },
     };
 
     component.saveGitRemote();
@@ -510,7 +511,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.gitForm = {
       name: 'GitHub', platformType: 'GITHUB', baseUrl: 'https://api.github.com',
-      authType: 'PAT', credentials: { pat: 'bad' },
+      authType: 'projectConfig.authTypes.pat', credentials: { pat: 'bad' },
     };
 
     component.saveGitRemote();
@@ -826,7 +827,7 @@ describe('ProjectConfigComponent', () => {
 
     expect(component.importSaving()).toBeFalse();
     expect(component.importSaveError()).toBeTruthy();
-    expect(component.importSaveError()).toContain('1 project(s) failed');
+    expect(component.importSaveError()).toContain('projectConfig.projects.errors.partialImportFailure');
   });
 
   it('should_getSelectedCandidates_returnOnlySelected', () => {
@@ -1021,7 +1022,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     const ps = component.projectStates()[0];
     expect(ps.expanded).toBeFalse();
-    expect(component.getMappingLabel(ps)).toBe('Not configured');
+    expect(component.getMappingLabel(ps)).toBe('projectConfig.branchWorkflow.notConfigured');
   });
 
   it('should_getMappingLabel_returnMappingCount_when_expanded', () => {
@@ -1030,7 +1031,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     const ps = component.projectStates()[0];
     expect(ps.expanded).toBeTrue();
-    expect(component.getMappingLabel(ps)).toBe('2 mappings');
+    expect(component.getMappingLabel(ps)).toBe('projectConfig.branchWorkflow.mappingCount');
   });
 
   it('should_getMappingLabel_useSingular_when_oneMapping', () => {
@@ -1039,7 +1040,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.removeMapping(0, 0);
     const ps = component.projectStates()[0];
-    expect(component.getMappingLabel(ps)).toBe('1 mapping');
+    expect(component.getMappingLabel(ps)).toBe('projectConfig.branchWorkflow.mappingCount');
   });
 
   // --- Connection helpers ---

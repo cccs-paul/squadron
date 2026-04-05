@@ -1,12 +1,12 @@
 @if (loading()) {
-  <div class="loading">Loading review...</div>
+  <div class="loading">{{ 'reviews.detail.loading' | translate }}</div>
 } @else {
   @if (review(); as r) {
   <div class="review-detail">
     <div class="review-detail__header">
       <a routerLink="/reviews" class="back-link">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-        Back to Reviews
+        {{ 'reviews.detail.backToReviews' | translate }}
       </a>
     </div>
 
@@ -17,31 +17,31 @@
       </div>
       <div class="action-buttons">
         @if (r.status === 'PENDING' || r.status === 'IN_PROGRESS') {
-          <button class="sq-btn sq-btn--success" (click)="approveReview()">Approve</button>
-          <button class="sq-btn sq-btn--danger" (click)="rejectReview()">Reject</button>
+          <button class="sq-btn sq-btn--success" (click)="approveReview()">{{ 'reviews.detail.approve' | translate }}</button>
+          <button class="sq-btn sq-btn--danger" (click)="rejectReview()">{{ 'reviews.detail.reject' | translate }}</button>
         }
       </div>
     </div>
 
     <div class="review-detail__stats">
-      <div class="stat-item"><span class="stat-label">Files changed</span><span class="stat-val">{{ r.filesChanged }}</span></div>
-      <div class="stat-item"><span class="stat-label">Lines added</span><span class="stat-val stat-val--add">+{{ r.linesAdded }}</span></div>
-      <div class="stat-item"><span class="stat-label">Lines removed</span><span class="stat-val stat-val--remove">-{{ r.linesRemoved }}</span></div>
-      <div class="stat-item"><span class="stat-label">Comments</span><span class="stat-val">{{ r.comments.length }}</span></div>
-      <div class="stat-item"><span class="stat-label">Unresolved</span><span class="stat-val" [class.stat-val--remove]="unresolvedCount() > 0">{{ unresolvedCount() }}</span></div>
-      <div class="stat-item"><span class="stat-label">Resolved</span><span class="stat-val stat-val--add">{{ resolvedCount() }}</span></div>
+      <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.filesChanged' | translate }}</span><span class="stat-val">{{ r.filesChanged }}</span></div>
+      <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.linesAdded' | translate }}</span><span class="stat-val stat-val--add">+{{ r.linesAdded }}</span></div>
+      <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.linesRemoved' | translate }}</span><span class="stat-val stat-val--remove">-{{ r.linesRemoved }}</span></div>
+      <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.comments' | translate }}</span><span class="stat-val">{{ r.comments.length }}</span></div>
+      <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.unresolved' | translate }}</span><span class="stat-val" [class.stat-val--remove]="unresolvedCount() > 0">{{ unresolvedCount() }}</span></div>
+      <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.resolved' | translate }}</span><span class="stat-val stat-val--add">{{ resolvedCount() }}</span></div>
     </div>
 
     <!-- Tabs -->
     <div class="review-tabs">
       <button class="review-tab" [class.review-tab--active]="activeTab() === 'diff'" (click)="setTab('diff')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Diff
+        {{ 'reviews.detail.diffTab' | translate }}
         @if (hasDiff()) { <span class="review-tab__badge">{{ r.filesChanged }}</span> }
       </button>
       <button class="review-tab" [class.review-tab--active]="activeTab() === 'comments'" (click)="setTab('comments')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Comments
+        {{ 'reviews.detail.commentsTab' | translate }}
         <span class="review-tab__badge">{{ r.comments.length }}</span>
       </button>
     </div>
@@ -56,7 +56,7 @@
     <!-- Comments Tab -->
     @if (activeTab() === 'comments') {
       <div class="comments-section sq-card">
-        <div class="card-header"><h3>Review Comments</h3></div>
+        <div class="card-header"><h3>{{ 'reviews.detail.reviewComments' | translate }}</h3></div>
         <div class="comments-list">
           @for (comment of r.comments; track comment.id) {
             <div class="comment" [class.comment--resolved]="comment.resolved">
@@ -67,9 +67,9 @@
                   @if (comment.lineNumber) { <span class="line-num">:{{ comment.lineNumber }}</span> }
                 </div>
                 <div class="comment__badges">
-                  <span class="sq-badge" [class]="'sq-badge--' + severityClass(comment.severity)">{{ comment.severity }}</span>
+                  <span class="sq-badge" [class]="'sq-badge--' + severityClass(comment.severity)">{{ 'reviews.detail.severity.' + comment.severity | translate }}</span>
                   <span class="sq-badge sq-badge--neutral">{{ comment.category }}</span>
-                  @if (comment.resolved) { <span class="sq-badge sq-badge--success">Resolved</span> }
+                  @if (comment.resolved) { <span class="sq-badge sq-badge--success">{{ 'reviews.detail.resolved' | translate }}</span> }
                 </div>
               </div>
               <p class="comment__body">{{ comment.body }}</p>
@@ -79,7 +79,7 @@
               </div>
             </div>
           } @empty {
-            <div class="no-comments">No comments yet</div>
+            <div class="no-comments">{{ 'reviews.detail.noComments' | translate }}</div>
           }
         </div>
       </div>

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
+import { TranslateModule } from '@ngx-translate/core';
 import { PlatformConnectionsComponent } from './platform-connections.component';
 import { PlatformService } from '../../../core/services/platform.service';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -63,7 +64,7 @@ describe('PlatformConnectionsComponent', () => {
     } as any;
 
     await TestBed.configureTestingModule({
-      imports: [PlatformConnectionsComponent, FormsModule],
+      imports: [PlatformConnectionsComponent, FormsModule, TranslateModule.forRoot()],
       providers: [
         { provide: PlatformService, useValue: platformServiceSpy },
         { provide: AuthService, useValue: authServiceMock },
@@ -210,12 +211,12 @@ describe('PlatformConnectionsComponent', () => {
   });
 
   it('should_returnCorrectPlatformIcon_when_platformIconCalled', () => {
-    expect(component.platformIcon(PlatformConnectionType.GITHUB)).toBe('GitHub');
-    expect(component.platformIcon(PlatformConnectionType.GITLAB)).toBe('GitLab');
-    expect(component.platformIcon(PlatformConnectionType.JIRA_CLOUD)).toBe('Jira Cloud');
-    expect(component.platformIcon(PlatformConnectionType.JIRA_SERVER)).toBe('Jira Server / DC');
-    expect(component.platformIcon(PlatformConnectionType.AZURE_DEVOPS)).toBe('Azure DevOps');
-    expect(component.platformIcon(PlatformConnectionType.BITBUCKET)).toBe('Bitbucket');
+    expect(component.platformIcon(PlatformConnectionType.GITHUB)).toBe('admin.platformConnections.platforms.github');
+    expect(component.platformIcon(PlatformConnectionType.GITLAB)).toBe('admin.platformConnections.platforms.gitlab');
+    expect(component.platformIcon(PlatformConnectionType.JIRA_CLOUD)).toBe('admin.platformConnections.platforms.jiraCloud');
+    expect(component.platformIcon(PlatformConnectionType.JIRA_SERVER)).toBe('admin.platformConnections.platforms.jiraServer');
+    expect(component.platformIcon(PlatformConnectionType.AZURE_DEVOPS)).toBe('admin.platformConnections.platforms.azureDevops');
+    expect(component.platformIcon(PlatformConnectionType.BITBUCKET)).toBe('admin.platformConnections.platforms.bitbucket');
   });
 
   it('should_showEmptyState_when_getConnectionsFails', () => {

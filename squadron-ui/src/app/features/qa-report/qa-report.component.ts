@@ -2,11 +2,12 @@ import { Component, inject, OnInit, signal, computed, input } from '@angular/cor
 import { QAReportService } from '../../core/services/qa-report.service';
 import { QAReport, QAVerdict, QAFinding } from '../../core/models/qa-report.model';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'sq-qa-report',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, TranslateModule],
   templateUrl: './qa-report.component.html',
   styleUrl: './qa-report.component.scss',
 })

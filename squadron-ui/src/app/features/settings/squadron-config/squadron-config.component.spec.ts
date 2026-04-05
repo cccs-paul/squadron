@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { SquadronConfigComponent } from './squadron-config.component';
 import { UserSquadronService } from '../../../core/services/user-squadron.service';
 import { UserAgentConfig, SquadronLimits } from '../../../core/models/squadron-config.model';
@@ -39,7 +40,7 @@ describe('SquadronConfigComponent', () => {
     serviceSpy.getLimits.and.returnValue(of({ maxAgentsPerUser: 8 } as SquadronLimits));
 
     TestBed.configureTestingModule({
-      imports: [SquadronConfigComponent],
+      imports: [SquadronConfigComponent, TranslateModule.forRoot()],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),

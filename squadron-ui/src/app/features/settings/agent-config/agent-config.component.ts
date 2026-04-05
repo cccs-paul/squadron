@@ -1,12 +1,13 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { AgentConfigService, AgentConfig } from '../../../core/services/agent-config.service';
 import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'sq-agent-config',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslateModule],
   templateUrl: './agent-config.component.html',
   styleUrl: './agent-config.component.scss',
 })

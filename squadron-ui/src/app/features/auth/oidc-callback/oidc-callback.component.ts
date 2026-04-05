@@ -1,14 +1,16 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'sq-oidc-callback',
   standalone: true,
+  imports: [TranslateModule],
   template: `
     <div class="callback">
       <div class="callback__spinner"></div>
-      <p>Completing sign in...</p>
+      <p>{{ 'auth.oidcCallback.completingSignIn' | translate }}</p>
     </div>
   `,
   styles: [`

@@ -6,6 +6,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
 import { Project } from '../../../core/models/project.model';
+import { TranslateModule } from '@ngx-translate/core';
 
 describe('ProjectListComponent', () => {
   let component: ProjectListComponent;
@@ -17,7 +18,7 @@ describe('ProjectListComponent', () => {
     projectServiceSpy.getProjects.and.returnValue(throwError(() => new Error('api down')));
 
     await TestBed.configureTestingModule({
-      imports: [ProjectListComponent],
+      imports: [ProjectListComponent, TranslateModule.forRoot()],
       providers: [
         { provide: ProjectService, useValue: projectServiceSpy },
         provideRouter([]),

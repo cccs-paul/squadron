@@ -1,27 +1,28 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { UserSquadronService } from '../../../core/services/user-squadron.service';
 import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-config.model';
 
 @Component({
   selector: 'sq-squadron-config',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslateModule],
   template: `
     <div class="squadron-config">
       <div class="squadron-config__header">
-        <h2 class="squadron-config__title">My Agent Squadron</h2>
+        <h2 class="squadron-config__title">{{ 'settings.squadronConfig.title' | translate }}</h2>
         <p class="squadron-config__subtitle">
-          Configure your personal AI agents. You can have up to {{ maxAgents() }} agents.
+          {{ 'settings.squadronConfig.subtitle' | translate:{ max: maxAgents() } }}
         </p>
       </div>
 
       @if (loading()) {
-        <div class="squadron-config__loading">Loading squadron...</div>
+        <div class="squadron-config__loading">{{ 'settings.squadronConfig.loading' | translate }}</div>
       } @else {
         @if (saveSuccess()) {
           <div class="squadron-config__message squadron-config__message--success">
-            Changes saved successfully.
+            {{ 'settings.squadronConfig.saveSuccess' | translate }}
           </div>
         }
         @if (saveError()) {
@@ -39,7 +40,7 @@ import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-conf
                     <input
                       class="squadron-config__input squadron-config__input--name"
                       [(ngModel)]="editName"
-                      placeholder="Agent name"
+                      [placeholder]="'settings.squadronConfig.agentName' | translate"
                     />
                   } @else {
                     <span class="squadron-config__agent-name">{{ agent.agentName }}</span>
@@ -49,12 +50,12 @@ import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-conf
                 <div class="squadron-config__agent-actions">
                   @if (editingId() === agent.id) {
                     <button class="squadron-config__btn squadron-config__btn--save" (click)="saveAgent(agent)"
-                      [disabled]="saving()">Save</button>
-                    <button class="squadron-config__btn squadron-config__btn--cancel" (click)="cancelEdit()">Cancel</button>
+                      [disabled]="saving()">{{ 'settings.squadronConfig.save' | translate }}</button>
+                    <button class="squadron-config__btn squadron-config__btn--cancel" (click)="cancelEdit()">{{ 'common.cancel' | translate }}</button>
                   } @else {
-                    <button class="squadron-config__btn squadron-config__btn--edit" (click)="startEdit(agent)">Edit</button>
+                    <button class="squadron-config__btn squadron-config__btn--edit" (click)="startEdit(agent)">{{ 'settings.squadronConfig.edit' | translate }}</button>
                     <button class="squadron-config__btn squadron-config__btn--remove" (click)="removeAgent(agent)"
-                      [disabled]="agents().length <= 1">Remove</button>
+                      [disabled]="agents().length <= 1">{{ 'settings.squadronConfig.remove' | translate }}</button>
                   }
                 </div>
               </div>
@@ -62,7 +63,7 @@ import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-conf
               @if (editingId() === agent.id) {
                 <div class="squadron-config__agent-details">
                   <div class="squadron-config__field">
-                    <label class="squadron-config__label">Type</label>
+                    <label class="squadron-config__label">{{ 'settings.squadronConfig.type' | translate }}</label>
                     <select class="squadron-config__select" [(ngModel)]="editType">
                       @for (t of agentTypes; track t) {
                         <option [value]="t">{{ t }}</option>
@@ -70,26 +71,26 @@ import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-conf
                     </select>
                   </div>
                   <div class="squadron-config__field">
-                    <label class="squadron-config__label">Provider</label>
-                    <input class="squadron-config__input" [(ngModel)]="editProvider" placeholder="e.g. openai-compatible" />
+                    <label class="squadron-config__label">{{ 'settings.squadronConfig.provider' | translate }}</label>
+                    <input class="squadron-config__input" [(ngModel)]="editProvider" [placeholder]="'settings.squadronConfig.providerPlaceholder' | translate" />
                   </div>
                   <div class="squadron-config__field">
-                    <label class="squadron-config__label">Model</label>
-                    <input class="squadron-config__input" [(ngModel)]="editModel" placeholder="e.g. gpt-4o" />
+                    <label class="squadron-config__label">{{ 'settings.squadronConfig.model' | translate }}</label>
+                    <input class="squadron-config__input" [(ngModel)]="editModel" [placeholder]="'settings.squadronConfig.modelPlaceholder' | translate" />
                   </div>
                   <div class="squadron-config__field-row">
                     <div class="squadron-config__field">
-                      <label class="squadron-config__label">Max Tokens</label>
+                      <label class="squadron-config__label">{{ 'settings.squadronConfig.maxTokens' | translate }}</label>
                       <input class="squadron-config__input" type="number" [(ngModel)]="editMaxTokens" />
                     </div>
                     <div class="squadron-config__field">
-                      <label class="squadron-config__label">Temperature</label>
+                      <label class="squadron-config__label">{{ 'settings.squadronConfig.temperature' | translate }}</label>
                       <input class="squadron-config__input" type="number" step="0.1" min="0" max="2"
                         [(ngModel)]="editTemperature" />
                     </div>
                   </div>
                   <div class="squadron-config__field">
-                    <label class="squadron-config__label">Enabled</label>
+                    <label class="squadron-config__label">{{ 'settings.squadronConfig.enabled' | translate }}</label>
                     <input type="checkbox" [(ngModel)]="editEnabled" />
                   </div>
                 </div>
@@ -101,10 +102,10 @@ import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-conf
         <div class="squadron-config__footer">
           <button class="squadron-config__btn squadron-config__btn--add"
             (click)="addAgent()" [disabled]="agents().length >= maxAgents()">
-            + Add Agent
+            {{ 'settings.squadronConfig.addAgent' | translate }}
           </button>
           <button class="squadron-config__btn squadron-config__btn--reset" (click)="resetToDefaults()">
-            Reset to Defaults
+            {{ 'settings.squadronConfig.resetDefaults' | translate }}
           </button>
         </div>
       }

@@ -1,9 +1,9 @@
 <div class="project-list">
   <div class="project-list__header">
-    <div><h1>Projects</h1><p>Manage your repositories and projects</p></div>
+    <div><h1>{{ 'projects.list.title' | translate }}</h1><p>{{ 'projects.list.subtitle' | translate }}</p></div>
     <button class="sq-btn sq-btn--primary">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      New Project
+      {{ 'projects.list.newProject' | translate }}
     </button>
   </div>
   <div class="projects-grid">
@@ -17,13 +17,13 @@
         </div>
         @if (project.description) { <p class="project-card__desc">{{ project.description }}</p> }
         <div class="project-card__stats">
-          <span><strong>{{ project.taskCount }}</strong> tasks</span>
-          <span><strong>{{ project.activeTaskCount }}</strong> active</span>
+          <span><strong>{{ project.taskCount }}</strong> {{ 'projects.card.tasks' | translate }}</span>
+          <span><strong>{{ project.activeTaskCount }}</strong> {{ 'projects.card.active' | translate }}</span>
           <span class="project-card__date">{{ project.createdAt | timeAgo }}</span>
         </div>
       </div>
     } @empty {
-      <div class="empty-state"><p>No projects yet. Create your first project to get started.</p></div>
+      <div class="empty-state"><p>{{ 'projects.list.emptyState' | translate }}</p></div>
     }
   </div>
 </div>

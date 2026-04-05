@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { UsageDashboardComponent } from './usage-dashboard.component';
 import { UsageService } from '../../../core/services/usage.service';
 import { provideHttpClient } from '@angular/common/http';
@@ -34,7 +35,7 @@ describe('UsageDashboardComponent', () => {
     ]);
 
     await TestBed.configureTestingModule({
-      imports: [UsageDashboardComponent],
+      imports: [UsageDashboardComponent, TranslateModule.forRoot()],
       providers: [
         { provide: UsageService, useValue: usageServiceSpy },
         provideHttpClient(),
