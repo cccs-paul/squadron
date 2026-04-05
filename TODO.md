@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-04-04
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-21). Feature 21: Jira Server Test Instance — `atlassian/jira-software:9.12-jdk17` integrated into docker-compose-testldap.yml with shared PostgreSQL, Flyway V7 platform connection seed, and console setup instructions. Features 17-20 completed previously: (17) Agent Listener Refactor; (18) i18n Support (English + French, all 23 components); (19) Verbose Notification Event Types; (20) Mock Data Removal. Rootless containers, Hibernate dialect cleanup, surefire argLine fix also applied. All 3,818 backend tests passing (0 failures). Angular build passing. All 20 containers healthy (including Jira Server).
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Feature 22: GitLab CE Test Instance — `gitlab/gitlab-ce:17.4.0-ce.0` integrated into docker-compose-testldap.yml with LDAP pre-configured (Planet Express directory), bundled PostgreSQL, Flyway V8 platform connection seed (`GIT_REMOTE` category), and console setup instructions. Jira database bug fixed with `ensure_databases()` function that creates missing databases on existing PostgreSQL volumes. Features 17-21 completed previously. Rootless containers, Hibernate dialect cleanup, surefire argLine fix also applied. All 3,818 backend tests passing (0 failures). Angular build passing. All 21 containers healthy (including GitLab CE and Jira Server).
 
 ---
 
@@ -153,10 +153,12 @@
 ### Infrastructure
 - [x] Docker Compose (docker-compose.yml)
 - [x] Parent POM with dependency management
-- [x] All 24 Flyway migrations (V1-V6 for platform, V1-V4 for orchestrator, V1-V3 for identity/agent/git, V1-V2 for review/notification, V1 for config/workspace)
+- [x] All 25 Flyway migrations (V1-V8 for platform, V1-V4 for orchestrator, V1-V3 for identity/agent/git, V1-V2 for review/notification, V1 for config/workspace)
 - [x] Test LDAP integration (docker-compose-testldap.yml, seed data)
 - [x] Jira Server test instance (docker-compose-testldap.yml, Flyway V7 seed, setup instructions)
-- [x] All 20 containers healthy with testldap-build-and-start.sh
+- [x] GitLab CE test instance (docker-compose-testldap.yml, LDAP pre-configured, Flyway V8 seed, setup instructions)
+- [x] Database provisioning fix: `ensure_databases()` creates missing DBs on existing PostgreSQL volumes
+- [x] All 21 containers healthy with testldap-build-and-start.sh
 
 ---
 
@@ -540,6 +542,26 @@
 - [x] Port mapping: host 8090 → container 8080 (Tomcat default), healthcheck uses internal port 8080
 - [x] Healthcheck matches `RUNNING`, `FIRST_RUN`, and `ERROR` states (ERROR = setup wizard not yet completed)
 - [x] All 20 containers healthy (Jira starts in background, 2-5 min first boot)
+
+### Bug Fix: Jira Database Not Created on Existing PostgreSQL Volumes
+- [x] Root cause: `init-databases.sql` only runs once when the PostgreSQL volume is first initialized; if the `jira` database was added after the volume already existed, it was never created
+- [x] Fix: Added `ensure_databases()` function to `testldap-build-and-start.sh` that runs after PostgreSQL is healthy but before starting dependent services
+- [x] The function checks each required database via `SELECT 1 FROM pg_database` and creates any missing ones with `CREATE DATABASE ... OWNER squadron` + `pgcrypto` extension
+- [x] Handles both fresh installs (init script creates DBs) and existing volumes (ensure_databases fills gaps)
+
+### Feature 22: GitLab CE Test Instance
+- [x] Docker: `gitlab/gitlab-ce:17.4.0-ce.0` added to `docker-compose-testldap.yml` with bundled PostgreSQL (self-contained)
+- [x] LDAP: Pre-configured via `GITLAB_OMNIBUS_CONFIG` to use Planet Express test directory (`openldap-test:10389`)
+- [x] Performance tuning: Puma workers=2, Sidekiq concurrency=5, Prometheus/Grafana/Registry/Pages disabled
+- [x] Ports: HTTP `8929:80`, SSH `2424:22`
+- [x] Volumes: `gitlab-config`, `gitlab-logs`, `gitlab-data`
+- [x] Memory limits: 4096M (limit), 2048M (reservation), 256m shm_size
+- [x] Healthcheck: `/-/readiness?all=1` endpoint, 15s interval, 40 retries, 180s start_period
+- [x] Flyway V8: `V8__seed_testldap_gitlab_connection.sql` seeds `GITLAB` platform connection for Planet Express tenant with `platform_category = 'GIT_REMOTE'`, `auth_type = 'PAT'`, placeholder PAT
+- [x] Connection ID: `c0000000-0000-0000-0000-000000000002`, base_url: `http://gitlab-ce:80`
+- [x] Scripts: `testldap-build-and-start.sh` updated with GitLab in `INFRA_SERVICES` and `SLOW_HEALTHCHECK_SERVICES`, console setup instructions (root password retrieval, PAT creation, LDAP login)
+- [x] Scripts: `testldap-stop.sh` updated with GitLab references
+- [x] All 3,818 backend tests passing (V8 migration has no impact on existing tests)
 
 ---
 
