@@ -67,7 +67,7 @@ class CreatePullRequestRequestTest {
         CreatePullRequestRequest request = new CreatePullRequestRequest(
                 tenantId, taskId, "GITLAB", "owner", "repo",
                 "Title", "Description", "source", "target",
-                reviewers, "token");
+                reviewers, "token", null, null);
 
         assertEquals(tenantId, request.getTenantId());
         assertEquals(taskId, request.getTaskId());

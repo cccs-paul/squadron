@@ -24,4 +24,6 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
 
     @Query("SELECT w FROM Workspace w WHERE w.status IN ('READY', 'ACTIVE') AND w.createdAt < :threshold")
     List<Workspace> findStaleWorkspaces(@Param("threshold") Instant threshold);
+
+    List<Workspace> findByStatus(String status);
 }

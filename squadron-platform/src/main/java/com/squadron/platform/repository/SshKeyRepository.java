@@ -17,4 +17,6 @@ public interface SshKeyRepository extends JpaRepository<SshKey, UUID> {
     List<SshKey> findByTenantIdAndConnectionId(UUID tenantId, UUID connectionId);
 
     boolean existsByTenantIdAndFingerprint(UUID tenantId, String fingerprint);
+
+    List<SshKey> findByConnectionIdAndKeyUsage(UUID connectionId, String keyUsage);
 }

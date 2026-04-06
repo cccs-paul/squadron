@@ -57,7 +57,16 @@ squadron:
       keycloak-url: ${KEYCLOAK_HEALTH_URL:}
 
 management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
   endpoints:
     web:
       exposure:
         include: health,info
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true

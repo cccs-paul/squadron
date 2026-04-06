@@ -188,11 +188,19 @@ public class WorkspaceGitService {
             String pushBranch = branch != null ? branch : "HEAD";
             String[] pushCmd = new String[]{"git", "-C", WORKSPACE_DIR, "push", "origin", pushBranch};
 
+            ExecResult result;
             if (usingSsh) {
-                return execWithSshCommand(containerId, pushCmd);
+                result = execWithSshCommand(containerId, pushCmd);
             } else {
-                return workspaceProvider.exec(containerId, pushCmd);
+                result = workspaceProvider.exec(containerId, pushCmd);
             }
+
+            // Strip token from remote URL after push (security: prevent credential persistence)
+            if (!usingSsh && accessToken != null && !accessToken.isBlank()) {
+                stripTokenFromRemoteUrl(containerId, workspace.getRepoUrl());
+            }
+
+            return result;
         } finally {
             if (usingSsh) {
                 cleanupSshKey(containerId);
@@ -302,7 +310,25 @@ public class WorkspaceGitService {
 
     private String sanitizeOutput(String output) {
         if (output == null) return "";
-        // Remove anything that looks like a token in URLs
-        return output.replaceAll("oauth2:[^@]+@", "oauth2:***@");
+        // Remove embedded credentials from URLs in output
+        return output.replaceAll("(https?://)[^@/]+@", "$1***@")
+                .replaceAll("(?<!https?://)oauth2:[^@]+@", "oauth2:***@");
+    }
+
+    /**
+     * Strips embedded credentials from the git remote URL inside the workspace container.
+     * Restores the plain URL to prevent token persistence in the container.
+     *
+     * @param containerId the container to operate on
+     * @param originalUrl the original clean repo URL (without credentials)
+     */
+    private void stripTokenFromRemoteUrl(String containerId, String originalUrl) {
+        try {
+            workspaceProvider.exec(containerId,
+                    new String[]{"git", "-C", WORKSPACE_DIR, "remote", "set-url", "origin", originalUrl});
+            log.debug("Stripped token from remote URL in container {}", containerId);
+        } catch (Exception e) {
+            log.warn("Failed to strip token from remote URL: {}", e.getMessage());
+        }
     }
 }

@@ -3,11 +3,17 @@ package com.squadron.orchestrator.engine;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.common.config.NatsEventPublisher;
+import com.squadron.common.dto.TaskContext;
+import com.squadron.common.event.TaskStateChangedEvent;
 import com.squadron.common.exception.InvalidStateTransitionException;
 import com.squadron.common.exception.ResourceNotFoundException;
+import com.squadron.orchestrator.entity.Project;
+import com.squadron.orchestrator.entity.Task;
 import com.squadron.orchestrator.entity.TaskStateHistory;
 import com.squadron.orchestrator.entity.TaskWorkflow;
 import com.squadron.orchestrator.entity.WorkflowDefinition;
+import com.squadron.orchestrator.repository.ProjectRepository;
+import com.squadron.orchestrator.repository.TaskRepository;
 import com.squadron.orchestrator.repository.TaskStateHistoryRepository;
 import com.squadron.orchestrator.repository.TaskWorkflowRepository;
 import com.squadron.orchestrator.repository.WorkflowDefinitionRepository;
@@ -53,6 +59,12 @@ class WorkflowEngineTest {
     private TaskStateHistoryRepository taskStateHistoryRepository;
 
     @Mock
+    private TaskRepository taskRepository;
+
+    @Mock
+    private ProjectRepository projectRepository;
+
+    @Mock
     private NatsEventPublisher natsEventPublisher;
 
     private ObjectMapper objectMapper;
@@ -67,6 +79,8 @@ class WorkflowEngineTest {
                 workflowDefinitionRepository,
                 taskWorkflowRepository,
                 taskStateHistoryRepository,
+                taskRepository,
+                projectRepository,
                 natsEventPublisher,
                 objectMapper
         );
@@ -582,5 +596,165 @@ class WorkflowEngineTest {
                     "Expected " + entry.getValue() + " transitions from " + entry.getKey()
                             + " but got " + transitions.size());
         }
+    }
+
+    @Test
+    void should_enrichEventWithTaskContext_when_transitionSuccessful() {
+        UUID tenantId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID connectionId = UUID.randomUUID();
+
+        TaskWorkflow workflow = TaskWorkflow.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .taskId(taskId)
+                .currentState("BACKLOG")
+                .transitionAt(Instant.now())
+                .transitionedBy(userId)
+                .build();
+
+        Task task = Task.builder()
+                .id(taskId)
+                .tenantId(tenantId)
+                .teamId(UUID.randomUUID())
+                .projectId(projectId)
+                .externalId("JIRA-123")
+                .title("Fix login bug")
+                .assigneeId(UUID.randomUUID())
+                .build();
+
+        Project project = Project.builder()
+                .id(projectId)
+                .tenantId(tenantId)
+                .name("my-project")
+                .connectionId(connectionId)
+                .repoUrl("https://github.com/org/repo")
+                .defaultBranch("main")
+                .branchStrategy("TRUNK_BASED")
+                .branchNamingTemplate("{strategy}/{ticket}-{description}")
+                .build();
+
+        WorkflowDefinition definition = createDefaultDefinition(tenantId);
+
+        when(taskWorkflowRepository.findByTaskIdForUpdate(taskId)).thenReturn(Optional.of(workflow));
+        when(workflowDefinitionRepository.findByTenantIdAndTeamIdIsNullAndActiveTrue(tenantId))
+                .thenReturn(Optional.of(definition));
+        when(taskWorkflowRepository.save(any(TaskWorkflow.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(taskStateHistoryRepository.save(any(TaskStateHistory.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
+
+        workflowEngine.transition(taskId, "PRIORITIZED", userId, "Sprint planning");
+
+        ArgumentCaptor<TaskStateChangedEvent> eventCaptor = ArgumentCaptor.forClass(TaskStateChangedEvent.class);
+        verify(natsEventPublisher).publishAsync(anyString(), eventCaptor.capture());
+
+        TaskStateChangedEvent event = eventCaptor.getValue();
+        assertNotNull(event.getTaskContext(), "TaskContext should be populated");
+
+        TaskContext ctx = event.getTaskContext();
+        assertEquals(taskId, ctx.getTaskId());
+        assertEquals(tenantId, ctx.getTenantId());
+        assertEquals(projectId, ctx.getProjectId());
+        assertEquals(userId, ctx.getUserId());
+        assertEquals(connectionId, ctx.getConnectionId());
+        assertEquals("https://github.com/org/repo", ctx.getRepoUrl());
+        assertEquals("main", ctx.getDefaultBranch());
+        assertEquals("TRUNK_BASED", ctx.getBranchStrategy());
+        assertEquals("{strategy}/{ticket}-{description}", ctx.getBranchNamingTemplate());
+        assertEquals("JIRA-123", ctx.getExternalId());
+        assertEquals("Fix login bug", ctx.getTitle());
+    }
+
+    @Test
+    void should_useAssigneeAsFallback_when_userIdIsNull() {
+        UUID tenantId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID assigneeId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+
+        TaskWorkflow workflow = TaskWorkflow.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .taskId(taskId)
+                .currentState("BACKLOG")
+                .transitionAt(Instant.now())
+                .transitionedBy(null)
+                .build();
+
+        Task task = Task.builder()
+                .id(taskId)
+                .tenantId(tenantId)
+                .teamId(UUID.randomUUID())
+                .projectId(projectId)
+                .title("Some task")
+                .assigneeId(assigneeId)
+                .build();
+
+        Project project = Project.builder()
+                .id(projectId)
+                .tenantId(tenantId)
+                .name("my-project")
+                .build();
+
+        WorkflowDefinition definition = createDefaultDefinition(tenantId);
+
+        when(taskWorkflowRepository.findByTaskIdForUpdate(taskId)).thenReturn(Optional.of(workflow));
+        when(workflowDefinitionRepository.findByTenantIdAndTeamIdIsNullAndActiveTrue(tenantId))
+                .thenReturn(Optional.of(definition));
+        when(taskWorkflowRepository.save(any(TaskWorkflow.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(taskStateHistoryRepository.save(any(TaskStateHistory.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
+
+        workflowEngine.transition(taskId, "PRIORITIZED", null, "Auto-transition");
+
+        ArgumentCaptor<TaskStateChangedEvent> eventCaptor = ArgumentCaptor.forClass(TaskStateChangedEvent.class);
+        verify(natsEventPublisher).publishAsync(anyString(), eventCaptor.capture());
+
+        TaskContext ctx = eventCaptor.getValue().getTaskContext();
+        assertNotNull(ctx);
+        assertEquals(assigneeId, ctx.getUserId(), "Should fall back to assigneeId when userId is null");
+    }
+
+    @Test
+    void should_publishEventWithNullContext_when_taskNotFound() {
+        UUID tenantId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        TaskWorkflow workflow = TaskWorkflow.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .taskId(taskId)
+                .currentState("BACKLOG")
+                .transitionAt(Instant.now())
+                .transitionedBy(userId)
+                .build();
+
+        WorkflowDefinition definition = createDefaultDefinition(tenantId);
+
+        when(taskWorkflowRepository.findByTaskIdForUpdate(taskId)).thenReturn(Optional.of(workflow));
+        when(workflowDefinitionRepository.findByTenantIdAndTeamIdIsNullAndActiveTrue(tenantId))
+                .thenReturn(Optional.of(definition));
+        when(taskWorkflowRepository.save(any(TaskWorkflow.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(taskStateHistoryRepository.save(any(TaskStateHistory.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(taskRepository.findById(taskId)).thenReturn(Optional.empty());
+
+        workflowEngine.transition(taskId, "PRIORITIZED", userId, "reason");
+
+        ArgumentCaptor<TaskStateChangedEvent> eventCaptor = ArgumentCaptor.forClass(TaskStateChangedEvent.class);
+        verify(natsEventPublisher).publishAsync(anyString(), eventCaptor.capture());
+
+        assertNull(eventCaptor.getValue().getTaskContext(),
+                "TaskContext should be null when task is not found");
     }
 }

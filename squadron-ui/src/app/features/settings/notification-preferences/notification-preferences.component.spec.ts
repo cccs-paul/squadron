@@ -125,7 +125,7 @@ describe('NotificationPreferencesComponent', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(component.enableSlack).toBeTrue();
     // The slack webhook field should be visible
-    const slackInput = el.querySelector('input[placeholder*="hooks.slack.com"]');
+    const slackInput = el.querySelector('input[placeholder="notifications.channels.slackPlaceholder"]');
     expect(slackInput).toBeTruthy();
   });
 

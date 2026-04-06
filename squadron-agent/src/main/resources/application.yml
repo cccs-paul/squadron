@@ -46,6 +46,8 @@ squadron:
     url: ${NATS_URL:nats://localhost:4222}
   orchestrator:
     url: ${ORCHESTRATOR_URL:http://localhost:8083}
+  platform:
+    service-url: ${PLATFORM_SERVICE_URL:http://localhost:8084}
   git:
     url: ${GIT_SERVICE_URL:http://localhost:8086}
   review:

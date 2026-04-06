@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
 import { UsageService } from '../../../core/services/usage.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { UsageSummary, UsageByAgent } from '../../../core/models/usage.model';
 
 @Component({
@@ -12,13 +13,16 @@ import { UsageSummary, UsageByAgent } from '../../../core/models/usage.model';
 })
 export class UsageDashboardComponent implements OnInit {
   private usageService = inject(UsageService);
+  private authService = inject(AuthService);
 
   loading = signal(true);
   error = signal<string | null>(null);
   summary = signal<UsageSummary | null>(null);
   agentBreakdown = signal<UsageByAgent[]>([]);
 
-  tenantId = '';
+  get tenantId(): string {
+    return this.authService.user()?.tenantId ?? '';
+  }
 
   maxAgentTokens = computed(() => {
     const agents = this.agentBreakdown();

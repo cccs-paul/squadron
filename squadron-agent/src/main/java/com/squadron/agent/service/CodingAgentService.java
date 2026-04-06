@@ -15,6 +15,7 @@ import com.squadron.agent.tool.ToolExecutionEngine;
 import com.squadron.agent.tool.ToolParameter;
 import com.squadron.agent.tool.ToolRegistry;
 import com.squadron.agent.tool.ToolResult;
+import com.squadron.agent.dto.WorkspaceInfo;
 import com.squadron.common.config.NatsEventPublisher;
 import com.squadron.common.event.AgentCompletedEvent;
 import com.squadron.common.event.TaskStateChangedEvent;
@@ -63,6 +64,7 @@ public class CodingAgentService {
     private final ToolExecutionEngine toolExecutionEngine;
     private final NatsEventPublisher natsEventPublisher;
     private final ObjectMapper objectMapper;
+    private final WorkspaceLifecycleService workspaceLifecycleService;
 
     public CodingAgentService(PlanService planService,
                                ConversationService conversationService,
@@ -72,7 +74,8 @@ public class CodingAgentService {
                                ToolRegistry toolRegistry,
                                ToolExecutionEngine toolExecutionEngine,
                                NatsEventPublisher natsEventPublisher,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper,
+                               WorkspaceLifecycleService workspaceLifecycleService) {
         this.planService = planService;
         this.conversationService = conversationService;
         this.configService = configService;
@@ -82,6 +85,7 @@ public class CodingAgentService {
         this.toolExecutionEngine = toolExecutionEngine;
         this.natsEventPublisher = natsEventPublisher;
         this.objectMapper = objectMapper;
+        this.workspaceLifecycleService = workspaceLifecycleService;
     }
 
     /**
@@ -104,30 +108,43 @@ public class CodingAgentService {
                 return;
             }
 
-            // 2. Start a conversation for the coding agent
+            // 2. Provision workspace if task context is available
+            WorkspaceInfo workspaceInfo = null;
+            if (event.getTaskContext() != null) {
+                try {
+                    workspaceInfo = workspaceLifecycleService.provisionWorkspace(event.getTaskContext());
+                    log.info("Provisioned workspace {} with branch {} for task {}",
+                            workspaceInfo.getWorkspaceId(), workspaceInfo.getBranchName(), taskId);
+                } catch (Exception e) {
+                    log.warn("Failed to provision workspace for task {}: {}", taskId, e.getMessage());
+                }
+            }
+
+            // 3. Start a conversation for the coding agent
             Conversation conversation = conversationService.startConversation(
                     tenantId, taskId, userId, "CODING");
 
-            // 3. Resolve configuration
+            // 4. Resolve configuration
             AgentConfigDto config = configService.resolveAgentConfig(tenantId, null, userId, "CODING");
             if (config == null) {
                 config = AgentConfigDto.builder().build();
             }
 
-            // 4. Build the coding system prompt with tool definitions
+            // 5. Build the coding system prompt with tool definitions
             String systemPrompt = buildCodingPromptWithTools(
                     plan.getPlanContent(), toolRegistry.getAllToolDefinitions());
 
-            // 5. Run the agentic loop
+            // 6. Run the agentic loop
             String initialMessage = "Please implement the following plan. Use the provided tools "
                     + "to read files, write code, and run tests in the workspace.\n\nPlan:\n"
                     + plan.getPlanContent();
 
+            UUID workspaceId = workspaceInfo != null ? workspaceInfo.getWorkspaceId() : null;
             AgentLoopResult result = runAgentLoop(
                     conversation.getId(), tenantId, userId, config,
-                    systemPrompt, initialMessage, taskId);
+                    systemPrompt, initialMessage, taskId, workspaceId);
 
-            // 6. Publish completion event
+            // 7. Publish completion event
             publishCodingCompletedEvent(tenantId, taskId, conversation.getId(),
                     result.isSuccess(), result.getSummary());
 
@@ -148,7 +165,7 @@ public class CodingAgentService {
      */
     AgentLoopResult runAgentLoop(UUID conversationId, UUID tenantId, UUID userId,
                                  AgentConfigDto config, String systemPrompt,
-                                 String initialMessage, UUID taskId) {
+                                 String initialMessage, UUID taskId, UUID workspaceId) {
         AgentProvider provider = providerRegistry.getProvider(
                 config.getProvider() != null ? config.getProvider() : "openai-compatible");
 
@@ -200,6 +217,7 @@ public class CodingAgentService {
             ToolExecutionContext baseContext = ToolExecutionContext.builder()
                     .taskId(taskId)
                     .tenantId(tenantId)
+                    .workspaceId(workspaceId)
                     .build();
 
             List<ToolResult> results = toolExecutionEngine.executeTools(toolCalls, baseContext);
@@ -349,14 +367,24 @@ public class CodingAgentService {
                     sb.append("## Tool: ").append(result.getToolName()).append("\n");
                     sb.append("Status: ").append(result.isSuccess() ? "SUCCESS" : "FAILED").append("\n");
                     if (result.isSuccess() && result.getOutput() != null) {
-                        sb.append("Output:\n```\n").append(result.getOutput()).append("\n```\n");
+                        sb.append("Output:\n```\n").append(sanitizeOutput(result.getOutput())).append("\n```\n");
                     }
                     if (!result.isSuccess() && result.getError() != null) {
-                        sb.append("Error: ").append(result.getError()).append("\n");
+                        sb.append("Error: ").append(sanitizeOutput(result.getError())).append("\n");
                     }
                     return sb.toString();
                 })
                 .collect(Collectors.joining("\n"));
+    }
+
+    /**
+     * Sanitizes output to remove embedded credentials/tokens from URLs.
+     * Prevents token leakage when feeding tool output back to the LLM.
+     */
+    static String sanitizeOutput(String output) {
+        if (output == null) return "";
+        return output.replaceAll("(https?://)[^@/]+@", "$1***@")
+                .replaceAll("(?<!https?://)oauth2:[^@]+@", "oauth2:***@");
     }
 
     /**

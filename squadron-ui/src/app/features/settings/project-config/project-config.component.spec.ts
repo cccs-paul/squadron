@@ -7,6 +7,7 @@ import { ProjectConfigComponent, WizardStep } from './project-config.component';
 import { ProjectService } from '../../../core/services/project.service';
 import { PlatformService } from '../../../core/services/platform.service';
 import { SshKeyService } from '../../../core/services/ssh-key.service';
+import { ReviewBotConfigService } from '../../../core/services/review-bot-config.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { of, throwError } from 'rxjs';
 import { Project, RemoteProject, WorkflowMapping } from '../../../core/models/project.model';
@@ -15,6 +16,7 @@ import {
   PlatformConnectionType,
   ConnectionStatus,
   SshKey,
+  ReviewBotConfig,
 } from '../../../core/models/security.model';
 
 describe('ProjectConfigComponent', () => {
@@ -23,6 +25,7 @@ describe('ProjectConfigComponent', () => {
   let projectServiceSpy: jasmine.SpyObj<ProjectService>;
   let platformServiceSpy: jasmine.SpyObj<PlatformService>;
   let sshKeyServiceSpy: jasmine.SpyObj<SshKeyService>;
+  let reviewBotConfigServiceSpy: jasmine.SpyObj<ReviewBotConfigService>;
   let authServiceSpy: jasmine.SpyObj<AuthService>;
 
   const mockUser = {
@@ -52,6 +55,13 @@ describe('ProjectConfigComponent', () => {
       id: 'sk-1', tenantId: 't1', connectionId: 'pc-2', name: 'deploy-key-prod',
       publicKey: 'ssh-ed25519 AAAAC...', fingerprint: 'SHA256:abc123',
       keyType: 'ED25519', createdAt: new Date().toISOString(),
+    },
+  ];
+
+  const mockReviewBotConfigs: ReviewBotConfig[] = [
+    {
+      id: 'bot-1', tenantId: 't1', connectionId: 'pc-2', botUsername: 'squadron-bot',
+      enabled: true, autoAssign: true, createdAt: new Date().toISOString(),
     },
   ];
 
@@ -91,10 +101,13 @@ describe('ProjectConfigComponent', () => {
     ]);
     platformServiceSpy = jasmine.createSpyObj('PlatformService', [
       'getConnectionsByTenant', 'getProjectStatuses', 'createConnectionFromRequest',
-      'deleteConnection', 'getRemoteProjects',
+      'updateConnection', 'deleteConnection', 'getRemoteProjects',
     ]);
     sshKeyServiceSpy = jasmine.createSpyObj('SshKeyService', [
-      'createSshKey', 'getSshKey', 'getSshKeysByTenant', 'getSshKeysByConnection', 'deleteSshKey',
+      'createSshKey', 'getSshKey', 'getSshKeysByTenant', 'getSshKeysByConnection', 'deleteSshKey', 'generateDeployKey',
+    ]);
+    reviewBotConfigServiceSpy = jasmine.createSpyObj('ReviewBotConfigService', [
+      'getConfigsByTenant', 'createConfig', 'updateConfig', 'deleteConfig',
     ]);
     authServiceSpy = jasmine.createSpyObj('AuthService', ['getAccessToken'], {
       user: jasmine.createSpy('user').and.returnValue(mockUser),
@@ -110,11 +123,17 @@ describe('ProjectConfigComponent', () => {
     platformServiceSpy.getConnectionsByTenant.and.returnValue(of(mockConnections));
     platformServiceSpy.getProjectStatuses.and.returnValue(of(mockRemoteStatuses));
     platformServiceSpy.createConnectionFromRequest.and.returnValue(of(mockGitConnection));
+    platformServiceSpy.updateConnection.and.returnValue(of(mockTicketConnection));
     platformServiceSpy.deleteConnection.and.returnValue(of(void 0));
     platformServiceSpy.getRemoteProjects.and.returnValue(of(mockRemoteProjects));
     sshKeyServiceSpy.getSshKeysByTenant.and.returnValue(of(mockSshKeys));
     sshKeyServiceSpy.createSshKey.and.returnValue(of(mockSshKeys[0]));
     sshKeyServiceSpy.deleteSshKey.and.returnValue(of(void 0));
+    sshKeyServiceSpy.generateDeployKey.and.returnValue(of(mockSshKeys[0]));
+    reviewBotConfigServiceSpy.getConfigsByTenant.and.returnValue(of(mockReviewBotConfigs));
+    reviewBotConfigServiceSpy.createConfig.and.returnValue(of(mockReviewBotConfigs[0]));
+    reviewBotConfigServiceSpy.updateConfig.and.returnValue(of({ ...mockReviewBotConfigs[0], enabled: false }));
+    reviewBotConfigServiceSpy.deleteConfig.and.returnValue(of(void 0));
 
     await TestBed.configureTestingModule({
       imports: [ProjectConfigComponent, TranslateModule.forRoot()],
@@ -125,6 +144,7 @@ describe('ProjectConfigComponent', () => {
         { provide: ProjectService, useValue: projectServiceSpy },
         { provide: PlatformService, useValue: platformServiceSpy },
         { provide: SshKeyService, useValue: sshKeyServiceSpy },
+        { provide: ReviewBotConfigService, useValue: reviewBotConfigServiceSpy },
         { provide: AuthService, useValue: authServiceSpy },
       ],
     }).compileComponents();
@@ -567,7 +587,7 @@ describe('ProjectConfigComponent', () => {
     component.sshKeyForm = {
       connectionId: 'pc-2', name: 'deploy-key',
       publicKey: 'ssh-ed25519 AAAA...', privateKey: '-----BEGIN OPENSSH PRIVATE KEY-----...',
-      keyType: 'ED25519',
+      keyType: 'ED25519', keyUsage: 'USER_KEY',
     };
     expect(component.canSaveSshKey()).toBeTrue();
   });
@@ -578,7 +598,7 @@ describe('ProjectConfigComponent', () => {
     component.sshKeyForm = {
       connectionId: 'pc-2', name: 'deploy-key',
       publicKey: 'ssh-ed25519 AAAA...', privateKey: '-----BEGIN OPENSSH PRIVATE KEY-----...',
-      keyType: 'ED25519',
+      keyType: 'ED25519', keyUsage: 'USER_KEY',
     };
 
     component.saveSshKey();
@@ -597,7 +617,7 @@ describe('ProjectConfigComponent', () => {
     component.sshKeyForm = {
       connectionId: 'pc-2', name: 'deploy-key',
       publicKey: 'ssh-ed25519 AAAA...', privateKey: '-----BEGIN OPENSSH PRIVATE KEY-----...',
-      keyType: 'ED25519',
+      keyType: 'ED25519', keyUsage: 'USER_KEY',
     };
 
     component.saveSshKey();
@@ -611,7 +631,7 @@ describe('ProjectConfigComponent', () => {
     component.sshKeyForm = {
       connectionId: 'pc-2', name: 'deploy-key',
       publicKey: 'ssh-ed25519 AAAA...', privateKey: '-----BEGIN OPENSSH PRIVATE KEY-----...',
-      keyType: 'ED25519',
+      keyType: 'ED25519', keyUsage: 'USER_KEY',
     };
     component.saveSshKey();
     expect(component.sshKeySaveSuccess()).toBeTrue();
@@ -1076,5 +1096,465 @@ describe('ProjectConfigComponent', () => {
     expect(component.steps.map((s) => s.id)).toEqual([
       'ticket-providers', 'git-remotes', 'projects', 'branch-workflow',
     ]);
+  });
+
+  // ===== Epic 10.1: GitHub App installationId field =====
+
+  it('should_includeInstallationIdField_forGitHubAppAuthType', () => {
+    fixture.detectChanges();
+    component.gitForm.platformType = 'GITHUB';
+    const options = component.getGitAuthTypeOptions();
+    const appOption = options.find((o) => o.label === 'projectConfig.authTypes.app');
+    expect(appOption).toBeTruthy();
+    expect(appOption!.fields.length).toBe(3);
+    expect(appOption!.fields[0].key).toBe('appId');
+    expect(appOption!.fields[1].key).toBe('installationId');
+    expect(appOption!.fields[2].key).toBe('privateKey');
+  });
+
+  // ===== Epic 10.2: Deploy Key UI =====
+
+  it('should_initializeSshKeyForm_withKeyUsage', () => {
+    fixture.detectChanges();
+    component.toggleSshKeyForm();
+    expect(component.sshKeyForm.keyUsage).toBe('USER_KEY');
+  });
+
+  it('should_passKeyUsage_whenSavingSshKey', () => {
+    fixture.detectChanges();
+    component.sshKeyForm = {
+      connectionId: 'pc-2', name: 'deploy-key',
+      publicKey: 'ssh-ed25519 AAAA...', privateKey: '-----BEGIN OPENSSH PRIVATE KEY-----...',
+      keyType: 'ED25519', keyUsage: 'USER_KEY',
+    };
+
+    component.saveSshKey();
+
+    expect(sshKeyServiceSpy.createSshKey).toHaveBeenCalled();
+    const callArgs = sshKeyServiceSpy.createSshKey.calls.mostRecent().args[0];
+    expect(callArgs.keyUsage).toBe('USER_KEY');
+  });
+
+  it('should_generateDeployKey_andShowPublicKey', () => {
+    fixture.detectChanges();
+    component.generateDeployKey('pc-2');
+
+    expect(sshKeyServiceSpy.generateDeployKey).toHaveBeenCalledWith('pc-2', 't1', jasmine.any(String));
+    expect(component.generatingDeployKey()).toBeFalse();
+    expect(component.generatedPublicKey()).toBe('ssh-ed25519 AAAAC...');
+    expect(component.sshKeys().length).toBe(2); // original + generated
+  });
+
+  it('should_notGenerateDeployKey_when_noUser', () => {
+    (authServiceSpy.user as jasmine.Spy).and.returnValue(null);
+    fixture.detectChanges();
+    component.generateDeployKey('pc-2');
+    expect(sshKeyServiceSpy.generateDeployKey).not.toHaveBeenCalled();
+  });
+
+  it('should_showError_when_generateDeployKeyFails', () => {
+    sshKeyServiceSpy.generateDeployKey.and.returnValue(
+      throwError(() => ({ error: { message: 'Key generation failed' } })),
+    );
+    fixture.detectChanges();
+    component.generateDeployKey('pc-2');
+
+    expect(component.sshKeySaveError()).toBe('Key generation failed');
+    expect(component.generatingDeployKey()).toBeFalse();
+  });
+
+  it('should_dismissGeneratedKey', () => {
+    fixture.detectChanges();
+    component.generateDeployKey('pc-2');
+    expect(component.generatedPublicKey()).toBeTruthy();
+    component.dismissGeneratedKey();
+    expect(component.generatedPublicKey()).toBeNull();
+  });
+
+  it('should_returnKeyUsageLabel', () => {
+    expect(component.getKeyUsageLabel('DEPLOY_KEY')).toBe('projectConfig.sshKeys.keyUsage.deployKey');
+    expect(component.getKeyUsageLabel('USER_KEY')).toBe('projectConfig.sshKeys.keyUsage.userKey');
+    expect(component.getKeyUsageLabel(undefined)).toBe('projectConfig.sshKeys.keyUsage.userKey');
+  });
+
+  // ===== Epic 10.3: Review Bot Configuration =====
+
+  it('should_loadReviewBotConfigs_onInit', () => {
+    fixture.detectChanges();
+    expect(reviewBotConfigServiceSpy.getConfigsByTenant).toHaveBeenCalledWith('t1');
+    expect(component.reviewBotConfigs().length).toBe(1);
+  });
+
+  it('should_toggleReviewBotForm', () => {
+    fixture.detectChanges();
+    expect(component.showReviewBotForm()).toBeFalse();
+    component.toggleReviewBotForm();
+    expect(component.showReviewBotForm()).toBeTrue();
+    component.toggleReviewBotForm();
+    expect(component.showReviewBotForm()).toBeFalse();
+  });
+
+  it('should_autoSelectConnection_when_singleGitRemote_forReviewBot', () => {
+    fixture.detectChanges();
+    component.toggleReviewBotForm();
+    expect(component.reviewBotForm.connectionId).toBe('pc-2');
+  });
+
+  it('should_canSaveReviewBot_returnFalse_when_formIncomplete', () => {
+    fixture.detectChanges();
+    expect(component.canSaveReviewBot()).toBeFalse();
+  });
+
+  it('should_canSaveReviewBot_returnTrue_when_formComplete', () => {
+    fixture.detectChanges();
+    component.reviewBotForm = {
+      connectionId: 'pc-2', botUsername: 'my-bot', botAccessToken: 'ghp_abc',
+      enabled: true, autoAssign: true,
+    };
+    expect(component.canSaveReviewBot()).toBeTrue();
+  });
+
+  it('should_saveReviewBot_andAddToList', () => {
+    fixture.detectChanges();
+    const initialCount = component.reviewBotConfigs().length;
+    component.reviewBotForm = {
+      connectionId: 'pc-2', botUsername: 'my-bot', botAccessToken: 'ghp_abc',
+      enabled: true, autoAssign: true,
+    };
+
+    component.saveReviewBot();
+
+    expect(reviewBotConfigServiceSpy.createConfig).toHaveBeenCalled();
+    expect(component.reviewBotConfigs().length).toBe(initialCount + 1);
+    expect(component.showReviewBotForm()).toBeFalse();
+    expect(component.savingReviewBot()).toBeFalse();
+  });
+
+  it('should_showError_when_saveReviewBotFails', () => {
+    reviewBotConfigServiceSpy.createConfig.and.returnValue(
+      throwError(() => ({ error: { message: 'Duplicate config' } })),
+    );
+    fixture.detectChanges();
+    component.reviewBotForm = {
+      connectionId: 'pc-2', botUsername: 'my-bot', botAccessToken: 'ghp_abc',
+      enabled: true, autoAssign: true,
+    };
+
+    component.saveReviewBot();
+
+    expect(component.reviewBotSaveError()).toBe('Duplicate config');
+    expect(component.savingReviewBot()).toBeFalse();
+  });
+
+  it('should_toggleReviewBotEnabled', () => {
+    fixture.detectChanges();
+    const bot = component.reviewBotConfigs()[0];
+    expect(bot.enabled).toBeTrue();
+
+    component.toggleReviewBotEnabled(bot);
+
+    expect(reviewBotConfigServiceSpy.updateConfig).toHaveBeenCalledWith('bot-1', { enabled: false });
+    expect(component.reviewBotConfigs()[0].enabled).toBeFalse();
+  });
+
+  it('should_deleteReviewBot', () => {
+    fixture.detectChanges();
+    expect(component.reviewBotConfigs().length).toBe(1);
+
+    component.deleteReviewBot('bot-1');
+
+    expect(reviewBotConfigServiceSpy.deleteConfig).toHaveBeenCalledWith('bot-1');
+    expect(component.reviewBotConfigs().length).toBe(0);
+    expect(component.deletingReviewBotId()).toBeNull();
+  });
+
+  it('should_getReviewBotForConnection', () => {
+    fixture.detectChanges();
+    expect(component.getReviewBotForConnection('pc-2')).toBeTruthy();
+    expect(component.getReviewBotForConnection('pc-2')!.botUsername).toBe('squadron-bot');
+    expect(component.getReviewBotForConnection('pc-1')).toBeUndefined();
+  });
+
+  // ===== Epic 10.4: Credential Status Indicators =====
+
+  it('should_returnLinked_when_connectionIsActive', () => {
+    fixture.detectChanges();
+    expect(component.getCredentialStatus('pc-1')).toBe('LINKED');
+    expect(component.getCredentialStatus('pc-2')).toBe('LINKED');
+  });
+
+  it('should_returnMissing_when_noConnectionId', () => {
+    fixture.detectChanges();
+    expect(component.getCredentialStatus(undefined)).toBe('MISSING');
+  });
+
+  it('should_returnMissing_when_connectionNotFound', () => {
+    fixture.detectChanges();
+    expect(component.getCredentialStatus('nonexistent')).toBe('MISSING');
+  });
+
+  it('should_returnExpired_when_connectionInError', () => {
+    const errorConnection: PlatformConnection = {
+      ...mockGitConnection, id: 'pc-err', status: ConnectionStatus.ERROR,
+    };
+    platformServiceSpy.getConnectionsByTenant.and.returnValue(of([...mockConnections, errorConnection]));
+    reviewBotConfigServiceSpy.getConfigsByTenant.and.returnValue(of([]));
+    fixture = TestBed.createComponent(ProjectConfigComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    expect(component.getCredentialStatus('pc-err')).toBe('EXPIRED');
+  });
+
+  it('should_returnCredentialStatusLabel', () => {
+    expect(component.getCredentialStatusLabel('LINKED')).toBe('projectConfig.credentialStatus.linked');
+    expect(component.getCredentialStatusLabel('EXPIRED')).toBe('projectConfig.credentialStatus.expired');
+    expect(component.getCredentialStatusLabel('MISSING')).toBe('projectConfig.credentialStatus.missing');
+    expect(component.getCredentialStatusLabel('UNKNOWN')).toBe('UNKNOWN');
+  });
+
+  it('should_clearReviewBotConfigs_onApiError', () => {
+    projectServiceSpy.getProjectsByTenant.and.returnValue(throwError(() => new Error('fail')));
+    projectServiceSpy.getWorkflowStates.and.returnValue(throwError(() => new Error('fail')));
+    platformServiceSpy.getConnectionsByTenant.and.returnValue(throwError(() => new Error('fail')));
+    sshKeyServiceSpy.getSshKeysByTenant.and.returnValue(throwError(() => new Error('fail')));
+    reviewBotConfigServiceSpy.getConfigsByTenant.and.returnValue(throwError(() => new Error('fail')));
+
+    fixture.detectChanges();
+
+    expect(component.reviewBotConfigs().length).toBe(0);
+  });
+
+  // ===== Provider Editing =====
+
+  it('should_editTicketProvider_populateFormWithConnectionData', () => {
+    fixture.detectChanges();
+    const conn = component.ticketProviders()[0];
+    component.editTicketProvider(conn);
+
+    expect(component.editingTicketProviderId()).toBe('pc-1');
+    expect(component.showTicketForm()).toBeTrue();
+    expect(component.ticketForm.name).toBe('Jira Cloud - Production');
+    expect(component.ticketForm.platformType).toBe('JIRA_CLOUD');
+    expect(component.ticketForm.baseUrl).toBe('https://myorg.atlassian.net');
+    expect(component.ticketForm.credentials).toEqual({});
+  });
+
+  it('should_editTicketProvider_resetEditingId_when_formClosed', () => {
+    fixture.detectChanges();
+    const conn = component.ticketProviders()[0];
+    component.editTicketProvider(conn);
+    expect(component.editingTicketProviderId()).toBe('pc-1');
+
+    component.toggleTicketForm(); // close
+    expect(component.editingTicketProviderId()).toBeNull();
+    expect(component.showTicketForm()).toBeFalse();
+  });
+
+  it('should_canSaveTicketProvider_returnTrue_when_editing_withoutCredentials', () => {
+    fixture.detectChanges();
+    const conn = component.ticketProviders()[0];
+    component.editTicketProvider(conn);
+
+    // Credentials are empty but should still be savable in edit mode
+    expect(component.ticketForm.credentials).toEqual({});
+    expect(component.canSaveTicketProvider()).toBeTrue();
+  });
+
+  it('should_saveTicketProvider_callUpdateConnection_when_editing', () => {
+    const updatedConn = { ...mockTicketConnection, name: 'Updated Jira' };
+    platformServiceSpy.updateConnection.and.returnValue(of(updatedConn));
+    fixture.detectChanges();
+
+    const conn = component.ticketProviders()[0];
+    component.editTicketProvider(conn);
+    component.ticketForm.name = 'Updated Jira';
+
+    component.saveTicketProvider();
+
+    expect(platformServiceSpy.updateConnection).toHaveBeenCalledWith('pc-1', jasmine.objectContaining({
+      name: 'Updated Jira',
+      platformType: 'JIRA_CLOUD',
+    }));
+    expect(platformServiceSpy.createConnectionFromRequest).not.toHaveBeenCalled();
+    expect(component.ticketProviders()[0].name).toBe('Updated Jira');
+    expect(component.editingTicketProviderId()).toBeNull();
+    expect(component.showTicketForm()).toBeFalse();
+    expect(component.savingTicketProvider()).toBeFalse();
+  });
+
+  it('should_saveTicketProvider_includeCredentials_when_filledInEditMode', () => {
+    platformServiceSpy.updateConnection.and.returnValue(of(mockTicketConnection));
+    fixture.detectChanges();
+
+    const conn = component.ticketProviders()[0];
+    component.editTicketProvider(conn);
+    component.ticketForm.credentials = { email: 'new@test.com', apiToken: 'new-token' };
+
+    component.saveTicketProvider();
+
+    const callArgs = platformServiceSpy.updateConnection.calls.mostRecent().args[1];
+    expect((callArgs as any).credentials).toEqual({ email: 'new@test.com', apiToken: 'new-token' });
+  });
+
+  it('should_saveTicketProvider_omitCredentials_when_emptyInEditMode', () => {
+    platformServiceSpy.updateConnection.and.returnValue(of(mockTicketConnection));
+    fixture.detectChanges();
+
+    const conn = component.ticketProviders()[0];
+    component.editTicketProvider(conn);
+    // credentials remain empty
+
+    component.saveTicketProvider();
+
+    const callArgs = platformServiceSpy.updateConnection.calls.mostRecent().args[1];
+    expect((callArgs as any).credentials).toBeUndefined();
+  });
+
+  it('should_showError_when_updateTicketProviderFails', () => {
+    platformServiceSpy.updateConnection.and.returnValue(
+      throwError(() => ({ error: { message: 'Update failed' } })),
+    );
+    fixture.detectChanges();
+
+    const conn = component.ticketProviders()[0];
+    component.editTicketProvider(conn);
+    component.saveTicketProvider();
+
+    expect(component.ticketSaveError()).toBe('Update failed');
+    expect(component.savingTicketProvider()).toBeFalse();
+  });
+
+  it('should_showTicketSaveSuccess_afterUpdate_thenClear', fakeAsync(() => {
+    platformServiceSpy.updateConnection.and.returnValue(of(mockTicketConnection));
+    fixture.detectChanges();
+
+    const conn = component.ticketProviders()[0];
+    component.editTicketProvider(conn);
+    component.saveTicketProvider();
+    expect(component.ticketSaveSuccess()).toBeTrue();
+    tick(3000);
+    expect(component.ticketSaveSuccess()).toBeFalse();
+  }));
+
+  it('should_editGitRemote_populateFormWithConnectionData', () => {
+    fixture.detectChanges();
+    const conn = component.gitRemotes()[0];
+    component.editGitRemote(conn);
+
+    expect(component.editingGitRemoteId()).toBe('pc-2');
+    expect(component.showGitForm()).toBeTrue();
+    expect(component.gitForm.name).toBe('GitHub - Organization');
+    expect(component.gitForm.platformType).toBe('GITHUB');
+    expect(component.gitForm.baseUrl).toBe('https://api.github.com');
+    expect(component.gitForm.credentials).toEqual({});
+  });
+
+  it('should_editGitRemote_resetEditingId_when_formClosed', () => {
+    fixture.detectChanges();
+    const conn = component.gitRemotes()[0];
+    component.editGitRemote(conn);
+    expect(component.editingGitRemoteId()).toBe('pc-2');
+
+    component.toggleGitForm(); // close
+    expect(component.editingGitRemoteId()).toBeNull();
+    expect(component.showGitForm()).toBeFalse();
+  });
+
+  it('should_canSaveGitRemote_returnTrue_when_editing_withoutCredentials', () => {
+    fixture.detectChanges();
+    const conn = component.gitRemotes()[0];
+    component.editGitRemote(conn);
+
+    expect(component.gitForm.credentials).toEqual({});
+    expect(component.canSaveGitRemote()).toBeTrue();
+  });
+
+  it('should_saveGitRemote_callUpdateConnection_when_editing', () => {
+    const updatedConn = { ...mockGitConnection, name: 'Updated GitHub' };
+    platformServiceSpy.updateConnection.and.returnValue(of(updatedConn));
+    fixture.detectChanges();
+
+    const conn = component.gitRemotes()[0];
+    component.editGitRemote(conn);
+    component.gitForm.name = 'Updated GitHub';
+
+    component.saveGitRemote();
+
+    expect(platformServiceSpy.updateConnection).toHaveBeenCalledWith('pc-2', jasmine.objectContaining({
+      name: 'Updated GitHub',
+      platformType: 'GITHUB',
+    }));
+    expect(component.gitRemotes()[0].name).toBe('Updated GitHub');
+    expect(component.editingGitRemoteId()).toBeNull();
+    expect(component.showGitForm()).toBeFalse();
+    expect(component.savingGitRemote()).toBeFalse();
+  });
+
+  it('should_saveGitRemote_includeCredentials_when_filledInEditMode', () => {
+    platformServiceSpy.updateConnection.and.returnValue(of(mockGitConnection));
+    fixture.detectChanges();
+
+    const conn = component.gitRemotes()[0];
+    component.editGitRemote(conn);
+    component.gitForm.credentials = { pat: 'new-pat' };
+
+    component.saveGitRemote();
+
+    const callArgs = platformServiceSpy.updateConnection.calls.mostRecent().args[1];
+    expect((callArgs as any).credentials).toEqual({ pat: 'new-pat' });
+  });
+
+  it('should_saveGitRemote_omitCredentials_when_emptyInEditMode', () => {
+    platformServiceSpy.updateConnection.and.returnValue(of(mockGitConnection));
+    fixture.detectChanges();
+
+    const conn = component.gitRemotes()[0];
+    component.editGitRemote(conn);
+
+    component.saveGitRemote();
+
+    const callArgs = platformServiceSpy.updateConnection.calls.mostRecent().args[1];
+    expect((callArgs as any).credentials).toBeUndefined();
+  });
+
+  it('should_showError_when_updateGitRemoteFails', () => {
+    platformServiceSpy.updateConnection.and.returnValue(
+      throwError(() => ({ error: { message: 'Auth expired' } })),
+    );
+    fixture.detectChanges();
+
+    const conn = component.gitRemotes()[0];
+    component.editGitRemote(conn);
+    component.saveGitRemote();
+
+    expect(component.gitSaveError()).toBe('Auth expired');
+    expect(component.savingGitRemote()).toBeFalse();
+  });
+
+  it('should_updateAllConnections_when_editingTicketProvider', () => {
+    const updatedConn = { ...mockTicketConnection, name: 'Renamed Jira' };
+    platformServiceSpy.updateConnection.and.returnValue(of(updatedConn));
+    fixture.detectChanges();
+
+    const conn = component.ticketProviders()[0];
+    component.editTicketProvider(conn);
+    component.ticketForm.name = 'Renamed Jira';
+    component.saveTicketProvider();
+
+    expect(component.allConnections().find((c) => c.id === 'pc-1')!.name).toBe('Renamed Jira');
+  });
+
+  it('should_updateAllConnections_when_editingGitRemote', () => {
+    const updatedConn = { ...mockGitConnection, name: 'Renamed GitHub' };
+    platformServiceSpy.updateConnection.and.returnValue(of(updatedConn));
+    fixture.detectChanges();
+
+    const conn = component.gitRemotes()[0];
+    component.editGitRemote(conn);
+    component.gitForm.name = 'Renamed GitHub';
+    component.saveGitRemote();
+
+    expect(component.allConnections().find((c) => c.id === 'pc-2')!.name).toBe('Renamed GitHub');
   });
 });

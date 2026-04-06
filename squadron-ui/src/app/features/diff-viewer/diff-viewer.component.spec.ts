@@ -198,7 +198,7 @@ describe('DiffViewerComponent', () => {
 
     const compiled = emptyFixture.nativeElement as HTMLElement;
     const emptyEl = compiled.querySelector('.diff-viewer__empty');
-    expect(emptyEl?.textContent?.trim()).toBe('No file changes found.');
+    expect(emptyEl?.textContent?.trim()).toBe('diffViewer.noChanges');
   });
 
   it('should_compute_file_count', () => {

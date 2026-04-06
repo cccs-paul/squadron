@@ -1,5 +1,6 @@
 package com.squadron.common.event;
 
+import com.squadron.common.dto.TaskContext;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -18,6 +19,8 @@ public class TaskStateChangedEvent extends SquadronEvent {
     private String toState;
     private UUID triggeredBy;
     private String reason;
+    /** Enriched task context — nullable for backward compatibility */
+    private TaskContext taskContext;
 
     {
         setEventType("TASK_STATE_CHANGED");

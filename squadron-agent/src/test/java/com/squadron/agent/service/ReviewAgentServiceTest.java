@@ -69,6 +69,9 @@ class ReviewAgentServiceTest {
     private WorkspaceClient workspaceClient;
 
     @Mock
+    private WorkspaceLifecycleService workspaceLifecycleService;
+
+    @Mock
     private AgentProvider agentProvider;
 
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -84,7 +87,7 @@ class ReviewAgentServiceTest {
         reviewAgentService = new ReviewAgentService(
                 conversationService, configService, providerRegistry, promptBuilder,
                 toolRegistry, toolExecutionEngine, natsEventPublisher,
-                reviewClient, workspaceClient, objectMapper);
+                reviewClient, workspaceClient, objectMapper, workspaceLifecycleService);
 
         taskId = UUID.randomUUID();
         tenantId = UUID.randomUUID();

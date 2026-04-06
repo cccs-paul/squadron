@@ -4,6 +4,7 @@ import com.squadron.common.config.NatsEventPublisher;
 import com.squadron.common.exception.ResourceNotFoundException;
 import com.squadron.git.adapter.GitPlatformAdapter;
 import com.squadron.git.adapter.GitPlatformAdapterRegistry;
+import com.squadron.git.client.ResilientCredentialServiceClient;
 import com.squadron.git.dto.CreatePullRequestRequest;
 import com.squadron.git.dto.DiffFile;
 import com.squadron.git.dto.DiffResult;
@@ -43,13 +44,16 @@ class PullRequestServiceTest {
     private NatsEventPublisher natsEventPublisher;
 
     @Mock
+    private ResilientCredentialServiceClient credentialServiceClient;
+
+    @Mock
     private GitPlatformAdapter gitPlatformAdapter;
 
     private PullRequestService pullRequestService;
 
     @BeforeEach
     void setUp() {
-        pullRequestService = new PullRequestService(adapterRegistry, pullRequestRecordRepository, natsEventPublisher);
+        pullRequestService = new PullRequestService(adapterRegistry, pullRequestRecordRepository, natsEventPublisher, credentialServiceClient);
     }
 
     @Test

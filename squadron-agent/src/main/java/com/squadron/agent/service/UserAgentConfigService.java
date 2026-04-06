@@ -31,14 +31,14 @@ public class UserAgentConfigService {
 
     /** Default agent names seeded for new users, one per known type + 2 extras. */
     private static final List<String[]> DEFAULT_AGENTS = List.of(
-            new String[]{"Architect", "PLANNING"},
-            new String[]{"Maverick", "CODING"},
-            new String[]{"Hawkeye", "REVIEW"},
-            new String[]{"Gremlin", "QA"},
-            new String[]{"Stitch", "MERGE"},
-            new String[]{"Radar", "COVERAGE"},
-            new String[]{"Phoenix", "CODING"},
-            new String[]{"Oracle", "REVIEW"}
+            new String[]{"Sol", "PLANNING"},
+            new String[]{"Titan", "CODING"},
+            new String[]{"Vega", "REVIEW"},
+            new String[]{"Comet", "QA"},
+            new String[]{"Pulsar", "MERGE"},
+            new String[]{"Quasar", "COVERAGE"},
+            new String[]{"Nova", "CODING"},
+            new String[]{"Nebula", "REVIEW"}
     );
 
     private final UserAgentConfigRepository repository;

@@ -232,4 +232,35 @@ class WorkspaceClientTest {
         assertThrows(WorkspaceClient.WorkspaceClientException.class,
                 () -> workspaceClient.readFile(workspaceId, "/workspace/missing.txt"));
     }
+
+    // ========================================================================
+    // Security: Output sanitization tests
+    // ========================================================================
+
+    @Test
+    void should_sanitizeOutput_removeOAuth2Token() {
+        String input = "fatal: repository 'https://oauth2:ghp_abc123@github.com/owner/repo.git' not found";
+        String sanitized = WorkspaceClient.sanitizeOutput(input);
+        assertFalse(sanitized.contains("ghp_abc123"), "Token should be scrubbed");
+        assertTrue(sanitized.contains("***@"), "Token should be replaced with ***");
+    }
+
+    @Test
+    void should_sanitizeOutput_removeUserPassword() {
+        String input = "unable to access 'https://user:secret@github.com/owner/repo.git'";
+        String sanitized = WorkspaceClient.sanitizeOutput(input);
+        assertFalse(sanitized.contains("secret"), "Password should be scrubbed");
+        assertTrue(sanitized.contains("***@"), "Credentials should be replaced");
+    }
+
+    @Test
+    void should_sanitizeOutput_preserveCleanOutput() {
+        String input = "remote: Counting objects: 10, done.";
+        assertEquals(input, WorkspaceClient.sanitizeOutput(input));
+    }
+
+    @Test
+    void should_sanitizeOutput_handleNull() {
+        assertEquals("", WorkspaceClient.sanitizeOutput(null));
+    }
 }

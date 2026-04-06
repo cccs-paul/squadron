@@ -61,6 +61,9 @@ class CodingAgentServiceTest {
     private NatsEventPublisher natsEventPublisher;
 
     @Mock
+    private WorkspaceLifecycleService workspaceLifecycleService;
+
+    @Mock
     private AgentProvider agentProvider;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -77,7 +80,7 @@ class CodingAgentServiceTest {
         codingAgentService = new CodingAgentService(
                 planService, conversationService, configService, providerRegistry,
                 promptBuilder, toolRegistry, toolExecutionEngine, natsEventPublisher,
-                objectMapper);
+                objectMapper, workspaceLifecycleService);
 
         taskId = UUID.randomUUID();
         tenantId = UUID.randomUUID();
@@ -326,7 +329,7 @@ class CodingAgentServiceTest {
 
         AgentLoopResult result = codingAgentService.runAgentLoop(
                 conversationId, tenantId, userId, config,
-                "System prompt", "Implement the plan", taskId);
+                "System prompt", "Implement the plan", taskId, null);
 
         assertTrue(result.isSuccess());
         assertEquals(2, result.getIterations());
@@ -349,7 +352,7 @@ class CodingAgentServiceTest {
 
         AgentLoopResult result = codingAgentService.runAgentLoop(
                 conversationId, tenantId, userId, config,
-                "System prompt", "Implement the plan", taskId);
+                "System prompt", "Implement the plan", taskId, null);
 
         assertTrue(result.isSuccess());
         assertEquals(1, result.getIterations());
@@ -378,7 +381,7 @@ class CodingAgentServiceTest {
 
         AgentLoopResult result = codingAgentService.runAgentLoop(
                 conversationId, tenantId, userId, config,
-                "System prompt", "Implement the plan", taskId);
+                "System prompt", "Implement the plan", taskId, null);
 
         assertFalse(result.isSuccess());
         assertEquals(CodingAgentService.MAX_ITERATIONS, result.getIterations());
@@ -398,7 +401,7 @@ class CodingAgentServiceTest {
 
         AgentLoopResult result = codingAgentService.runAgentLoop(
                 conversationId, tenantId, userId, config,
-                "System prompt", "Implement the plan", taskId);
+                "System prompt", "Implement the plan", taskId, null);
 
         assertFalse(result.isSuccess());
         assertEquals(1, result.getIterations());
@@ -422,7 +425,7 @@ class CodingAgentServiceTest {
 
         AgentLoopResult result = codingAgentService.runAgentLoop(
                 conversationId, tenantId, userId, config,
-                "System prompt", "Implement the plan", taskId);
+                "System prompt", "Implement the plan", taskId, null);
 
         assertTrue(result.isSuccess());
         assertEquals(2, result.getIterations());
@@ -700,5 +703,42 @@ class CodingAgentServiceTest {
                 .status("ACTIVE")
                 .totalTokens(0L)
                 .build();
+    }
+
+    // ========================================================================
+    // Security: Output sanitization tests
+    // ========================================================================
+
+    @Test
+    void should_sanitizeOutput_removeOAuth2TokenFromToolResults() {
+        String input = "fatal: https://oauth2:ghp_SECRET@github.com/owner/repo.git not found";
+        String sanitized = CodingAgentService.sanitizeOutput(input);
+        assertFalse(sanitized.contains("ghp_SECRET"));
+        assertTrue(sanitized.contains("***@"));
+    }
+
+    @Test
+    void should_sanitizeOutput_removeUserPasswordFromToolResults() {
+        String input = "unable to access 'https://user:password123@github.com/owner/repo.git'";
+        String sanitized = CodingAgentService.sanitizeOutput(input);
+        assertFalse(sanitized.contains("password123"));
+        assertTrue(sanitized.contains("***@"));
+    }
+
+    @Test
+    void should_sanitizeOutput_handleNullSafely() {
+        assertEquals("", CodingAgentService.sanitizeOutput(null));
+    }
+
+    @Test
+    void should_formatToolResults_withSanitizedOutput() {
+        ToolResult result = ToolResult.builder()
+                .toolName("shell_exec")
+                .success(false)
+                .error("fatal: https://oauth2:ghp_TOKEN@github.com/org/repo.git - Access denied")
+                .build();
+        String formatted = codingAgentService.formatToolResults(List.of(result));
+        assertFalse(formatted.contains("ghp_TOKEN"), "Token should be sanitized in tool results");
+        assertTrue(formatted.contains("***@"));
     }
 }

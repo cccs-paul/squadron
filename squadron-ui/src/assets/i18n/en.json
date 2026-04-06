@@ -134,11 +134,32 @@
     "agentConfig": {
       "title": "Agent Configuration",
       "subtitle": "Configure AI agent settings for your workspace",
-      "modelSettings": {
+      "loading": "Loading configuration...",
+      "saveSuccess": "Configuration saved successfully",
+      "saving": "Saving...",
+      "saveConfig": "Save Configuration",
+      "provider": "Provider",
+      "modelName": "Model Name",
+      "model": "Model",
+      "temperature": "Temperature:",
+      "precise": "Precise (0.0)",
+      "creative": "Creative (1.0)",
+      "maxTokens": "Max Tokens",
+      "maxTokensError": "Must be between 1 and 128,000",
+      "systemPrompt": "System Prompt",
+      "systemPromptPlaceholder": "Optional system prompt for all agents...",
+      "selectAgentType": "Select agent type...",
+      "modelSettings": "Model Settings",
+      "modelSettingsDesc": "Default AI model configuration for all agent types",
+      "overrides": "Per-Agent Overrides",
+      "overridesDesc": "Override default settings for specific agent types",
+      "addOverride": "Add Override",
+      "remove": "Remove",
+      "modelSettings_section": {
         "title": "Model Settings",
         "subtitle": "Default AI model configuration for all agent types"
       },
-      "overrides": {
+      "overrides_section": {
         "title": "Per-Agent Overrides",
         "subtitle": "Override default settings for specific agent types"
       },
@@ -156,7 +177,7 @@
         "systemPrompt": "Optional system prompt for all agents...",
         "selectAgentType": "Select agent type..."
       },
-      "temperature": {
+      "temperature_range": {
         "precise": "Precise (0.0)",
         "creative": "Creative (1.0)"
       },
@@ -166,7 +187,6 @@
       "alerts": {
         "saveSuccess": "Configuration saved successfully"
       },
-      "loading": "Loading configuration...",
       "buttons": {
         "remove": "Remove",
         "addOverride": "Add Override",
@@ -181,7 +201,27 @@
     "userTokens": {
       "title": "Platform Tokens",
       "subtitle": "Link your personal access tokens to allow Squadron to act on your behalf",
-      "linkedAccounts": {
+      "loading": "Loading tokens...",
+      "linkSuccess": "Token linked successfully",
+      "linkedAccounts": "Linked Accounts",
+      "linkedAccountsDesc": "Platform accounts currently linked to your profile",
+      "noTokens": "No platform tokens linked yet. Link a token below to get started.",
+      "linked": "Linked",
+      "expires": "Expires",
+      "unlink": "Unlink",
+      "linkNewToken": "Link New Token",
+      "linkNewTokenDesc": "Connect a personal access token from an external platform",
+      "allLinked": "All available connections are already linked.",
+      "linkAToken": "Link a Token",
+      "platformConnection": "Platform Connection",
+      "selectConnection": "Select a connection...",
+      "personalAccessToken": "Personal Access Token",
+      "enterToken": "Enter your token...",
+      "encryptionHint": "Your token is encrypted before storage",
+      "linking": "Linking...",
+      "linkToken": "Link Token",
+      "unknownConnection": "Unknown connection",
+      "linkedAccounts_section": {
         "title": "Linked Accounts",
         "subtitle": "Platform accounts currently linked to your profile",
         "empty": "No platform tokens linked yet. Link a token below to get started."
@@ -194,7 +234,6 @@
       "alerts": {
         "linkSuccess": "Token linked successfully"
       },
-      "loading": "Loading tokens...",
       "labels": {
         "linked": "Linked",
         "expires": "Expires",
@@ -215,7 +254,6 @@
         "linkToken": "Link Token",
         "cancel": "Cancel"
       },
-      "unknownConnection": "Unknown connection",
       "errors": {
         "missingFields": "Please select a connection and enter a token.",
         "linkFailed": "Failed to link token. Please check your token and try again."
@@ -225,6 +263,21 @@
       "title": "My Agent Squadron",
       "subtitle": "Configure your personal AI agents. You can have up to {{maxAgents}} agents.",
       "loading": "Loading squadron...",
+      "saveSuccess": "Changes saved successfully.",
+      "agentName": "Agent name",
+      "save": "Save",
+      "edit": "Edit",
+      "remove": "Remove",
+      "type": "Type",
+      "provider": "Provider",
+      "providerPlaceholder": "e.g. openai-compatible",
+      "model": "Model",
+      "modelPlaceholder": "e.g. gpt-4o",
+      "maxTokens": "Max Tokens",
+      "temperature": "Temperature",
+      "enabled": "Enabled",
+      "addAgent": "+ Add Agent",
+      "resetDefaults": "Reset to Defaults",
       "alerts": {
         "saveSuccess": "Changes saved successfully."
       },
@@ -339,10 +392,14 @@
   "tasks": {
     "board": {
       "title": "Task Board",
-      "subtitle": "Drag and drop tasks between columns",
+      "subtitle": "Track and manage work across all projects",
       "searchPlaceholder": "Search tasks...",
+      "noTasks": "No tasks",
+      "loading": "Loading tasks...",
+      "refresh": "Refresh",
       "filter": {
-        "allPriorities": "All Priorities"
+        "allPriorities": "All Priorities",
+        "allProjects": "All Projects"
       },
       "emptyColumn": "No tasks",
       "column": {
@@ -351,7 +408,31 @@
         "inProgress": "In Progress",
         "review": "Review",
         "qa": "QA",
-        "done": "Done"
+        "done": "Done",
+        "planned": "Planned",
+        "completed": "Completed"
+      },
+      "summary": {
+        "inProgress": "In Progress",
+        "planned": "Planned",
+        "completed": "Completed"
+      },
+      "agentStatus": {
+        "active": "Agent Active",
+        "waiting_input": "Awaiting Input",
+        "completed": "Agent Done",
+        "failed": "Agent Failed"
+      },
+      "actions": {
+        "cancel": "Cancel Task",
+        "cancelConfirm": "Are you sure?",
+        "cancelling": "Cancelling...",
+        "prompt": "Send",
+        "promptPlaceholder": "Send a message to the agent...",
+        "sending": "Sending...",
+        "approvePlan": "Approve Plan",
+        "rejectPlan": "Reject Plan",
+        "openChat": "Open Agent Chat"
       }
     },
     "detail": {
@@ -359,8 +440,18 @@
       "backToBoard": "Back to Board",
       "description": "Description",
       "transitions": "Move to",
+      "moveTo": "Move to",
       "pullRequest": "Pull Request",
-      "labels": {
+      "assignee": "Assignee",
+      "unassigned": "Unassigned",
+      "tokenUsage": "Token Usage",
+      "tokens": "{{count}} tokens",
+      "created": "Created",
+      "externalLink": "External Link",
+      "openInPlatform": "Open in platform",
+      "labels": "Labels",
+      "noLabels": "No labels",
+      "labels_section": {
         "heading": "Labels",
         "empty": "No labels"
       },
@@ -397,6 +488,14 @@
     "list": {
       "title": "Code Reviews",
       "subtitle": "Review pull requests and provide feedback",
+      "pullRequest": "Pull Request",
+      "task": "Task",
+      "status": "Status",
+      "changes": "Changes",
+      "reviewer": "Reviewer",
+      "updated": "Updated",
+      "allStatuses": "All Statuses",
+      "noReviews": "No reviews found",
       "filter": {
         "allStatuses": "All Statuses",
         "pending": "Pending",
@@ -417,6 +516,19 @@
     "detail": {
       "loading": "Loading review...",
       "backLink": "Back to Reviews",
+      "backToReviews": "Back to Reviews",
+      "approve": "Approve",
+      "reject": "Reject",
+      "filesChanged": "Files changed",
+      "linesAdded": "Lines added",
+      "linesRemoved": "Lines removed",
+      "comments": "Comments",
+      "unresolved": "Unresolved",
+      "resolved": "Resolved",
+      "diffTab": "Diff",
+      "commentsTab": "Comments",
+      "reviewComments": "Review Comments",
+      "noComments": "No comments yet",
       "actions": {
         "approve": "Approve",
         "reject": "Reject"
@@ -433,10 +545,16 @@
         "diff": "Diff",
         "comments": "Comments"
       },
-      "comments": {
+      "comments_section": {
         "title": "Review Comments",
         "resolvedBadge": "Resolved",
         "emptyState": "No comments yet"
+      },
+      "severity": {
+        "critical": "Critical",
+        "major": "Major",
+        "minor": "Minor",
+        "info": "Info"
       }
     },
     "status": {
@@ -455,15 +573,25 @@
     "list": {
       "heading": "Projects",
       "subheading": "Manage your repositories and projects",
+      "title": "Projects",
+      "subtitle": "Manage your repositories and projects",
       "newProjectButton": "New Project",
+      "newProject": "New Project",
       "emptyState": "No projects yet. Create your first project to get started."
     },
     "card": {
       "tasksLabel": "tasks",
-      "activeLabel": "active"
+      "activeLabel": "active",
+      "tasks": "tasks",
+      "active": "active"
     },
     "detail": {
       "backLink": "Back to Projects",
+      "backToProjects": "Back to Projects",
+      "repository": "Repository",
+      "defaultBranch": "Default Branch",
+      "totalTasks": "Total Tasks",
+      "activeTasks": "Active Tasks",
       "labels": {
         "repository": "Repository",
         "defaultBranch": "Default Branch",
@@ -474,6 +602,20 @@
   },
   "agentChat": {
     "title": "Agent Chat",
+    "aiAgent": "AI Agent",
+    "you": "You",
+    "system": "System",
+    "streaming": "streaming...",
+    "tokens": "tokens",
+    "status": "Status:",
+    "cancel": "Cancel",
+    "interrupted": "Agent was interrupted. You can send a new message to continue.",
+    "placeholder": "Type a message...",
+    "connection": {
+      "CONNECTED": "Connected",
+      "CONNECTING": "Connecting...",
+      "DISCONNECTED": "Disconnected"
+    },
     "meta": {
       "statusLabel": "Status:",
       "tokensLabel": "Tokens:"
@@ -482,7 +624,8 @@
       "cancel": "Cancel"
     },
     "progress": {
-      "stepsUnit": "steps"
+      "stepsUnit": "steps",
+      "steps": "steps"
     },
     "message": {
       "authorAgent": "AI Agent",
@@ -490,10 +633,6 @@
       "authorSystem": "System",
       "streamingIndicator": "streaming...",
       "tokensUnit": "tokens"
-    },
-    "status": {
-      "interruptedBanner": "Agent was interrupted. You can send a new message to continue.",
-      "interruptedByUser": "Agent was interrupted by user."
     },
     "input": {
       "placeholder": "Type a message..."
@@ -505,10 +644,15 @@
   },
   "diffViewer": {
     "title": "Code Changes",
+    "filesChanged": "files changed",
+    "loading": "Loading diff...",
+    "resolved": "Resolved",
+    "addComment": "Add a review comment...",
+    "cancel": "Cancel",
+    "noChanges": "No file changes found.",
     "stats": {
       "filesChanged": "files changed"
     },
-    "loading": "Loading diff...",
     "comments": {
       "resolved": "Resolved",
       "placeholder": "Add a review comment...",
@@ -521,18 +665,24 @@
   },
   "qaReport": {
     "loading": "Loading QA report...",
+    "backToTask": "Back to Task",
+    "title": "QA Report",
+    "coverage": "Code Coverage",
+    "coverageMeetsThreshold": "Coverage meets threshold",
+    "coverageBelowThreshold": "Coverage below recommended threshold",
+    "coverageCriticallyLow": "Coverage critically low",
+    "testSummary": "Test Results",
+    "passed": "Passed",
+    "failed": "Failed",
+    "skipped": "Skipped",
+    "summary": "Summary",
+    "findings": "Findings",
+    "noFindings": "No findings reported",
     "navigation": {
       "backToTask": "Back to Task"
     },
-    "title": "QA Report",
     "header": {
       "gatePrefix": "Gate:"
-    },
-    "coverage": {
-      "title": "Code Coverage",
-      "meetsThreshold": "Coverage meets threshold",
-      "belowThreshold": "Coverage below recommended threshold",
-      "criticallyLow": "Coverage critically low"
     },
     "testResults": {
       "title": "Test Results",
@@ -540,16 +690,6 @@
       "passed": "Passed",
       "failed": "Failed",
       "skipped": "Skipped"
-    },
-    "summary": {
-      "title": "Summary"
-    },
-    "findings": {
-      "title": "Findings",
-      "criticalGroup": "Critical",
-      "majorGroup": "Major",
-      "minorInfoGroup": "Minor / Info",
-      "emptyState": "No findings reported"
     },
     "error": {
       "loadFailed": "Failed to load QA report"
@@ -577,8 +717,10 @@
       "cancelToggle": "Cancel",
       "addProvider": "+ Add Provider",
       "saveSuccess": "Ticket provider added successfully",
+      "editSuccess": "Ticket provider updated successfully",
       "form": {
         "title": "New Ticket Provider",
+        "editTitle": "Edit Ticket Provider",
         "providerNameLabel": "Provider Name",
         "providerNamePlaceholder": "e.g. Jira Cloud - Production",
         "platformLabel": "Platform",
@@ -592,7 +734,9 @@
         "enterPrefix": "Enter",
         "cancel": "Cancel",
         "saving": "Saving...",
-        "saveProvider": "Save Provider"
+        "saveProvider": "Save Provider",
+        "updateProvider": "Update Provider",
+        "credentialEditHint": "Leave blank to keep existing credentials"
       },
       "empty": {
         "title": "No ticket providers yet",
@@ -600,7 +744,8 @@
       },
       "card": {
         "removing": "Removing...",
-        "remove": "Remove"
+        "remove": "Remove",
+        "edit": "Edit"
       },
       "errors": {
         "saveFailed": "Failed to save provider. Please check your configuration and try again."
@@ -612,8 +757,10 @@
       "cancelToggle": "Cancel",
       "addRemote": "+ Add Git Remote",
       "saveSuccess": "Git remote added successfully",
+      "editSuccess": "Git remote updated successfully",
       "form": {
         "title": "New Git Remote",
+        "editTitle": "Edit Git Remote",
         "connectionNameLabel": "Connection Name",
         "connectionNamePlaceholder": "e.g. GitHub - My Org",
         "platformLabel": "Platform",
@@ -625,7 +772,9 @@
         "enterPrefix": "Enter",
         "cancel": "Cancel",
         "saving": "Saving...",
-        "saveRemote": "Save Git Remote"
+        "saveRemote": "Save Git Remote",
+        "updateRemote": "Update Git Remote",
+        "credentialEditHint": "Leave blank to keep existing credentials"
       },
       "empty": {
         "title": "No Git remotes configured",
@@ -634,7 +783,8 @@
       "card": {
         "sshKeyCount": "{{count}} SSH key(s)",
         "removing": "Removing...",
-        "remove": "Remove"
+        "remove": "Remove",
+        "edit": "Edit"
       },
       "sshKey": {
         "remove": "Remove",
@@ -668,8 +818,58 @@
         "saving": "Saving...",
         "saveKey": "Save SSH Key"
       },
+      "keyUsageLabel": "Key Usage",
+      "keyUsage": {
+        "userKey": "User Key",
+        "deployKey": "Deploy Key"
+      },
+      "generatingDeployKey": "Generating...",
+      "generateDeployKey": "Generate Deploy Key",
+      "generatedKeyLabel": "Generated Public Key",
+      "generatedKeyHint": "Copy this public key to your Git remote as a deploy key.",
+      "dismissKey": "Dismiss",
       "errors": {
-        "saveFailed": "Failed to save SSH key. Please verify the key pair."
+        "saveFailed": "Failed to save SSH key. Please verify the key pair.",
+        "generateFailed": "Failed to generate deploy key. Please try again."
+      }
+    },
+    "credentialStatus": {
+      "linked": "Credentials linked",
+      "expired": "Credentials expired",
+      "missing": "Credentials missing"
+    },
+    "reviewBot": {
+      "title": "Review Bot Configuration",
+      "description": "Configure automated review bots to post review comments on pull requests.",
+      "cancelToggle": "Cancel",
+      "addBot": "+ Add Review Bot",
+      "saveSuccess": "Review bot added successfully",
+      "form": {
+        "title": "New Review Bot",
+        "connectionLabel": "Git Remote",
+        "selectConnection": "-- Select connection --",
+        "botUsernameLabel": "Bot Username",
+        "botUsernamePlaceholder": "e.g. squadron-bot",
+        "accessTokenLabel": "Bot Access Token",
+        "accessTokenPlaceholder": "Enter the bot's access token...",
+        "accessTokenHint": "A personal access token for the bot account. Stored encrypted.",
+        "enabledLabel": "Enabled",
+        "autoAssignLabel": "Auto-assign bot as reviewer",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "save": "Save Review Bot"
+      },
+      "status": {
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "autoAssign": "Auto-assign"
+      },
+      "enable": "Enable",
+      "disable": "Disable",
+      "remove": "Remove",
+      "removing": "Removing...",
+      "errors": {
+        "saveFailed": "Failed to save review bot. Please check the configuration."
       }
     },
     "projects": {
@@ -793,6 +993,7 @@
       "username": "Username",
       "password": "Password",
       "appId": "App ID",
+      "installationId": "Installation ID",
       "privateKey": "Private Key",
       "appPassword": "App Password"
     },

@@ -1,7 +1,9 @@
 package com.squadron.agent.integration;
 
+import com.squadron.agent.client.CredentialServiceClient;
 import com.squadron.agent.client.GitServiceClient;
 import com.squadron.agent.client.OrchestratorClient;
+import com.squadron.agent.client.ResilientCredentialServiceClient;
 import com.squadron.agent.client.ResilientGitServiceClient;
 import com.squadron.agent.client.ResilientOrchestratorClient;
 import com.squadron.agent.client.ResilientReviewServiceClient;
@@ -26,9 +28,12 @@ import com.squadron.agent.service.ReviewAgentService;
 import com.squadron.agent.service.SquadronConfigService;
 import com.squadron.agent.service.SystemPromptBuilder;
 import com.squadron.agent.service.TokenUsageService;
+import com.squadron.agent.service.WorkspaceLifecycleService;
 import com.squadron.agent.tool.ToolExecutionEngine;
 import com.squadron.agent.tool.ToolRegistry;
+import com.squadron.agent.tool.builtin.CredentialClient;
 import com.squadron.agent.tool.builtin.GitClient;
+import com.squadron.agent.tool.builtin.ReviewBotClient;
 import com.squadron.agent.tool.builtin.ReviewClient;
 import com.squadron.agent.tool.builtin.WorkspaceClient;
 import org.junit.jupiter.api.AfterEach;
@@ -162,6 +167,26 @@ class WebSocketIntegrationTest {
     @MockBean
     @SuppressWarnings("unused")
     private ResilientWorkspaceServiceClient resilientWorkspaceServiceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private CredentialServiceClient credentialServiceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ResilientCredentialServiceClient resilientCredentialServiceClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private CredentialClient credentialClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private ReviewBotClient reviewBotClient;
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private WorkspaceLifecycleService workspaceLifecycleService;
 
     @MockBean
     @SuppressWarnings("unused")

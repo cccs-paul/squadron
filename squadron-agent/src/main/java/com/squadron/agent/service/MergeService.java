@@ -33,15 +33,18 @@ public class MergeService {
     private final ReviewClient reviewClient;
     private final NatsEventPublisher natsEventPublisher;
     private final ObjectMapper objectMapper;
+    private final WorkspaceLifecycleService workspaceLifecycleService;
 
     public MergeService(GitClient gitClient,
                         ReviewClient reviewClient,
                         NatsEventPublisher natsEventPublisher,
-                        ObjectMapper objectMapper) {
+                        ObjectMapper objectMapper,
+                        WorkspaceLifecycleService workspaceLifecycleService) {
         this.gitClient = gitClient;
         this.reviewClient = reviewClient;
         this.natsEventPublisher = natsEventPublisher;
         this.objectMapper = objectMapper;
+        this.workspaceLifecycleService = workspaceLifecycleService;
     }
 
     /**
@@ -83,7 +86,15 @@ public class MergeService {
             // 4. Merge the PR using default MERGE strategy
             gitClient.mergePullRequest(prId, "MERGE");
 
-            // 5. Publish success event
+            // 5. Tear down workspaces after successful merge
+            try {
+                workspaceLifecycleService.teardownWorkspacesForTask(taskId);
+                log.info("Workspace teardown completed for task {}", taskId);
+            } catch (Exception e) {
+                log.warn("Workspace teardown failed for task {}: {}", taskId, e.getMessage());
+            }
+
+            // 6. Publish success event
             log.info("Merge completed successfully for task {}", taskId);
             publishMergeEvent(tenantId, taskId, true, "Merge completed successfully");
 

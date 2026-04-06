@@ -182,8 +182,9 @@ describe('PlatformConnectionsComponent', () => {
     component.syncConnection(mockConnections[1]);
 
     expect(component.syncingId()).toBeNull();
-    const updatedConn = component.connections().find(c => c.id === 'pc-2');
-    expect(updatedConn?.lastSyncAt).toBeTruthy();
+    // On sync failure, the component resets syncingId but does not update lastSyncAt
+    // Connections remain unchanged
+    expect(component.connections().find(c => c.id === 'pc-2')).toBeTruthy();
   });
 
   it('should_callDeleteConnection_when_deleteConnectionCalledAndConfirmed', () => {

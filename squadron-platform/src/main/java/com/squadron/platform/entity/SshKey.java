@@ -56,6 +56,10 @@ public class SshKey {
     @Builder.Default
     private String keyType = "ED25519";
 
+    @Column(name = "key_usage", nullable = false, length = 50)
+    @Builder.Default
+    private String keyUsage = "USER_KEY";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

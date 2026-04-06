@@ -73,8 +73,8 @@ public class WorkspaceClient {
 
             return ExecResultDto.builder()
                     .exitCode(data.get("exitCode") instanceof Number n ? n.intValue() : 0)
-                    .stdout(data.get("stdout") != null ? data.get("stdout").toString() : "")
-                    .stderr(data.get("stderr") != null ? data.get("stderr").toString() : "")
+                    .stdout(sanitizeOutput(data.get("stdout") != null ? data.get("stdout").toString() : ""))
+                    .stderr(sanitizeOutput(data.get("stderr") != null ? data.get("stderr").toString() : ""))
                     .build();
         } catch (WebClientResponseException e) {
             log.error("Workspace exec failed for workspace {}: {} {}", workspaceId,
@@ -141,6 +141,121 @@ public class WorkspaceClient {
     }
 
     /**
+     * Creates a new workspace via the workspace service.
+     *
+     * @param createRequest the workspace creation parameters
+     * @return the created workspace data including id and containerId
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> createWorkspace(Map<String, Object> createRequest) {
+        log.debug("Creating workspace with request: {}", createRequest);
+
+        try {
+            Map<String, Object> response = webClient.post()
+                    .uri("/api/workspaces")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(createRequest)
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .block();
+
+            if (response == null || response.get("data") == null) {
+                throw new WorkspaceClientException("Empty response from workspace creation");
+            }
+
+            return (Map<String, Object>) response.get("data");
+        } catch (WebClientResponseException e) {
+            log.error("Workspace creation failed: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new WorkspaceClientException(
+                    "Workspace creation failed: " + e.getStatusCode() + " " + e.getResponseBodyAsString(), e);
+        }
+    }
+
+    /**
+     * Lists workspaces for a given task.
+     *
+     * @param taskId the task ID
+     * @return list of workspace data maps
+     */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> listWorkspacesByTask(UUID taskId) {
+        log.debug("Listing workspaces for task {}", taskId);
+
+        try {
+            Map<String, Object> response = webClient.get()
+                    .uri("/api/workspaces/task/{taskId}", taskId)
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .block();
+
+            if (response == null || response.get("data") == null) {
+                return List.of();
+            }
+
+            return (List<Map<String, Object>>) response.get("data");
+        } catch (WebClientResponseException e) {
+            log.error("Failed to list workspaces for task {}: {} {}", taskId,
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            throw new WorkspaceClientException(
+                    "Failed to list workspaces: " + e.getStatusCode() + " " + e.getResponseBodyAsString(), e);
+        }
+    }
+
+    /**
+     * Creates a branch in a workspace container.
+     *
+     * @param workspaceId   the workspace ID
+     * @param branchName    the branch to create
+     * @param baseBranch    the base branch to branch from (null for current HEAD)
+     */
+    public void createBranch(UUID workspaceId, String branchName, String baseBranch) {
+        log.debug("Creating branch {} in workspace {} from base {}", branchName, workspaceId, baseBranch);
+
+        try {
+            Map<String, Object> requestBody = new java.util.HashMap<>();
+            requestBody.put("branchName", branchName);
+            if (baseBranch != null) {
+                requestBody.put("baseBranch", baseBranch);
+            }
+
+            webClient.post()
+                    .uri("/api/workspaces/{workspaceId}/branch", workspaceId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            log.error("Failed to create branch {} in workspace {}: {} {}", branchName, workspaceId,
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            throw new WorkspaceClientException(
+                    "Failed to create branch: " + e.getStatusCode() + " " + e.getResponseBodyAsString(), e);
+        }
+    }
+
+    /**
+     * Destroys (tears down) a workspace container.
+     *
+     * @param workspaceId the workspace to destroy
+     */
+    public void destroyWorkspace(UUID workspaceId) {
+        log.debug("Destroying workspace {}", workspaceId);
+
+        try {
+            webClient.delete()
+                    .uri("/api/workspaces/{workspaceId}", workspaceId)
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            log.error("Failed to destroy workspace {}: {} {}", workspaceId,
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            throw new WorkspaceClientException(
+                    "Failed to destroy workspace: " + e.getStatusCode() + " " + e.getResponseBodyAsString(), e);
+        }
+    }
+
+    /**
      * Exception thrown when workspace service communication fails.
      */
     public static class WorkspaceClientException extends RuntimeException {
@@ -151,5 +266,15 @@ public class WorkspaceClient {
         public WorkspaceClientException(String message, Throwable cause) {
             super(message, cause);
         }
+    }
+
+    /**
+     * Sanitizes output to remove embedded credentials/tokens from URLs.
+     * Prevents token leakage when feeding workspace output back to LLM or logs.
+     */
+    static String sanitizeOutput(String output) {
+        if (output == null) return "";
+        return output.replaceAll("(https?://)[^@/]+@", "$1***@")
+                .replaceAll("(?<!https?://)oauth2:[^@]+@", "oauth2:***@");
     }
 }

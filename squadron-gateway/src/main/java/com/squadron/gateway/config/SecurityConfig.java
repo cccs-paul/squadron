@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .cors(cors -> {})
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers(
-                            "/actuator/health", "/actuator/info",
+                            "/actuator/health", "/actuator/health/**", "/actuator/info",
                             "/api/auth/**", "/api/identity/auth/**",
                             "/api/health/**",
                             "/.well-known/**"

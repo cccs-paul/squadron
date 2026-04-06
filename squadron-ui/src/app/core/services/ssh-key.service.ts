@@ -43,4 +43,13 @@ export class SshKeyService extends ApiService {
   deleteSshKey(id: string): Observable<void> {
     return this.delete<void>(`/platforms/ssh-keys/${id}`);
   }
+
+  /** Generate a deploy key (server-side ED25519 keypair generation). */
+  generateDeployKey(connectionId: string, tenantId: string, name: string): Observable<SshKey> {
+    return this.post<ApiResponse<SshKey>>('/platforms/ssh-keys/deploy-key', {
+      connectionId, tenantId, name, keyUsage: 'DEPLOY_KEY',
+    }).pipe(
+      map((response) => response.data),
+    );
+  }
 }

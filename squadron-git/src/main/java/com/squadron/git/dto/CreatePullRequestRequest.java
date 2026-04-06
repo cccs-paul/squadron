@@ -43,4 +43,10 @@ public class CreatePullRequestRequest {
     private List<String> reviewers;
 
     private String accessToken;
+
+    /** User ID for credential delegation (optional — if provided with connectionId, accessToken is resolved automatically) */
+    private UUID userId;
+
+    /** Platform connection ID for credential delegation (optional) */
+    private UUID connectionId;
 }

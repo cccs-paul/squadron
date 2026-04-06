@@ -163,7 +163,13 @@ describe('ReviewDetailComponent', () => {
   });
 
   it('should show diff viewer in diff tab', () => {
-    reviewServiceSpy.getReview.and.returnValue(throwError(() => new Error('fail')));
+    const mockReview = {
+      id: 'r1', tenantId: '1', taskId: '7', taskTitle: 'RBAC', pullRequestUrl: 'url',
+      pullRequestNumber: 35, repositoryName: 'org/repo', status: ReviewStatus.PENDING,
+      severity: 'MAJOR', comments: [], filesChanged: 5, linesAdded: 100, linesRemoved: 10,
+      reviewerType: 'AI', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    } as any as Review;
+    reviewServiceSpy.getReview.and.returnValue(of(mockReview));
     fixture.detectChanges();
 
     component.setTab('diff');
@@ -192,7 +198,13 @@ describe('ReviewDetailComponent', () => {
   });
 
   it('should render tabs', () => {
-    reviewServiceSpy.getReview.and.returnValue(throwError(() => new Error('fail')));
+    const mockReview = {
+      id: 'r1', tenantId: '1', taskId: '7', taskTitle: 'RBAC', pullRequestUrl: 'url',
+      pullRequestNumber: 35, repositoryName: 'org/repo', status: ReviewStatus.PENDING,
+      severity: 'MAJOR', comments: [], filesChanged: 5, linesAdded: 100, linesRemoved: 10,
+      reviewerType: 'AI', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    } as any as Review;
+    reviewServiceSpy.getReview.and.returnValue(of(mockReview));
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     const tabs = el.querySelectorAll('.review-tab');

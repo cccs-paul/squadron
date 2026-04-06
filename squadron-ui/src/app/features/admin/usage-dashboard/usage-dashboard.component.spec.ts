@@ -2,9 +2,11 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateModule } from '@ngx-translate/core';
 import { UsageDashboardComponent } from './usage-dashboard.component';
 import { UsageService } from '../../../core/services/usage.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
+import { signal } from '@angular/core';
 import { UsageSummary, UsageByAgent } from '../../../core/models/usage.model';
 
 describe('UsageDashboardComponent', () => {
@@ -28,6 +30,12 @@ describe('UsageDashboardComponent', () => {
     { agentType: 'MERGE', totalTokens: 25000, totalCost: 0.41, invocations: 8 },
   ];
 
+  const mockAuthService = {
+    user: signal({ tenantId: 'demo-tenant-001', userId: 'user-001', roles: [] }),
+    isAuthenticated: signal(true),
+    isAdmin: signal(false),
+  };
+
   beforeEach(async () => {
     usageServiceSpy = jasmine.createSpyObj('UsageService', [
       'getTenantSummary',
@@ -38,6 +46,7 @@ describe('UsageDashboardComponent', () => {
       imports: [UsageDashboardComponent, TranslateModule.forRoot()],
       providers: [
         { provide: UsageService, useValue: usageServiceSpy },
+        { provide: AuthService, useValue: mockAuthService },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],

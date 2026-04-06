@@ -20,7 +20,7 @@ class TaskStateChangedEventTest {
         UUID taskId = UUID.randomUUID();
         UUID triggeredBy = UUID.randomUUID();
 
-        TaskStateChangedEvent event = new TaskStateChangedEvent(taskId, "OPEN", "IN_PROGRESS", triggeredBy, "Started work");
+        TaskStateChangedEvent event = new TaskStateChangedEvent(taskId, "OPEN", "IN_PROGRESS", triggeredBy, "Started work", null);
 
         assertEquals("TASK_STATE_CHANGED", event.getEventType());
     }
@@ -30,7 +30,7 @@ class TaskStateChangedEventTest {
         UUID taskId = UUID.randomUUID();
         UUID triggeredBy = UUID.randomUUID();
 
-        TaskStateChangedEvent event = new TaskStateChangedEvent(taskId, "OPEN", "IN_PROGRESS", triggeredBy, "Started work");
+        TaskStateChangedEvent event = new TaskStateChangedEvent(taskId, "OPEN", "IN_PROGRESS", triggeredBy, "Started work", null);
 
         assertEquals(taskId, event.getTaskId());
         assertEquals("OPEN", event.getFromState());
@@ -48,6 +48,7 @@ class TaskStateChangedEventTest {
         assertNull(event.getToState());
         assertNull(event.getTriggeredBy());
         assertNull(event.getReason());
+        assertNull(event.getTaskContext());
     }
 
     @Test

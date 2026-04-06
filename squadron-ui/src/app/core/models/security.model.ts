@@ -122,6 +122,7 @@ export interface SshKey {
   publicKey: string;
   fingerprint: string;
   keyType: string;
+  keyUsage?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -133,4 +134,38 @@ export interface CreateSshKeyRequest {
   publicKey: string;
   privateKey: string;
   keyType?: string;
+  keyUsage?: string;
+}
+
+/** Key usage types for SSH keys. */
+export enum KeyUsage {
+  USER_KEY = 'USER_KEY',
+  DEPLOY_KEY = 'DEPLOY_KEY',
+}
+
+/** Review bot configuration for automated PR review comments. */
+export interface ReviewBotConfig {
+  id: string;
+  tenantId: string;
+  connectionId: string;
+  botUsername: string;
+  enabled: boolean;
+  autoAssign: boolean;
+  createdAt: string;
+}
+
+export interface CreateReviewBotConfigRequest {
+  tenantId: string;
+  connectionId: string;
+  botUsername: string;
+  botAccessToken: string;
+  enabled: boolean;
+  autoAssign: boolean;
+}
+
+/** Credential status for a connection (used for status indicators). */
+export enum CredentialStatus {
+  LINKED = 'LINKED',
+  EXPIRED = 'EXPIRED',
+  MISSING = 'MISSING',
 }

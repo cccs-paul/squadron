@@ -56,12 +56,24 @@
           </div>
 
           @if (ticketSaveSuccess()) {
-            <div class="alert alert--success">{{ 'projectConfig.ticketProviders.saveSuccess' | translate }}</div>
+            <div class="alert alert--success">
+              @if (editingTicketProviderId()) {
+                {{ 'projectConfig.ticketProviders.editSuccess' | translate }}
+              } @else {
+                {{ 'projectConfig.ticketProviders.saveSuccess' | translate }}
+              }
+            </div>
           }
 
           @if (showTicketForm()) {
             <div class="form-card">
-              <h4 class="form-card__title">{{ 'projectConfig.ticketProviders.form.title' | translate }}</h4>
+              <h4 class="form-card__title">
+                @if (editingTicketProviderId()) {
+                  {{ 'projectConfig.ticketProviders.form.editTitle' | translate }}
+                } @else {
+                  {{ 'projectConfig.ticketProviders.form.title' | translate }}
+                }
+              </h4>
 
               @if (ticketSaveError()) {
                 <div class="alert alert--error">{{ ticketSaveError() }}</div>
@@ -120,16 +132,26 @@
                       [type]="field.secret ? 'password' : 'text'"
                       [ngModel]="ticketForm.credentials[field.key] || ''"
                       (ngModelChange)="ticketForm.credentials[field.key] = $event"
-                      [placeholder]="('projectConfig.ticketProviders.form.enterPrefix' | translate) + ' ' + (field.label | translate)"
+                      [placeholder]="editingTicketProviderId() ? ('projectConfig.ticketProviders.form.credentialEditHint' | translate) : ('projectConfig.ticketProviders.form.enterPrefix' | translate) + ' ' + (field.label | translate)"
                     />
                   </div>
                 </div>
               }
 
+              @if (editingTicketProviderId()) {
+                <div class="form-hint form-hint--info">{{ 'projectConfig.ticketProviders.form.credentialEditHint' | translate }}</div>
+              }
+
               <div class="form-card__actions">
                 <button class="btn btn--secondary" (click)="toggleTicketForm()">{{ 'projectConfig.ticketProviders.form.cancel' | translate }}</button>
                 <button class="btn btn--primary" (click)="saveTicketProvider()" [disabled]="!canSaveTicketProvider() || savingTicketProvider()">
-                  @if (savingTicketProvider()) { {{ 'projectConfig.ticketProviders.form.saving' | translate }} } @else { {{ 'projectConfig.ticketProviders.form.saveProvider' | translate }} }
+                  @if (savingTicketProvider()) {
+                    {{ 'projectConfig.ticketProviders.form.saving' | translate }}
+                  } @else if (editingTicketProviderId()) {
+                    {{ 'projectConfig.ticketProviders.form.updateProvider' | translate }}
+                  } @else {
+                    {{ 'projectConfig.ticketProviders.form.saveProvider' | translate }}
+                  }
                 </button>
               </div>
             </div>
@@ -156,6 +178,12 @@
                     <span class="provider-card__status provider-card__status--{{ conn.status.toLowerCase() }}">
                       {{ conn.status }}
                     </span>
+                    <button
+                      class="btn btn--secondary btn--sm"
+                      (click)="editTicketProvider(conn)"
+                    >
+                      {{ 'projectConfig.ticketProviders.card.edit' | translate }}
+                    </button>
                     <button
                       class="btn btn--danger btn--sm"
                       (click)="deleteTicketProvider(conn.id)"
@@ -185,12 +213,24 @@
           </div>
 
           @if (gitSaveSuccess()) {
-            <div class="alert alert--success">{{ 'projectConfig.gitRemotes.saveSuccess' | translate }}</div>
+            <div class="alert alert--success">
+              @if (editingGitRemoteId()) {
+                {{ 'projectConfig.gitRemotes.editSuccess' | translate }}
+              } @else {
+                {{ 'projectConfig.gitRemotes.saveSuccess' | translate }}
+              }
+            </div>
           }
 
           @if (showGitForm()) {
             <div class="form-card">
-              <h4 class="form-card__title">{{ 'projectConfig.gitRemotes.form.title' | translate }}</h4>
+              <h4 class="form-card__title">
+                @if (editingGitRemoteId()) {
+                  {{ 'projectConfig.gitRemotes.form.editTitle' | translate }}
+                } @else {
+                  {{ 'projectConfig.gitRemotes.form.title' | translate }}
+                }
+              </h4>
 
               @if (gitSaveError()) {
                 <div class="alert alert--error">{{ gitSaveError() }}</div>
@@ -250,16 +290,26 @@
                       [type]="field.secret ? 'password' : 'text'"
                       [ngModel]="gitForm.credentials[field.key] || ''"
                       (ngModelChange)="gitForm.credentials[field.key] = $event"
-                      [placeholder]="('projectConfig.gitRemotes.form.enterPrefix' | translate) + ' ' + (field.label | translate)"
+                      [placeholder]="editingGitRemoteId() ? ('projectConfig.gitRemotes.form.credentialEditHint' | translate) : ('projectConfig.gitRemotes.form.enterPrefix' | translate) + ' ' + (field.label | translate)"
                     />
                   </div>
                 </div>
               }
 
+              @if (editingGitRemoteId()) {
+                <div class="form-hint form-hint--info">{{ 'projectConfig.gitRemotes.form.credentialEditHint' | translate }}</div>
+              }
+
               <div class="form-card__actions">
                 <button class="btn btn--secondary" (click)="toggleGitForm()">{{ 'projectConfig.gitRemotes.form.cancel' | translate }}</button>
                 <button class="btn btn--primary" (click)="saveGitRemote()" [disabled]="!canSaveGitRemote() || savingGitRemote()">
-                  @if (savingGitRemote()) { {{ 'projectConfig.gitRemotes.form.saving' | translate }} } @else { {{ 'projectConfig.gitRemotes.form.saveRemote' | translate }} }
+                  @if (savingGitRemote()) {
+                    {{ 'projectConfig.gitRemotes.form.saving' | translate }}
+                  } @else if (editingGitRemoteId()) {
+                    {{ 'projectConfig.gitRemotes.form.updateRemote' | translate }}
+                  } @else {
+                    {{ 'projectConfig.gitRemotes.form.saveRemote' | translate }}
+                  }
                 </button>
               </div>
             </div>
@@ -290,6 +340,12 @@
                       {{ conn.status }}
                     </span>
                     <button
+                      class="btn btn--secondary btn--sm"
+                      (click)="editGitRemote(conn)"
+                    >
+                      {{ 'projectConfig.gitRemotes.card.edit' | translate }}
+                    </button>
+                    <button
                       class="btn btn--danger btn--sm"
                       (click)="deleteGitRemote(conn.id)"
                       [disabled]="deletingConnectionId() === conn.id"
@@ -308,7 +364,8 @@
                           <span class="ssh-key-card__icon">&#128273;</span>
                           <div class="ssh-key-card__details">
                             <span class="ssh-key-card__name">{{ key.name }}</span>
-                            <span class="ssh-key-card__meta">{{ key.keyType }} &middot; {{ key.fingerprint }}</span>
+                            <span class="ssh-key-card__meta">{{ key.keyType }} &middot; {{ key.fingerprint }}
+                              @if (key.keyUsage) { &middot; {{ getKeyUsageLabel(key.keyUsage) }} }</span>
                           </div>
                         </div>
                         <button
@@ -320,6 +377,31 @@
                         </button>
                       </div>
                     }
+                  </div>
+                }
+
+                <!-- Generate Deploy Key button -->
+                <div class="deploy-key-action">
+                  <button
+                    class="btn btn--secondary btn--sm"
+                    (click)="generateDeployKey(conn.id)"
+                    [disabled]="generatingDeployKey()"
+                  >
+                    @if (generatingDeployKey()) {
+                      <span class="spinner spinner--inline"></span> {{ 'projectConfig.sshKeys.generatingDeployKey' | translate }}
+                    } @else {
+                      {{ 'projectConfig.sshKeys.generateDeployKey' | translate }}
+                    }
+                  </button>
+                </div>
+
+                <!-- Generated public key display -->
+                @if (generatedPublicKey()) {
+                  <div class="generated-key-display">
+                    <p class="generated-key-display__label">{{ 'projectConfig.sshKeys.generatedKeyLabel' | translate }}</p>
+                    <code class="generated-key-display__key">{{ generatedPublicKey() }}</code>
+                    <p class="generated-key-display__hint">{{ 'projectConfig.sshKeys.generatedKeyHint' | translate }}</p>
+                    <button class="btn btn--secondary btn--xs" (click)="dismissGeneratedKey()">{{ 'projectConfig.sshKeys.dismissKey' | translate }}</button>
                   </div>
                 }
               }
@@ -375,6 +457,13 @@
                         <option value="RSA">{{ 'projectConfig.sshKeys.form.keyTypeRsa' | translate }}</option>
                       </select>
                     </div>
+                    <div class="form-card__field">
+                      <label class="form-card__label">{{ 'projectConfig.sshKeys.form.keyUsageLabel' | translate }}</label>
+                      <select class="form-select" [(ngModel)]="sshKeyForm.keyUsage">
+                        <option value="USER_KEY">{{ 'projectConfig.sshKeys.keyUsage.userKey' | translate }}</option>
+                        <option value="DEPLOY_KEY">{{ 'projectConfig.sshKeys.keyUsage.deployKey' | translate }}</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div class="form-card__row">
@@ -413,6 +502,112 @@
             </div>
           }
         </div>
+
+        <!-- Review Bot Configuration section -->
+        @if (gitRemotes().length > 0) {
+          <div class="ssh-section">
+            <div class="ssh-section__header">
+              <div>
+                <h4 class="ssh-section__title">{{ 'projectConfig.reviewBot.title' | translate }}</h4>
+                <p class="ssh-section__desc">{{ 'projectConfig.reviewBot.description' | translate }}</p>
+              </div>
+              <button class="btn btn--secondary btn--sm" (click)="toggleReviewBotForm()">
+                @if (showReviewBotForm()) { {{ 'projectConfig.reviewBot.cancelToggle' | translate }} } @else { {{ 'projectConfig.reviewBot.addBot' | translate }} }
+              </button>
+            </div>
+
+            @if (reviewBotSaveSuccess()) {
+              <div class="alert alert--success">{{ 'projectConfig.reviewBot.saveSuccess' | translate }}</div>
+            }
+
+            @if (showReviewBotForm()) {
+              <div class="form-card form-card--nested">
+                <h4 class="form-card__title">{{ 'projectConfig.reviewBot.form.title' | translate }}</h4>
+
+                @if (reviewBotSaveError()) {
+                  <div class="alert alert--error">{{ reviewBotSaveError() }}</div>
+                }
+
+                <div class="form-card__row">
+                  <div class="form-card__field">
+                    <label class="form-card__label">{{ 'projectConfig.reviewBot.form.connectionLabel' | translate }}</label>
+                    <select class="form-select" [(ngModel)]="reviewBotForm.connectionId">
+                      <option value="">{{ 'projectConfig.reviewBot.form.selectConnection' | translate }}</option>
+                      @for (conn of gitRemotes(); track conn.id) {
+                        <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="form-card__field">
+                    <label class="form-card__label">{{ 'projectConfig.reviewBot.form.botUsernameLabel' | translate }}</label>
+                    <input class="form-input" type="text" [(ngModel)]="reviewBotForm.botUsername"
+                      [placeholder]="'projectConfig.reviewBot.form.botUsernamePlaceholder' | translate" />
+                  </div>
+                </div>
+
+                <div class="form-card__row">
+                  <div class="form-card__field form-card__field--full">
+                    <label class="form-card__label">{{ 'projectConfig.reviewBot.form.accessTokenLabel' | translate }}</label>
+                    <input class="form-input" type="password" [(ngModel)]="reviewBotForm.botAccessToken"
+                      [placeholder]="'projectConfig.reviewBot.form.accessTokenPlaceholder' | translate" />
+                    <span class="form-hint">{{ 'projectConfig.reviewBot.form.accessTokenHint' | translate }}</span>
+                  </div>
+                </div>
+
+                <div class="form-card__row">
+                  <div class="form-card__field">
+                    <label class="form-card__checkbox-label">
+                      <input type="checkbox" [(ngModel)]="reviewBotForm.enabled" />
+                      {{ 'projectConfig.reviewBot.form.enabledLabel' | translate }}
+                    </label>
+                  </div>
+                  <div class="form-card__field">
+                    <label class="form-card__checkbox-label">
+                      <input type="checkbox" [(ngModel)]="reviewBotForm.autoAssign" />
+                      {{ 'projectConfig.reviewBot.form.autoAssignLabel' | translate }}
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-card__actions">
+                  <button class="btn btn--secondary" (click)="toggleReviewBotForm()">{{ 'projectConfig.reviewBot.form.cancel' | translate }}</button>
+                  <button class="btn btn--primary" (click)="saveReviewBot()" [disabled]="!canSaveReviewBot() || savingReviewBot()">
+                    @if (savingReviewBot()) { {{ 'projectConfig.reviewBot.form.saving' | translate }} } @else { {{ 'projectConfig.reviewBot.form.save' | translate }} }
+                  </button>
+                </div>
+              </div>
+            }
+
+            <!-- Existing review bot configs -->
+            @if (reviewBotConfigs().length > 0) {
+              <div class="provider-list">
+                @for (bot of reviewBotConfigs(); track bot.id) {
+                  <div class="ssh-key-card">
+                    <div class="ssh-key-card__info">
+                      <span class="ssh-key-card__icon">&#129302;</span>
+                      <div class="ssh-key-card__details">
+                        <span class="ssh-key-card__name">{{ bot.botUsername }}</span>
+                        <span class="ssh-key-card__meta">
+                          @if (bot.enabled) { {{ 'projectConfig.reviewBot.status.enabled' | translate }} } @else { {{ 'projectConfig.reviewBot.status.disabled' | translate }} }
+                          &middot;
+                          @if (bot.autoAssign) { {{ 'projectConfig.reviewBot.status.autoAssign' | translate }} }
+                        </span>
+                      </div>
+                    </div>
+                    <div class="ssh-key-card__actions">
+                      <button class="btn btn--secondary btn--xs" (click)="toggleReviewBotEnabled(bot)">
+                        @if (bot.enabled) { {{ 'projectConfig.reviewBot.disable' | translate }} } @else { {{ 'projectConfig.reviewBot.enable' | translate }} }
+                      </button>
+                      <button class="btn btn--danger btn--xs" (click)="deleteReviewBot(bot.id)" [disabled]="deletingReviewBotId() === bot.id">
+                        @if (deletingReviewBotId() === bot.id) { {{ 'projectConfig.reviewBot.removing' | translate }} } @else { {{ 'projectConfig.reviewBot.remove' | translate }} }
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
       }
 
       <!-- ===== STEP 3: Projects ===== -->
@@ -593,6 +788,14 @@
                         @if (getConnectionPlatformType(ps.project.connectionId); as platformType) {
                           <span class="project-card__type-badge">{{ platformIcon(platformType) }}</span>
                         }
+                        <span class="credential-indicator credential-indicator--{{ getCredentialStatus(ps.project.connectionId).toLowerCase() }}"
+                          [title]="getCredentialStatusLabel(getCredentialStatus(ps.project.connectionId))">
+                          @switch (getCredentialStatus(ps.project.connectionId)) {
+                            @case ('LINKED') { &#10003; }
+                            @case ('EXPIRED') { &#9888; }
+                            @case ('MISSING') { &#10007; }
+                          }
+                        </span>
                         <span class="project-card__branch">{{ ps.project.defaultBranch }}</span>
                       </div>
                     </div>

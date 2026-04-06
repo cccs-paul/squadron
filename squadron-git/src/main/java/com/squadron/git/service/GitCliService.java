@@ -108,7 +108,14 @@ public class GitCliService {
         }
         args.add("--set-upstream");
 
-        return executeGitCommand(workDir, args.toArray(new String[0]));
+        GitCommandResult result = executeGitCommand(workDir, args.toArray(new String[0]));
+
+        // Strip token from remote URL after push (security: avoid token persistence)
+        if (accessToken != null && !accessToken.isBlank()) {
+            stripTokenFromRemoteUrl(remote, workDir);
+        }
+
+        return result;
     }
 
     /**
@@ -164,13 +171,13 @@ public class GitCliService {
             boolean success = exitCode == 0;
 
             if (!success) {
-                log.warn("Git command failed (exit {}): {} - {}", exitCode, sanitizedCommand, errorOutput);
+                log.warn("Git command failed (exit {}): {} - {}", exitCode, sanitizedCommand, sanitizeOutput(errorOutput));
             }
 
             return GitCommandResult.builder()
                     .success(success)
                     .output(output)
-                    .errorOutput(errorOutput)
+                    .errorOutput(sanitizeOutput(errorOutput))
                     .exitCode(exitCode)
                     .build();
         } catch (Exception e) {
@@ -178,7 +185,7 @@ public class GitCliService {
             return GitCommandResult.builder()
                     .success(false)
                     .output("")
-                    .errorOutput(e.getMessage())
+                    .errorOutput(sanitizeOutput(e.getMessage()))
                     .exitCode(-1)
                     .build();
         }
@@ -203,5 +210,47 @@ public class GitCliService {
             log.warn("Could not inject token into URL: {}", e.getMessage());
         }
         return repoUrl;
+    }
+
+    /**
+     * Strips an embedded token from the remote URL, restoring the plain HTTPS URL.
+     * This prevents tokens from persisting in the git config after operations complete.
+     */
+    private void stripTokenFromRemoteUrl(String remote, String workDir) {
+        try {
+            GitCommandResult urlResult = executeGitCommand(workDir, "remote", "get-url", remote);
+            if (urlResult.isSuccess() && urlResult.getOutput() != null) {
+                String currentUrl = urlResult.getOutput().trim();
+                String cleanUrl = sanitizeUrl(currentUrl);
+                if (!cleanUrl.equals(currentUrl)) {
+                    executeGitCommand(workDir, "remote", "set-url", remote, cleanUrl);
+                    log.debug("Stripped token from remote URL for remote '{}'", remote);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to strip token from remote URL: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Removes embedded credentials from a URL.
+     * Transforms https://oauth2:token@github.com/owner/repo.git to https://github.com/owner/repo.git
+     */
+    private String sanitizeUrl(String url) {
+        if (url == null) return url;
+        // Remove oauth2:xxx@ or user:xxx@ from URLs
+        return url.replaceAll("(https?://)([^@]+@)", "$1");
+    }
+
+    /**
+     * Sanitizes output to remove any embedded tokens or credentials.
+     * Applied to error output before returning to callers to prevent token leakage.
+     */
+    String sanitizeOutput(String output) {
+        if (output == null) return "";
+        // Remove embedded credentials from URLs in output
+        // Handles: https://oauth2:token@host, https://user:pass@host, oauth2:token@ (without scheme)
+        return output.replaceAll("(https?://)[^@/]+@", "$1***@")
+                .replaceAll("(?<!https?://)oauth2:[^@]+@", "oauth2:***@");
     }
 }

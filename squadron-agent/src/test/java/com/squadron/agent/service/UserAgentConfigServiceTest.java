@@ -49,8 +49,8 @@ class UserAgentConfigServiceTest {
     @Test
     void should_returnExistingAgents_when_userHasSquadron() {
         List<UserAgentConfig> agents = List.of(
-                buildAgent("Architect", "PLANNING", 0),
-                buildAgent("Maverick", "CODING", 1)
+                buildAgent("Sol", "PLANNING", 0),
+                buildAgent("Titan", "CODING", 1)
         );
         when(repository.findByTenantIdAndUserIdOrderByDisplayOrderAsc(tenantId, userId))
                 .thenReturn(agents);
@@ -58,7 +58,7 @@ class UserAgentConfigServiceTest {
         List<UserAgentConfig> result = service.getUserSquadron(tenantId, userId);
 
         assertEquals(2, result.size());
-        assertEquals("Architect", result.get(0).getAgentName());
+        assertEquals("Sol", result.get(0).getAgentName());
         verify(repository, never()).saveAll(anyList());
     }
 
@@ -73,11 +73,11 @@ class UserAgentConfigServiceTest {
         List<UserAgentConfig> result = service.getUserSquadron(tenantId, userId);
 
         assertEquals(8, result.size());
-        assertEquals("Architect", result.get(0).getAgentName());
+        assertEquals("Sol", result.get(0).getAgentName());
         assertEquals("PLANNING", result.get(0).getAgentType());
-        assertEquals("Maverick", result.get(1).getAgentName());
+        assertEquals("Titan", result.get(1).getAgentName());
         assertEquals("CODING", result.get(1).getAgentType());
-        assertEquals("Oracle", result.get(7).getAgentName());
+        assertEquals("Nebula", result.get(7).getAgentName());
         assertEquals("REVIEW", result.get(7).getAgentType());
         verify(repository).saveAll(anyList());
     }
@@ -364,7 +364,7 @@ class UserAgentConfigServiceTest {
 
         verify(repository).deleteByTenantIdAndUserId(tenantId, userId);
         assertEquals(8, result.size());
-        assertEquals("Architect", result.get(0).getAgentName());
+        assertEquals("Sol", result.get(0).getAgentName());
     }
 
     // ============================================================

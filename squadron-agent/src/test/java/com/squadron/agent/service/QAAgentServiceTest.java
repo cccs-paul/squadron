@@ -61,6 +61,9 @@ class QAAgentServiceTest {
     private CoverageService coverageService;
 
     @Mock
+    private WorkspaceLifecycleService workspaceLifecycleService;
+
+    @Mock
     private AgentProvider agentProvider;
 
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -76,7 +79,7 @@ class QAAgentServiceTest {
         qaAgentService = new QAAgentService(
                 conversationService, configService, providerRegistry, promptBuilder,
                 toolRegistry, toolExecutionEngine, natsEventPublisher,
-                coverageService, objectMapper);
+                coverageService, objectMapper, workspaceLifecycleService);
 
         taskId = UUID.randomUUID();
         tenantId = UUID.randomUUID();

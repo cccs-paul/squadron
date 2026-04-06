@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.agent.dto.AgentConfigDto;
 import com.squadron.agent.dto.QAReportDto;
+import com.squadron.agent.dto.WorkspaceInfo;
 import com.squadron.agent.entity.Conversation;
 import com.squadron.agent.provider.AgentProvider;
 import com.squadron.agent.provider.AgentProviderRegistry;
@@ -65,6 +66,7 @@ public class QAAgentService {
     private final NatsEventPublisher natsEventPublisher;
     private final CoverageService coverageService;
     private final ObjectMapper objectMapper;
+    private final WorkspaceLifecycleService workspaceLifecycleService;
 
     public QAAgentService(ConversationService conversationService,
                           SquadronConfigService configService,
@@ -74,7 +76,8 @@ public class QAAgentService {
                           ToolExecutionEngine toolExecutionEngine,
                           NatsEventPublisher natsEventPublisher,
                           CoverageService coverageService,
-                          ObjectMapper objectMapper) {
+                          ObjectMapper objectMapper,
+                          WorkspaceLifecycleService workspaceLifecycleService) {
         this.conversationService = conversationService;
         this.configService = configService;
         this.providerRegistry = providerRegistry;
@@ -84,6 +87,7 @@ public class QAAgentService {
         this.natsEventPublisher = natsEventPublisher;
         this.coverageService = coverageService;
         this.objectMapper = objectMapper;
+        this.workspaceLifecycleService = workspaceLifecycleService;
     }
 
     /**
@@ -98,24 +102,36 @@ public class QAAgentService {
         log.info("Starting QA analysis for task {}", taskId);
 
         try {
-            // 1. Start a conversation for the QA agent
+            // 1. Find or provision workspace for QA
+            WorkspaceInfo workspaceInfo = null;
+            if (event.getTaskContext() != null) {
+                try {
+                    workspaceInfo = workspaceLifecycleService.findOrProvisionWorkspace(event.getTaskContext());
+                    log.info("Using workspace {} for QA of task {}",
+                            workspaceInfo.getWorkspaceId(), taskId);
+                } catch (Exception e) {
+                    log.warn("Failed to find/provision workspace for QA of task {}: {}", taskId, e.getMessage());
+                }
+            }
+
+            // 2. Start a conversation for the QA agent
             Conversation conversation = conversationService.startConversation(
                     tenantId, taskId, userId, "QA");
 
-            // 2. Resolve configuration for the QA agent type
+            // 3. Resolve configuration for the QA agent type
             AgentConfigDto config = configService.resolveAgentConfig(tenantId, null, userId, "QA");
             if (config == null) {
                 config = AgentConfigDto.builder().build();
             }
 
-            // 3. Build the QA system prompt with tool definitions
+            // 4. Build the QA system prompt with tool definitions
             String taskDescription = event.getReason() != null
                     ? event.getReason()
                     : "Perform QA analysis on the code changes for task " + taskId;
             String systemPrompt = buildQAPromptWithTools(
                     taskDescription, null, toolRegistry.getAllToolDefinitions());
 
-            // 4. Run the agentic loop
+            // 5. Run the agentic loop
             String initialMessage = "Please perform a thorough QA analysis of the code changes "
                     + "for task " + taskId + ". Use the provided tools to run tests, check coverage, "
                     + "read source files, and identify test gaps. If you find missing tests, "
@@ -125,10 +141,10 @@ public class QAAgentService {
                     conversation.getId(), tenantId, userId, config,
                     systemPrompt, initialMessage, taskId);
 
-            // 5. Parse QA verdict from the response
+            // 6. Parse QA verdict from the response
             String verdict = parseQAVerdict(result.getSummary());
 
-            // 6. Build QA report
+            // 7. Build QA report
             QAReportDto report = QAReportDto.builder()
                     .taskId(taskId)
                     .tenantId(tenantId)
@@ -139,7 +155,7 @@ public class QAAgentService {
 
             boolean success = !"FAIL".equals(verdict);
 
-            // 7. Publish completion event
+            // 8. Publish completion event
             publishQACompletedEvent(tenantId, taskId, conversation.getId(),
                     success, result.getSummary());
 

@@ -1,10 +1,15 @@
 package com.squadron.git.service;
 
 import com.squadron.common.config.NatsEventPublisher;
+import com.squadron.common.dto.ApiResponse;
+import com.squadron.common.dto.CredentialResolutionResult;
+import com.squadron.common.dto.ResolveCredentialRequest;
 import com.squadron.common.event.SquadronEvent;
 import com.squadron.common.exception.ResourceNotFoundException;
+import com.squadron.common.security.CredentialPurpose;
 import com.squadron.git.adapter.GitPlatformAdapter;
 import com.squadron.git.adapter.GitPlatformAdapterRegistry;
+import com.squadron.git.client.ResilientCredentialServiceClient;
 import com.squadron.git.dto.CreatePullRequestRequest;
 import com.squadron.git.dto.DiffResult;
 import com.squadron.git.dto.MergeRequest;
@@ -33,13 +38,16 @@ public class PullRequestService {
     private final GitPlatformAdapterRegistry adapterRegistry;
     private final PullRequestRecordRepository pullRequestRecordRepository;
     private final NatsEventPublisher natsEventPublisher;
+    private final ResilientCredentialServiceClient credentialServiceClient;
 
     public PullRequestService(GitPlatformAdapterRegistry adapterRegistry,
                               PullRequestRecordRepository pullRequestRecordRepository,
-                              NatsEventPublisher natsEventPublisher) {
+                              NatsEventPublisher natsEventPublisher,
+                              ResilientCredentialServiceClient credentialServiceClient) {
         this.adapterRegistry = adapterRegistry;
         this.pullRequestRecordRepository = pullRequestRecordRepository;
         this.natsEventPublisher = natsEventPublisher;
+        this.credentialServiceClient = credentialServiceClient;
     }
 
     /**
@@ -47,6 +55,11 @@ public class PullRequestService {
      */
     public PullRequestDto createPullRequest(CreatePullRequestRequest request) {
         log.info("Creating pull request for task {} on platform {}", request.getTaskId(), request.getPlatform());
+
+        String token = request.getAccessToken();
+        if (token == null && request.getUserId() != null && request.getConnectionId() != null) {
+            token = getDelegatedAccessToken(request.getUserId(), request.getConnectionId());
+        }
 
         GitPlatformAdapter adapter = adapterRegistry.getAdapter(request.getPlatform().toUpperCase());
         PullRequestDto dto = adapter.createPullRequest(request);
@@ -82,10 +95,15 @@ public class PullRequestService {
 
         log.info("Merging pull request {} on platform {}", record.getExternalPrId(), record.getPlatform());
 
+        String token = request.getAccessToken();
+        if (token == null && request.getUserId() != null && request.getConnectionId() != null) {
+            token = getDelegatedAccessToken(request.getUserId(), request.getConnectionId());
+        }
+
         String[] ownerRepo = parseOwnerRepo(record);
         GitPlatformAdapter adapter = adapterRegistry.getAdapter(record.getPlatform());
         adapter.mergePullRequest(ownerRepo[0], ownerRepo[1], record.getExternalPrId(),
-                request.getMergeStrategy(), request.getAccessToken());
+                request.getMergeStrategy(), token);
 
         record.setStatus("MERGED");
         pullRequestRecordRepository.save(record);
@@ -129,7 +147,7 @@ public class PullRequestService {
 
         try {
             PullRequestDto prDto = adapter.getPullRequest(ownerRepo[0], ownerRepo[1],
-                    record.getExternalPrId(), getDelegatedAccessToken(null, record.getPlatform()));
+                    record.getExternalPrId(), null);
             // If getPullRequest succeeds without error, the PR is open and potentially mergeable
             boolean isMergeable = "OPEN".equals(record.getStatus());
             return MergeabilityDto.builder()
@@ -187,28 +205,33 @@ public class PullRequestService {
     }
 
     /**
-     * Gets the access token for the current user's platform connection.
-     * In production, this calls the platform service to retrieve the
-     * user's decrypted OAuth2/PAT token for the specified platform.
+     * Resolves the access token for the user's platform connection via credential delegation.
      *
-     * @param userId   the ID of the user whose delegated token is requested
-     * @param platform the platform identifier (e.g., "GITHUB", "GITLAB", "BITBUCKET")
-     * @return the decrypted access token, or null if not yet available
+     * @param userId       the ID of the user whose delegated token is requested
+     * @param connectionId the platform connection ID
+     * @return the decrypted access token, or null if resolution fails
      */
-    private String getDelegatedAccessToken(UUID userId, String platform) {
-        // For now, expect the token to be passed in the request.
-        // TODO: Call squadron-platform's UserTokenService to get the decrypted token
-        // via internal REST call or service-to-service communication.
-        //
-        // Example future implementation:
-        //   return platformClient.getUserToken(userId, platform).getAccessToken();
-        //
-        // The platform service stores encrypted OAuth2 tokens obtained during
-        // user account linking. It decrypts them using the tenant's encryption key
-        // and returns the plaintext token for use in Git platform API calls.
-        log.debug("Delegated token lookup for user {} on platform {} - not yet implemented, using request token",
-                userId, platform);
-        return null;
+    private String getDelegatedAccessToken(UUID userId, UUID connectionId) {
+        if (userId == null || connectionId == null) {
+            log.debug("Cannot resolve delegated token: userId={}, connectionId={}", userId, connectionId);
+            return null;
+        }
+        try {
+            ResolveCredentialRequest request = ResolveCredentialRequest.builder()
+                    .userId(userId)
+                    .connectionId(connectionId)
+                    .purpose(CredentialPurpose.PLATFORM_API)
+                    .build();
+            ApiResponse<CredentialResolutionResult> response = credentialServiceClient.resolveCredentials(request);
+            if (response != null && response.isSuccess() && response.getData() != null) {
+                return response.getData().getAccessToken();
+            }
+            log.warn("Credential resolution returned unsuccessful response for user {} on connection {}", userId, connectionId);
+            return null;
+        } catch (Exception e) {
+            log.warn("Failed to resolve delegated token for user {} on connection {}: {}", userId, connectionId, e.getMessage());
+            return null;
+        }
     }
 
     private PullRequestDto toDto(PullRequestRecord record) {

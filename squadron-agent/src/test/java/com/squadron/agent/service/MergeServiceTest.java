@@ -35,12 +35,15 @@ class MergeServiceTest {
     @Mock
     private NatsEventPublisher natsEventPublisher;
 
+    @Mock
+    private WorkspaceLifecycleService workspaceLifecycleService;
+
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private MergeService mergeService;
 
     @BeforeEach
     void setUp() {
-        mergeService = new MergeService(gitClient, reviewClient, natsEventPublisher, objectMapper);
+        mergeService = new MergeService(gitClient, reviewClient, natsEventPublisher, objectMapper, workspaceLifecycleService);
     }
 
     @Test

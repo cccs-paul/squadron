@@ -84,6 +84,6 @@ describe('ReviewListComponent', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     const rows = el.querySelectorAll('tbody tr');
-    expect(rows.length).toBe(0);
+    expect(rows.length).toBe(1); // The @empty row with "no reviews" message
   });
 });

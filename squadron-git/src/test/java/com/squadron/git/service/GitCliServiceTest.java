@@ -116,6 +116,77 @@ class GitCliServiceTest {
         assertFalse(result.isSuccess(), "Push with no remote should fail");
     }
 
+    // ========================================================================
+    // Security: Token sanitization tests
+    // ========================================================================
+
+    @Test
+    void should_sanitizeOutput_removeOAuth2Token() {
+        String input = "fatal: repository 'https://oauth2:ghp_abc123@github.com/owner/repo.git' not found";
+        String sanitized = gitCliService.sanitizeOutput(input);
+        assertFalse(sanitized.contains("ghp_abc123"), "Token should be scrubbed");
+        assertTrue(sanitized.contains("***@"), "Token should be replaced with ***");
+    }
+
+    @Test
+    void should_sanitizeOutput_removeUserPasswordCredentials() {
+        String input = "fatal: unable to access 'https://user:secret-token@github.com/owner/repo.git'";
+        String sanitized = gitCliService.sanitizeOutput(input);
+        assertFalse(sanitized.contains("secret-token"), "Password should be scrubbed");
+        assertTrue(sanitized.contains("***@"), "Credentials should be replaced with ***");
+    }
+
+    @Test
+    void should_sanitizeOutput_preserveCleanOutput() {
+        String input = "Enumerating objects: 5, done.\nCounting objects: 100% (5/5), done.";
+        String sanitized = gitCliService.sanitizeOutput(input);
+        assertEquals(input, sanitized);
+    }
+
+    @Test
+    void should_sanitizeOutput_handleNull() {
+        assertEquals("", gitCliService.sanitizeOutput(null));
+    }
+
+    @Test
+    void should_sanitizeErrorOutput_inFailedGitCommands() throws IOException {
+        String workDir = tempDir.resolve("clone-sanitize").toString();
+        new File(workDir).mkdirs();
+
+        // Clone with a fake token — will fail, but error output should be sanitized
+        GitCommandResult result = gitCliService.clone("https://github.com/private/repo.git",
+                null, workDir, "ghp_SECRET_TOKEN_VALUE");
+        assertFalse(result.isSuccess());
+        // Error output should have token scrubbed
+        assertFalse(result.getErrorOutput().contains("ghp_SECRET_TOKEN_VALUE"),
+                "Token should not appear in error output");
+    }
+
+    @Test
+    void should_stripTokenFromRemoteUrl_afterPush() throws Exception {
+        String workDir = tempDir.toString();
+        initRepoWithCommit(workDir);
+
+        // Add a remote
+        new ProcessBuilder("git", "remote", "add", "origin", "https://github.com/owner/repo.git")
+                .directory(new File(workDir)).start().waitFor();
+
+        // Push with token (will fail because remote is fake, but verifies URL cleanup)
+        gitCliService.push("origin", "main", workDir, "test-token");
+
+        // Verify the remote URL has been stripped of the token
+        ProcessBuilder pb = new ProcessBuilder("git", "remote", "get-url", "origin");
+        pb.directory(new File(workDir));
+        Process p = pb.start();
+        String remoteUrl = new String(p.getInputStream().readAllBytes()).trim();
+        p.waitFor();
+
+        assertFalse(remoteUrl.contains("test-token"),
+                "Token should have been stripped from remote URL after push, but got: " + remoteUrl);
+        assertTrue(remoteUrl.startsWith("https://"),
+                "Remote URL should still be a valid HTTPS URL: " + remoteUrl);
+    }
+
     @Test
     void should_clone_withBranch() {
         String workDir = tempDir.resolve("clone-branch").toString();

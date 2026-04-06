@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
-**Last updated:** 2026-04-04
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Feature 22: GitLab CE Test Instance — `gitlab/gitlab-ce:17.4.0-ce.0` integrated into docker-compose-testldap.yml with LDAP pre-configured (Planet Express directory), bundled PostgreSQL, Flyway V8 platform connection seed (`GIT_REMOTE` category), and console setup instructions. Jira database bug fixed with `ensure_databases()` function that creates missing databases on existing PostgreSQL volumes. Features 17-21 completed previously. Rootless containers, Hibernate dialect cleanup, surefire argLine fix also applied. All 3,818 backend tests passing (0 failures). Angular build passing. All 21 containers healthy (including GitLab CE and Jira Server).
+**Last updated:** 2026-04-06
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval). All backend tests passing. All 899 Angular tests passing (0 failures). Docker deployment: all 21 containers healthy.
 
 ---
 
@@ -133,7 +133,7 @@
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
-### squadron-ui (Angular 21) — 798 tests passing
+### squadron-ui (Angular 21) — 899 tests passing
 - [x] 33 components (dashboard, tasks, projects, reviews, agent-chat, squadron-config, user-tokens, etc.)
 - [x] 25 services (including agent-dashboard, user-squadron, user-token, ssh-key, platform services)
 - [x] 15 models (including agent dashboard, squadron config, user-token, RemoteProject, SshKey interfaces)
@@ -144,11 +144,13 @@
 - [x] Agent-focused dashboard redesign (active/idle agents, active work, timeline, type breakdown)
 - [x] Ticket provider integration UI (connection linking, remote status fetch, status-aware mappings)
 - [x] User agent squadron configuration UI (agent cards, add/edit/remove/reset, inline template)
-- [x] Whimsical default agent names (Architect, Maverick, Hawkeye, Gremlin, Stitch, Radar, Phoenix, Oracle)
+- [x] Celestial body default agent names (Planner→Sol, Coder→Titan, Reviewer→Vega, QA Tester→Comet, Merger→Pulsar, Coverage Analyst→Quasar, Coder 2→Nova, Reviewer 2→Nebula)
 - [x] Unified settings page: 6-tab layout (General, Providers & Projects, Agent Squadron, Notifications, Agent Config, Platform Tokens)
 - [x] User Platform Tokens tab: link/unlink PAT and OAuth2 accounts, view linked accounts per user
 - [x] Project config labels generalized from ticket-specific to platform-inclusive
 - [x] Project card headers enhanced with platform type badge, connection status indicator, improved mapping labels
+- [x] Provider editing: Edit buttons on ticket provider and git remote cards, edit/update forms, optional credential update
+- [x] Translation key audit: 168 missing keys added across en.json and fr.json
 
 ### Infrastructure
 - [x] Docker Compose (docker-compose.yml)
@@ -159,6 +161,11 @@
 - [x] GitLab CE test instance (docker-compose-testldap.yml, LDAP pre-configured, Flyway V8 seed, setup instructions)
 - [x] Database provisioning fix: `ensure_databases()` creates missing DBs on existing PostgreSQL volumes
 - [x] All 21 containers healthy with testldap-build-and-start.sh
+- [x] Gateway healthcheck fix: uses `/actuator/health/liveness` (doesn't aggregate downstream services)
+- [x] Gateway SecurityConfig: permits `/actuator/health/**` sub-paths (liveness/readiness probes)
+- [x] Gateway application.yml: liveness/readiness probes enabled by default
+- [x] PostgreSQL max_connections increased to 300 (supports 10+ services with HikariCP pools)
+- [x] CredentialClient constructor fix: `@Autowired` annotation for Spring DI
 
 ---
 
@@ -565,20 +572,181 @@
 
 ---
 
+## Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11)
+
+### Epic 1: Credential Resolution Service (squadron-platform + squadron-common)
+- [x] `CredentialResolutionService` — single entry point tries strategies in order: OAuth2 → PAT → Deploy Key → GitHub App → Fail
+- [x] `CredentialResolutionResult` DTO (common) — carries resolved token, auth mode, credential type
+- [x] `ResolveCredentialRequest` DTO (common) — userId, connectionId, purpose
+- [x] `CredentialPurpose` enum (common) — GIT_CLONE, GIT_PUSH, API_CALL, REVIEW_BOT
+- [x] `CredentialType` enum (common) — OAUTH2, PAT, SSH_KEY, GITHUB_APP
+- [x] `GitAuthMode` enum (common) — HTTPS_TOKEN, SSH_KEY, GITHUB_APP
+- [x] `CredentialController` REST endpoint at `/api/platforms/credentials/resolve`
+- [x] Audit logging in resolution service (auditCredentialResolved / auditCredentialResolutionFailed)
+- [x] Tests for all DTOs, enums, service, and controller
+
+### Epic 2: GitHub App Token Service (squadron-platform)
+- [x] `GitHubAppTokenService` — JWT generation from app private key + installation token exchange
+- [x] `getInstallationToken(UUID connectionId)` — generates short-lived GitHub App installation token
+- [x] Integrated into CredentialResolutionService fallback chain
+- [x] Tests for token generation and integration
+
+### Epic 3: SSH Key Usage & Deploy Keys (squadron-platform)
+- [x] `key_usage` column on `ssh_keys` table (USER_KEY / DEPLOY_KEY)
+- [x] `SshKey` entity updated with `keyUsage` field
+- [x] `SshKeyRepository.findByConnectionIdAndKeyUsage()` query
+- [x] Flyway V9 migration: `V9__add_ssh_key_usage.sql`
+- [x] Deploy key support in credential resolution chain
+- [x] Tests for repository, service, and migration
+
+### Epic 4: Review Bot Configuration (squadron-review)
+- [x] `ReviewBotConfig` entity — per-project bot configuration (enabled, bot user, permissions)
+- [x] `ReviewBotConfigService` — CRUD + `getEnabledBotConfig()` returning Optional
+- [x] `ReviewBotConfigController` at `/api/reviews/bot-configs`
+- [x] Flyway V3 migration: `V3__create_review_bot_configs.sql`
+- [x] Tests for entity, service, and controller
+
+### Epic 5: Workspace Lifecycle Service (squadron-agent)
+- [x] `WorkspaceLifecycleService` — orchestrates workspace creation, credential injection, branch setup
+- [x] `WorkspaceInfo` DTO — workspace ID, container ID, branch, clone URL
+- [x] Integrates with CredentialClient for token resolution and WorkspaceServiceClient for container ops
+- [x] Auto-clone with resolved credentials, branch creation via git checkout -b
+- [x] Tests for lifecycle management
+
+### Epic 6: Agent Credential Clients (squadron-agent)
+- [x] `CredentialServiceClient` (Feign) — calls squadron-platform credential resolution endpoint
+- [x] `ResilientCredentialServiceClient` — circuit breaker + retry wrapper
+- [x] `CredentialClient` tool — resolveCredentials(userId, connectionId, purpose)
+- [x] `ReviewBotClient` tool — getEnabledBotConfig() returning Optional<BotConfig>
+- [x] application.yml updated with credential service URL
+- [x] Tests for all clients
+
+### Epic 7: Git Module Credential Integration (squadron-git)
+- [x] `CredentialServiceClient` + `ResilientCredentialServiceClient` (Feign) in squadron-git
+- [x] `CreatePullRequestRequest` updated with userId + connectionId for credential resolution
+- [x] `MergeRequest` updated with userId + connectionId
+- [x] `PullRequestService` resolves credentials before calling git platform adapters
+- [x] `GitCliService` uses resolved tokens for push/pull operations
+- [x] `@EnableFeignClients` on SquadronGitApplication
+- [x] pom.xml: added spring-cloud-starter-openfeign dependency
+- [x] application.yml: added platform service URL
+- [x] Tests for updated DTOs, services, and credential flow
+
+### Epic 8: Orchestrator Task Context Enrichment
+- [x] `TaskContext` DTO (common) — carries userId, connectionId, projectId through NATS events
+- [x] `TaskStateChangedEvent` updated with TaskContext field
+- [x] `WorkflowEngine` enriches TaskContext when publishing state change events
+- [x] Agent services (Coding, Review, QA, Merge) extract context for credential resolution
+- [x] Tests for enriched events and context propagation
+
+### Epic 9: Git Credential Security Hardening
+- [x] Token sanitization in `GitCliService` (squadron-git) — strips tokens from git remote URLs and output
+- [x] Token sanitization in `WorkspaceGitService` (squadron-workspace) — consistent regex pattern
+- [x] Token sanitization in `WorkspaceClient` (squadron-agent) — sanitizes exec stdout/stderr
+- [x] Token sanitization in `CodingAgentService` (squadron-agent) — sanitizes tool results
+- [x] Single comprehensive regex: `(https?://)[^@/]+@` → `$1***@` for all 4 modules
+- [x] Credential TTL already handled by GitHub App short-lived tokens and OAuth2 refresh
+- [x] Audit logging already in CredentialResolutionService (Epic 1)
+- [x] 18 new security tests across 4 modules
+- [x] `WebSocketIntegrationTest` updated with 6 new `@MockBean` entries for Epic 1-8 beans
+- [x] `WorkspaceRepositoryTest` fixed: method count assertion 5→6 for `findByStatus()` addition
+
+### Epic 10: Frontend Updates
+- [x] GitHub App connection type: added `installationId` field to App auth type in project config
+- [x] Deploy key UI: key usage toggle (USER_KEY/DEPLOY_KEY), generate deploy key button, public key display
+- [x] Review bot configuration section: enable/disable per-project, bot user/token fields, CRUD operations
+- [x] `ReviewBotConfigService` — new Angular service with CRUD methods
+- [x] Credential status indicators on project cards (ACTIVE/EXPIRED/MISSING color variants)
+- [x] `SshKeyService.generateDeployKey()` method
+- [x] `security.model.ts` updated with KeyUsage enum, ReviewBotConfig, CredentialStatus
+- [x] ~30 new project-config tests + 8 review-bot-config service tests + 1 ssh-key service test
+
+### Epic 11: Integration Testing & Validation
+- [x] `PatCredentialFlowIntegrationTest` (squadron-agent) — 4 tests: PAT resolution, workspace provisioning, git push, PR creation
+- [x] `OAuth2CredentialFlowIntegrationTest` (squadron-agent) — 4 tests: OAuth2 resolution, token refresh, workspace with OAuth2, push with refreshed token
+- [x] `ReviewBotFlowIntegrationTest` (squadron-agent) — 3 tests: bot-enabled review submission, bot-disabled fallback, credential resolution for bot posting
+- [x] `MultiAgentIsolationIntegrationTest` (squadron-agent) — 2 tests: parallel workspaces isolated, separate branch/credential per agent
+- [x] `CredentialFallbackChainIntegrationTest` (squadron-platform) — 5 tests: OAuth2 first, PAT fallback, SSH key for git ops, GitHub App for GitHub connections, clear error when no credentials
+
+### Frontend Test Fixes (12 tests fixed)
+- [x] `DiffViewerComponent should_show_empty_state` — i18n key mismatch (expected literal text, template uses translate pipe)
+- [x] `NotificationPreferencesComponent should show webhook URL fields when Slack enabled` — i18n key mismatch
+- [x] `PlatformConnectionsComponent should_updateLastSyncAt_when_syncConnectionFails` — incorrect assertion (component only resets syncingId on failure)
+- [x] `ProjectConfigComponent should_passKeyUsage_whenSavingSshKey` — expected DEPLOY_KEY but form value is USER_KEY
+- [x] `ReviewDetailComponent should render tabs` / `should show diff viewer in diff tab` — test setup used error state causing null review
+- [x] `ReviewListComponent should render review table rows` — @empty block renders 1 row, not 0
+- [x] `SettingsComponent should handle save error with optimistic success` — component missing optimistic success in error handler
+- [x] `SquadronConfigComponent` (3 tests) — i18n key mismatches
+- [x] `UsageDashboardComponent should call service on init` — missing AuthService injection for tenantId
+- [x] All 841 Angular tests now passing (0 failures)
+
+### Phase 10: UX Polish & Provider Editing
+
+#### Translation Key Audit (168 missing keys fixed)
+- [x] Audited all Angular templates and TS files for translation keys missing from i18n JSON
+- [x] Added 168 missing flat-alias keys across 13 sections in en.json and fr.json
+- [x] Sections fixed: agentChat, diffViewer, qaReport, reviews, projects, tasks, settings.agentConfig, settings.userTokens, settings.squadronConfig, projectConfig.reviewBot, projectConfig.sshKeys, projectConfig.credentialStatus, projectConfig.authFields
+- [x] Both JSON files validated as valid JSON
+
+#### Celestial Body Agent Names
+- [x] Renamed 8 default AI agent names from whimsical to celestial body names
+- [x] Backend: `UserAgentConfigService.java` DEFAULT_AGENTS updated (Sol, Titan, Vega, Comet, Pulsar, Quasar, Nova, Nebula)
+- [x] Backend: `UserAgentConfigServiceTest` + `UserAgentConfigControllerTest` assertions updated
+- [x] Frontend: `squadron-config.component.spec.ts` + `user-squadron.service.spec.ts` updated
+- [x] All backend + frontend tests passing
+
+#### Provider Editing (Edit Ticket Providers & Git Remotes)
+- [x] `getFirstAuthType()` private helper — resolves stored authType strings to AUTH_TYPE_OPTIONS labels
+- [x] `editTicketProvider(conn)` — populates form with existing connection data, credentials left empty
+- [x] `editGitRemote(conn)` — same pattern for git remotes
+- [x] `saveTicketProvider()` — detects edit mode, calls `updateConnection()` instead of `createConnectionFromRequest()`
+- [x] `saveGitRemote()` — same edit-mode detection for git remotes
+- [x] `canSaveTicketProvider()` / `canSaveGitRemote()` — credentials optional when editing
+- [x] Credentials only sent in update if user fills them in (empty = keep existing)
+- [x] HTML template: Edit buttons on ticket provider and git remote cards
+- [x] HTML template: Form title shows "Edit" vs "New" based on editing state
+- [x] HTML template: Save button shows "Update" vs "Save" in edit mode
+- [x] HTML template: Credential placeholders show "Leave blank to keep existing" in edit mode
+- [x] Translation keys added to en.json and fr.json (editTitle, updateProvider/updateRemote, credentialEditHint, editSuccess, card.edit)
+- [x] 17 new tests for edit functionality (edit form population, credential handling, update API calls, error handling, allConnections sync)
+- [x] All 858 Angular tests passing
+
+#### Task Board Redesign (3-Column Work Board)
+- [x] Collapsed 6 Kanban columns into 3 swimlane columns: In Progress (IN_PROGRESS + REVIEW + QA), Planned (BACKLOG + PLANNING), Completed (DONE)
+- [x] `BoardTask` interface extending `Task` with `projectName`, `agentStatus`, `agentType` fields
+- [x] `BoardColumn` interface with `id`, `label`, `color`, `icon`, `states`, `tasks` fields
+- [x] Project enrichment: tasks display project name via `ProjectService.getProjectsByTenant()` with map lookup
+- [x] Agent status indicators: colored badges (ACTIVE green, WAITING_INPUT amber, COMPLETED indigo, FAILED red)
+- [x] Summary bar: total counts for In Progress, Planned, Completed with color-coded dots
+- [x] Project filter dropdown: filter tasks by project across all columns
+- [x] Cancel task flow: interrupt agent (`AgentService.interruptAgent`) → transition to BACKLOG → cleanup workspace (`WorkspaceService.destroyWorkspace`)
+- [x] Quick prompt: inline text input to send messages to active agent sessions (`AgentService.sendMessage`)
+- [x] Plan approval: approve/reject agent plans from the board inline (`AgentService.approvePlan/rejectPlan`)
+- [x] Open Agent Chat: navigate to `/agent/:taskId` from action panel
+- [x] Task cards rendered inline with priority badge, external ID, project label, agent status, state badge, labels
+- [x] Drag-drop preserved between 3 swimlane columns (CDK DragDrop with `transferArrayItem` and revert on error)
+- [x] Created `WorkspaceService` (Angular) — `getWorkspaceByTask(taskId)` and `destroyWorkspace(workspaceId)` methods
+- [x] Created `workspace.service.spec.ts` — 6 tests (create, GET, DELETE, error handling)
+- [x] Translation keys added: `tasks.board.summary.*`, `tasks.board.agentStatus.*`, `tasks.board.actions.*`, `tasks.board.filter.allProjects`, `tasks.board.column.planned/completed`, `tasks.board.loading`, `tasks.board.refresh`
+- [x] Rewrote `task-board.component.spec.ts` — 44 tests covering 3-column structure, project enrichment, summary counts, filtering (priority, project, search, combined), drag-drop, cancel flow, prompt sending, plan approval, agent status, navigation, toggle actions, refresh
+- [x] All 899 Angular tests passing (was 858; +41 net new tests)
+
+---
+
 ## Quick Reference
 
 | Module | Sources | Tests | Status |
 |--------|:-------:|:-----:|--------|
-| squadron-common | 66 | 64 | Complete |
-| squadron-gateway | 11 | 11 | Complete |
-| squadron-identity | 42 | 42 | Complete |
+| squadron-common | 72 | 70 | Complete |
+| squadron-gateway | 11 | 10 | Complete |
+| squadron-identity | 43 | 43 | Complete |
 | squadron-orchestrator | 39 | 36 | Complete |
-| squadron-agent | 90 | 91 | Complete |
-| squadron-workspace | 19 | 18 | Complete |
-| squadron-platform | 42 | 42 | Complete |
-| squadron-git | 34 | 36 | Complete |
-| squadron-review | 26 | 27 | Complete |
-| squadron-config | 11 | 11 | Complete |
-| squadron-notification | 24 | 24 | Complete |
-| **TOTAL** | **407** | **406** | |
-| squadron-ui | 33 components | 57 specs | Complete |
+| squadron-agent | 98 | 97 | Complete |
+| squadron-workspace | 20 | 19 | Complete |
+| squadron-platform | 47 | 45 | Complete |
+| squadron-git | 37 | 38 | Complete |
+| squadron-review | 33 | 33 | Complete |
+| squadron-config | 12 | 12 | Complete |
+| squadron-notification | 25 | 26 | Complete |
+| **TOTAL** | **437** | **429** | |
+| squadron-ui | 34 components | 61 specs | Complete |

@@ -34,7 +34,7 @@ class MergeRequestTest {
     @Test
     void should_createWithAllArgsConstructor() {
         UUID prId = UUID.randomUUID();
-        MergeRequest request = new MergeRequest(prId, "REBASE", "secret");
+        MergeRequest request = new MergeRequest(prId, "REBASE", "secret", null, null);
 
         assertEquals(prId, request.getPullRequestRecordId());
         assertEquals("REBASE", request.getMergeStrategy());

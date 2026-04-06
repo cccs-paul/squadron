@@ -54,9 +54,9 @@ class WorkspaceRepositoryTest {
     }
 
     @Test
-    void should_haveFourCustomQueryMethods_when_interfaceInspected() {
+    void should_haveSixCustomQueryMethods_when_interfaceInspected() {
         Method[] methods = WorkspaceRepository.class.getDeclaredMethods();
-        assertEquals(5, methods.length);
+        assertEquals(6, methods.length);
     }
 
     @Test

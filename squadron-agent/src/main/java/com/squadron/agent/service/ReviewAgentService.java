@@ -14,6 +14,7 @@ import com.squadron.agent.tool.ToolExecutionEngine;
 import com.squadron.agent.tool.ToolParameter;
 import com.squadron.agent.tool.ToolRegistry;
 import com.squadron.agent.tool.ToolResult;
+import com.squadron.agent.dto.WorkspaceInfo;
 import com.squadron.agent.tool.builtin.ReviewClient;
 import com.squadron.agent.tool.builtin.ReviewClient.ReviewCommentRequest;
 import com.squadron.agent.tool.builtin.WorkspaceClient;
@@ -70,6 +71,7 @@ public class ReviewAgentService {
     private final ReviewClient reviewClient;
     private final WorkspaceClient workspaceClient;
     private final ObjectMapper objectMapper;
+    private final WorkspaceLifecycleService workspaceLifecycleService;
 
     public ReviewAgentService(ConversationService conversationService,
                                SquadronConfigService configService,
@@ -80,7 +82,8 @@ public class ReviewAgentService {
                                NatsEventPublisher natsEventPublisher,
                                ReviewClient reviewClient,
                                WorkspaceClient workspaceClient,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper,
+                               WorkspaceLifecycleService workspaceLifecycleService) {
         this.conversationService = conversationService;
         this.configService = configService;
         this.providerRegistry = providerRegistry;
@@ -91,6 +94,7 @@ public class ReviewAgentService {
         this.reviewClient = reviewClient;
         this.workspaceClient = workspaceClient;
         this.objectMapper = objectMapper;
+        this.workspaceLifecycleService = workspaceLifecycleService;
     }
 
     /**
@@ -109,24 +113,37 @@ public class ReviewAgentService {
             ReviewClient.ReviewResponse review = reviewClient.createReview(tenantId, taskId, "AI");
             UUID reviewId = review.getId();
 
-            // 2. Retrieve the diff from the workspace by executing git diff
-            String diffContent = retrieveDiff(taskId);
+            // 2. Find or provision workspace for the review
+            WorkspaceInfo workspaceInfo = null;
+            if (event.getTaskContext() != null) {
+                try {
+                    workspaceInfo = workspaceLifecycleService.findOrProvisionWorkspace(event.getTaskContext());
+                    log.info("Using workspace {} for review of task {}",
+                            workspaceInfo.getWorkspaceId(), taskId);
+                } catch (Exception e) {
+                    log.warn("Failed to find/provision workspace for review of task {}: {}", taskId, e.getMessage());
+                }
+            }
 
-            // 3. Start a conversation for the review agent
+            // 3. Retrieve the diff from the workspace by executing git diff
+            UUID diffTargetId = workspaceInfo != null ? workspaceInfo.getWorkspaceId() : taskId;
+            String diffContent = retrieveDiff(diffTargetId);
+
+            // 4. Start a conversation for the review agent
             Conversation conversation = conversationService.startConversation(
                     tenantId, taskId, userId, "REVIEW");
 
-            // 4. Resolve configuration for REVIEW agent
+            // 5. Resolve configuration for REVIEW agent
             AgentConfigDto config = configService.resolveAgentConfig(tenantId, null, userId, "REVIEW");
             if (config == null) {
                 config = AgentConfigDto.builder().build();
             }
 
-            // 5. Build the review system prompt with tool definitions and diff
+            // 6. Build the review system prompt with tool definitions and diff
             String systemPrompt = buildReviewPromptWithTools(
                     diffContent, toolRegistry.getAllToolDefinitions());
 
-            // 6. Run the agentic review loop
+            // 7. Run the agentic review loop
             String initialMessage = "Please review the following code changes. Examine the diff carefully, "
                     + "use the provided tools to read additional context files as needed, and provide "
                     + "a thorough code review with specific findings.\n\nDiff:\n```\n"
@@ -136,16 +153,16 @@ public class ReviewAgentService {
                     conversation.getId(), tenantId, userId, config,
                     systemPrompt, initialMessage, taskId);
 
-            // 7. Parse the review findings from the final response
+            // 8. Parse the review findings from the final response
             List<ReviewCommentRequest> comments = parseReviewFindings(result.getSummary());
 
-            // 8. Determine review status based on findings
+            // 9. Determine review status based on findings
             String reviewStatus = determineReviewStatus(comments);
 
-            // 9. Submit the review with comments
+            // 10. Submit the review with comments
             reviewClient.submitReview(reviewId, reviewStatus, result.getSummary(), comments);
 
-            // 10. Publish completion event
+            // 11. Publish completion event
             publishReviewCompletedEvent(tenantId, taskId, conversation.getId(),
                     true, result.getSummary());
 

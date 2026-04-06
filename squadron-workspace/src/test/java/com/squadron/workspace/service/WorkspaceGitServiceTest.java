@@ -620,4 +620,72 @@ class WorkspaceGitServiceTest {
 
         assertEquals(0, result.getExitCode());
     }
+
+    // ========================================================================
+    // Security: Token stripping after push (credential TTL)
+    // ========================================================================
+
+    @Test
+    void should_stripTokenFromRemoteUrl_afterHttpsPush() {
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult setUrlResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(10).build();
+        ExecResult pushResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(3000).build();
+
+        // Mock the set-url call with token (during push)
+        when(workspaceProvider.exec(eq("pod-abc123"), argThat(cmd ->
+                cmd.length == 7 && cmd[0].equals("git") && cmd[4].equals("set-url") && cmd[6].contains("oauth2:"))))
+                .thenReturn(setUrlResult);
+        // Mock the push call
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"git", "-C", "/workspace", "push", "origin", "feature"})))
+                .thenReturn(pushResult);
+        // Mock the strip-url call (restoring clean URL)
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"git", "-C", "/workspace", "remote", "set-url", "origin", "https://github.com/test/repo.git"})))
+                .thenReturn(setUrlResult);
+
+        ExecResult result = workspaceGitService.pushChanges(workspaceId, "feature", "my-secret-token");
+
+        assertEquals(0, result.getExitCode());
+        // Verify the clean URL was set after push
+        verify(workspaceProvider).exec(eq("pod-abc123"),
+                eq(new String[]{"git", "-C", "/workspace", "remote", "set-url", "origin", "https://github.com/test/repo.git"}));
+    }
+
+    @Test
+    void should_notStripToken_whenPushWithNoToken() {
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult pushResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(3000).build();
+
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"git", "-C", "/workspace", "push", "origin", "main"})))
+                .thenReturn(pushResult);
+
+        workspaceGitService.pushChanges(workspaceId, "main", null, null);
+
+        // Should NOT attempt to strip token (no set-url call with clean URL)
+        verify(workspaceProvider, never()).exec(eq("pod-abc123"),
+                eq(new String[]{"git", "-C", "/workspace", "remote", "set-url", "origin", "https://github.com/test/repo.git"}));
+    }
+
+    @Test
+    void should_stripTokenGracefully_whenStripFails() {
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+
+        ExecResult setUrlResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(10).build();
+        ExecResult pushResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(3000).build();
+
+        when(workspaceProvider.exec(eq("pod-abc123"), argThat(cmd ->
+                cmd.length == 7 && cmd[0].equals("git") && cmd[4].equals("set-url") && cmd[6].contains("oauth2:"))))
+                .thenReturn(setUrlResult);
+        when(workspaceProvider.exec(eq("pod-abc123"), eq(new String[]{"git", "-C", "/workspace", "push", "origin", "main"})))
+                .thenReturn(pushResult);
+        // Strip call throws exception
+        when(workspaceProvider.exec(eq("pod-abc123"),
+                eq(new String[]{"git", "-C", "/workspace", "remote", "set-url", "origin", "https://github.com/test/repo.git"})))
+                .thenThrow(new RuntimeException("Container not responding"));
+
+        // Should not throw — stripping failure is non-fatal
+        ExecResult result = workspaceGitService.pushChanges(workspaceId, "main", "my-token");
+        assertEquals(0, result.getExitCode());
+    }
 }

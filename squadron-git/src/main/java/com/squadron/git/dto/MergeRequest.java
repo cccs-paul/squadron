@@ -21,4 +21,10 @@ public class MergeRequest {
     private String mergeStrategy = "MERGE";
 
     private String accessToken;
+
+    /** User ID for credential delegation (optional) */
+    private UUID userId;
+
+    /** Platform connection ID for credential delegation (optional) */
+    private UUID connectionId;
 }

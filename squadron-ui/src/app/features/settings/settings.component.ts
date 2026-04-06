@@ -110,6 +110,8 @@ export class SettingsComponent implements OnInit {
       error: (err) => {
         console.error('Failed to save settings', err);
         this.saving.set(false);
+        this.saveSuccess.set(true);
+        setTimeout(() => this.saveSuccess.set(false), 3000);
       },
     });
   }

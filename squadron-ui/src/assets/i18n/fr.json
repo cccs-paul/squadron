@@ -134,11 +134,32 @@
     "agentConfig": {
       "title": "Configuration des agents",
       "subtitle": "Configurez les parametres des agents IA pour votre espace de travail",
-      "modelSettings": {
+      "loading": "Chargement de la configuration...",
+      "saveSuccess": "Configuration enregistree avec succes",
+      "saving": "Enregistrement...",
+      "saveConfig": "Enregistrer la configuration",
+      "provider": "Fournisseur",
+      "modelName": "Nom du modele",
+      "model": "Modele",
+      "temperature": "Temperature :",
+      "precise": "Precis (0.0)",
+      "creative": "Creatif (1.0)",
+      "maxTokens": "Jetons maximum",
+      "maxTokensError": "Doit etre entre 1 et 128 000",
+      "systemPrompt": "Invite systeme",
+      "systemPromptPlaceholder": "Invite systeme optionnelle pour tous les agents...",
+      "selectAgentType": "Selectionner le type d'agent...",
+      "modelSettings": "Parametres du modele",
+      "modelSettingsDesc": "Configuration par defaut du modele IA pour tous les types d'agents",
+      "overrides": "Surcharges par agent",
+      "overridesDesc": "Surcharger les parametres par defaut pour des types d'agents specifiques",
+      "addOverride": "Ajouter une surcharge",
+      "remove": "Retirer",
+      "modelSettings_section": {
         "title": "Parametres du modele",
         "subtitle": "Configuration par defaut du modele IA pour tous les types d'agents"
       },
-      "overrides": {
+      "overrides_section": {
         "title": "Surcharges par agent",
         "subtitle": "Surcharger les parametres par defaut pour des types d'agents specifiques"
       },
@@ -156,7 +177,7 @@
         "systemPrompt": "Invite systeme optionnelle pour tous les agents...",
         "selectAgentType": "Selectionner le type d'agent..."
       },
-      "temperature": {
+      "temperature_range": {
         "precise": "Precis (0.0)",
         "creative": "Creatif (1.0)"
       },
@@ -166,7 +187,6 @@
       "alerts": {
         "saveSuccess": "Configuration enregistree avec succes"
       },
-      "loading": "Chargement de la configuration...",
       "buttons": {
         "remove": "Retirer",
         "addOverride": "Ajouter une surcharge",
@@ -181,7 +201,27 @@
     "userTokens": {
       "title": "Jetons de plateforme",
       "subtitle": "Liez vos jetons d'acces personnels pour permettre a Squadron d'agir en votre nom",
-      "linkedAccounts": {
+      "loading": "Chargement des jetons...",
+      "linkSuccess": "Jeton lie avec succes",
+      "linkedAccounts": "Comptes lies",
+      "linkedAccountsDesc": "Comptes de plateforme actuellement lies a votre profil",
+      "noTokens": "Aucun jeton de plateforme lie. Liez un jeton ci-dessous pour commencer.",
+      "linked": "Lie",
+      "expires": "Expire",
+      "unlink": "Delier",
+      "linkNewToken": "Lier un nouveau jeton",
+      "linkNewTokenDesc": "Connecter un jeton d'acces personnel d'une plateforme externe",
+      "allLinked": "Toutes les connexions disponibles sont deja liees.",
+      "linkAToken": "Lier un jeton",
+      "platformConnection": "Connexion de plateforme",
+      "selectConnection": "Selectionner une connexion...",
+      "personalAccessToken": "Jeton d'acces personnel",
+      "enterToken": "Entrez votre jeton...",
+      "encryptionHint": "Votre jeton est chiffre avant le stockage",
+      "linking": "Liaison...",
+      "linkToken": "Lier le jeton",
+      "unknownConnection": "Connexion inconnue",
+      "linkedAccounts_section": {
         "title": "Comptes lies",
         "subtitle": "Comptes de plateforme actuellement lies a votre profil",
         "empty": "Aucun jeton de plateforme lie. Liez un jeton ci-dessous pour commencer."
@@ -194,7 +234,6 @@
       "alerts": {
         "linkSuccess": "Jeton lie avec succes"
       },
-      "loading": "Chargement des jetons...",
       "labels": {
         "linked": "Lie",
         "expires": "Expire",
@@ -215,7 +254,6 @@
         "linkToken": "Lier le jeton",
         "cancel": "Annuler"
       },
-      "unknownConnection": "Connexion inconnue",
       "errors": {
         "missingFields": "Veuillez selectionner une connexion et entrer un jeton.",
         "linkFailed": "Echec de la liaison du jeton. Verifiez votre jeton et reessayez."
@@ -225,6 +263,21 @@
       "title": "Mon escadron d'agents",
       "subtitle": "Configurez vos agents IA personnels. Vous pouvez avoir jusqu'a {{maxAgents}} agents.",
       "loading": "Chargement de l'escadron...",
+      "saveSuccess": "Modifications enregistrees avec succes.",
+      "agentName": "Nom de l'agent",
+      "save": "Enregistrer",
+      "edit": "Modifier",
+      "remove": "Retirer",
+      "type": "Type",
+      "provider": "Fournisseur",
+      "providerPlaceholder": "ex. openai-compatible",
+      "model": "Modele",
+      "modelPlaceholder": "ex. gpt-4o",
+      "maxTokens": "Jetons maximum",
+      "temperature": "Temperature",
+      "enabled": "Active",
+      "addAgent": "+ Ajouter un agent",
+      "resetDefaults": "Reinitialiser par defaut",
       "alerts": {
         "saveSuccess": "Modifications enregistrees avec succes."
       },
@@ -339,10 +392,14 @@
   "tasks": {
     "board": {
       "title": "Tableau des taches",
-      "subtitle": "Glissez et deposez les taches entre les colonnes",
+      "subtitle": "Suivez et gerez le travail sur tous les projets",
       "searchPlaceholder": "Rechercher des taches...",
+      "noTasks": "Aucune tache",
+      "loading": "Chargement des taches...",
+      "refresh": "Actualiser",
       "filter": {
-        "allPriorities": "Toutes les priorites"
+        "allPriorities": "Toutes les priorites",
+        "allProjects": "Tous les projets"
       },
       "emptyColumn": "Aucune tache",
       "column": {
@@ -351,7 +408,31 @@
         "inProgress": "En cours",
         "review": "Revue",
         "qa": "AQ",
-        "done": "Termine"
+        "done": "Termine",
+        "planned": "Planifie",
+        "completed": "Termine"
+      },
+      "summary": {
+        "inProgress": "En cours",
+        "planned": "Planifie",
+        "completed": "Termine"
+      },
+      "agentStatus": {
+        "active": "Agent actif",
+        "waiting_input": "En attente",
+        "completed": "Agent termine",
+        "failed": "Agent echoue"
+      },
+      "actions": {
+        "cancel": "Annuler la tache",
+        "cancelConfirm": "Etes-vous sur ?",
+        "cancelling": "Annulation...",
+        "prompt": "Envoyer",
+        "promptPlaceholder": "Envoyer un message a l'agent...",
+        "sending": "Envoi...",
+        "approvePlan": "Approuver le plan",
+        "rejectPlan": "Rejeter le plan",
+        "openChat": "Ouvrir le chat agent"
       }
     },
     "detail": {
@@ -359,8 +440,18 @@
       "backToBoard": "Retour au tableau",
       "description": "Description",
       "transitions": "Deplacer vers",
+      "moveTo": "Deplacer vers",
       "pullRequest": "Demande de fusion",
-      "labels": {
+      "assignee": "Responsable",
+      "unassigned": "Non assigne",
+      "tokenUsage": "Utilisation des jetons",
+      "tokens": "{{count}} jetons",
+      "created": "Cree",
+      "externalLink": "Lien externe",
+      "openInPlatform": "Ouvrir dans la plateforme",
+      "labels": "Etiquettes",
+      "noLabels": "Aucune etiquette",
+      "labels_section": {
         "heading": "Etiquettes",
         "empty": "Aucune etiquette"
       },
@@ -397,6 +488,14 @@
     "list": {
       "title": "Revues de code",
       "subtitle": "Revoir les demandes de fusion et fournir des commentaires",
+      "pullRequest": "Demande de fusion",
+      "task": "Tache",
+      "status": "Statut",
+      "changes": "Modifications",
+      "reviewer": "Reviseur",
+      "updated": "Mis a jour",
+      "allStatuses": "Tous les statuts",
+      "noReviews": "Aucune revue trouvee",
       "filter": {
         "allStatuses": "Tous les statuts",
         "pending": "En attente",
@@ -417,6 +516,19 @@
     "detail": {
       "loading": "Chargement de la revue...",
       "backLink": "Retour aux revues",
+      "backToReviews": "Retour aux revues",
+      "approve": "Approuver",
+      "reject": "Rejeter",
+      "filesChanged": "Fichiers modifies",
+      "linesAdded": "Lignes ajoutees",
+      "linesRemoved": "Lignes supprimees",
+      "comments": "Commentaires",
+      "unresolved": "Non resolus",
+      "resolved": "Resolus",
+      "diffTab": "Diff",
+      "commentsTab": "Commentaires",
+      "reviewComments": "Commentaires de revue",
+      "noComments": "Aucun commentaire pour l'instant",
       "actions": {
         "approve": "Approuver",
         "reject": "Rejeter"
@@ -433,10 +545,16 @@
         "diff": "Diff",
         "comments": "Commentaires"
       },
-      "comments": {
+      "comments_section": {
         "title": "Commentaires de revue",
         "resolvedBadge": "Resolu",
         "emptyState": "Aucun commentaire pour l'instant"
+      },
+      "severity": {
+        "critical": "Critique",
+        "major": "Majeur",
+        "minor": "Mineur",
+        "info": "Info"
       }
     },
     "status": {
@@ -455,15 +573,25 @@
     "list": {
       "heading": "Projets",
       "subheading": "Gerez vos depots et projets",
+      "title": "Projets",
+      "subtitle": "Gerez vos depots et projets",
       "newProjectButton": "Nouveau projet",
+      "newProject": "Nouveau projet",
       "emptyState": "Aucun projet pour l'instant. Creez votre premier projet pour commencer."
     },
     "card": {
       "tasksLabel": "taches",
-      "activeLabel": "actives"
+      "activeLabel": "actives",
+      "tasks": "taches",
+      "active": "actives"
     },
     "detail": {
       "backLink": "Retour aux projets",
+      "backToProjects": "Retour aux projets",
+      "repository": "Depot",
+      "defaultBranch": "Branche par defaut",
+      "totalTasks": "Total des taches",
+      "activeTasks": "Taches actives",
       "labels": {
         "repository": "Depot",
         "defaultBranch": "Branche par defaut",
@@ -474,6 +602,20 @@
   },
   "agentChat": {
     "title": "Discussion avec l'agent",
+    "aiAgent": "Agent IA",
+    "you": "Vous",
+    "system": "Systeme",
+    "streaming": "diffusion...",
+    "tokens": "jetons",
+    "status": "Statut :",
+    "cancel": "Annuler",
+    "interrupted": "L'agent a ete interrompu. Vous pouvez envoyer un nouveau message pour continuer.",
+    "placeholder": "Tapez un message...",
+    "connection": {
+      "CONNECTED": "Connecte",
+      "CONNECTING": "Connexion...",
+      "DISCONNECTED": "Deconnecte"
+    },
     "meta": {
       "statusLabel": "Statut :",
       "tokensLabel": "Jetons :"
@@ -482,7 +624,8 @@
       "cancel": "Annuler"
     },
     "progress": {
-      "stepsUnit": "etapes"
+      "stepsUnit": "etapes",
+      "steps": "etapes"
     },
     "message": {
       "authorAgent": "Agent IA",
@@ -490,10 +633,6 @@
       "authorSystem": "Systeme",
       "streamingIndicator": "diffusion...",
       "tokensUnit": "jetons"
-    },
-    "status": {
-      "interruptedBanner": "L'agent a ete interrompu. Vous pouvez envoyer un nouveau message pour continuer.",
-      "interruptedByUser": "L'agent a ete interrompu par l'utilisateur."
     },
     "input": {
       "placeholder": "Tapez un message..."
@@ -505,6 +644,11 @@
   },
   "diffViewer": {
     "title": "Modifications du code",
+    "filesChanged": "fichiers modifies",
+    "resolved": "Resolu",
+    "addComment": "Ajouter un commentaire de revue...",
+    "cancel": "Annuler",
+    "noChanges": "Aucune modification de fichier trouvee.",
     "stats": {
       "filesChanged": "fichiers modifies"
     },
@@ -521,18 +665,24 @@
   },
   "qaReport": {
     "loading": "Chargement du rapport AQ...",
+    "backToTask": "Retour a la tache",
+    "title": "Rapport AQ",
+    "coverage": "Couverture du code",
+    "coverageMeetsThreshold": "La couverture atteint le seuil",
+    "coverageBelowThreshold": "La couverture est en dessous du seuil recommande",
+    "coverageCriticallyLow": "Couverture critique",
+    "testSummary": "Resultats des tests",
+    "passed": "Reussis",
+    "failed": "Echoues",
+    "skipped": "Ignores",
+    "summary": "Resume",
+    "findings": "Constatations",
+    "noFindings": "Aucune constatation rapportee",
     "navigation": {
       "backToTask": "Retour a la tache"
     },
-    "title": "Rapport AQ",
     "header": {
       "gatePrefix": "Porte :"
-    },
-    "coverage": {
-      "title": "Couverture du code",
-      "meetsThreshold": "La couverture atteint le seuil",
-      "belowThreshold": "La couverture est en dessous du seuil recommande",
-      "criticallyLow": "Couverture critique"
     },
     "testResults": {
       "title": "Resultats des tests",
@@ -540,16 +690,6 @@
       "passed": "Reussis",
       "failed": "Echoues",
       "skipped": "Ignores"
-    },
-    "summary": {
-      "title": "Resume"
-    },
-    "findings": {
-      "title": "Constatations",
-      "criticalGroup": "Critique",
-      "majorGroup": "Majeur",
-      "minorInfoGroup": "Mineur / Info",
-      "emptyState": "Aucune constatation rapportee"
     },
     "error": {
       "loadFailed": "Echec du chargement du rapport AQ"
@@ -577,8 +717,10 @@
       "cancelToggle": "Annuler",
       "addProvider": "+ Ajouter un fournisseur",
       "saveSuccess": "Fournisseur de tickets ajoute avec succes",
+      "editSuccess": "Fournisseur de tickets mis a jour avec succes",
       "form": {
         "title": "Nouveau fournisseur de tickets",
+        "editTitle": "Modifier le fournisseur de tickets",
         "providerNameLabel": "Nom du fournisseur",
         "providerNamePlaceholder": "ex. Jira Cloud - Production",
         "platformLabel": "Plateforme",
@@ -592,7 +734,9 @@
         "enterPrefix": "Entrez",
         "cancel": "Annuler",
         "saving": "Enregistrement...",
-        "saveProvider": "Enregistrer le fournisseur"
+        "saveProvider": "Enregistrer le fournisseur",
+        "updateProvider": "Mettre a jour le fournisseur",
+        "credentialEditHint": "Laissez vide pour conserver les identifiants existants"
       },
       "empty": {
         "title": "Aucun fournisseur de tickets",
@@ -600,7 +744,8 @@
       },
       "card": {
         "removing": "Suppression...",
-        "remove": "Retirer"
+        "remove": "Retirer",
+        "edit": "Modifier"
       },
       "errors": {
         "saveFailed": "Echec de l'enregistrement du fournisseur. Verifiez votre configuration et reessayez."
@@ -612,8 +757,10 @@
       "cancelToggle": "Annuler",
       "addRemote": "+ Ajouter un depot Git",
       "saveSuccess": "Depot Git ajoute avec succes",
+      "editSuccess": "Depot Git mis a jour avec succes",
       "form": {
         "title": "Nouveau depot Git",
+        "editTitle": "Modifier le depot Git",
         "connectionNameLabel": "Nom de la connexion",
         "connectionNamePlaceholder": "ex. GitHub - Mon Org",
         "platformLabel": "Plateforme",
@@ -625,7 +772,9 @@
         "enterPrefix": "Entrez",
         "cancel": "Annuler",
         "saving": "Enregistrement...",
-        "saveRemote": "Enregistrer le depot Git"
+        "saveRemote": "Enregistrer le depot Git",
+        "updateRemote": "Mettre a jour le depot Git",
+        "credentialEditHint": "Laissez vide pour conserver les identifiants existants"
       },
       "empty": {
         "title": "Aucun depot Git configure",
@@ -634,7 +783,8 @@
       "card": {
         "sshKeyCount": "{{count}} cle(s) SSH",
         "removing": "Suppression...",
-        "remove": "Retirer"
+        "remove": "Retirer",
+        "edit": "Modifier"
       },
       "sshKey": {
         "remove": "Retirer",
@@ -669,7 +819,57 @@
         "saveKey": "Enregistrer la cle SSH"
       },
       "errors": {
-        "saveFailed": "Echec de l'enregistrement de la cle SSH. Verifiez la paire de cles."
+        "saveFailed": "Echec de l'enregistrement de la cle SSH. Verifiez la paire de cles.",
+        "generateFailed": "Echec de la generation de la cle de deploiement. Veuillez reessayer."
+      },
+      "keyUsageLabel": "Utilisation de la cle",
+      "keyUsage": {
+        "userKey": "Cle utilisateur",
+        "deployKey": "Cle de deploiement"
+      },
+      "generatingDeployKey": "Generation...",
+      "generateDeployKey": "Generer une cle de deploiement",
+      "generatedKeyLabel": "Cle publique generee",
+      "generatedKeyHint": "Copiez cette cle publique dans votre depot Git comme cle de deploiement.",
+      "dismissKey": "Fermer"
+    },
+    "credentialStatus": {
+      "linked": "Identifiants lies",
+      "expired": "Identifiants expires",
+      "missing": "Identifiants manquants"
+    },
+    "reviewBot": {
+      "title": "Configuration du robot de revue",
+      "description": "Configurez des robots de revue automatises pour publier des commentaires sur les demandes de fusion.",
+      "cancelToggle": "Annuler",
+      "addBot": "+ Ajouter un robot de revue",
+      "saveSuccess": "Robot de revue ajoute avec succes",
+      "form": {
+        "title": "Nouveau robot de revue",
+        "connectionLabel": "Depot Git",
+        "selectConnection": "-- Selectionner une connexion --",
+        "botUsernameLabel": "Nom d'utilisateur du robot",
+        "botUsernamePlaceholder": "ex. squadron-bot",
+        "accessTokenLabel": "Jeton d'acces du robot",
+        "accessTokenPlaceholder": "Entrez le jeton d'acces du robot...",
+        "accessTokenHint": "Un jeton d'acces personnel pour le compte du robot. Stocke chiffre.",
+        "enabledLabel": "Active",
+        "autoAssignLabel": "Assigner automatiquement le robot comme reviseur",
+        "cancel": "Annuler",
+        "saving": "Enregistrement...",
+        "save": "Enregistrer le robot de revue"
+      },
+      "status": {
+        "enabled": "Active",
+        "disabled": "Desactive",
+        "autoAssign": "Assignation automatique"
+      },
+      "enable": "Activer",
+      "disable": "Desactiver",
+      "remove": "Retirer",
+      "removing": "Suppression...",
+      "errors": {
+        "saveFailed": "Echec de l'enregistrement du robot de revue. Verifiez la configuration."
       }
     },
     "projects": {
@@ -793,6 +993,7 @@
       "username": "Nom d'utilisateur",
       "password": "Mot de passe",
       "appId": "ID d'application",
+      "installationId": "ID d'installation",
       "privateKey": "Cle privee",
       "appPassword": "Mot de passe d'application"
     },

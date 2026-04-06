@@ -4,12 +4,17 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.common.config.NatsEventPublisher;
+import com.squadron.common.dto.TaskContext;
 import com.squadron.common.event.TaskStateChangedEvent;
 import com.squadron.common.exception.InvalidStateTransitionException;
 import com.squadron.common.exception.ResourceNotFoundException;
+import com.squadron.orchestrator.entity.Project;
+import com.squadron.orchestrator.entity.Task;
 import com.squadron.orchestrator.entity.TaskStateHistory;
 import com.squadron.orchestrator.entity.TaskWorkflow;
 import com.squadron.orchestrator.entity.WorkflowDefinition;
+import com.squadron.orchestrator.repository.ProjectRepository;
+import com.squadron.orchestrator.repository.TaskRepository;
 import com.squadron.orchestrator.repository.TaskStateHistoryRepository;
 import com.squadron.orchestrator.repository.TaskWorkflowRepository;
 import com.squadron.orchestrator.repository.WorkflowDefinitionRepository;
@@ -35,17 +40,23 @@ public class WorkflowEngine {
     private final WorkflowDefinitionRepository workflowDefinitionRepository;
     private final TaskWorkflowRepository taskWorkflowRepository;
     private final TaskStateHistoryRepository taskStateHistoryRepository;
+    private final TaskRepository taskRepository;
+    private final ProjectRepository projectRepository;
     private final NatsEventPublisher natsEventPublisher;
     private final ObjectMapper objectMapper;
 
     public WorkflowEngine(WorkflowDefinitionRepository workflowDefinitionRepository,
                           TaskWorkflowRepository taskWorkflowRepository,
                           TaskStateHistoryRepository taskStateHistoryRepository,
+                          TaskRepository taskRepository,
+                          ProjectRepository projectRepository,
                           NatsEventPublisher natsEventPublisher,
                           ObjectMapper objectMapper) {
         this.workflowDefinitionRepository = workflowDefinitionRepository;
         this.taskWorkflowRepository = taskWorkflowRepository;
         this.taskStateHistoryRepository = taskStateHistoryRepository;
+        this.taskRepository = taskRepository;
+        this.projectRepository = projectRepository;
         this.natsEventPublisher = natsEventPublisher;
         this.objectMapper = objectMapper;
     }
@@ -218,6 +229,31 @@ public class WorkflowEngine {
         event.setToState(toState);
         event.setTriggeredBy(userId);
         event.setReason(reason);
+
+        // Enrich with TaskContext
+        try {
+            taskRepository.findById(taskId).ifPresent(task -> {
+                TaskContext.TaskContextBuilder ctxBuilder = TaskContext.builder()
+                        .taskId(task.getId())
+                        .tenantId(task.getTenantId())
+                        .projectId(task.getProjectId())
+                        .userId(userId != null ? userId : task.getAssigneeId())
+                        .externalId(task.getExternalId())
+                        .title(task.getTitle());
+
+                projectRepository.findById(task.getProjectId()).ifPresent(project -> {
+                    ctxBuilder.connectionId(project.getConnectionId())
+                            .repoUrl(project.getRepoUrl())
+                            .defaultBranch(project.getDefaultBranch())
+                            .branchStrategy(project.getBranchStrategy())
+                            .branchNamingTemplate(project.getBranchNamingTemplate());
+                });
+
+                event.setTaskContext(ctxBuilder.build());
+            });
+        } catch (Exception e) {
+            log.warn("Failed to enrich TaskContext for task {}: {}", taskId, e.getMessage());
+        }
 
         try {
             natsEventPublisher.publishAsync(NATS_SUBJECT, event);

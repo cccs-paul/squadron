@@ -141,4 +141,20 @@ describe('SshKeyService', () => {
     const req = httpTesting.expectOne(`${apiUrl}/platforms/ssh-keys/connection/conn-1`);
     req.flush(wrapResponse([]));
   });
+
+  it('should_generateDeployKey_when_calledWithParams', () => {
+    const expected = mockSshKey({ name: 'deploy-key-prod', keyType: 'ED25519' });
+
+    service.generateDeployKey('conn-1', 'tenant-1', 'deploy-key-prod').subscribe((key) => {
+      expect(key.id).toBe('key-1');
+      expect(key.name).toBe('deploy-key-prod');
+    });
+
+    const req = httpTesting.expectOne(`${apiUrl}/platforms/ssh-keys/deploy-key`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      connectionId: 'conn-1', tenantId: 'tenant-1', name: 'deploy-key-prod', keyUsage: 'DEPLOY_KEY',
+    });
+    req.flush(wrapResponse(expected));
+  });
 });

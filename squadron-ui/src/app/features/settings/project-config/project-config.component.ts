@@ -4,6 +4,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ProjectService } from '../../../core/services/project.service';
 import { PlatformService } from '../../../core/services/platform.service';
 import { SshKeyService } from '../../../core/services/ssh-key.service';
+import { ReviewBotConfigService } from '../../../core/services/review-bot-config.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Project, RemoteProject, WorkflowMapping, BranchStrategyType } from '../../../core/models/project.model';
 import {
@@ -13,6 +14,9 @@ import {
   CreateConnectionRequest,
   SshKey,
   CreateSshKeyRequest,
+  KeyUsage,
+  ReviewBotConfig,
+  CreateReviewBotConfigRequest,
 } from '../../../core/models/security.model';
 import { forkJoin } from 'rxjs';
 
@@ -32,6 +36,7 @@ interface SshKeyForm {
   publicKey: string;
   privateKey: string;
   keyType: string;
+  keyUsage: string;
 }
 
 interface ImportCandidate {
@@ -76,7 +81,7 @@ const AUTH_TYPE_OPTIONS: Record<string, { label: string; fields: { key: string; 
   ],
   GITHUB: [
     { label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
-    { label: 'projectConfig.authTypes.app', fields: [{ key: 'appId', label: 'projectConfig.authFields.appId', secret: false }, { key: 'privateKey', label: 'projectConfig.authFields.privateKey', secret: true }] },
+    { label: 'projectConfig.authTypes.app', fields: [{ key: 'appId', label: 'projectConfig.authFields.appId', secret: false }, { key: 'installationId', label: 'projectConfig.authFields.installationId', secret: false }, { key: 'privateKey', label: 'projectConfig.authFields.privateKey', secret: true }] },
   ],
   GITLAB: [
     { label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
@@ -111,6 +116,7 @@ export class ProjectConfigComponent implements OnInit {
   private projectService = inject(ProjectService);
   private platformService = inject(PlatformService);
   private sshKeyService = inject(SshKeyService);
+  private reviewBotConfigService = inject(ReviewBotConfigService);
   private authService = inject(AuthService);
   private translate = inject(TranslateService);
 
@@ -128,6 +134,7 @@ export class ProjectConfigComponent implements OnInit {
   ticketSaveError = signal<string | null>(null);
   ticketSaveSuccess = signal(false);
   deletingConnectionId = signal<string | null>(null);
+  editingTicketProviderId = signal<string | null>(null);
   ticketForm: ProviderForm = this.newTicketForm();
 
   // Step 2: Git Remotes
@@ -136,6 +143,7 @@ export class ProjectConfigComponent implements OnInit {
   savingGitRemote = signal(false);
   gitSaveError = signal<string | null>(null);
   gitSaveSuccess = signal(false);
+  editingGitRemoteId = signal<string | null>(null);
   gitForm: ProviderForm = this.newGitForm();
 
   // SSH Keys
@@ -146,6 +154,17 @@ export class ProjectConfigComponent implements OnInit {
   sshKeySaveSuccess = signal(false);
   deletingSshKeyId = signal<string | null>(null);
   sshKeyForm: SshKeyForm = this.newSshKeyForm();
+  generatingDeployKey = signal(false);
+  generatedPublicKey = signal<string | null>(null);
+
+  // Review Bot Configs
+  reviewBotConfigs = signal<ReviewBotConfig[]>([]);
+  showReviewBotForm = signal(false);
+  savingReviewBot = signal(false);
+  reviewBotSaveError = signal<string | null>(null);
+  reviewBotSaveSuccess = signal(false);
+  deletingReviewBotId = signal<string | null>(null);
+  reviewBotForm = this.newReviewBotForm();
 
   // Step 3: Projects
   projectStates = signal<ProjectMappingState[]>([]);
@@ -193,11 +212,13 @@ export class ProjectConfigComponent implements OnInit {
       states: this.projectService.getWorkflowStates(),
       connections: this.platformService.getConnectionsByTenant(user.tenantId),
       sshKeys: this.sshKeyService.getSshKeysByTenant(user.tenantId),
+      reviewBotConfigs: this.reviewBotConfigService.getConfigsByTenant(user.tenantId),
     }).subscribe({
-      next: ({ projects, states, connections, sshKeys }) => {
+      next: ({ projects, states, connections, sshKeys, reviewBotConfigs }) => {
         this.workflowStates.set(states);
         this.allConnections.set(connections);
         this.sshKeys.set(sshKeys);
+        this.reviewBotConfigs.set(reviewBotConfigs);
         this.categorizeConnections(connections);
         this.projectStates.set(
           projects.map((p) => ({
@@ -223,6 +244,7 @@ export class ProjectConfigComponent implements OnInit {
         this.ticketProviders.set([]);
         this.gitRemotes.set([]);
         this.sshKeys.set([]);
+        this.reviewBotConfigs.set([]);
         this.projectStates.set([]);
         this.loading.set(false);
       },
@@ -334,13 +356,29 @@ export class ProjectConfigComponent implements OnInit {
     if (!this.showTicketForm()) {
       this.ticketForm = this.newTicketForm();
       this.ticketSaveError.set(null);
+      this.editingTicketProviderId.set(null);
     }
+  }
+
+  editTicketProvider(conn: PlatformConnection): void {
+    this.editingTicketProviderId.set(conn.id);
+    this.ticketForm = {
+      name: conn.name,
+      platformType: conn.platformType,
+      baseUrl: conn.baseUrl || '',
+      authType: this.getFirstAuthType(conn.platformType, conn.authType),
+      credentials: {},
+    };
+    this.showTicketForm.set(true);
+    this.ticketSaveError.set(null);
   }
 
   canSaveTicketProvider(): boolean {
     const f = this.ticketForm;
     if (!f.name.trim() || !f.platformType || !f.authType) return false;
     if (!this.isCloudPlatform(f.platformType) && !f.baseUrl.trim()) return false;
+    // When editing, credentials are optional (only sent if user fills them in)
+    if (this.editingTicketProviderId()) return true;
     const fields = this.getTicketAuthFields();
     return fields.every((field) => (f.credentials[field.key] ?? '').trim().length > 0);
   }
@@ -352,31 +390,75 @@ export class ProjectConfigComponent implements OnInit {
     this.savingTicketProvider.set(true);
     this.ticketSaveError.set(null);
 
-    const request: CreateConnectionRequest = {
-      tenantId: user.tenantId,
-      name: this.ticketForm.name.trim(),
-      platformType: this.ticketForm.platformType,
-      baseUrl: this.ticketForm.baseUrl.trim() || this.getDefaultBaseUrl(this.ticketForm.platformType),
-      authType: this.ticketForm.authType,
-      credentials: { ...this.ticketForm.credentials },
-    };
+    const editingId = this.editingTicketProviderId();
 
-    this.platformService.createConnectionFromRequest(request).subscribe({
-      next: (connection) => {
-        this.ticketProviders.set([...this.ticketProviders(), connection]);
-        this.allConnections.set([...this.allConnections(), connection]);
-        this.savingTicketProvider.set(false);
-        this.showTicketForm.set(false);
-        this.ticketForm = this.newTicketForm();
-        this.ticketSaveSuccess.set(true);
-        setTimeout(() => this.ticketSaveSuccess.set(false), 3000);
-      },
-      error: (err: any) => {
-        const msg = err?.error?.message || this.translate.instant('projectConfig.ticketProviders.errors.saveFailed');
-        this.ticketSaveError.set(msg);
-        this.savingTicketProvider.set(false);
-      },
-    });
+    if (editingId) {
+      // Update existing connection
+      const payload: Partial<PlatformConnection> = {
+        name: this.ticketForm.name.trim(),
+        platformType: this.ticketForm.platformType as any,
+        baseUrl: this.ticketForm.baseUrl.trim() || this.getDefaultBaseUrl(this.ticketForm.platformType),
+        authType: this.ticketForm.authType,
+      };
+
+      // Only include credentials if user actually filled them in
+      const filledCredentials: Record<string, string> = {};
+      let hasCredentials = false;
+      for (const [key, value] of Object.entries(this.ticketForm.credentials)) {
+        if (value && value.trim()) {
+          filledCredentials[key] = value.trim();
+          hasCredentials = true;
+        }
+      }
+      if (hasCredentials) {
+        (payload as any).credentials = filledCredentials;
+      }
+
+      this.platformService.updateConnection(editingId, payload).subscribe({
+        next: (updated) => {
+          this.ticketProviders.set(this.ticketProviders().map((c) => c.id === updated.id ? updated : c));
+          this.allConnections.set(this.allConnections().map((c) => c.id === updated.id ? updated : c));
+          this.savingTicketProvider.set(false);
+          this.showTicketForm.set(false);
+          this.ticketForm = this.newTicketForm();
+          this.editingTicketProviderId.set(null);
+          this.ticketSaveSuccess.set(true);
+          setTimeout(() => this.ticketSaveSuccess.set(false), 3000);
+        },
+        error: (err: any) => {
+          const msg = err?.error?.message || this.translate.instant('projectConfig.ticketProviders.errors.saveFailed');
+          this.ticketSaveError.set(msg);
+          this.savingTicketProvider.set(false);
+        },
+      });
+    } else {
+      // Create new connection
+      const request: CreateConnectionRequest = {
+        tenantId: user.tenantId,
+        name: this.ticketForm.name.trim(),
+        platformType: this.ticketForm.platformType,
+        baseUrl: this.ticketForm.baseUrl.trim() || this.getDefaultBaseUrl(this.ticketForm.platformType),
+        authType: this.ticketForm.authType,
+        credentials: { ...this.ticketForm.credentials },
+      };
+
+      this.platformService.createConnectionFromRequest(request).subscribe({
+        next: (connection) => {
+          this.ticketProviders.set([...this.ticketProviders(), connection]);
+          this.allConnections.set([...this.allConnections(), connection]);
+          this.savingTicketProvider.set(false);
+          this.showTicketForm.set(false);
+          this.ticketForm = this.newTicketForm();
+          this.ticketSaveSuccess.set(true);
+          setTimeout(() => this.ticketSaveSuccess.set(false), 3000);
+        },
+        error: (err: any) => {
+          const msg = err?.error?.message || this.translate.instant('projectConfig.ticketProviders.errors.saveFailed');
+          this.ticketSaveError.set(msg);
+          this.savingTicketProvider.set(false);
+        },
+      });
+    }
   }
 
   deleteTicketProvider(id: string): void {
@@ -425,13 +507,29 @@ export class ProjectConfigComponent implements OnInit {
     if (!this.showGitForm()) {
       this.gitForm = this.newGitForm();
       this.gitSaveError.set(null);
+      this.editingGitRemoteId.set(null);
     }
+  }
+
+  editGitRemote(conn: PlatformConnection): void {
+    this.editingGitRemoteId.set(conn.id);
+    this.gitForm = {
+      name: conn.name,
+      platformType: conn.platformType,
+      baseUrl: conn.baseUrl || '',
+      authType: this.getFirstAuthType(conn.platformType, conn.authType),
+      credentials: {},
+    };
+    this.showGitForm.set(true);
+    this.gitSaveError.set(null);
   }
 
   canSaveGitRemote(): boolean {
     const f = this.gitForm;
     if (!f.name.trim() || !f.platformType || !f.authType) return false;
     if (!this.isCloudPlatform(f.platformType) && !f.baseUrl.trim()) return false;
+    // When editing, credentials are optional (only sent if user fills them in)
+    if (this.editingGitRemoteId()) return true;
     const fields = this.getGitAuthFields();
     return fields.every((field) => (f.credentials[field.key] ?? '').trim().length > 0);
   }
@@ -443,31 +541,75 @@ export class ProjectConfigComponent implements OnInit {
     this.savingGitRemote.set(true);
     this.gitSaveError.set(null);
 
-    const request: CreateConnectionRequest = {
-      tenantId: user.tenantId,
-      name: this.gitForm.name.trim(),
-      platformType: this.gitForm.platformType,
-      baseUrl: this.gitForm.baseUrl.trim() || this.getDefaultBaseUrl(this.gitForm.platformType),
-      authType: this.gitForm.authType,
-      credentials: { ...this.gitForm.credentials },
-    };
+    const editingId = this.editingGitRemoteId();
 
-    this.platformService.createConnectionFromRequest(request).subscribe({
-      next: (connection) => {
-        this.gitRemotes.set([...this.gitRemotes(), connection]);
-        this.allConnections.set([...this.allConnections(), connection]);
-        this.savingGitRemote.set(false);
-        this.showGitForm.set(false);
-        this.gitForm = this.newGitForm();
-        this.gitSaveSuccess.set(true);
-        setTimeout(() => this.gitSaveSuccess.set(false), 3000);
-      },
-      error: (err: any) => {
-        const msg = err?.error?.message || this.translate.instant('projectConfig.gitRemotes.errors.saveFailed');
-        this.gitSaveError.set(msg);
-        this.savingGitRemote.set(false);
-      },
-    });
+    if (editingId) {
+      // Update existing connection
+      const payload: Partial<PlatformConnection> = {
+        name: this.gitForm.name.trim(),
+        platformType: this.gitForm.platformType as any,
+        baseUrl: this.gitForm.baseUrl.trim() || this.getDefaultBaseUrl(this.gitForm.platformType),
+        authType: this.gitForm.authType,
+      };
+
+      // Only include credentials if user actually filled them in
+      const filledCredentials: Record<string, string> = {};
+      let hasCredentials = false;
+      for (const [key, value] of Object.entries(this.gitForm.credentials)) {
+        if (value && value.trim()) {
+          filledCredentials[key] = value.trim();
+          hasCredentials = true;
+        }
+      }
+      if (hasCredentials) {
+        (payload as any).credentials = filledCredentials;
+      }
+
+      this.platformService.updateConnection(editingId, payload).subscribe({
+        next: (updated) => {
+          this.gitRemotes.set(this.gitRemotes().map((c) => c.id === updated.id ? updated : c));
+          this.allConnections.set(this.allConnections().map((c) => c.id === updated.id ? updated : c));
+          this.savingGitRemote.set(false);
+          this.showGitForm.set(false);
+          this.gitForm = this.newGitForm();
+          this.editingGitRemoteId.set(null);
+          this.gitSaveSuccess.set(true);
+          setTimeout(() => this.gitSaveSuccess.set(false), 3000);
+        },
+        error: (err: any) => {
+          const msg = err?.error?.message || this.translate.instant('projectConfig.gitRemotes.errors.saveFailed');
+          this.gitSaveError.set(msg);
+          this.savingGitRemote.set(false);
+        },
+      });
+    } else {
+      // Create new connection
+      const request: CreateConnectionRequest = {
+        tenantId: user.tenantId,
+        name: this.gitForm.name.trim(),
+        platformType: this.gitForm.platformType,
+        baseUrl: this.gitForm.baseUrl.trim() || this.getDefaultBaseUrl(this.gitForm.platformType),
+        authType: this.gitForm.authType,
+        credentials: { ...this.gitForm.credentials },
+      };
+
+      this.platformService.createConnectionFromRequest(request).subscribe({
+        next: (connection) => {
+          this.gitRemotes.set([...this.gitRemotes(), connection]);
+          this.allConnections.set([...this.allConnections(), connection]);
+          this.savingGitRemote.set(false);
+          this.showGitForm.set(false);
+          this.gitForm = this.newGitForm();
+          this.gitSaveSuccess.set(true);
+          setTimeout(() => this.gitSaveSuccess.set(false), 3000);
+        },
+        error: (err: any) => {
+          const msg = err?.error?.message || this.translate.instant('projectConfig.gitRemotes.errors.saveFailed');
+          this.gitSaveError.set(msg);
+          this.savingGitRemote.set(false);
+        },
+      });
+    }
   }
 
   deleteGitRemote(id: string): void {
@@ -525,6 +667,7 @@ export class ProjectConfigComponent implements OnInit {
       publicKey: this.sshKeyForm.publicKey.trim(),
       privateKey: this.sshKeyForm.privateKey.trim(),
       keyType: this.sshKeyForm.keyType || undefined,
+      keyUsage: this.sshKeyForm.keyUsage || undefined,
     };
 
     this.sshKeyService.createSshKey(request).subscribe({
@@ -553,6 +696,140 @@ export class ProjectConfigComponent implements OnInit {
       },
       error: () => {
         this.deletingSshKeyId.set(null);
+      },
+    });
+  }
+
+  generateDeployKey(connectionId: string): void {
+    const user = this.authService.user();
+    if (!user || !connectionId) return;
+
+    this.generatingDeployKey.set(true);
+    this.generatedPublicKey.set(null);
+    this.sshKeySaveError.set(null);
+
+    const conn = this.allConnections().find((c) => c.id === connectionId);
+    const name = conn ? `deploy-key-${conn.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}` : 'deploy-key';
+
+    this.sshKeyService.generateDeployKey(connectionId, user.tenantId, name).subscribe({
+      next: (key) => {
+        this.sshKeys.set([...this.sshKeys(), key]);
+        this.generatedPublicKey.set(key.publicKey);
+        this.generatingDeployKey.set(false);
+      },
+      error: (err: any) => {
+        const msg = err?.error?.message || this.translate.instant('projectConfig.sshKeys.errors.generateFailed');
+        this.sshKeySaveError.set(msg);
+        this.generatingDeployKey.set(false);
+      },
+    });
+  }
+
+  dismissGeneratedKey(): void {
+    this.generatedPublicKey.set(null);
+  }
+
+  getKeyUsageLabel(keyUsage?: string): string {
+    if (keyUsage === 'DEPLOY_KEY') return this.translate.instant('projectConfig.sshKeys.keyUsage.deployKey');
+    return this.translate.instant('projectConfig.sshKeys.keyUsage.userKey');
+  }
+
+  /** Returns credential status for a connection: LINKED (has keys/active), EXPIRED, or MISSING. */
+  getCredentialStatus(connectionId: string | undefined): string {
+    if (!connectionId) return 'MISSING';
+    const conn = this.allConnections().find((c) => c.id === connectionId);
+    if (!conn) return 'MISSING';
+    if (conn.status === 'ERROR') return 'EXPIRED';
+    // Check if connection has SSH keys or is ACTIVE (implying valid credentials)
+    const hasKeys = this.sshKeys().some((k) => k.connectionId === connectionId);
+    if (conn.status === 'ACTIVE' || hasKeys) return 'LINKED';
+    return 'MISSING';
+  }
+
+  getCredentialStatusLabel(status: string): string {
+    const keyMap: Record<string, string> = {
+      'LINKED': 'projectConfig.credentialStatus.linked',
+      'EXPIRED': 'projectConfig.credentialStatus.expired',
+      'MISSING': 'projectConfig.credentialStatus.missing',
+    };
+    const key = keyMap[status];
+    return key ? this.translate.instant(key) : status;
+  }
+
+  // ===== Review Bot Configuration =====
+
+  getReviewBotForConnection(connectionId: string): ReviewBotConfig | undefined {
+    return this.reviewBotConfigs().find((c) => c.connectionId === connectionId);
+  }
+
+  toggleReviewBotForm(): void {
+    this.showReviewBotForm.set(!this.showReviewBotForm());
+    if (!this.showReviewBotForm()) {
+      this.reviewBotForm = this.newReviewBotForm();
+      this.reviewBotSaveError.set(null);
+    } else {
+      const remotes = this.gitRemotes();
+      if (remotes.length === 1) {
+        this.reviewBotForm.connectionId = remotes[0].id;
+      }
+    }
+  }
+
+  canSaveReviewBot(): boolean {
+    const f = this.reviewBotForm;
+    return f.connectionId.length > 0 && f.botUsername.trim().length > 0 && f.botAccessToken.trim().length > 0;
+  }
+
+  saveReviewBot(): void {
+    const user = this.authService.user();
+    if (!user) return;
+
+    this.savingReviewBot.set(true);
+    this.reviewBotSaveError.set(null);
+
+    const request: CreateReviewBotConfigRequest = {
+      tenantId: user.tenantId,
+      connectionId: this.reviewBotForm.connectionId,
+      botUsername: this.reviewBotForm.botUsername.trim(),
+      botAccessToken: this.reviewBotForm.botAccessToken.trim(),
+      enabled: this.reviewBotForm.enabled,
+      autoAssign: this.reviewBotForm.autoAssign,
+    };
+
+    this.reviewBotConfigService.createConfig(request).subscribe({
+      next: (config) => {
+        this.reviewBotConfigs.set([...this.reviewBotConfigs(), config]);
+        this.savingReviewBot.set(false);
+        this.showReviewBotForm.set(false);
+        this.reviewBotForm = this.newReviewBotForm();
+        this.reviewBotSaveSuccess.set(true);
+        setTimeout(() => this.reviewBotSaveSuccess.set(false), 3000);
+      },
+      error: (err: any) => {
+        const msg = err?.error?.message || this.translate.instant('projectConfig.reviewBot.errors.saveFailed');
+        this.reviewBotSaveError.set(msg);
+        this.savingReviewBot.set(false);
+      },
+    });
+  }
+
+  toggleReviewBotEnabled(config: ReviewBotConfig): void {
+    this.reviewBotConfigService.updateConfig(config.id, { enabled: !config.enabled }).subscribe({
+      next: (updated) => {
+        this.reviewBotConfigs.set(this.reviewBotConfigs().map((c) => c.id === updated.id ? updated : c));
+      },
+    });
+  }
+
+  deleteReviewBot(id: string): void {
+    this.deletingReviewBotId.set(id);
+    this.reviewBotConfigService.deleteConfig(id).subscribe({
+      next: () => {
+        this.reviewBotConfigs.set(this.reviewBotConfigs().filter((c) => c.id !== id));
+        this.deletingReviewBotId.set(null);
+      },
+      error: () => {
+        this.deletingReviewBotId.set(null);
       },
     });
   }
@@ -971,6 +1248,30 @@ export class ProjectConfigComponent implements OnInit {
 
   // --- Private helpers ---
 
+  /**
+   * Given a platformType and a stored authType string (which may be a raw key like
+   * "API_TOKEN" or a translation key like "projectConfig.authTypes.apiToken"), returns
+   * the matching AUTH_TYPE_OPTIONS label for that platform, falling back to the first
+   * available auth type.
+   */
+  private getFirstAuthType(platformType: string, storedAuthType?: string): string {
+    const options = AUTH_TYPE_OPTIONS[platformType] ?? [];
+    if (options.length === 0) return '';
+    if (storedAuthType) {
+      // Direct match (already a label / translation key)
+      const direct = options.find((o) => o.label === storedAuthType);
+      if (direct) return direct.label;
+      // Match by raw key (e.g. "API_TOKEN" -> "projectConfig.authTypes.apiToken")
+      const normalized = storedAuthType.toLowerCase().replace(/_/g, '');
+      const byKey = options.find((o) => {
+        const labelEnd = o.label.split('.').pop() ?? '';
+        return labelEnd.toLowerCase() === normalized;
+      });
+      if (byKey) return byKey.label;
+    }
+    return options[0].label;
+  }
+
   private categorizeConnections(connections: PlatformConnection[]): void {
     const tickets: PlatformConnection[] = [];
     const remotes: PlatformConnection[] = [];
@@ -1020,6 +1321,10 @@ export class ProjectConfigComponent implements OnInit {
   }
 
   private newSshKeyForm(): SshKeyForm {
-    return { connectionId: '', name: '', publicKey: '', privateKey: '', keyType: 'ED25519' };
+    return { connectionId: '', name: '', publicKey: '', privateKey: '', keyType: 'ED25519', keyUsage: 'USER_KEY' };
+  }
+
+  private newReviewBotForm(): { connectionId: string; botUsername: string; botAccessToken: string; enabled: boolean; autoAssign: boolean } {
+    return { connectionId: '', botUsername: '', botAccessToken: '', enabled: true, autoAssign: true };
   }
 }
