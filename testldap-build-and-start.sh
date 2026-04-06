@@ -11,10 +11,10 @@
 # dc=planetexpress,dc=com with Futurama character accounts.
 #
 # Usage:
-#   ./testldap-build-and-start.sh              # Build all images and start everything
+#   ./testldap-build-and-start.sh              # Build all images and start everything (no tests)
+#   ./testldap-build-and-start.sh --test       # Build with tests, then start everything
 #   ./testldap-build-and-start.sh --infra      # Start only infrastructure (no app services)
 #   ./testldap-build-and-start.sh --skip-build # Start without rebuilding images
-#   ./testldap-build-and-start.sh --skip-tests # Build without running tests
 #   ./testldap-build-and-start.sh --clean      # Clean, build, and start fresh
 #   ./testldap-build-and-start.sh --stop       # Stop all running services
 #   ./testldap-build-and-start.sh --status     # Show status of all services
@@ -102,7 +102,7 @@ Usage: $(basename "$0") [OPTIONS]
 Options:
   --infra           Start only infrastructure services (PostgreSQL, Redis, NATS, etc.) + LDAP + Jira + GitLab
   --skip-build      Start services without rebuilding Docker images
-  --skip-tests      Build Maven artifacts without running tests
+  --test            Run tests during Maven build (tests are skipped by default)
   --clean           Remove all containers/volumes and start fresh
   --stop            Stop all running services
   --status          Show status of all services
@@ -147,6 +147,7 @@ Environment Variables:
 
 Examples:
   $(basename "$0")                          # Full build and start with test LDAP
+  $(basename "$0") --test                   # Build with tests, then start
   $(basename "$0") --infra                  # Infrastructure + LDAP only (for local dev)
   $(basename "$0") --skip-build             # Quick restart without rebuilding
   $(basename "$0") --clean                  # Fresh start with clean data
@@ -242,16 +243,17 @@ run_compose() {
 # =============================================================================
 
 build_maven() {
-    local skip_tests="${1:-false}"
+    local run_tests="${1:-false}"
     log_step "Building Maven modules"
 
     local mvn_args="clean package -q"
-    if [ "$skip_tests" = "true" ]; then
-        mvn_args="$mvn_args -Dmaven.test.skip=true"
-        log_info "Skipping tests (--skip-tests)"
-    else
+    if [ "$run_tests" = "true" ]; then
         # Always exclude WebSocketIntegrationTest (requires running server infrastructure)
         mvn_args="$mvn_args -Dtest=!WebSocketIntegrationTest -DfailIfNoTests=false"
+        log_info "Tests enabled (--test)"
+    else
+        mvn_args="$mvn_args -Dmaven.test.skip=true"
+        log_info "Tests skipped (default; use --test to run them)"
     fi
 
     log_info "Running: mvn $mvn_args"
@@ -554,10 +556,27 @@ start_infrastructure() {
 }
 
 start_services() {
-    log_step "Starting Squadron services"
+    log_step "Starting Squadron UI (available immediately at http://localhost:4200)"
 
-    log_info "Starting all backend services and frontend..."
-    run_compose --profile services --profile frontend up -d --no-build 2>&1 | while IFS= read -r line; do
+    # Start the UI first so the login page is accessible while backend services start.
+    # Nginx is configured with dynamic DNS resolution (resolver 127.0.0.11) so it
+    # starts even when the gateway container doesn't exist yet. API calls from the
+    # browser will fail gracefully until the gateway is healthy.
+    run_compose --profile frontend up -d --no-build 2>&1 | while IFS= read -r line; do
+        [[ -n "$line" ]] && log_info "  $line"
+    done
+
+    log_info "  Waiting for squadron-ui..."
+    if wait_for_healthy "squadron-ui" 30; then
+        log_success "  squadron-ui is healthy — login page is now available at http://localhost:4200"
+    else
+        log_warn "  squadron-ui did not become healthy (non-fatal, continuing with backend services)"
+    fi
+
+    log_step "Starting Squadron backend services"
+
+    log_info "Starting all backend services..."
+    run_compose --profile services up -d --no-build 2>&1 | while IFS= read -r line; do
         [[ -n "$line" ]] && log_info "  $line"
     done
 
@@ -575,14 +594,6 @@ start_services() {
             failed+=("$service")
         fi
     done
-
-    # Wait for the UI (nginx starts fast once gateway is healthy)
-    log_info "  Waiting for squadron-ui..."
-    if wait_for_healthy "squadron-ui" 60; then
-        log_success "  squadron-ui is healthy"
-    else
-        failed+=("squadron-ui")
-    fi
 
     if [ ${#failed[@]} -gt 0 ]; then
         log_error "The following services failed to start: ${failed[*]}"
@@ -798,7 +809,7 @@ setup_ollama_gpu() {
 
 main() {
     local skip_build=false
-    local skip_tests=false
+    local run_tests=false
     local infra_only=false
     local do_clean=false
     local do_stop=false
@@ -818,8 +829,8 @@ main() {
                 skip_build=true
                 shift
                 ;;
-            --skip-tests)
-                skip_tests=true
+            --test)
+                run_tests=true
                 shift
                 ;;
             --infra)
@@ -907,7 +918,7 @@ main() {
 
     # Build phase
     if [ "$skip_build" = false ]; then
-        build_maven "$skip_tests"
+        build_maven "$run_tests"
         build_angular
         build_docker_images
     else

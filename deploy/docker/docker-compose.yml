@@ -485,9 +485,6 @@ services:
     profiles: ["frontend"]
     ports:
       - "4200:8080"
-    depends_on:
-      squadron-gateway:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/ || exit 1"]
       interval: 5s
