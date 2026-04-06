@@ -5,17 +5,22 @@ import { AuthLayoutComponent } from './layout/auth-layout/auth-layout.component'
 
 export const routes: Routes = [
   {
-    path: '',
+    path: 'login',
     component: AuthLayoutComponent,
     children: [
-      { path: '', redirectTo: 'login', pathMatch: 'full' },
       {
-        path: 'login',
+        path: '',
         loadComponent: () =>
           import('./features/auth/login/login.component').then((m) => m.LoginComponent),
       },
+    ],
+  },
+  {
+    path: 'auth/callback',
+    component: AuthLayoutComponent,
+    children: [
       {
-        path: 'auth/callback',
+        path: '',
         loadComponent: () =>
           import('./features/auth/oidc-callback/oidc-callback.component').then(
             (m) => m.OidcCallbackComponent,

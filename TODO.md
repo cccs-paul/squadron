@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-04-06
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval). All backend tests passing. All 899 Angular tests passing (0 failures). Docker deployment: all 21 containers healthy.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). All backend tests passing. All 899 Angular tests passing (0 failures). Docker deployment: all 21 containers healthy.
 
 ---
 
@@ -730,6 +730,13 @@
 - [x] Translation keys added: `tasks.board.summary.*`, `tasks.board.agentStatus.*`, `tasks.board.actions.*`, `tasks.board.filter.allProjects`, `tasks.board.column.planned/completed`, `tasks.board.loading`, `tasks.board.refresh`
 - [x] Rewrote `task-board.component.spec.ts` — 44 tests covering 3-column structure, project enrichment, summary counts, filtering (priority, project, search, combined), drag-drop, cancel flow, prompt sending, plan approval, agent status, navigation, toggle actions, refresh
 - [x] All 899 Angular tests passing (was 858; +41 net new tests)
+
+#### Bug Fix: `/api/tasks/by-state` 500 Error
+- [x] Root cause: `TaskController.getTasksByState()` and `getTaskStats()` required `@RequestParam UUID tenantId` but frontend called without it
+- [x] Fix: Both endpoints now use `TenantContext.getTenantId()` (populated by `TenantFilter` from `X-Tenant-Id` header set by gateway)
+- [x] Removed `@RequestParam` from both methods, added `TenantContext` import
+- [x] `TaskControllerTest` updated: 4 tests now use `TenantContext.setContext()` + `@AfterEach` cleanup instead of `.param("tenantId", ...)`
+- [x] All orchestrator tests passing, all 899 Angular tests passing
 
 ---
 

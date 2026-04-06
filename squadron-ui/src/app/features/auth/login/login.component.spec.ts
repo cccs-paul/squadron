@@ -129,6 +129,14 @@ describe('LoginComponent', () => {
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 
+  it('should reset loading after successful login', () => {
+    authServiceSpy.login.and.returnValue(of({} as any));
+    component.username = 'admin';
+    component.password = 'secret';
+    component.login();
+    expect(component.loading()).toBeFalse();
+  });
+
   it('should show error for 401 response', () => {
     authServiceSpy.login.and.returnValue(throwError(() => ({ status: 401 })));
     component.username = 'admin';

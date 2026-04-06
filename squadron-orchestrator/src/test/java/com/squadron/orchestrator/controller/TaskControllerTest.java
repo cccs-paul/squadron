@@ -1,6 +1,7 @@
 package com.squadron.orchestrator.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.squadron.common.security.TenantContext;
 import com.squadron.orchestrator.config.SecurityConfig;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
 import com.squadron.orchestrator.dto.TaskStatsDto;
@@ -11,6 +12,7 @@ import com.squadron.orchestrator.entity.TaskStateHistory;
 import com.squadron.orchestrator.entity.TaskWorkflow;
 import com.squadron.orchestrator.service.TaskService;
 import com.squadron.orchestrator.service.TaskSyncService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -64,6 +66,11 @@ class TaskControllerTest {
 
     @MockBean
     private JwtDecoder jwtDecoder;
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
 
     @Test
     void should_createTask_when_validRequest() throws Exception {
@@ -342,6 +349,7 @@ class TaskControllerTest {
     @WithMockUser(roles = {"developer"})
     void should_getTasksByState_when_tasksExist() throws Exception {
         UUID tenantId = UUID.randomUUID();
+        TenantContext.setContext(TenantContext.builder().tenantId(tenantId).build());
 
         Map<String, List<Task>> tasksByState = new LinkedHashMap<>();
         tasksByState.put("BACKLOG", List.of(
@@ -354,8 +362,7 @@ class TaskControllerTest {
 
         when(taskService.getTasksByState(tenantId)).thenReturn(tasksByState);
 
-        mockMvc.perform(get("/api/tasks/by-state")
-                        .param("tenantId", tenantId.toString()))
+        mockMvc.perform(get("/api/tasks/by-state"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.BACKLOG[0].title").value("Backlog Task"))
@@ -367,6 +374,7 @@ class TaskControllerTest {
     @WithMockUser(roles = {"viewer"})
     void should_getTasksByState_when_noTasks() throws Exception {
         UUID tenantId = UUID.randomUUID();
+        TenantContext.setContext(TenantContext.builder().tenantId(tenantId).build());
 
         Map<String, List<Task>> emptyByState = new LinkedHashMap<>();
         emptyByState.put("BACKLOG", Collections.emptyList());
@@ -374,8 +382,7 @@ class TaskControllerTest {
 
         when(taskService.getTasksByState(tenantId)).thenReturn(emptyByState);
 
-        mockMvc.perform(get("/api/tasks/by-state")
-                        .param("tenantId", tenantId.toString()))
+        mockMvc.perform(get("/api/tasks/by-state"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.BACKLOG").isEmpty())
@@ -386,6 +393,7 @@ class TaskControllerTest {
     @WithMockUser(roles = {"squadron-admin"})
     void should_getTaskStats_when_tasksExist() throws Exception {
         UUID tenantId = UUID.randomUUID();
+        TenantContext.setContext(TenantContext.builder().tenantId(tenantId).build());
 
         TaskStatsDto stats = TaskStatsDto.builder()
                 .total(5)
@@ -395,8 +403,7 @@ class TaskControllerTest {
 
         when(taskService.getTaskStats(tenantId)).thenReturn(stats);
 
-        mockMvc.perform(get("/api/tasks/stats")
-                        .param("tenantId", tenantId.toString()))
+        mockMvc.perform(get("/api/tasks/stats"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.total").value(5))
@@ -410,6 +417,7 @@ class TaskControllerTest {
     @WithMockUser(roles = {"qa"})
     void should_getTaskStats_when_noTasksWithPriority() throws Exception {
         UUID tenantId = UUID.randomUUID();
+        TenantContext.setContext(TenantContext.builder().tenantId(tenantId).build());
 
         TaskStatsDto stats = TaskStatsDto.builder()
                 .total(2)
@@ -419,8 +427,7 @@ class TaskControllerTest {
 
         when(taskService.getTaskStats(tenantId)).thenReturn(stats);
 
-        mockMvc.perform(get("/api/tasks/stats")
-                        .param("tenantId", tenantId.toString()))
+        mockMvc.perform(get("/api/tasks/stats"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.total").value(2))

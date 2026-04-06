@@ -1,0 +1,26 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:4200",
+      "localStorage": [
+        {
+          "name": "sq_refresh",
+          "value": "eyJraWQiOiIyNjRjMDEyMy00MjgwLTQ0M2QtYTQ3OS01MDA4NmU0ZDgyODciLCJhbGciOiJSUzI1NiJ9.eyJ0ZW5hbnRfaWQiOiJhMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJzdWIiOiI2NWZhNWZmMy01Y2JlLTQwYjctODkzZC01NTZhN2JlNGQzOTgiLCJ1c2VyX2lkIjoiNjVmYTVmZjMtNWNiZS00MGI3LTg5M2QtNTU2YTdiZTRkMzk4Iiwicm9sZXMiOlsiZGV2ZWxvcGVyIl0sImlzcyI6InNxdWFkcm9uIiwiZXhwIjoxNzc2MTE1NjQ2LCJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImRpc3BsYXlfbmFtZSI6IkZyeSIsImlhdCI6MTc3NTUxMDg0NiwianRpIjoiNWE2YzRlOGQtNjk5My00MTFjLTg5MWMtOTY2YjVlYTM2NjcwIiwiZW1haWwiOiJmcnlAcGxhbmV0ZXhwcmVzcy5jb20iLCJhdXRoX3Byb3ZpZGVyIjoibGRhcCJ9.q5sDdTNMWnhDe1dFhP-zaRjNIqhlCSXCxQ5fVlt8MHBHf4Rj7Diml_J-j164FDEctK8fSCR6Ancra0SpQ8CqFY4I1xER7hnXa2M_9_SraPEj4FuDVjlpgEQsN6C-9ZiGBldEp0jFvo4M5_QhIxXV9pdanlvxpCLJ5hKz5fFj0KTc_z7DF9sX_Ge5wEK7QbgSr3Y-ESCUeSTQdyBGmb7RM2qKO3N4gRhD-K32HwkrEnhZ-_WpgR2dIFkoLU-CLC16HfGjuQChmb_94z54W_8OBlc2373WOBCwz9_flfSeHroGpL-XSQLKm8GNPQOqb2VvHMsQF1boqrict-aUpMk4aA"
+        },
+        {
+          "name": "sq_expires",
+          "value": "1775514446911"
+        },
+        {
+          "name": "sq_user",
+          "value": "{\"id\":\"65fa5ff3-5cbe-40b7-893d-556a7be4d398\",\"tenantId\":\"a0000000-0000-0000-0000-000000000001\",\"externalId\":\"cn=Philip J. Fry,ou=people,dc=planetexpress,dc=com\",\"email\":\"fry@planetexpress.com\",\"displayName\":\"Fry\",\"role\":\"DEVELOPER\",\"authProvider\":\"ldap\",\"roles\":[\"developer\"],\"settings\":null,\"createdAt\":null,\"updatedAt\":null}"
+        },
+        {
+          "name": "sq_token",
+          "value": "eyJraWQiOiIyNjRjMDEyMy00MjgwLTQ0M2QtYTQ3OS01MDA4NmU0ZDgyODciLCJhbGciOiJSUzI1NiJ9.eyJ0ZW5hbnRfaWQiOiJhMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJzdWIiOiI2NWZhNWZmMy01Y2JlLTQwYjctODkzZC01NTZhN2JlNGQzOTgiLCJ1c2VyX2lkIjoiNjVmYTVmZjMtNWNiZS00MGI3LTg5M2QtNTU2YTdiZTRkMzk4Iiwicm9sZXMiOlsiZGV2ZWxvcGVyIl0sImlzcyI6InNxdWFkcm9uIiwiZXhwIjoxNzc1NTE0NDQ2LCJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZGlzcGxheV9uYW1lIjoiRnJ5IiwiaWF0IjoxNzc1NTEwODQ2LCJqdGkiOiJkYzFiY2RlNy1mZjYwLTQ0MzMtOWU3ZC03ZjhlZDYwZTc4YjMiLCJlbWFpbCI6ImZyeUBwbGFuZXRleHByZXNzLmNvbSIsImF1dGhfcHJvdmlkZXIiOiJsZGFwIn0.P42oml4rIsSf2TxZoPrkhZdC7PumDBj1HTdGAdgtW7XsM_uytTwLLkzJdmraZJZTzlUUz07MCXf_G1QvFJGFPUxxOh77BH7YNe7AbrJIWqGQgTRm_nRPtpqniWsmiB3VwFTVQvmmYRpy9uF8yQZjSIv3p5CjC3GaWSSNyodxN5wohGApu5J6f8rGpfS2Xc5sl5pvR3pzjQ6cTVvs8ZsmR1XtSjEqqJ1wrKHL3PtdJOxOm5CtwDj34wKXbfYfdxmg32I2biVYA_BKBJkckCdZhTKmq9vItXc_PnU9raQ4-ZjO7aD5Q2MQTGI2-jo8Ger2PoprOtt06-g8sC6m3y0I3w"
+        }
+      ]
+    }
+  ]
+}

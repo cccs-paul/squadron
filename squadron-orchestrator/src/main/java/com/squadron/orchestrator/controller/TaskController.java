@@ -1,6 +1,7 @@
 package com.squadron.orchestrator.controller;
 
 import com.squadron.common.dto.ApiResponse;
+import com.squadron.common.security.TenantContext;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
 import com.squadron.orchestrator.dto.TaskStatsDto;
 import com.squadron.orchestrator.dto.TaskSyncRequest;
@@ -28,7 +29,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -149,16 +149,16 @@ public class TaskController {
 
     @GetMapping("/by-state")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
-    public ResponseEntity<ApiResponse<Map<String, List<Task>>>> getTasksByState(
-            @RequestParam UUID tenantId) {
+    public ResponseEntity<ApiResponse<Map<String, List<Task>>>> getTasksByState() {
+        UUID tenantId = TenantContext.getTenantId();
         Map<String, List<Task>> tasksByState = taskService.getTasksByState(tenantId);
         return ResponseEntity.ok(ApiResponse.success(tasksByState));
     }
 
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
-    public ResponseEntity<ApiResponse<TaskStatsDto>> getTaskStats(
-            @RequestParam UUID tenantId) {
+    public ResponseEntity<ApiResponse<TaskStatsDto>> getTaskStats() {
+        UUID tenantId = TenantContext.getTenantId();
         TaskStatsDto stats = taskService.getTaskStats(tenantId);
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
