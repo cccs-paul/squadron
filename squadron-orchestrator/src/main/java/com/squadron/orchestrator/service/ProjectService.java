@@ -6,6 +6,8 @@ import com.squadron.orchestrator.entity.Project;
 import com.squadron.orchestrator.repository.ProjectRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +54,14 @@ public class ProjectService {
     @Transactional(readOnly = true)
     public List<Project> listProjectsByTenant(UUID tenantId) {
         return projectRepository.findByTenantId(tenantId);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Project> listProjectsByTenant(UUID tenantId, Pageable pageable, String search) {
+        if (search != null && !search.isBlank()) {
+            return projectRepository.findByTenantIdAndNameContainingIgnoreCase(tenantId, search.trim(), pageable);
+        }
+        return projectRepository.findByTenantId(tenantId, pageable);
     }
 
     @Transactional(readOnly = true)

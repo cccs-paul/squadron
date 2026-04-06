@@ -52,9 +52,9 @@ class ReviewRepositoryTest {
     }
 
     @Test
-    void should_haveFourCustomQueryMethods_when_interfaceInspected() {
+    void should_haveSixCustomQueryMethods_when_interfaceInspected() {
         Method[] methods = ReviewRepository.class.getDeclaredMethods();
-        assertEquals(4, methods.length);
+        assertEquals(6, methods.length);
     }
 
     @Test

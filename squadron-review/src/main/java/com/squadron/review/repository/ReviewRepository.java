@@ -1,6 +1,8 @@
 package com.squadron.review.repository;
 
 import com.squadron.review.entity.Review;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -17,4 +19,8 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
     List<Review> findByReviewerId(UUID reviewerId);
 
     long countByTaskIdAndReviewerTypeAndStatus(UUID taskId, String reviewerType, String status);
+
+    Page<Review> findByTenantId(UUID tenantId, Pageable pageable);
+
+    Page<Review> findByTenantIdAndStatus(UUID tenantId, String status, Pageable pageable);
 }

@@ -10,6 +10,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -344,5 +349,58 @@ class ProjectServiceTest {
         when(projectRepository.findById(projectId)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> projectService.deleteProject(projectId));
+    }
+
+    // --- Paginated listing ---
+
+    @Test
+    void should_listProjectsByTenantPaginated_when_noSearch() {
+        UUID tenantId = UUID.randomUUID();
+        PageRequest pageable = PageRequest.of(0, 20);
+        List<Project> projects = List.of(
+                Project.builder().id(UUID.randomUUID()).tenantId(tenantId).name("P1").build(),
+                Project.builder().id(UUID.randomUUID()).tenantId(tenantId).name("P2").build()
+        );
+        Page<Project> page = new PageImpl<>(projects, pageable, 2);
+
+        when(projectRepository.findByTenantId(eq(tenantId), eq(pageable))).thenReturn(page);
+
+        Page<Project> result = projectService.listProjectsByTenant(tenantId, pageable, null);
+
+        assertEquals(2, result.getTotalElements());
+        assertEquals(2, result.getContent().size());
+        verify(projectRepository).findByTenantId(tenantId, pageable);
+    }
+
+    @Test
+    void should_listProjectsByTenantPaginated_when_searchProvided() {
+        UUID tenantId = UUID.randomUUID();
+        PageRequest pageable = PageRequest.of(0, 20);
+        List<Project> projects = List.of(
+                Project.builder().id(UUID.randomUUID()).tenantId(tenantId).name("Squadron API").build()
+        );
+        Page<Project> page = new PageImpl<>(projects, pageable, 1);
+
+        when(projectRepository.findByTenantIdAndNameContainingIgnoreCase(eq(tenantId), eq("squadron"), eq(pageable)))
+                .thenReturn(page);
+
+        Page<Project> result = projectService.listProjectsByTenant(tenantId, pageable, "squadron");
+
+        assertEquals(1, result.getTotalElements());
+        verify(projectRepository).findByTenantIdAndNameContainingIgnoreCase(tenantId, "squadron", pageable);
+    }
+
+    @Test
+    void should_listProjectsByTenantPaginated_when_searchIsBlank() {
+        UUID tenantId = UUID.randomUUID();
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<Project> page = new PageImpl<>(List.of(), pageable, 0);
+
+        when(projectRepository.findByTenantId(eq(tenantId), eq(pageable))).thenReturn(page);
+
+        Page<Project> result = projectService.listProjectsByTenant(tenantId, pageable, "   ");
+
+        assertEquals(0, result.getTotalElements());
+        verify(projectRepository).findByTenantId(tenantId, pageable);
     }
 }

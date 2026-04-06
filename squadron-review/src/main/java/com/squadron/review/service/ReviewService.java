@@ -13,6 +13,8 @@ import com.squadron.review.repository.ReviewCommentRepository;
 import com.squadron.review.repository.ReviewRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -99,6 +101,20 @@ public class ReviewService {
             result.add(toDto(review, comments));
         }
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ReviewDto> listReviews(UUID tenantId, String status, Pageable pageable) {
+        Page<Review> reviewPage;
+        if (status != null && !status.isBlank()) {
+            reviewPage = reviewRepository.findByTenantIdAndStatus(tenantId, status, pageable);
+        } else {
+            reviewPage = reviewRepository.findByTenantId(tenantId, pageable);
+        }
+        return reviewPage.map(review -> {
+            List<ReviewComment> comments = reviewCommentRepository.findByReviewId(review.getId());
+            return toDto(review, comments);
+        });
     }
 
     public void deleteReview(UUID id) {

@@ -1,6 +1,7 @@
 package com.squadron.review.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.squadron.common.security.TenantContext;
 import com.squadron.review.dto.CreateReviewRequest;
 import com.squadron.review.dto.ReviewCommentDto;
 import com.squadron.review.dto.ReviewDto;
@@ -9,10 +10,16 @@ import com.squadron.review.dto.SubmitReviewRequest;
 import com.squadron.review.entity.Review;
 import com.squadron.review.service.ReviewGateService;
 import com.squadron.review.service.ReviewService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -25,6 +32,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -215,6 +224,83 @@ class ReviewControllerTest {
     @Test
     void should_return401_when_unauthenticated() throws Exception {
         mockMvc.perform(get("/api/reviews/{id}", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
+
+    // --- Paginated listing tests ---
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_listReviewsPaginated_when_authenticated() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        TenantContext.setContext(TenantContext.builder().tenantId(tenantId).build());
+
+        Instant now = Instant.now();
+        ReviewDto dto = ReviewDto.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .taskId(UUID.randomUUID())
+                .reviewerType("HUMAN")
+                .status("APPROVED")
+                .createdAt(now)
+                .updatedAt(now)
+                .comments(List.of())
+                .build();
+
+        PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<ReviewDto> page = new PageImpl<>(List.of(dto), pageable, 1);
+
+        when(reviewService.listReviews(eq(tenantId), any(), any(Pageable.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/reviews")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].status").value("APPROVED"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    @WithMockUser(roles = {"qa"})
+    void should_listReviewsPaginated_withStatusFilter() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        TenantContext.setContext(TenantContext.builder().tenantId(tenantId).build());
+
+        Instant now = Instant.now();
+        ReviewDto dto = ReviewDto.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .taskId(UUID.randomUUID())
+                .reviewerType("AI")
+                .status("PENDING")
+                .createdAt(now)
+                .updatedAt(now)
+                .comments(List.of())
+                .build();
+
+        Page<ReviewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 20), 1);
+
+        when(reviewService.listReviews(eq(tenantId), eq("PENDING"), any(Pageable.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/reviews")
+                        .param("page", "0")
+                        .param("size", "20")
+                        .param("status", "PENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].status").value("PENDING"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void should_return401_when_listingReviewsUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/reviews"))
                 .andExpect(status().isUnauthorized());
     }
 }

@@ -1,6 +1,7 @@
 package com.squadron.review.controller;
 
 import com.squadron.common.dto.ApiResponse;
+import com.squadron.common.security.TenantContext;
 import com.squadron.review.dto.CreateReviewRequest;
 import com.squadron.review.dto.ReviewDto;
 import com.squadron.review.dto.ReviewSummary;
@@ -9,9 +10,15 @@ import com.squadron.review.entity.Review;
 import com.squadron.review.service.ReviewGateService;
 import com.squadron.review.service.ReviewService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -50,6 +57,21 @@ public class ReviewController {
         return ResponseEntity.ok(ApiResponse.success(reviewDto));
     }
 
+    @GetMapping
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
+    public ResponseEntity<Page<ReviewDto>> listReviews(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status) {
+        UUID tenantId = TenantContext.getTenantId();
+        if (tenantId == null) {
+            tenantId = extractTenantId();
+        }
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<ReviewDto> reviews = reviewService.listReviews(tenantId, status, pageable);
+        return ResponseEntity.ok(reviews);
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
     public ResponseEntity<ApiResponse<ReviewDto>> getReview(@PathVariable UUID id) {
@@ -79,5 +101,16 @@ public class ReviewController {
             @RequestParam(required = false) UUID teamId) {
         ReviewSummary summary = reviewGateService.checkReviewGate(taskId, tenantId, teamId);
         return ResponseEntity.ok(ApiResponse.success(summary));
+    }
+
+    private UUID extractTenantId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            String tenantIdStr = jwtAuth.getToken().getClaimAsString("tenant_id");
+            if (tenantIdStr != null) {
+                return UUID.fromString(tenantIdStr);
+            }
+        }
+        throw new IllegalArgumentException("No tenant_id claim found in JWT");
     }
 }

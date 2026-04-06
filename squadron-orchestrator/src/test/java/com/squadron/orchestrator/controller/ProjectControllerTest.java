@@ -1,6 +1,7 @@
 package com.squadron.orchestrator.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.squadron.common.security.TenantContext;
 import com.squadron.orchestrator.config.SecurityConfig;
 import com.squadron.orchestrator.dto.CreateProjectRequest;
 import com.squadron.orchestrator.dto.ProjectWorkflowMappingsRequest;
@@ -8,10 +9,16 @@ import com.squadron.orchestrator.dto.WorkflowMappingDto;
 import com.squadron.orchestrator.entity.Project;
 import com.squadron.orchestrator.service.ProjectService;
 import com.squadron.orchestrator.service.ProjectWorkflowMappingService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -24,6 +31,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -352,6 +360,67 @@ class ProjectControllerTest {
     @Test
     void should_return401_when_gettingMappingsUnauthenticated() throws Exception {
         mockMvc.perform(get("/api/projects/{projectId}/workflow-mappings", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
+
+    // --- Paginated listing tests ---
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_listProjectsPaginated_when_authenticated() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        TenantContext.setContext(TenantContext.builder().tenantId(tenantId).build());
+
+        List<Project> projects = List.of(
+                Project.builder().id(UUID.randomUUID()).tenantId(tenantId).name("P1").build(),
+                Project.builder().id(UUID.randomUUID()).tenantId(tenantId).name("P2").build()
+        );
+        PageRequest pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Project> page = new PageImpl<>(projects, pageable, 2);
+
+        when(projectService.listProjectsByTenant(eq(tenantId), any(Pageable.class), isNull()))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/projects")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].name").value("P1"))
+                .andExpect(jsonPath("$.content[1].name").value("P2"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    @Test
+    @WithMockUser(roles = {"viewer"})
+    void should_listProjectsPaginated_withSearch() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        TenantContext.setContext(TenantContext.builder().tenantId(tenantId).build());
+
+        List<Project> projects = List.of(
+                Project.builder().id(UUID.randomUUID()).tenantId(tenantId).name("Squadron API").build()
+        );
+        Page<Project> page = new PageImpl<>(projects, PageRequest.of(0, 20), 1);
+
+        when(projectService.listProjectsByTenant(eq(tenantId), any(Pageable.class), eq("squadron")))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/projects")
+                        .param("page", "0")
+                        .param("size", "20")
+                        .param("search", "squadron"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].name").value("Squadron API"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void should_return401_when_listingProjectsUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/projects"))
                 .andExpect(status().isUnauthorized());
     }
 }

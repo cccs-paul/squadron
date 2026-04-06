@@ -16,6 +16,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -28,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -303,5 +307,74 @@ class ReviewServiceTest {
         when(reviewRepository.findById(reviewId)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> reviewService.deleteReview(reviewId));
+    }
+
+    // --- Paginated listing ---
+
+    @Test
+    void should_listReviewsPaginated_when_noStatusFilter() {
+        UUID tenantId = UUID.randomUUID();
+        PageRequest pageable = PageRequest.of(0, 20);
+        Instant now = Instant.now();
+        Review r1 = Review.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .taskId(UUID.randomUUID())
+                .reviewerType("HUMAN")
+                .status("APPROVED")
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        Page<Review> reviewPage = new PageImpl<>(List.of(r1), pageable, 1);
+
+        when(reviewRepository.findByTenantId(eq(tenantId), eq(pageable))).thenReturn(reviewPage);
+        when(reviewCommentRepository.findByReviewId(any())).thenReturn(Collections.emptyList());
+
+        Page<ReviewDto> result = reviewService.listReviews(tenantId, null, pageable);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals("APPROVED", result.getContent().get(0).getStatus());
+        verify(reviewRepository).findByTenantId(tenantId, pageable);
+    }
+
+    @Test
+    void should_listReviewsPaginated_when_statusFilterProvided() {
+        UUID tenantId = UUID.randomUUID();
+        PageRequest pageable = PageRequest.of(0, 20);
+        Instant now = Instant.now();
+        Review r1 = Review.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .taskId(UUID.randomUUID())
+                .reviewerType("AI")
+                .status("PENDING")
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        Page<Review> reviewPage = new PageImpl<>(List.of(r1), pageable, 1);
+
+        when(reviewRepository.findByTenantIdAndStatus(eq(tenantId), eq("PENDING"), eq(pageable)))
+                .thenReturn(reviewPage);
+        when(reviewCommentRepository.findByReviewId(any())).thenReturn(Collections.emptyList());
+
+        Page<ReviewDto> result = reviewService.listReviews(tenantId, "PENDING", pageable);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals("PENDING", result.getContent().get(0).getStatus());
+        verify(reviewRepository).findByTenantIdAndStatus(tenantId, "PENDING", pageable);
+    }
+
+    @Test
+    void should_listReviewsPaginated_when_emptyResult() {
+        UUID tenantId = UUID.randomUUID();
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<Review> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+        when(reviewRepository.findByTenantId(eq(tenantId), eq(pageable))).thenReturn(emptyPage);
+
+        Page<ReviewDto> result = reviewService.listReviews(tenantId, "", pageable);
+
+        assertEquals(0, result.getTotalElements());
+        assertEquals(0, result.getContent().size());
     }
 }
