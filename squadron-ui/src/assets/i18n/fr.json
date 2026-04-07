@@ -577,7 +577,9 @@
       "subtitle": "Gerez vos depots et projets",
       "newProjectButton": "Nouveau projet",
       "newProject": "Nouveau projet",
-      "emptyState": "Aucun projet pour l'instant. Creez votre premier projet pour commencer."
+      "importHint": "Les projets sont importes depuis les fournisseurs de tickets. Configurez les fournisseurs dans les Parametres pour importer des projets.",
+      "goToSettings": "Aller aux Parametres",
+      "emptyState": "Aucun projet pour l'instant. Configurez les fournisseurs de tickets dans les Parametres pour importer des projets."
     },
     "card": {
       "tasksLabel": "taches",

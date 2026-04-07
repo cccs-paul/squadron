@@ -2,6 +2,7 @@ package com.squadron.platform.controller;
 
 import com.squadron.common.dto.ApiResponse;
 import com.squadron.platform.dto.CreateSshKeyRequest;
+import com.squadron.platform.dto.GenerateDeployKeyRequest;
 import com.squadron.platform.dto.SshKeyResponse;
 import com.squadron.platform.entity.SshKey;
 import com.squadron.platform.service.SshKeyService;
@@ -39,6 +40,15 @@ public class SshKeyController {
         SshKey created = sshKeyService.createSshKey(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(SshKeyResponse.fromEntity(created)));
+    }
+
+    @PostMapping("/deploy-key")
+    @Operation(summary = "Generate a new Ed25519 deploy key (server-side keypair generation)")
+    public ResponseEntity<ApiResponse<SshKeyResponse>> generateDeployKey(
+            @Valid @RequestBody GenerateDeployKeyRequest request) {
+        SshKey generated = sshKeyService.generateDeployKey(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(SshKeyResponse.fromEntity(generated)));
     }
 
     @GetMapping("/{id}")

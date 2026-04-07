@@ -17,7 +17,8 @@ import java.util.UUID;
 /**
  * Service for managing a user's personal AI agent squadron.
  * Each user gets a configurable set of agents with unique names,
- * defaulting to 8 agents (one per known type + 2 extras).
+ * defaulting to 8 agents. Agents are general-purpose and can be
+ * configured with different AI providers/models for different tasks.
  */
 @Service
 @Transactional
@@ -25,20 +26,16 @@ public class UserAgentConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(UserAgentConfigService.class);
 
-    /** The canonical set of agent types known to Squadron. */
-    private static final List<String> KNOWN_AGENT_TYPES = List.of(
-            "PLANNING", "CODING", "REVIEW", "QA", "MERGE", "COVERAGE");
-
-    /** Default agent names seeded for new users, one per known type + 2 extras. */
+    /** Default agent names seeded for new users. */
     private static final List<String[]> DEFAULT_AGENTS = List.of(
-            new String[]{"Sol", "PLANNING"},
-            new String[]{"Titan", "CODING"},
-            new String[]{"Vega", "REVIEW"},
-            new String[]{"Comet", "QA"},
-            new String[]{"Pulsar", "MERGE"},
-            new String[]{"Quasar", "COVERAGE"},
-            new String[]{"Nova", "CODING"},
-            new String[]{"Nebula", "REVIEW"}
+            new String[]{"Sol", "GENERAL"},
+            new String[]{"Titan", "GENERAL"},
+            new String[]{"Vega", "GENERAL"},
+            new String[]{"Comet", "GENERAL"},
+            new String[]{"Pulsar", "GENERAL"},
+            new String[]{"Quasar", "GENERAL"},
+            new String[]{"Nova", "GENERAL"},
+            new String[]{"Nebula", "GENERAL"}
     );
 
     private final UserAgentConfigRepository repository;
@@ -73,8 +70,6 @@ public class UserAgentConfigService {
             throw new IllegalArgumentException(
                     "Maximum number of agents (" + maxAgentsPerUser + ") reached for this user");
         }
-
-        validateAgentType(dto.getAgentType());
 
         if (repository.existsByTenantIdAndUserIdAndAgentName(tenantId, userId, dto.getAgentName())) {
             throw new IllegalArgumentException(
@@ -112,8 +107,6 @@ public class UserAgentConfigService {
         if (!agent.getTenantId().equals(tenantId) || !agent.getUserId().equals(userId)) {
             throw new ResourceNotFoundException("UserAgentConfig", agentId);
         }
-
-        validateAgentType(dto.getAgentType());
 
         // Check name uniqueness if name changed
         if (!agent.getAgentName().equals(dto.getAgentName())) {
@@ -196,12 +189,5 @@ public class UserAgentConfigService {
         List<UserAgentConfig> saved = repository.saveAll(agents);
         log.info("Seeded {} default agents for user {} in tenant {}", saved.size(), userId, tenantId);
         return saved;
-    }
-
-    private void validateAgentType(String agentType) {
-        if (!KNOWN_AGENT_TYPES.contains(agentType)) {
-            throw new IllegalArgumentException(
-                    "Invalid agent type '" + agentType + "'. Must be one of: " + KNOWN_AGENT_TYPES);
-        }
     }
 }

@@ -3,6 +3,7 @@ package com.squadron.platform.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.platform.config.SecurityConfig;
 import com.squadron.platform.dto.CreateSshKeyRequest;
+import com.squadron.platform.dto.GenerateDeployKeyRequest;
 import com.squadron.platform.entity.SshKey;
 import com.squadron.platform.service.SshKeyService;
 import org.junit.jupiter.api.Test;
@@ -221,6 +222,80 @@ class SshKeyControllerTest {
     void should_return401_when_deleteSshKeyUnauthenticated() throws Exception {
         mockMvc.perform(delete("/api/platforms/ssh-keys/{id}", UUID.randomUUID()))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // --- POST /api/platforms/ssh-keys/deploy-key ---
+
+    @Test
+    @WithMockUser
+    void should_generateDeployKey_when_validRequest() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        UUID connectionId = UUID.randomUUID();
+        UUID keyId = UUID.randomUUID();
+
+        GenerateDeployKeyRequest request = GenerateDeployKeyRequest.builder()
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .name("Auto Deploy Key")
+                .build();
+
+        SshKey generated = buildSshKey(keyId, tenantId, connectionId, "Auto Deploy Key");
+        when(sshKeyService.generateDeployKey(any(GenerateDeployKeyRequest.class))).thenReturn(generated);
+
+        mockMvc.perform(post("/api/platforms/ssh-keys/deploy-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(keyId.toString()))
+                .andExpect(jsonPath("$.data.name").value("Auto Deploy Key"))
+                .andExpect(jsonPath("$.data.tenantId").value(tenantId.toString()))
+                .andExpect(jsonPath("$.data.connectionId").value(connectionId.toString()))
+                .andExpect(jsonPath("$.data.fingerprint").value("SHA256:abc123def456"))
+                .andExpect(jsonPath("$.data.keyType").value("ED25519"))
+                .andExpect(jsonPath("$.data.publicKey").exists())
+                .andExpect(jsonPath("$.data.privateKey").doesNotExist());
+
+        verify(sshKeyService).generateDeployKey(any(GenerateDeployKeyRequest.class));
+    }
+
+    @Test
+    void should_return401_when_generateDeployKeyUnauthenticated() throws Exception {
+        GenerateDeployKeyRequest request = GenerateDeployKeyRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .connectionId(UUID.randomUUID())
+                .name("Key")
+                .build();
+
+        mockMvc.perform(post("/api/platforms/ssh-keys/deploy-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser
+    void should_generateDeployKey_when_keyUsageProvided() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        UUID connectionId = UUID.randomUUID();
+        UUID keyId = UUID.randomUUID();
+
+        GenerateDeployKeyRequest request = GenerateDeployKeyRequest.builder()
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .name("User Key")
+                .keyUsage("USER_KEY")
+                .build();
+
+        SshKey generated = buildSshKey(keyId, tenantId, connectionId, "User Key");
+        when(sshKeyService.generateDeployKey(any(GenerateDeployKeyRequest.class))).thenReturn(generated);
+
+        mockMvc.perform(post("/api/platforms/ssh-keys/deploy-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.name").value("User Key"));
     }
 
     // --- Response omits private key ---

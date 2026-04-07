@@ -44,7 +44,6 @@ public class SquadronConfigController {
      * Lists all configurations for a tenant.
      */
     @GetMapping("/tenant/{tenantId}")
-    @PreAuthorize("hasRole('squadron-admin')")
     public ResponseEntity<ApiResponse<List<SquadronConfig>>> listConfigs(@PathVariable UUID tenantId) {
         List<SquadronConfig> configs = configService.listConfigsByTenant(tenantId);
         return ResponseEntity.ok(ApiResponse.success(configs));
@@ -55,7 +54,6 @@ public class SquadronConfigController {
      * user-specific -> team-level -> tenant-level.
      */
     @GetMapping("/resolve")
-    @PreAuthorize("hasRole('squadron-admin')")
     public ResponseEntity<ApiResponse<SquadronConfigDto>> resolveConfig(
             @RequestParam UUID tenantId,
             @RequestParam(required = false) UUID teamId,
@@ -68,7 +66,6 @@ public class SquadronConfigController {
      * Returns a specific configuration by ID.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('squadron-admin')")
     public ResponseEntity<ApiResponse<SquadronConfig>> getConfig(@PathVariable UUID id) {
         SquadronConfig config = configService.getConfig(id);
         return ResponseEntity.ok(ApiResponse.success(config));

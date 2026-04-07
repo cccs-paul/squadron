@@ -79,17 +79,10 @@ describe('SquadronConfigComponent', () => {
     expect(names[1].textContent.trim()).toBe('Titan');
   });
 
-  it('should_displayAgentTypeBadges_when_loaded', () => {
-    const badges = fixture.nativeElement.querySelectorAll('.squadron-config__agent-type-badge');
-    expect(badges[0].textContent.trim()).toBe('PLANNING');
-    expect(badges[1].textContent.trim()).toBe('CODING');
-  });
-
   it('should_startEditing_when_editClicked', () => {
     component.startEdit(component.agents()[0]);
     expect(component.editingId()).toBe('a1');
     expect(component.editName).toBe('Sol');
-    expect(component.editType).toBe('PLANNING');
   });
 
   it('should_cancelEditing_when_cancelClicked', () => {
@@ -174,10 +167,6 @@ describe('SquadronConfigComponent', () => {
 
     expect(component.agents().length).toBe(0);
     expect(component.loading()).toBeFalse();
-  });
-
-  it('should_haveAgentTypes_when_created', () => {
-    expect(component.agentTypes).toEqual(['PLANNING', 'CODING', 'REVIEW', 'QA', 'MERGE', 'COVERAGE']);
   });
 
   it('should_showTitle_when_loaded', () => {

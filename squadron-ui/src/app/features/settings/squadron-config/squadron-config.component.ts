@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { UserSquadronService } from '../../../core/services/user-squadron.service';
-import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-config.model';
+import { UserAgentConfig } from '../../../core/models/squadron-config.model';
 
 @Component({
   selector: 'sq-squadron-config',
@@ -13,7 +13,7 @@ import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-conf
       <div class="squadron-config__header">
         <h2 class="squadron-config__title">{{ 'settings.squadronConfig.title' | translate }}</h2>
         <p class="squadron-config__subtitle">
-          {{ 'settings.squadronConfig.subtitle' | translate:{ max: maxAgents() } }}
+          {{ 'settings.squadronConfig.subtitle' | translate:{ maxAgents: maxAgents() } }}
         </p>
       </div>
 
@@ -45,7 +45,6 @@ import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-conf
                   } @else {
                     <span class="squadron-config__agent-name">{{ agent.agentName }}</span>
                   }
-                  <span class="squadron-config__agent-type-badge">{{ agent.agentType }}</span>
                 </div>
                 <div class="squadron-config__agent-actions">
                   @if (editingId() === agent.id) {
@@ -62,14 +61,6 @@ import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-conf
 
               @if (editingId() === agent.id) {
                 <div class="squadron-config__agent-details">
-                  <div class="squadron-config__field">
-                    <label class="squadron-config__label">{{ 'settings.squadronConfig.type' | translate }}</label>
-                    <select class="squadron-config__select" [(ngModel)]="editType">
-                      @for (t of agentTypes; track t) {
-                        <option [value]="t">{{ t }}</option>
-                      }
-                    </select>
-                  </div>
                   <div class="squadron-config__field">
                     <label class="squadron-config__label">{{ 'settings.squadronConfig.provider' | translate }}</label>
                     <input class="squadron-config__input" [(ngModel)]="editProvider" [placeholder]="'settings.squadronConfig.providerPlaceholder' | translate" />
@@ -125,10 +116,6 @@ import { UserAgentConfig, AGENT_TYPES } from '../../../core/models/squadron-conf
     .squadron-config__agent-header { display: flex; justify-content: space-between; align-items: center; }
     .squadron-config__agent-name-row { display: flex; align-items: center; gap: 8px; }
     .squadron-config__agent-name { font-weight: 600; font-size: 1rem; }
-    .squadron-config__agent-type-badge {
-      background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px;
-      font-size: 0.75rem; font-weight: 500; text-transform: uppercase;
-    }
     .squadron-config__agent-actions { display: flex; gap: 8px; }
     .squadron-config__agent-details { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
     .squadron-config__field { display: flex; flex-direction: column; gap: 4px; }
@@ -164,11 +151,8 @@ export class SquadronConfigComponent implements OnInit {
   maxAgents = signal(8);
   editingId = signal<string | null>(null);
 
-  readonly agentTypes = [...AGENT_TYPES];
-
   // Edit form fields
   editName = '';
-  editType = 'CODING';
   editProvider = '';
   editModel = '';
   editMaxTokens: number | null = null;
@@ -204,7 +188,6 @@ export class SquadronConfigComponent implements OnInit {
   startEdit(agent: UserAgentConfig): void {
     this.editingId.set(agent.id ?? null);
     this.editName = agent.agentName;
-    this.editType = agent.agentType;
     this.editProvider = agent.provider ?? '';
     this.editModel = agent.model ?? '';
     this.editMaxTokens = agent.maxTokens ?? null;
@@ -224,7 +207,7 @@ export class SquadronConfigComponent implements OnInit {
 
     const update: Partial<UserAgentConfig> = {
       agentName: this.editName,
-      agentType: this.editType,
+      agentType: agent.agentType,
       displayOrder: agent.displayOrder,
       provider: this.editProvider || undefined,
       model: this.editModel || undefined,
@@ -255,7 +238,7 @@ export class SquadronConfigComponent implements OnInit {
     const order = this.agents().length;
     const newAgent: Partial<UserAgentConfig> = {
       agentName: `Agent ${order + 1}`,
-      agentType: 'CODING',
+      agentType: 'GENERAL',
       displayOrder: order,
       enabled: true,
     };

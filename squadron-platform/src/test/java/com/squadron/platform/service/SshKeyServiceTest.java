@@ -3,6 +3,7 @@ package com.squadron.platform.service;
 import com.squadron.common.exception.ResourceNotFoundException;
 import com.squadron.common.security.TokenEncryptionService;
 import com.squadron.platform.dto.CreateSshKeyRequest;
+import com.squadron.platform.dto.GenerateDeployKeyRequest;
 import com.squadron.platform.entity.SshKey;
 import com.squadron.platform.repository.SshKeyRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -384,5 +386,184 @@ class SshKeyServiceTest {
         String fp2 = sshKeyService.computeFingerprint(key2);
 
         assertNotEquals(fp1, fp2);
+    }
+
+    // --- generateDeployKey ---
+
+    @Test
+    void should_generateDeployKey_when_validRequest() {
+        GenerateDeployKeyRequest request = GenerateDeployKeyRequest.builder()
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .name("My Deploy Key")
+                .build();
+
+        when(sshKeyRepository.existsByTenantIdAndFingerprint(eq(tenantId), anyString()))
+                .thenReturn(false);
+        when(tokenEncryptionService.encrypt(anyString())).thenReturn("encrypted-private-key");
+        when(sshKeyRepository.save(any(SshKey.class))).thenAnswer(inv -> {
+            SshKey key = inv.getArgument(0);
+            key.setId(UUID.randomUUID());
+            return key;
+        });
+
+        SshKey result = sshKeyService.generateDeployKey(request);
+
+        assertNotNull(result);
+        assertNotNull(result.getId());
+        assertEquals("My Deploy Key", result.getName());
+        assertEquals(tenantId, result.getTenantId());
+        assertEquals(connectionId, result.getConnectionId());
+        assertEquals("ED25519", result.getKeyType());
+        assertEquals("DEPLOY_KEY", result.getKeyUsage());
+        assertNotNull(result.getPublicKey());
+        assertTrue(result.getPublicKey().startsWith("ssh-ed25519 "));
+        assertNotNull(result.getFingerprint());
+        assertTrue(result.getFingerprint().startsWith("SHA256:"));
+        assertEquals("encrypted-private-key", result.getPrivateKey());
+
+        verify(tokenEncryptionService).encrypt(anyString());
+        verify(sshKeyRepository).save(any(SshKey.class));
+    }
+
+    @Test
+    void should_generateDeployKey_when_customKeyUsageProvided() {
+        GenerateDeployKeyRequest request = GenerateDeployKeyRequest.builder()
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .name("User Key")
+                .keyUsage("USER_KEY")
+                .build();
+
+        when(sshKeyRepository.existsByTenantIdAndFingerprint(eq(tenantId), anyString()))
+                .thenReturn(false);
+        when(tokenEncryptionService.encrypt(anyString())).thenReturn("encrypted");
+        when(sshKeyRepository.save(any(SshKey.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SshKey result = sshKeyService.generateDeployKey(request);
+
+        assertEquals("USER_KEY", result.getKeyUsage());
+    }
+
+    @Test
+    void should_throwIllegalArgument_when_generateDeployKeyDuplicateFingerprint() {
+        GenerateDeployKeyRequest request = GenerateDeployKeyRequest.builder()
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .name("Duplicate Key")
+                .build();
+
+        when(sshKeyRepository.existsByTenantIdAndFingerprint(eq(tenantId), anyString()))
+                .thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> sshKeyService.generateDeployKey(request));
+        verify(sshKeyRepository, never()).save(any());
+    }
+
+    @Test
+    void should_generateValidOpenSshPublicKey_when_generatingDeployKey() {
+        GenerateDeployKeyRequest request = GenerateDeployKeyRequest.builder()
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .name("DeployKey")
+                .build();
+
+        when(sshKeyRepository.existsByTenantIdAndFingerprint(eq(tenantId), anyString()))
+                .thenReturn(false);
+        when(tokenEncryptionService.encrypt(anyString())).thenReturn("encrypted");
+        when(sshKeyRepository.save(any(SshKey.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SshKey result = sshKeyService.generateDeployKey(request);
+
+        String publicKey = result.getPublicKey();
+        assertNotNull(publicKey);
+        assertTrue(publicKey.startsWith("ssh-ed25519 "));
+        assertTrue(publicKey.endsWith("DeployKey"));
+        String[] parts = publicKey.split("\\s+");
+        assertEquals(3, parts.length);
+        assertEquals("ssh-ed25519", parts[0]);
+        // parts[1] should be valid base64
+        assertDoesNotThrow(() -> Base64.getDecoder().decode(parts[1]));
+        assertEquals("DeployKey", parts[2]);
+    }
+
+    @Test
+    void should_encryptPrivateKey_when_generatingDeployKey() {
+        GenerateDeployKeyRequest request = GenerateDeployKeyRequest.builder()
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .name("Encrypt Test")
+                .build();
+
+        when(sshKeyRepository.existsByTenantIdAndFingerprint(eq(tenantId), anyString()))
+                .thenReturn(false);
+        when(tokenEncryptionService.encrypt(anyString())).thenReturn("super-encrypted");
+        when(sshKeyRepository.save(any(SshKey.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        sshKeyService.generateDeployKey(request);
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(tokenEncryptionService).encrypt(captor.capture());
+        String rawPrivateKey = captor.getValue();
+        assertTrue(rawPrivateKey.startsWith("-----BEGIN OPENSSH PRIVATE KEY-----"));
+        assertTrue(rawPrivateKey.endsWith("-----END OPENSSH PRIVATE KEY-----\n"));
+    }
+
+    // --- Ed25519 key generation helpers ---
+
+    @Test
+    void should_generateEd25519KeyPair_when_called() {
+        java.security.KeyPair keyPair = sshKeyService.generateEd25519KeyPair();
+        assertNotNull(keyPair);
+        assertNotNull(keyPair.getPublic());
+        assertNotNull(keyPair.getPrivate());
+        assertEquals("EdDSA", keyPair.getPublic().getAlgorithm());
+    }
+
+    @Test
+    void should_encodePublicKeyOpenSsh_when_validKeyPair() {
+        java.security.KeyPair keyPair = sshKeyService.generateEd25519KeyPair();
+        String encoded = sshKeyService.encodePublicKeyOpenSsh(
+                (java.security.interfaces.EdECPublicKey) keyPair.getPublic(), "test-comment");
+
+        assertTrue(encoded.startsWith("ssh-ed25519 "));
+        assertTrue(encoded.endsWith("test-comment"));
+        String[] parts = encoded.split("\\s+");
+        assertEquals(3, parts.length);
+    }
+
+    @Test
+    void should_encodePrivateKeyOpenSsh_when_validKeyPair() {
+        java.security.KeyPair keyPair = sshKeyService.generateEd25519KeyPair();
+        String encoded = sshKeyService.encodePrivateKeyOpenSsh(keyPair);
+
+        assertTrue(encoded.startsWith("-----BEGIN OPENSSH PRIVATE KEY-----"));
+        assertTrue(encoded.contains("-----END OPENSSH PRIVATE KEY-----"));
+    }
+
+    @Test
+    void should_generateUniqueKeys_when_calledMultipleTimes() {
+        GenerateDeployKeyRequest request1 = GenerateDeployKeyRequest.builder()
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .name("Key 1")
+                .build();
+        GenerateDeployKeyRequest request2 = GenerateDeployKeyRequest.builder()
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .name("Key 2")
+                .build();
+
+        when(sshKeyRepository.existsByTenantIdAndFingerprint(eq(tenantId), anyString()))
+                .thenReturn(false);
+        when(tokenEncryptionService.encrypt(anyString())).thenReturn("encrypted");
+        when(sshKeyRepository.save(any(SshKey.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SshKey key1 = sshKeyService.generateDeployKey(request1);
+        SshKey key2 = sshKeyService.generateDeployKey(request2);
+
+        assertNotEquals(key1.getPublicKey(), key2.getPublicKey());
+        assertNotEquals(key1.getFingerprint(), key2.getFingerprint());
     }
 }

@@ -577,7 +577,9 @@
       "subtitle": "Manage your repositories and projects",
       "newProjectButton": "New Project",
       "newProject": "New Project",
-      "emptyState": "No projects yet. Create your first project to get started."
+      "importHint": "Projects are imported from ticket providers. Configure providers in Settings to import projects.",
+      "goToSettings": "Go to Settings",
+      "emptyState": "No projects yet. Configure ticket providers in Settings to import projects."
     },
     "card": {
       "tasksLabel": "tasks",

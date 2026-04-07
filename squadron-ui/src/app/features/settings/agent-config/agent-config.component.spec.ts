@@ -111,14 +111,6 @@ describe('AgentConfigComponent', () => {
     expect(component.saveSuccess()).toBeTrue();
   });
 
-  it('should show agent type overrides', () => {
-    configServiceSpy.getConfig.and.returnValue(of(mockConfig));
-    fixture.detectChanges();
-
-    expect(component.getOverrideTypes()).toEqual(['CODING']);
-    expect(component.agentOverrides['CODING'].modelName).toBe('gpt-4-turbo');
-  });
-
   it('should validate max tokens', () => {
     configServiceSpy.getConfig.and.returnValue(of(mockConfig));
     fixture.detectChanges();
@@ -155,18 +147,6 @@ describe('AgentConfigComponent', () => {
 
     expect(configServiceSpy.updateConfig).not.toHaveBeenCalled();
     expect(component.saveError()).toBe('Max tokens must be between 1 and 128000.');
-  });
-
-  it('should add and remove overrides', () => {
-    configServiceSpy.getConfig.and.returnValue(of(mockConfig));
-    fixture.detectChanges();
-
-    component.addOverride('PLANNING');
-    expect(component.agentOverrides['PLANNING']).toBeTruthy();
-    expect(component.getOverrideTypes()).toContain('PLANNING');
-
-    component.removeOverride('PLANNING');
-    expect(component.agentOverrides['PLANNING']).toBeUndefined();
   });
 
   it('should fall back to defaults on load error', () => {

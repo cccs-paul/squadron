@@ -115,7 +115,7 @@ describe('TaskBoardComponent', () => {
     fixture.detectChanges();
     expect(component.columns().length).toBe(3);
     const ids = component.columns().map(c => c.id);
-    expect(ids).toEqual(['in-progress', 'planned', 'completed']);
+    expect(ids).toEqual(['planned', 'in-progress', 'completed']);
   });
 
   it('should create 3 empty columns on API error', () => {
@@ -373,7 +373,7 @@ describe('TaskBoardComponent', () => {
     fixture.detectChanges();
     const lists = component.connectedDropLists();
     expect(lists.length).toBe(3);
-    expect(lists).toEqual(['drop-list-in-progress', 'drop-list-planned', 'drop-list-completed']);
+    expect(lists).toEqual(['drop-list-planned', 'drop-list-in-progress', 'drop-list-completed']);
   });
 
   // --- Navigation ---

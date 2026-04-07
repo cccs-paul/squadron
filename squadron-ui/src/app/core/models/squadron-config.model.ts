@@ -1,6 +1,7 @@
 /**
  * User agent squadron configuration model.
  * Mirrors com.squadron.agent.entity.UserAgentConfig / UserAgentConfigDto.
+ * Agents are general-purpose and can be configured with different AI providers/models.
  */
 export interface UserAgentConfig {
   id?: string;
@@ -18,11 +19,6 @@ export interface UserAgentConfig {
   createdAt?: string;
   updatedAt?: string;
 }
-
-/** Known agent types. */
-export const AGENT_TYPES = ['PLANNING', 'CODING', 'REVIEW', 'QA', 'MERGE', 'COVERAGE'] as const;
-
-export type AgentType = (typeof AGENT_TYPES)[number];
 
 /** Limits response from GET /api/agents/squadron/limits */
 export interface SquadronLimits {

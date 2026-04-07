@@ -1,8 +1,9 @@
 .project-list { max-width: 1100px; margin: 0 auto; animation: sq-fade-in 300ms ease;
-  &__header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px;
+  &__header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;
     h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
     p { font-size: 14px; color: var(--sq-text-secondary); margin-top: 2px; }
   }
+  &__hint { font-size: 13px; color: var(--sq-text-tertiary); margin-bottom: 20px; }
 }
 .projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 .project-card { padding: 20px; cursor: pointer; transition: all var(--sq-transition);

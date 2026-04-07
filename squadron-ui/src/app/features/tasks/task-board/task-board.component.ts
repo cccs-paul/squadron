@@ -179,20 +179,20 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
 
     this.columns.set([
       {
-        id: 'in-progress',
-        label: 'tasks.board.column.inProgress',
-        color: '#06B6D4',
-        icon: 'play',
-        states: [TaskState.IN_PROGRESS, TaskState.REVIEW, TaskState.QA],
-        tasks: inProgressTasks,
-      },
-      {
         id: 'planned',
         label: 'tasks.board.column.planned',
         color: '#818CF8',
         icon: 'calendar',
         states: [TaskState.BACKLOG, TaskState.PLANNING],
         tasks: plannedTasks,
+      },
+      {
+        id: 'in-progress',
+        label: 'tasks.board.column.inProgress',
+        color: '#06B6D4',
+        icon: 'play',
+        states: [TaskState.IN_PROGRESS, TaskState.REVIEW, TaskState.QA],
+        tasks: inProgressTasks,
       },
       {
         id: 'completed',

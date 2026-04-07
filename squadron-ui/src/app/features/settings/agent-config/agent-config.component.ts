@@ -27,16 +27,11 @@ export class AgentConfigComponent implements OnInit {
   maxTokens = 4096;
   systemPrompt = '';
 
-  // Agent type overrides
-  agentOverrides: Record<string, { provider: string; modelName: string; temperature: number; maxTokens: number }> = {};
-  selectedOverrideType = '';
-
   get tenantId(): string {
     return this.authService.user()?.tenantId ?? '';
   }
 
   readonly providers = ['OpenAI', 'Ollama'];
-  readonly agentTypes = ['PLANNING', 'CODING', 'REVIEW', 'QA'];
 
   ngOnInit(): void {
     this.loadConfig();
@@ -73,9 +68,6 @@ export class AgentConfigComponent implements OnInit {
       temperature: this.temperature,
       maxTokens: this.maxTokens,
       systemPrompt: this.systemPrompt || undefined,
-      agentOverrides: Object.keys(this.agentOverrides).length
-        ? this.agentOverrides
-        : undefined,
     };
 
     this.configService.updateConfig(this.tenantId, config).subscribe({
@@ -96,52 +88,12 @@ export class AgentConfigComponent implements OnInit {
     return this.maxTokens >= 1 && this.maxTokens <= 128000;
   }
 
-  addOverride(agentType: string): void {
-    if (!agentType || this.agentOverrides[agentType]) return;
-    this.agentOverrides = {
-      ...this.agentOverrides,
-      [agentType]: {
-        provider: this.provider,
-        modelName: this.modelName,
-        temperature: this.temperature,
-        maxTokens: this.maxTokens,
-      },
-    };
-    this.selectedOverrideType = '';
-  }
-
-  removeOverride(agentType: string): void {
-    const updated = { ...this.agentOverrides };
-    delete updated[agentType];
-    this.agentOverrides = updated;
-  }
-
-  getOverrideTypes(): string[] {
-    return Object.keys(this.agentOverrides);
-  }
-
-  getAvailableAgentTypes(): string[] {
-    return this.agentTypes.filter((t) => !this.agentOverrides[t]);
-  }
-
   private applyConfig(config: AgentConfig): void {
     this.provider = config.provider || 'OpenAI';
     this.modelName = config.modelName || 'gpt-4';
     this.temperature = config.temperature ?? 0.7;
     this.maxTokens = config.maxTokens || 4096;
     this.systemPrompt = config.systemPrompt || '';
-    if (config.agentOverrides) {
-      const overrides: Record<string, any> = {};
-      for (const [key, val] of Object.entries(config.agentOverrides)) {
-        overrides[key] = {
-          provider: val.provider || this.provider,
-          modelName: val.modelName || this.modelName,
-          temperature: val.temperature ?? this.temperature,
-          maxTokens: val.maxTokens || this.maxTokens,
-        };
-      }
-      this.agentOverrides = overrides;
-    }
   }
 
   private applyDefaults(): void {
@@ -150,6 +102,5 @@ export class AgentConfigComponent implements OnInit {
     this.temperature = 0.7;
     this.maxTokens = 4096;
     this.systemPrompt = '';
-    this.agentOverrides = {};
   }
 }

@@ -74,11 +74,11 @@ class UserAgentConfigServiceTest {
 
         assertEquals(8, result.size());
         assertEquals("Sol", result.get(0).getAgentName());
-        assertEquals("PLANNING", result.get(0).getAgentType());
+        assertEquals("GENERAL", result.get(0).getAgentType());
         assertEquals("Titan", result.get(1).getAgentName());
-        assertEquals("CODING", result.get(1).getAgentType());
+        assertEquals("GENERAL", result.get(1).getAgentType());
         assertEquals("Nebula", result.get(7).getAgentName());
-        assertEquals("REVIEW", result.get(7).getAgentType());
+        assertEquals("GENERAL", result.get(7).getAgentType());
         verify(repository).saveAll(anyList());
     }
 
@@ -162,18 +162,19 @@ class UserAgentConfigServiceTest {
     }
 
     @Test
-    void should_throwException_when_invalidAgentType() {
+    void should_acceptCustomAgentType_when_addingAgent() {
         when(repository.countByTenantIdAndUserId(tenantId, userId)).thenReturn(2L);
+        when(repository.existsByTenantIdAndUserIdAndAgentName(tenantId, userId, "Custom Agent")).thenReturn(false);
+        when(repository.save(any(UserAgentConfig.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UserAgentConfigDto dto = UserAgentConfigDto.builder()
-                .agentName("Bad Type Agent")
-                .agentType("INVALID")
+                .agentName("Custom Agent")
+                .agentType("CUSTOM_TYPE")
                 .enabled(true)
                 .build();
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> service.addAgent(tenantId, userId, dto));
-        assertTrue(ex.getMessage().contains("Invalid agent type"));
+        UserAgentConfig result = service.addAgent(tenantId, userId, dto);
+        assertEquals("CUSTOM_TYPE", result.getAgentType());
     }
 
     // ============================================================

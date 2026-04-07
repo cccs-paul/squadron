@@ -270,9 +270,10 @@ class SquadronConfigControllerTest {
 
     @Test
     @WithMockUser(roles = {"developer"})
-    void should_return403_when_developerTriesToListConfigs() throws Exception {
+    void should_return200_when_developerListsConfigs() throws Exception {
+        when(configService.listConfigsByTenant(tenantId)).thenReturn(List.of());
         mockMvc.perform(get("/api/agents/config/tenant/{tenantId}", tenantId))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test
