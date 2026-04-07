@@ -17,6 +17,8 @@ import com.squadron.agent.tool.ToolResult;
 import com.squadron.agent.dto.WorkspaceInfo;
 import com.squadron.agent.tool.builtin.ReviewClient;
 import com.squadron.agent.tool.builtin.ReviewClient.ReviewCommentRequest;
+import com.squadron.agent.tool.builtin.ReviewBotClient;
+import com.squadron.agent.tool.builtin.GitClient;
 import com.squadron.agent.tool.builtin.WorkspaceClient;
 import com.squadron.agent.tool.builtin.ExecResultDto;
 import com.squadron.common.config.NatsEventPublisher;
@@ -69,6 +71,8 @@ public class ReviewAgentService {
     private final ToolExecutionEngine toolExecutionEngine;
     private final NatsEventPublisher natsEventPublisher;
     private final ReviewClient reviewClient;
+    private final ReviewBotClient reviewBotClient;
+    private final GitClient gitClient;
     private final WorkspaceClient workspaceClient;
     private final ObjectMapper objectMapper;
     private final WorkspaceLifecycleService workspaceLifecycleService;
@@ -81,6 +85,8 @@ public class ReviewAgentService {
                                ToolExecutionEngine toolExecutionEngine,
                                NatsEventPublisher natsEventPublisher,
                                ReviewClient reviewClient,
+                               ReviewBotClient reviewBotClient,
+                               GitClient gitClient,
                                WorkspaceClient workspaceClient,
                                ObjectMapper objectMapper,
                                WorkspaceLifecycleService workspaceLifecycleService) {
@@ -92,6 +98,8 @@ public class ReviewAgentService {
         this.toolExecutionEngine = toolExecutionEngine;
         this.natsEventPublisher = natsEventPublisher;
         this.reviewClient = reviewClient;
+        this.reviewBotClient = reviewBotClient;
+        this.gitClient = gitClient;
         this.workspaceClient = workspaceClient;
         this.objectMapper = objectMapper;
         this.workspaceLifecycleService = workspaceLifecycleService;
@@ -162,7 +170,10 @@ public class ReviewAgentService {
             // 10. Submit the review with comments
             reviewClient.submitReview(reviewId, reviewStatus, result.getSummary(), comments);
 
-            // 11. Publish completion event
+            // 11. Post review comments to git platform as bot (if configured)
+            postReviewBotComments(event, taskId, tenantId, reviewStatus, comments, result.getSummary());
+
+            // 12. Publish completion event
             publishReviewCompletedEvent(tenantId, taskId, conversation.getId(),
                     true, result.getSummary());
 
@@ -515,6 +526,106 @@ public class ReviewAgentService {
                     return sb.toString();
                 })
                 .collect(Collectors.joining("\n"));
+    }
+
+    /**
+     * Posts review comments to the git platform as a bot user, if a review bot
+     * is configured and enabled for the tenant's platform connection.
+     *
+     * <p>Steps:
+     * <ol>
+     *   <li>Extract the connectionId from the event's TaskContext</li>
+     *   <li>Look up the enabled bot config for (tenantId, connectionId)</li>
+     *   <li>If found, fetch the bot's access token</li>
+     *   <li>Find the PR record for this task</li>
+     *   <li>Format the review findings into a comment body</li>
+     *   <li>Post the comment to the git platform via GitClient</li>
+     *   <li>Optionally auto-assign the bot as a reviewer</li>
+     * </ol>
+     */
+    void postReviewBotComments(TaskStateChangedEvent event, UUID taskId, UUID tenantId,
+                                String reviewStatus, List<ReviewCommentRequest> comments,
+                                String summary) {
+        try {
+            // Get connectionId from task context
+            UUID connectionId = null;
+            if (event.getTaskContext() != null) {
+                connectionId = event.getTaskContext().getConnectionId();
+            }
+            if (connectionId == null) {
+                log.debug("No connectionId in task context for task {}; skipping bot comment", taskId);
+                return;
+            }
+
+            // Look up enabled bot config
+            java.util.Optional<ReviewBotClient.BotConfig> botConfigOpt =
+                    reviewBotClient.getEnabledBotConfig(tenantId, connectionId);
+            if (botConfigOpt.isEmpty()) {
+                log.debug("No enabled review bot config for tenant {} connection {}; skipping", tenantId, connectionId);
+                return;
+            }
+
+            ReviewBotClient.BotConfig botConfig = botConfigOpt.get();
+
+            // Get the bot's access token
+            String botToken = reviewBotClient.getBotAccessToken(botConfig.getId());
+
+            // Find the PR for this task
+            GitClient.PullRequestResponse pr = gitClient.getPullRequestByTaskId(taskId);
+
+            // Format the review comment body
+            String commentBody = formatBotReviewComment(reviewStatus, comments, summary);
+
+            // Post the review comment
+            gitClient.addPrReviewComment(pr.getId(), commentBody, botToken);
+
+            // Auto-assign bot as reviewer if configured
+            if (botConfig.isAutoAssign() && botConfig.getBotUsername() != null) {
+                try {
+                    gitClient.requestPrReviewers(pr.getId(),
+                            java.util.List.of(botConfig.getBotUsername()), botToken);
+                } catch (Exception e) {
+                    log.warn("Failed to auto-assign bot reviewer {} for PR {}: {}",
+                            botConfig.getBotUsername(), pr.getId(), e.getMessage());
+                }
+            }
+
+            log.info("Review bot posted comment to PR {} for task {}", pr.getId(), taskId);
+
+        } catch (Exception e) {
+            log.warn("Failed to post review bot comment for task {}: {}", taskId, e.getMessage());
+            // Non-fatal — the internal review is already saved
+        }
+    }
+
+    /**
+     * Formats review findings into a markdown comment body suitable for posting
+     * on the git platform as a bot review comment.
+     */
+    String formatBotReviewComment(String reviewStatus, List<ReviewCommentRequest> comments, String summary) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("## Squadron AI Review\n\n");
+        sb.append("**Status:** ").append(reviewStatus).append("\n\n");
+
+        if (comments != null && !comments.isEmpty()) {
+            sb.append("### Findings (").append(comments.size()).append(")\n\n");
+            for (ReviewCommentRequest comment : comments) {
+                sb.append("- **").append(comment.getSeverity()).append("** ");
+                sb.append("`").append(comment.getFilePath());
+                if (comment.getLineNumber() != null) {
+                    sb.append(":").append(comment.getLineNumber());
+                }
+                sb.append("` — ").append(comment.getBody()).append("\n");
+            }
+            sb.append("\n");
+        }
+
+        if (summary != null && !summary.isBlank()) {
+            sb.append("### Summary\n\n");
+            sb.append(summary).append("\n");
+        }
+
+        return sb.toString();
     }
 
     /**

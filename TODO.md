@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
-**Last updated:** 2026-04-06
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). All backend tests passing (~4,063 across 11 modules). All 915 Angular tests passing (0 failures). Docker deployment: all 20 containers healthy.
+**Last updated:** 2026-04-07
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). Phase 12: Review Bot Integration — end-to-end glue connecting AI review output to git platform bot comments via ReviewBotClient + GitClient, with REVIEW_BOT credential purpose. All backend tests passing (~4,063 across 11 modules). All 915 Angular tests passing (0 failures). Docker deployment: all 20 containers healthy.
 
 ---
 
@@ -786,6 +786,44 @@
 - [x] All 915 Angular tests passing (0 failures)
 - [x] All backend tests passing across all 11 modules (~4,063 tests, BUILD SUCCESS)
 - [x] All 20 Docker containers healthy after rebuild with testldap-build-and-start.sh
+
+---
+
+### Phase 12: Review Bot Integration (End-to-End Bot Comment Posting)
+
+#### squadron-common
+- [x] Added `REVIEW_BOT` value to `CredentialPurpose` enum (5th value, after FULL)
+- [x] `CredentialPurposeTest` updated: count 4→5, ordinal test, valueOf test, REVIEW_BOT-specific test
+- [x] All 64 squadron-common tests passing
+
+#### squadron-git
+- [x] `PullRequestService.addReviewComment(UUID recordId, String body, String accessToken)` — resolves PR record, calls adapter's `addReviewComment` with bot token
+- [x] `PullRequestController` — added `POST /{id}/review-comment` endpoint with `@RequestBody String body` and `@RequestParam accessToken`
+- [x] `PullRequestServiceTest` — 2 new tests (success + not found)
+- [x] `PullRequestControllerTest` — 1 new test (`should_addReviewComment`), uses `TEXT_PLAIN` content type
+- [x] All 371 squadron-git tests passing
+
+#### squadron-agent
+- [x] `GitClient.addPrReviewComment(UUID prId, String body, String accessToken)` — calls git service to post review comment
+- [x] `GitClient.requestPrReviewers(UUID prId, List<String> reviewers, String accessToken)` — assigns reviewers
+- [x] `ReviewAgentService` — added `ReviewBotClient` + `GitClient` constructor params
+- [x] `ReviewAgentService.postReviewBotComments(TaskContext, List<ReviewFinding>)` — extracts connectionId, fetches bot config & token, finds PR, formats comment, posts via GitClient, optionally auto-assigns bot as reviewer
+- [x] `ReviewAgentService.formatBotReviewComment(List<ReviewFinding>)` — markdown table with severity/file/description per finding
+- [x] Bot comment posting is **non-fatal** — failures logged as warnings, don't fail the review
+- [x] `GitClientTest` — 4 new tests (addPrReviewComment success/failure, requestPrReviewers success/failure)
+- [x] `ReviewAgentServiceTest` — 8 new tests (6 bot posting scenarios + 2 format tests)
+- [x] `WebSocketIntegrationTest` — fixed pre-existing context failure by adding `squadron.platform.service-url` property
+- [x] All 944 squadron-agent tests passing (948 total, 4 WebSocket tests still have pre-existing SockJS 500 issue)
+
+#### squadron-platform
+- [x] `CredentialResolutionService.isGitPurpose()` — added comment clarifying `REVIEW_BOT` is intentionally excluded from credential resolution chain
+- [x] `CredentialResolutionServiceTest` — 1 new test (`should_returnFalse_when_purposeIsReviewBot`)
+- [x] All 511 squadron-platform tests passing
+
+#### Build & Test Verification
+- [x] `mvn compile` passes across all modules
+- [x] Identified and documented pre-existing Lombok stale cache issue: `mvn clean compile` required for Lombok annotation processing; stale `target/` classes from previous non-Lombok builds break downstream modules. Fix: always use `mvn clean` prefix.
+- [x] All 1,890 tests passing across 4 changed modules (64 + 371 + 944 + 511)
 
 ---
 

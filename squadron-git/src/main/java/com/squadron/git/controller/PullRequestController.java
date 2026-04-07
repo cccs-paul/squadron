@@ -88,6 +88,16 @@ public class PullRequestController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
+    @PostMapping("/{id}/review-comment")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
+    public ResponseEntity<ApiResponse<Void>> addReviewComment(
+            @PathVariable UUID id,
+            @RequestBody String body,
+            @RequestParam String accessToken) {
+        pullRequestService.addReviewComment(id, body, accessToken);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
     @GetMapping("/{id}/diff")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
     public ResponseEntity<ApiResponse<DiffResult>> getDiff(

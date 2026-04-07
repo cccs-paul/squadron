@@ -27,10 +27,15 @@ class CredentialPurposeTest {
     }
 
     @Test
-    void should_haveFourValues_when_enumDefined() {
+    void should_haveReviewBotValue_when_enumDefined() {
+        assertEquals("REVIEW_BOT", CredentialPurpose.REVIEW_BOT.name());
+    }
+
+    @Test
+    void should_haveFiveValues_when_enumDefined() {
         CredentialPurpose[] values = CredentialPurpose.values();
 
-        assertEquals(4, values.length);
+        assertEquals(5, values.length);
     }
 
     @Test
@@ -39,6 +44,7 @@ class CredentialPurposeTest {
         assertEquals(CredentialPurpose.GIT_PUSH, CredentialPurpose.valueOf("GIT_PUSH"));
         assertEquals(CredentialPurpose.PLATFORM_API, CredentialPurpose.valueOf("PLATFORM_API"));
         assertEquals(CredentialPurpose.FULL, CredentialPurpose.valueOf("FULL"));
+        assertEquals(CredentialPurpose.REVIEW_BOT, CredentialPurpose.valueOf("REVIEW_BOT"));
     }
 
     @Test
@@ -51,5 +57,6 @@ class CredentialPurposeTest {
         assertTrue(CredentialPurpose.GIT_CLONE.ordinal() < CredentialPurpose.GIT_PUSH.ordinal());
         assertTrue(CredentialPurpose.GIT_PUSH.ordinal() < CredentialPurpose.PLATFORM_API.ordinal());
         assertTrue(CredentialPurpose.PLATFORM_API.ordinal() < CredentialPurpose.FULL.ordinal());
+        assertTrue(CredentialPurpose.FULL.ordinal() < CredentialPurpose.REVIEW_BOT.ordinal());
     }
 }

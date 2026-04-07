@@ -265,4 +265,23 @@ class PullRequestControllerTest {
                 .andExpect(jsonPath("$.data.mergeable").value(false))
                 .andExpect(jsonPath("$.data.conflictFiles", hasSize(2)));
     }
+
+    // ---- Tests for POST /{id}/review-comment ----
+
+    @Test
+    void should_addReviewComment() throws Exception {
+        UUID prId = UUID.randomUUID();
+        String commentBody = "Looks good!";
+
+        doNothing().when(pullRequestService).addReviewComment(eq(prId), eq(commentBody), eq("bot-token"));
+
+        mockMvc.perform(post("/api/git/pull-requests/{id}/review-comment", prId)
+                        .param("accessToken", "bot-token")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content(commentBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(pullRequestService).addReviewComment(prId, commentBody, "bot-token");
+    }
 }

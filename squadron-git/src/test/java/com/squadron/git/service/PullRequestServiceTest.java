@@ -443,4 +443,41 @@ class PullRequestServiceTest {
 
         assertThrows(ResourceNotFoundException.class, () -> pullRequestService.checkMergeability(recordId));
     }
+
+    // ---- Tests for addReviewComment ----
+
+    @Test
+    void should_addReviewComment_successfully() {
+        UUID recordId = UUID.randomUUID();
+        PullRequestRecord record = PullRequestRecord.builder()
+                .id(recordId)
+                .tenantId(UUID.randomUUID())
+                .taskId(UUID.randomUUID())
+                .platform("GITHUB")
+                .externalPrId("42")
+                .externalPrUrl("https://github.com/owner/repo/pull/42")
+                .title("PR")
+                .sourceBranch("feat")
+                .targetBranch("main")
+                .status("OPEN")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+
+        when(pullRequestRecordRepository.findById(recordId)).thenReturn(Optional.of(record));
+        when(adapterRegistry.getAdapter("GITHUB")).thenReturn(gitPlatformAdapter);
+
+        pullRequestService.addReviewComment(recordId, "Looks good!", "bot-token");
+
+        verify(gitPlatformAdapter).addReviewComment("owner", "repo", "42", "Looks good!", "bot-token");
+    }
+
+    @Test
+    void should_throwResourceNotFound_when_addReviewCommentRecordMissing() {
+        UUID recordId = UUID.randomUUID();
+        when(pullRequestRecordRepository.findById(recordId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> pullRequestService.addReviewComment(recordId, "comment", "token"));
+    }
 }

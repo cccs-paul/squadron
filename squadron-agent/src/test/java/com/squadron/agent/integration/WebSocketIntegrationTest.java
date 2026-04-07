@@ -106,7 +106,8 @@ import static org.mockito.Mockito.when;
                 "squadron.orchestrator.url=http://localhost:19998",
                 "squadron.git.url=http://localhost:19997",
                 "squadron.review.url=http://localhost:19996",
-                "squadron.workspace.url=http://localhost:19995"
+                "squadron.workspace.url=http://localhost:19995",
+                "squadron.platform.service-url=http://localhost:19994"
         }
 )
 @Testcontainers

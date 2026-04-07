@@ -250,5 +250,7 @@ public class CredentialResolutionService {
         return purpose == CredentialPurpose.GIT_CLONE
                 || purpose == CredentialPurpose.GIT_PUSH
                 || purpose == CredentialPurpose.FULL;
+        // REVIEW_BOT is intentionally excluded — bots use their own dedicated token
+        // from ReviewBotConfig, not the credential resolution chain
     }
 }

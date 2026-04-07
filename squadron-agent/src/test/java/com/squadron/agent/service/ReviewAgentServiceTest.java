@@ -15,11 +15,14 @@ import com.squadron.agent.tool.ToolParameter;
 import com.squadron.agent.tool.ToolRegistry;
 import com.squadron.agent.tool.ToolResult;
 import com.squadron.agent.tool.builtin.ExecResultDto;
+import com.squadron.agent.tool.builtin.GitClient;
+import com.squadron.agent.tool.builtin.ReviewBotClient;
 import com.squadron.agent.tool.builtin.ReviewClient;
 import com.squadron.agent.tool.builtin.ReviewClient.ReviewCommentRequest;
 import com.squadron.agent.tool.builtin.ReviewClient.ReviewResponse;
 import com.squadron.agent.tool.builtin.WorkspaceClient;
 import com.squadron.common.config.NatsEventPublisher;
+import com.squadron.common.dto.TaskContext;
 import com.squadron.common.event.AgentCompletedEvent;
 import com.squadron.common.event.TaskStateChangedEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -66,6 +70,12 @@ class ReviewAgentServiceTest {
     private ReviewClient reviewClient;
 
     @Mock
+    private ReviewBotClient reviewBotClient;
+
+    @Mock
+    private GitClient gitClient;
+
+    @Mock
     private WorkspaceClient workspaceClient;
 
     @Mock
@@ -87,7 +97,8 @@ class ReviewAgentServiceTest {
         reviewAgentService = new ReviewAgentService(
                 conversationService, configService, providerRegistry, promptBuilder,
                 toolRegistry, toolExecutionEngine, natsEventPublisher,
-                reviewClient, workspaceClient, objectMapper, workspaceLifecycleService);
+                reviewClient, reviewBotClient, gitClient,
+                workspaceClient, objectMapper, workspaceLifecycleService);
 
         taskId = UUID.randomUUID();
         tenantId = UUID.randomUUID();
@@ -578,6 +589,193 @@ class ReviewAgentServiceTest {
     }
 
     // ---------------------------------------------------------------------------
+    // postReviewBotComments tests
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void should_postReviewBotComment_when_botConfigured() {
+        UUID connectionId = UUID.randomUUID();
+        UUID botConfigId = UUID.randomUUID();
+        String prRecordId = UUID.randomUUID().toString();
+
+        TaskStateChangedEvent event = createReviewEventWithContext(connectionId);
+
+        ReviewBotClient.BotConfig botConfig = ReviewBotClient.BotConfig.builder()
+                .id(botConfigId)
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .botUsername("squadron-bot")
+                .enabled(true)
+                .autoAssign(false)
+                .build();
+
+        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId))
+                .thenReturn(Optional.of(botConfig));
+        when(reviewBotClient.getBotAccessToken(botConfigId)).thenReturn("bot-token-123");
+        when(gitClient.getPullRequestByTaskId(taskId))
+                .thenReturn(GitClient.PullRequestResponse.builder()
+                        .id(prRecordId).prNumber("42")
+                        .url("https://github.com/owner/repo/pull/42")
+                        .status("OPEN").build());
+
+        List<ReviewCommentRequest> comments = List.of(
+                ReviewCommentRequest.builder()
+                        .filePath("Foo.java").lineNumber(10).body("Issue found")
+                        .severity("MAJOR").category("bug").build()
+        );
+
+        reviewAgentService.postReviewBotComments(event, taskId, tenantId, "CHANGES_REQUESTED", comments, "Summary");
+
+        verify(gitClient).addPrReviewComment(eq(prRecordId), anyString(), eq("bot-token-123"));
+        verify(gitClient, never()).requestPrReviewers(any(), any(), any());
+    }
+
+    @Test
+    void should_autoAssignBotReviewer_when_autoAssignEnabled() {
+        UUID connectionId = UUID.randomUUID();
+        UUID botConfigId = UUID.randomUUID();
+        String prRecordId = UUID.randomUUID().toString();
+
+        TaskStateChangedEvent event = createReviewEventWithContext(connectionId);
+
+        ReviewBotClient.BotConfig botConfig = ReviewBotClient.BotConfig.builder()
+                .id(botConfigId)
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .botUsername("squadron-bot")
+                .enabled(true)
+                .autoAssign(true)
+                .build();
+
+        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId))
+                .thenReturn(Optional.of(botConfig));
+        when(reviewBotClient.getBotAccessToken(botConfigId)).thenReturn("bot-token");
+        when(gitClient.getPullRequestByTaskId(taskId))
+                .thenReturn(GitClient.PullRequestResponse.builder()
+                        .id(prRecordId).prNumber("42")
+                        .url("https://github.com/owner/repo/pull/42")
+                        .status("OPEN").build());
+
+        reviewAgentService.postReviewBotComments(event, taskId, tenantId, "APPROVED",
+                Collections.emptyList(), "All good");
+
+        verify(gitClient).addPrReviewComment(eq(prRecordId), anyString(), eq("bot-token"));
+        verify(gitClient).requestPrReviewers(prRecordId, List.of("squadron-bot"), "bot-token");
+    }
+
+    @Test
+    void should_skipBotComment_when_noBotConfigured() {
+        UUID connectionId = UUID.randomUUID();
+        TaskStateChangedEvent event = createReviewEventWithContext(connectionId);
+
+        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId))
+                .thenReturn(Optional.empty());
+
+        reviewAgentService.postReviewBotComments(event, taskId, tenantId, "APPROVED",
+                Collections.emptyList(), "Summary");
+
+        verify(gitClient, never()).addPrReviewComment(any(), any(), any());
+    }
+
+    @Test
+    void should_skipBotComment_when_noConnectionId() {
+        TaskStateChangedEvent event = createReviewEvent(); // no TaskContext
+
+        reviewAgentService.postReviewBotComments(event, taskId, tenantId, "APPROVED",
+                Collections.emptyList(), "Summary");
+
+        verify(reviewBotClient, never()).getEnabledBotConfig(any(), any());
+        verify(gitClient, never()).addPrReviewComment(any(), any(), any());
+    }
+
+    @Test
+    void should_handleBotTokenFetchFailure_gracefully() {
+        UUID connectionId = UUID.randomUUID();
+        UUID botConfigId = UUID.randomUUID();
+        TaskStateChangedEvent event = createReviewEventWithContext(connectionId);
+
+        ReviewBotClient.BotConfig botConfig = ReviewBotClient.BotConfig.builder()
+                .id(botConfigId)
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .botUsername("bot")
+                .enabled(true)
+                .autoAssign(false)
+                .build();
+
+        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId))
+                .thenReturn(Optional.of(botConfig));
+        when(reviewBotClient.getBotAccessToken(botConfigId))
+                .thenThrow(new ReviewBotClient.ReviewBotClientException("Token fetch failed"));
+
+        // Should not throw — bot comment failure is non-fatal
+        assertDoesNotThrow(() -> reviewAgentService.postReviewBotComments(
+                event, taskId, tenantId, "APPROVED", Collections.emptyList(), "Summary"));
+
+        verify(gitClient, never()).addPrReviewComment(any(), any(), any());
+    }
+
+    @Test
+    void should_handleNoPrFound_gracefully() {
+        UUID connectionId = UUID.randomUUID();
+        UUID botConfigId = UUID.randomUUID();
+        TaskStateChangedEvent event = createReviewEventWithContext(connectionId);
+
+        ReviewBotClient.BotConfig botConfig = ReviewBotClient.BotConfig.builder()
+                .id(botConfigId)
+                .tenantId(tenantId)
+                .connectionId(connectionId)
+                .botUsername("bot")
+                .enabled(true)
+                .autoAssign(false)
+                .build();
+
+        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId))
+                .thenReturn(Optional.of(botConfig));
+        when(reviewBotClient.getBotAccessToken(botConfigId)).thenReturn("token");
+        when(gitClient.getPullRequestByTaskId(taskId))
+                .thenThrow(new GitClient.GitClientException("Not found"));
+
+        assertDoesNotThrow(() -> reviewAgentService.postReviewBotComments(
+                event, taskId, tenantId, "APPROVED", Collections.emptyList(), "Summary"));
+    }
+
+    // ---------------------------------------------------------------------------
+    // formatBotReviewComment tests
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void should_formatBotReviewComment_withFindings() {
+        List<ReviewCommentRequest> comments = List.of(
+                ReviewCommentRequest.builder()
+                        .filePath("Foo.java").lineNumber(10).body("Null pointer risk")
+                        .severity("CRITICAL").category("bug").build(),
+                ReviewCommentRequest.builder()
+                        .filePath("Bar.java").lineNumber(null).body("Style issue")
+                        .severity("MINOR").category("style").build()
+        );
+
+        String body = reviewAgentService.formatBotReviewComment("CHANGES_REQUESTED", comments, "Found issues");
+
+        assertTrue(body.contains("Squadron AI Review"));
+        assertTrue(body.contains("CHANGES_REQUESTED"));
+        assertTrue(body.contains("Findings (2)"));
+        assertTrue(body.contains("**CRITICAL** `Foo.java:10`"));
+        assertTrue(body.contains("**MINOR** `Bar.java`"));
+        assertTrue(body.contains("Found issues"));
+    }
+
+    @Test
+    void should_formatBotReviewComment_withNoFindings() {
+        String body = reviewAgentService.formatBotReviewComment("APPROVED", Collections.emptyList(), "All good");
+
+        assertTrue(body.contains("Squadron AI Review"));
+        assertTrue(body.contains("APPROVED"));
+        assertFalse(body.contains("Findings"));
+        assertTrue(body.contains("All good"));
+    }
+
+    // ---------------------------------------------------------------------------
     // Helper methods
     // ---------------------------------------------------------------------------
 
@@ -601,5 +799,17 @@ class ReviewAgentServiceTest {
                 .status("ACTIVE")
                 .totalTokens(0L)
                 .build();
+    }
+
+    private TaskStateChangedEvent createReviewEventWithContext(UUID connectionId) {
+        TaskStateChangedEvent event = createReviewEvent();
+        TaskContext context = TaskContext.builder()
+                .taskId(taskId)
+                .tenantId(tenantId)
+                .userId(userId)
+                .connectionId(connectionId)
+                .build();
+        event.setTaskContext(context);
+        return event;
     }
 }

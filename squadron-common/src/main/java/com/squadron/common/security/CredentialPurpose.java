@@ -12,5 +12,7 @@ public enum CredentialPurpose {
     /** Calling platform REST APIs (create PR, add comments, etc.) — HTTPS token only */
     PLATFORM_API,
     /** Full access: both git operations and platform API calls */
-    FULL
+    FULL,
+    /** Posting review comments as a bot user — uses the bot's own access token */
+    REVIEW_BOT
 }

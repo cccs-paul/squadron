@@ -374,4 +374,72 @@ class GitClientTest {
         assertThrows(GitClient.GitClientException.class,
                 () -> gitClient.mergePullRequest(prId, "MERGE"));
     }
+
+    // ---- Tests for addPrReviewComment ----
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_addPrReviewComment_successfully() {
+        String prId = UUID.randomUUID().toString();
+
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(any(Function.class))).thenReturn(requestBodySpec);
+        when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(Void.class)).thenReturn(Mono.empty());
+
+        assertDoesNotThrow(() -> gitClient.addPrReviewComment(prId, "Great code!", "bot-token"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_throwException_when_addPrReviewCommentFails() {
+        String prId = UUID.randomUUID().toString();
+
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(any(Function.class))).thenReturn(requestBodySpec);
+        when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(Void.class))
+                .thenReturn(Mono.error(WebClientResponseException.create(
+                        403, "Forbidden", null,
+                        "forbidden".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8)));
+
+        assertThrows(GitClient.GitClientException.class,
+                () -> gitClient.addPrReviewComment(prId, "comment", "bad-token"));
+    }
+
+    // ---- Tests for requestPrReviewers ----
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_requestPrReviewers_successfully() {
+        String prId = UUID.randomUUID().toString();
+
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(any(Function.class))).thenReturn(requestBodySpec);
+        when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(Void.class)).thenReturn(Mono.empty());
+
+        assertDoesNotThrow(() -> gitClient.requestPrReviewers(prId, List.of("reviewer1"), "token"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_throwException_when_requestPrReviewersFails() {
+        String prId = UUID.randomUUID().toString();
+
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(any(Function.class))).thenReturn(requestBodySpec);
+        when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(Void.class))
+                .thenReturn(Mono.error(WebClientResponseException.create(
+                        422, "Unprocessable Entity", null,
+                        "invalid".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8)));
+
+        assertThrows(GitClient.GitClientException.class,
+                () -> gitClient.requestPrReviewers(prId, List.of("user"), "token"));
+    }
 }

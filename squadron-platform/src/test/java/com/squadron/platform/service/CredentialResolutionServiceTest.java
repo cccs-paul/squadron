@@ -389,6 +389,11 @@ class CredentialResolutionServiceTest {
         assertFalse(service.isGitPurpose(CredentialPurpose.PLATFORM_API));
     }
 
+    @Test
+    void should_returnFalse_when_purposeIsReviewBot() {
+        assertFalse(service.isGitPurpose(CredentialPurpose.REVIEW_BOT));
+    }
+
     // --- Audit logging ---
 
     @Test

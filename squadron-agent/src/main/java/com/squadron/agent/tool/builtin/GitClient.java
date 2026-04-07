@@ -237,6 +237,60 @@ public class GitClient {
     }
 
     /**
+     * Add a review comment to a pull request via the squadron-git service.
+     *
+     * @param prRecordId  the pull request record ID
+     * @param body        the review comment body
+     * @param accessToken the access token for the bot user
+     */
+    public void addPrReviewComment(String prRecordId, String body, String accessToken) {
+        log.debug("Adding review comment to PR {}", prRecordId);
+
+        try {
+            webClient.post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/git/pull-requests/{id}/review-comment")
+                            .queryParam("accessToken", accessToken)
+                            .build(prRecordId))
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .block();
+            log.info("Successfully added review comment to PR {}", prRecordId);
+        } catch (WebClientResponseException e) {
+            log.error("Failed to add review comment to PR {}: {} {}", prRecordId, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new GitClientException("Failed to add review comment: " + e.getStatusCode(), e);
+        }
+    }
+
+    /**
+     * Request reviewers for a pull request via the squadron-git service.
+     *
+     * @param prRecordId  the pull request record ID
+     * @param reviewers   list of reviewer usernames
+     * @param accessToken the access token to authenticate with
+     */
+    public void requestPrReviewers(String prRecordId, List<String> reviewers, String accessToken) {
+        log.debug("Requesting reviewers {} for PR {}", reviewers, prRecordId);
+
+        try {
+            webClient.post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/git/pull-requests/{id}/reviewers")
+                            .queryParam("accessToken", accessToken)
+                            .build(prRecordId))
+                    .bodyValue(reviewers)
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .block();
+            log.info("Successfully requested reviewers for PR {}", prRecordId);
+        } catch (WebClientResponseException e) {
+            log.error("Failed to request reviewers for PR {}: {} {}", prRecordId, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new GitClientException("Failed to request reviewers: " + e.getStatusCode(), e);
+        }
+    }
+
+    /**
      * Check if a pull request is mergeable (no conflicts).
      */
     public MergeabilityResponse checkMergeability(String prRecordId) {

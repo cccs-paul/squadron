@@ -178,6 +178,24 @@ public class PullRequestService {
     }
 
     /**
+     * Add a review comment to a pull request on the platform.
+     *
+     * @param recordId    the pull request record ID
+     * @param body        the review comment body
+     * @param accessToken the access token to authenticate with the platform
+     */
+    public void addReviewComment(UUID recordId, String body, String accessToken) {
+        PullRequestRecord record = pullRequestRecordRepository.findById(recordId)
+                .orElseThrow(() -> new ResourceNotFoundException("PullRequestRecord", recordId));
+
+        String[] ownerRepo = parseOwnerRepo(record);
+        GitPlatformAdapter adapter = adapterRegistry.getAdapter(record.getPlatform());
+        adapter.addReviewComment(ownerRepo[0], ownerRepo[1], record.getExternalPrId(), body, accessToken);
+
+        log.info("Review comment added to PR {}", record.getExternalPrId());
+    }
+
+    /**
      * Request reviewers for a pull request.
      */
     public void requestReviewers(UUID recordId, List<String> reviewers, String accessToken) {
