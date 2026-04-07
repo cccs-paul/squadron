@@ -991,10 +991,23 @@
       },
       "branchNaming": {
         "title": "Nommage des branches",
+        "defaultBranchLabel": "Branche par defaut",
+        "defaultBranchPlaceholder": "main",
+        "defaultBranchHint": "La branche de base pour les nouvelles branches (ex. main, develop)",
         "templateLabel": "Modele de nommage des branches",
         "templatePlaceholder": "{strategy}/{ticket}-{description}",
         "templateHint": "Variables : {strategy}, {ticket}, {description}, {type}, {user}",
         "previewLabel": "Apercu :"
+      },
+      "ticketProviderConnection": {
+        "title": "Fournisseur de tickets",
+        "connectionLabel": "Fournisseur de tickets",
+        "noConnectionPlaceholder": "-- Pas de fournisseur de tickets --",
+        "externalKeyLabel": "Cle de projet externe",
+        "externalKeyPlaceholder": "ex. SQ, PROJ-123",
+        "fetching": "Recuperation...",
+        "fetchStatuses": "Recuperer les statuts",
+        "remoteStatusesLabel": "Statuts distants :"
       },
       "platformConnection": {
         "title": "Connexion de plateforme",
@@ -1006,6 +1019,7 @@
         "fetchStatuses": "Recuperer les statuts",
         "remoteStatusesLabel": "Statuts distants :"
       },
+      "loadingMappings": "Chargement...",
       "notConfigured": "Non configure",
       "mappingCount": "{{count}} mappage(s)",
       "errors": {

@@ -18,7 +18,7 @@ import {
   ReviewBotConfig,
   CreateReviewBotConfigRequest,
 } from '../../../core/models/security.model';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 
 export type WizardStep = 'ticket-providers' | 'git-remotes' | 'projects' | 'branch-workflow';
 
@@ -53,7 +53,6 @@ interface ProjectEditForm {
   name: string;
   description: string;
   repositoryUrl: string;
-  defaultBranch: string;
   connectionId: string;
 }
 
@@ -61,6 +60,7 @@ interface ProjectMappingState {
   project: Project;
   expanded: boolean;
   mappings: WorkflowMapping[];
+  mappingsLoaded: boolean;
   remoteStatuses: string[];
   saving: boolean;
   saveSuccess: boolean;
@@ -237,22 +237,47 @@ export class ProjectConfigComponent implements OnInit {
         this.sshKeys.set(sshKeys);
         this.reviewBotConfigs.set(reviewBotConfigs);
         this.categorizeConnections(connections);
-        this.projectStates.set(
-          projects.map((p) => ({
-            project: p,
-            expanded: false,
-            mappings: [],
-            remoteStatuses: [],
-            saving: false,
-            saveSuccess: false,
-            saveError: null,
-            loading: false,
-            fetchingStatuses: false,
-            fetchError: null,
-            connectionName: this.getConnectionName(p.connectionId, connections),
-          })),
-        );
+        const initialStates = projects.map((p) => ({
+          project: p,
+          expanded: false,
+          mappings: [] as WorkflowMapping[],
+          mappingsLoaded: false,
+          remoteStatuses: [] as string[],
+          saving: false,
+          saveSuccess: false,
+          saveError: null,
+          loading: false,
+          fetchingStatuses: false,
+          fetchError: null,
+          connectionName: this.getConnectionName(p.connectionId, connections),
+        }));
+        this.projectStates.set(initialStates);
         this.loading.set(false);
+
+        // Eagerly fetch mappings for all projects so collapsed cards show correct counts
+        if (projects.length > 0) {
+          const mappingRequests = projects.map((p) =>
+            this.projectService.getWorkflowMappings(p.id),
+          );
+          forkJoin(mappingRequests).subscribe({
+            next: (allMappings) => {
+              const updated = this.projectStates().map((ps, i) => ({
+                ...ps,
+                mappings: allMappings[i] ?? [],
+                mappingsLoaded: true,
+              }));
+              this.projectStates.set(updated);
+            },
+            error: () => {
+              // Mark as loaded even on error so the label doesn't show "loading"
+              const updated = this.projectStates().map((ps) => ({
+                ...ps,
+                mappingsLoaded: true,
+              }));
+              this.projectStates.set(updated);
+            },
+          });
+        }
       },
       error: () => {
         console.error('Failed to load project configuration data');
@@ -1005,6 +1030,7 @@ export class ProjectConfigComponent implements OnInit {
             project: created,
             expanded: false,
             mappings: [],
+            mappingsLoaded: true,
             remoteStatuses: [],
             saving: false,
             saveSuccess: false,
@@ -1048,7 +1074,6 @@ export class ProjectConfigComponent implements OnInit {
       name: ps.project.name,
       description: ps.project.description || '',
       repositoryUrl: ps.project.repositoryUrl || '',
-      defaultBranch: ps.project.defaultBranch || 'main',
       connectionId: ps.project.connectionId || '',
     };
     this.showProjectEditForm.set(true);
@@ -1071,7 +1096,6 @@ export class ProjectConfigComponent implements OnInit {
       name: this.projectEditForm.name.trim(),
       description: this.projectEditForm.description.trim() || undefined,
       repositoryUrl: this.projectEditForm.repositoryUrl.trim() || undefined,
-      defaultBranch: this.projectEditForm.defaultBranch.trim() || 'main',
       connectionId: this.projectEditForm.connectionId || undefined,
     };
 
@@ -1123,7 +1147,7 @@ export class ProjectConfigComponent implements OnInit {
     const state = { ...states[index] };
     state.expanded = !state.expanded;
 
-    if (state.expanded && state.mappings.length === 0 && !state.loading) {
+    if (state.expanded && !state.mappingsLoaded && !state.loading) {
       state.loading = true;
       states[index] = state;
       this.projectStates.set(states);
@@ -1131,12 +1155,12 @@ export class ProjectConfigComponent implements OnInit {
       this.projectService.getWorkflowMappings(state.project.id).subscribe({
         next: (mappings) => {
           const updated = [...this.projectStates()];
-          updated[index] = { ...updated[index], mappings, loading: false };
+          updated[index] = { ...updated[index], mappings, loading: false, mappingsLoaded: true };
           this.projectStates.set(updated);
         },
         error: () => {
           const updated = [...this.projectStates()];
-          updated[index] = { ...updated[index], mappings: [], loading: false };
+          updated[index] = { ...updated[index], mappings: [], loading: false, mappingsLoaded: true };
           this.projectStates.set(updated);
         },
       });
@@ -1220,6 +1244,14 @@ export class ProjectConfigComponent implements OnInit {
     this.projectStates.set(states);
   }
 
+  updateDefaultBranch(index: number, value: string): void {
+    const states = [...this.projectStates()];
+    const state = { ...states[index] };
+    state.project = { ...state.project, defaultBranch: value || 'main' };
+    states[index] = state;
+    this.projectStates.set(states);
+  }
+
   addMapping(index: number): void {
     const states = [...this.projectStates()];
     const state = { ...states[index] };
@@ -1282,12 +1314,20 @@ export class ProjectConfigComponent implements OnInit {
     states[index] = state;
     this.projectStates.set(states);
 
-    this.projectService.saveWorkflowMappings(state.project.id, validMappings).subscribe({
-      next: (saved) => {
+    // Save workflow mappings, branch naming template, and default branch together
+    forkJoin({
+      mappings: this.projectService.saveWorkflowMappings(state.project.id, validMappings),
+      project: this.projectService.updateProject(state.project.id, {
+        branchNamingTemplate: state.project.branchNamingTemplate || '{strategy}/{ticket}-{description}',
+        defaultBranch: state.project.defaultBranch || 'main',
+      }),
+    }).subscribe({
+      next: ({ mappings, project }) => {
         const updated = [...this.projectStates()];
         updated[index] = {
           ...updated[index],
-          mappings: saved,
+          mappings,
+          project,
           saving: false,
           saveSuccess: true,
           saveError: null,
@@ -1342,6 +1382,9 @@ export class ProjectConfigComponent implements OnInit {
   }
 
   getMappingLabel(ps: ProjectMappingState): string {
+    if (!ps.mappingsLoaded) {
+      return this.translate.instant('projectConfig.branchWorkflow.loadingMappings');
+    }
     if (ps.mappings.length > 0) {
       return this.translate.instant('projectConfig.branchWorkflow.mappingCount', { count: ps.mappings.length });
     }
@@ -1431,6 +1474,6 @@ export class ProjectConfigComponent implements OnInit {
   }
 
   private newProjectEditForm(): ProjectEditForm {
-    return { name: '', description: '', repositoryUrl: '', defaultBranch: 'main', connectionId: '' };
+    return { name: '', description: '', repositoryUrl: '', connectionId: '' };
   }
 }

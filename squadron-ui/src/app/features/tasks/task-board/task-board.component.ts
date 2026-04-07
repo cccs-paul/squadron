@@ -465,6 +465,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
 
     const request: TaskSyncRequest = {
       tenantId: user.tenantId,
+      teamId: project.teamId,
       projectId: project.id,
       platformConnectionId: project.connectionId,
       projectKey: project.externalProjectId,

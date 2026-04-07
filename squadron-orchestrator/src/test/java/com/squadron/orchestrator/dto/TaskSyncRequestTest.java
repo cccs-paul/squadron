@@ -96,6 +96,24 @@ class TaskSyncRequestTest {
     }
 
     @Test
+    void should_allowNullTeamId() {
+        UUID tenantId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID connectionId = UUID.randomUUID();
+
+        TaskSyncRequest request = TaskSyncRequest.builder()
+                .tenantId(tenantId)
+                .projectId(projectId)
+                .platformConnectionId(connectionId)
+                .projectKey("PROJ")
+                .build();
+
+        assertNull(request.getTeamId());
+        assertEquals(tenantId, request.getTenantId());
+        assertEquals(projectId, request.getProjectId());
+    }
+
+    @Test
     void should_createWithAllArgsConstructor() {
         UUID tenantId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();

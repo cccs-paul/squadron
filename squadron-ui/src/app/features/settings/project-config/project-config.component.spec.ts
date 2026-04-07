@@ -97,7 +97,7 @@ describe('ProjectConfigComponent', () => {
   beforeEach(async () => {
     projectServiceSpy = jasmine.createSpyObj('ProjectService', [
       'getProjectsByTenant', 'getWorkflowStates', 'getWorkflowMappings',
-      'saveWorkflowMappings', 'createProject',
+      'saveWorkflowMappings', 'createProject', 'updateProject', 'deleteProject',
     ]);
     platformServiceSpy = jasmine.createSpyObj('PlatformService', [
       'getConnectionsByTenant', 'getProjectStatuses', 'createConnectionFromRequest',
@@ -120,6 +120,8 @@ describe('ProjectConfigComponent', () => {
     projectServiceSpy.getWorkflowMappings.and.returnValue(of(mockMappings));
     projectServiceSpy.saveWorkflowMappings.and.returnValue(of(mockMappings));
     projectServiceSpy.createProject.and.returnValue(of(mockProjects[0]));
+    projectServiceSpy.updateProject.and.returnValue(of(mockProjects[0]));
+    projectServiceSpy.deleteProject.and.returnValue(of(void 0));
     platformServiceSpy.getConnectionsByTenant.and.returnValue(of(mockConnections));
     platformServiceSpy.getProjectStatuses.and.returnValue(of(mockRemoteStatuses));
     platformServiceSpy.createConnectionFromRequest.and.returnValue(of(mockGitConnection));
@@ -284,7 +286,14 @@ describe('ProjectConfigComponent', () => {
     expect(component.isStepComplete('projects')).toBeTrue();
   });
 
-  it('should_isStepComplete_returnFalse_when_noMappingsConfigured', () => {
+  it('should_isStepComplete_returnTrue_when_mappingsEagerLoaded', () => {
+    fixture.detectChanges();
+    // Mappings are eagerly fetched on loadData, so branch-workflow step is complete
+    expect(component.isStepComplete('branch-workflow')).toBeTrue();
+  });
+
+  it('should_isStepComplete_returnFalse_when_noMappingsExist', () => {
+    projectServiceSpy.getWorkflowMappings.and.returnValue(of([]));
     fixture.detectChanges();
     expect(component.isStepComplete('branch-workflow')).toBeFalse();
   });
@@ -918,8 +927,25 @@ describe('ProjectConfigComponent', () => {
 
   it('should_loadMappings_when_projectExpanded', () => {
     fixture.detectChanges();
-    component.toggleProject(0);
+    // Eager fetch already called getWorkflowMappings for all projects
     expect(projectServiceSpy.getWorkflowMappings).toHaveBeenCalledWith('p1');
+    // mappingsLoaded should be true after eager fetch
+    expect(component.projectStates()[0].mappingsLoaded).toBeTrue();
+    // Expanding should NOT re-fetch since mappings are already loaded
+    projectServiceSpy.getWorkflowMappings.calls.reset();
+    component.toggleProject(0);
+    expect(projectServiceSpy.getWorkflowMappings).not.toHaveBeenCalled();
+    expect(component.projectStates()[0].expanded).toBeTrue();
+  });
+
+  it('should_loadMappings_lazily_when_eagerFetchFailed', () => {
+    // Reset and re-create with eager fetch failing
+    projectServiceSpy.getWorkflowMappings.and.returnValue(throwError(() => new Error('fail')));
+    fixture = TestBed.createComponent(ProjectConfigComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    // After failed eager fetch, mappingsLoaded should still be true
+    expect(component.projectStates()[0].mappingsLoaded).toBeTrue();
   });
 
   it('should_addMapping', () => {
@@ -945,6 +971,10 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.saveMappings(0);
     expect(projectServiceSpy.saveWorkflowMappings).toHaveBeenCalledWith('p1', jasmine.any(Array));
+    expect(projectServiceSpy.updateProject).toHaveBeenCalledWith('p1', jasmine.objectContaining({
+      branchNamingTemplate: jasmine.any(String),
+      defaultBranch: jasmine.any(String),
+    }));
   });
 
   it('should_filterAvailableStates', () => {
@@ -983,6 +1013,18 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.updateBranchNamingTemplate(0, '{type}/{ticket}');
     expect(component.projectStates()[0].project.branchNamingTemplate).toBe('{type}/{ticket}');
+  });
+
+  it('should_updateDefaultBranch', () => {
+    fixture.detectChanges();
+    component.updateDefaultBranch(0, 'develop');
+    expect(component.projectStates()[0].project.defaultBranch).toBe('develop');
+  });
+
+  it('should_updateDefaultBranch_fallbackToMain_when_empty', () => {
+    fixture.detectChanges();
+    component.updateDefaultBranch(0, '');
+    expect(component.projectStates()[0].project.defaultBranch).toBe('main');
   });
 
   it('should_fetchRemoteStatuses', () => {
@@ -1038,11 +1080,33 @@ describe('ProjectConfigComponent', () => {
 
   // --- Mapping label ---
 
-  it('should_getMappingLabel_returnNotConfigured_when_noMappingsLoaded', () => {
+  it('should_getMappingLabel_returnLoading_when_mappingsNotLoaded', () => {
+    projectServiceSpy.getWorkflowMappings.and.returnValue(of([]));
+    fixture.detectChanges();
+    // Before eager load completes (simulated by not setting mappingsLoaded)
+    const states = component.projectStates();
+    // After detectChanges, the eager load should have completed (mocked as sync)
+    // So mappingsLoaded should be true. To test the loading state, manually set it:
+    const testState = { ...states[0], mappingsLoaded: false, mappings: [] as WorkflowMapping[] };
+    expect(component.getMappingLabel(testState)).toBe('projectConfig.branchWorkflow.loadingMappings');
+  });
+
+  it('should_getMappingLabel_returnNotConfigured_when_noMappingsExist', () => {
+    projectServiceSpy.getWorkflowMappings.and.returnValue(of([]));
     fixture.detectChanges();
     const ps = component.projectStates()[0];
+    // After eager load, mappingsLoaded should be true and mappings empty
+    expect(ps.mappingsLoaded).toBeTrue();
     expect(ps.mappings.length).toBe(0);
     expect(component.getMappingLabel(ps)).toBe('projectConfig.branchWorkflow.notConfigured');
+  });
+
+  it('should_getMappingLabel_returnMappingCount_when_eagerLoaded', () => {
+    fixture.detectChanges();
+    const ps = component.projectStates()[0];
+    expect(ps.mappingsLoaded).toBeTrue();
+    expect(ps.mappings.length).toBeGreaterThan(0);
+    expect(component.getMappingLabel(ps)).toBe('projectConfig.branchWorkflow.mappingCount');
   });
 
   it('should_getMappingLabel_returnMappingCount_when_expanded', () => {
@@ -1051,12 +1115,13 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     const ps = component.projectStates()[0];
     expect(ps.expanded).toBeTrue();
+    expect(ps.mappings.length).toBeGreaterThan(0);
     expect(component.getMappingLabel(ps)).toBe('projectConfig.branchWorkflow.mappingCount');
   });
 
   it('should_getMappingLabel_returnMappingCount_when_collapsedWithMappings', () => {
     fixture.detectChanges();
-    // Expand to load mappings
+    // Expand
     component.toggleProject(0);
     fixture.detectChanges();
     // Collapse again

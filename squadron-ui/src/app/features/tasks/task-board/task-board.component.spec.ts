@@ -34,6 +34,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
   return {
     id: 'p1',
     tenantId: 't1',
+    teamId: 'team-1',
     name: 'Test Project',
     description: 'A project',
     defaultBranch: 'main',
@@ -917,6 +918,7 @@ describe('TaskBoardComponent', () => {
 
     expect(taskServiceSpy.syncTasks).toHaveBeenCalledWith(jasmine.objectContaining({
       tenantId: 't1',
+      teamId: 'team-1',
       projectId: 'p1',
       platformConnectionId: 'conn-1',
       projectKey: 'SQ',

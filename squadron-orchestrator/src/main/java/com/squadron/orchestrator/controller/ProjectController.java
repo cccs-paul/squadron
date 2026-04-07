@@ -101,7 +101,7 @@ public class ProjectController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
     public ResponseEntity<ApiResponse<Project>> updateProject(@PathVariable UUID id,
-                                                               @Valid @RequestBody CreateProjectRequest request) {
+                                                                @RequestBody CreateProjectRequest request) {
         Project project = projectService.updateProject(id, request);
         return ResponseEntity.ok(ApiResponse.success(project));
     }

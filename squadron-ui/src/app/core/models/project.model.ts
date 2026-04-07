@@ -1,6 +1,7 @@
 export interface Project {
   id: string;
   tenantId: string;
+  teamId?: string;
   name: string;
   description?: string;
   repositoryUrl?: string;

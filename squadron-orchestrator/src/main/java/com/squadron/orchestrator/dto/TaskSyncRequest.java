@@ -18,7 +18,6 @@ public class TaskSyncRequest {
     @NotNull(message = "Tenant ID is required")
     private UUID tenantId;
 
-    @NotNull(message = "Team ID is required")
     private UUID teamId;
 
     @NotNull(message = "Project ID is required")

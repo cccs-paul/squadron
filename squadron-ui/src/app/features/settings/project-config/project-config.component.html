@@ -790,10 +790,6 @@
                     <label class="form-card__label">{{ 'projectConfig.projects.form.nameLabel' | translate }}</label>
                     <input class="form-input" type="text" [(ngModel)]="projectEditForm.name" [placeholder]="'projectConfig.projects.form.namePlaceholder' | translate" />
                   </div>
-                  <div class="form-card__field">
-                    <label class="form-card__label">{{ 'projectConfig.projects.form.defaultBranchLabel' | translate }}</label>
-                    <input class="form-input" type="text" [(ngModel)]="projectEditForm.defaultBranch" [placeholder]="'projectConfig.projects.form.defaultBranchPlaceholder' | translate" />
-                  </div>
                 </div>
 
                 <div class="form-card__row">
@@ -937,7 +933,17 @@
                       <!-- Branch Naming Template -->
                       <div class="config-section">
                         <h4 class="config-section__title">{{ 'projectConfig.branchWorkflow.branchNaming.title' | translate }}</h4>
-                        <div class="config-section__row">
+                        <div class="config-section__row config-section__row--cols">
+                          <div class="config-section__field">
+                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.branchNaming.defaultBranchLabel' | translate }}</label>
+                            <input class="form-input" type="text"
+                              [ngModel]="ps.project.defaultBranch || 'main'"
+                              (ngModelChange)="updateDefaultBranch(i, $event)"
+                              [placeholder]="'projectConfig.branchWorkflow.branchNaming.defaultBranchPlaceholder' | translate" />
+                            <span class="form-hint">
+                              {{ 'projectConfig.branchWorkflow.branchNaming.defaultBranchHint' | translate }}
+                            </span>
+                          </div>
                           <div class="config-section__field">
                             <label class="form-card__label">{{ 'projectConfig.branchWorkflow.branchNaming.templateLabel' | translate }}</label>
                             <input class="form-input" type="text"
@@ -963,32 +969,32 @@
                         </div>
                       </div>
 
-                      <!-- Platform Connection -->
+                      <!-- Ticket Provider Connection -->
                       <div class="config-section">
-                        <h4 class="config-section__title">{{ 'projectConfig.branchWorkflow.platformConnection.title' | translate }}</h4>
+                        <h4 class="config-section__title">{{ 'projectConfig.branchWorkflow.ticketProviderConnection.title' | translate }}</h4>
                         <div class="config-section__row config-section__row--cols">
                           <div class="config-section__field">
-                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.platformConnection.connectionLabel' | translate }}</label>
+                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.ticketProviderConnection.connectionLabel' | translate }}</label>
                             <select class="form-select" [ngModel]="ps.project.connectionId || ''" (ngModelChange)="updateProjectConnection(i, $event)">
-                              <option value="">{{ 'projectConfig.branchWorkflow.platformConnection.noConnectionPlaceholder' | translate }}</option>
-                              @for (conn of allConnections(); track conn.id) {
+                              <option value="">{{ 'projectConfig.branchWorkflow.ticketProviderConnection.noConnectionPlaceholder' | translate }}</option>
+                              @for (conn of ticketProviders(); track conn.id) {
                                 <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
                               }
                             </select>
                           </div>
                           <div class="config-section__field">
-                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.platformConnection.externalKeyLabel' | translate }}</label>
+                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.ticketProviderConnection.externalKeyLabel' | translate }}</label>
                             <input class="form-input" type="text"
                               [ngModel]="ps.project.externalProjectId || ''"
                               (ngModelChange)="updateExternalProjectId(i, $event)"
-                              [placeholder]="'projectConfig.branchWorkflow.platformConnection.externalKeyPlaceholder' | translate" />
+                              [placeholder]="'projectConfig.branchWorkflow.ticketProviderConnection.externalKeyPlaceholder' | translate" />
                           </div>
                           <div class="config-section__action">
                             <button class="btn btn--secondary" (click)="fetchRemoteStatuses(i)" [disabled]="!canFetchStatuses(ps)">
                               @if (ps.fetchingStatuses) {
-                                <span class="spinner spinner--inline"></span> {{ 'projectConfig.branchWorkflow.platformConnection.fetching' | translate }}
+                                <span class="spinner spinner--inline"></span> {{ 'projectConfig.branchWorkflow.ticketProviderConnection.fetching' | translate }}
                               } @else {
-                                {{ 'projectConfig.branchWorkflow.platformConnection.fetchStatuses' | translate }}
+                                {{ 'projectConfig.branchWorkflow.ticketProviderConnection.fetchStatuses' | translate }}
                               }
                             </button>
                           </div>
@@ -996,7 +1002,7 @@
 
                         @if (ps.remoteStatuses.length > 0) {
                           <div class="statuses-display">
-                            <span class="statuses-display__label">{{ 'projectConfig.branchWorkflow.platformConnection.remoteStatusesLabel' | translate }}</span>
+                            <span class="statuses-display__label">{{ 'projectConfig.branchWorkflow.ticketProviderConnection.remoteStatusesLabel' | translate }}</span>
                             <div class="statuses-display__list">
                               @for (status of ps.remoteStatuses; track status) {
                                 <span class="status-chip">{{ status }}</span>

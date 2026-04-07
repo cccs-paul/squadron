@@ -991,10 +991,23 @@
       },
       "branchNaming": {
         "title": "Branch Naming",
+        "defaultBranchLabel": "Default Branch",
+        "defaultBranchPlaceholder": "main",
+        "defaultBranchHint": "The base branch for new feature branches (e.g. main, develop)",
         "templateLabel": "Branch Naming Template",
         "templatePlaceholder": "{strategy}/{ticket}-{description}",
         "templateHint": "Variables: {strategy}, {ticket}, {description}, {type}, {user}",
         "previewLabel": "Preview:"
+      },
+      "ticketProviderConnection": {
+        "title": "Ticket Provider",
+        "connectionLabel": "Ticket Provider",
+        "noConnectionPlaceholder": "-- No ticket provider --",
+        "externalKeyLabel": "External Project Key",
+        "externalKeyPlaceholder": "e.g. SQ, PROJ-123",
+        "fetching": "Fetching...",
+        "fetchStatuses": "Fetch Statuses",
+        "remoteStatusesLabel": "Remote statuses:"
       },
       "platformConnection": {
         "title": "Platform Connection",
@@ -1006,6 +1019,7 @@
         "fetchStatuses": "Fetch Statuses",
         "remoteStatusesLabel": "Remote statuses:"
       },
+      "loadingMappings": "Loading...",
       "notConfigured": "Not configured",
       "mappingCount": "{{count}} mapping(s)",
       "errors": {

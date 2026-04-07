@@ -87,7 +87,7 @@ describe('ProjectService', () => {
     const req = httpTesting.expectOne(`${apiUrl}/projects`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(projectData);
-    req.flush(mockResponse);
+    req.flush({ data: mockResponse });
   });
 
   it('should_updateProject_when_calledWithIdAndData', () => {
@@ -101,7 +101,7 @@ describe('ProjectService', () => {
     const req = httpTesting.expectOne(`${apiUrl}/projects/p1`);
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual(updateData);
-    req.flush(mockResponse);
+    req.flush({ data: mockResponse });
   });
 
   it('should_deleteProject_when_calledWithId', () => {
