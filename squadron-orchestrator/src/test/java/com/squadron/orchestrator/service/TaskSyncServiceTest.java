@@ -3,7 +3,9 @@ package com.squadron.orchestrator.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.orchestrator.dto.TaskSyncRequest;
 import com.squadron.orchestrator.dto.TaskSyncResult;
+import com.squadron.orchestrator.engine.WorkflowEngine;
 import com.squadron.orchestrator.entity.Task;
+import com.squadron.orchestrator.entity.TaskWorkflow;
 import com.squadron.orchestrator.repository.TaskRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -38,16 +42,10 @@ class TaskSyncServiceTest {
     private TaskRepository taskRepository;
 
     @Mock
+    private WorkflowEngine workflowEngine;
+
+    @Mock
     private RestClient restClient;
-
-    @Mock
-    private RestClient.RequestHeadersUriSpec<?> uriSpec;
-
-    @Mock
-    private RestClient.RequestHeadersSpec<?> headersSpec;
-
-    @Mock
-    private RestClient.ResponseSpec responseSpec;
 
     private ObjectMapper objectMapper;
     private TaskSyncService taskSyncService;
@@ -61,7 +59,7 @@ class TaskSyncServiceTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        taskSyncService = new TaskSyncService(taskRepository, restClient, objectMapper);
+        taskSyncService = new TaskSyncService(taskRepository, workflowEngine, restClient, objectMapper);
 
         tenantId = UUID.randomUUID();
         teamId = UUID.randomUUID();
@@ -79,25 +77,25 @@ class TaskSyncServiceTest {
 
     @SuppressWarnings("unchecked")
     private void setupRestClientMock(Map<String, Object> response) {
-        RestClient.RequestHeadersUriSpec rawUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
-        RestClient.RequestHeadersSpec rawHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
+        RestClient.RequestBodyUriSpec rawBodyUriSpec = mock(RestClient.RequestBodyUriSpec.class);
+        RestClient.RequestBodySpec rawBodySpec = mock(RestClient.RequestBodySpec.class);
         RestClient.ResponseSpec rawResponseSpec = mock(RestClient.ResponseSpec.class);
 
-        when(restClient.get()).thenReturn(rawUriSpec);
-        when(rawUriSpec.uri(anyString(), any(), any())).thenReturn(rawHeadersSpec);
-        when(rawHeadersSpec.retrieve()).thenReturn(rawResponseSpec);
+        when(restClient.post()).thenReturn(rawBodyUriSpec);
+        when(rawBodyUriSpec.uri(anyString(), any(), any())).thenReturn(rawBodySpec);
+        when(rawBodySpec.retrieve()).thenReturn(rawResponseSpec);
         when(rawResponseSpec.body(any(ParameterizedTypeReference.class))).thenReturn(response);
     }
 
     @SuppressWarnings("unchecked")
     private void setupRestClientMockThrows(RuntimeException exception) {
-        RestClient.RequestHeadersUriSpec rawUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
-        RestClient.RequestHeadersSpec rawHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
+        RestClient.RequestBodyUriSpec rawBodyUriSpec = mock(RestClient.RequestBodyUriSpec.class);
+        RestClient.RequestBodySpec rawBodySpec = mock(RestClient.RequestBodySpec.class);
         RestClient.ResponseSpec rawResponseSpec = mock(RestClient.ResponseSpec.class);
 
-        when(restClient.get()).thenReturn(rawUriSpec);
-        when(rawUriSpec.uri(anyString(), any(), any())).thenReturn(rawHeadersSpec);
-        when(rawHeadersSpec.retrieve()).thenReturn(rawResponseSpec);
+        when(restClient.post()).thenReturn(rawBodyUriSpec);
+        when(rawBodyUriSpec.uri(anyString(), any(), any())).thenReturn(rawBodySpec);
+        when(rawBodySpec.retrieve()).thenReturn(rawResponseSpec);
         when(rawResponseSpec.body(any(ParameterizedTypeReference.class))).thenThrow(exception);
     }
 
@@ -133,7 +131,13 @@ class TaskSyncServiceTest {
 
         when(taskRepository.findByExternalId("PROJ-1")).thenReturn(Optional.empty());
         when(taskRepository.findByExternalId("PROJ-2")).thenReturn(Optional.empty());
-        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> {
+            Task t = invocation.getArgument(0);
+            if (t.getId() == null) {
+                t.setId(UUID.randomUUID());
+            }
+            return t;
+        });
 
         TaskSyncResult result = taskSyncService.syncTasks(syncRequest);
 
@@ -144,6 +148,8 @@ class TaskSyncServiceTest {
         assertEquals(0, result.getFailed());
         assertTrue(result.getErrors().isEmpty());
         verify(taskRepository, times(2)).save(any(Task.class));
+        // Verify workflow is initialized for each new task
+        verify(workflowEngine, times(2)).initializeWorkflow(eq(tenantId), any(UUID.class), isNull());
     }
 
     @Test
@@ -259,7 +265,13 @@ class TaskSyncServiceTest {
 
         when(taskRepository.findByExternalId("PROJ-1")).thenReturn(Optional.empty());
         when(taskRepository.findByExternalId("PROJ-2")).thenThrow(new RuntimeException("DB connection lost"));
-        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> {
+            Task t = invocation.getArgument(0);
+            if (t.getId() == null) {
+                t.setId(UUID.randomUUID());
+            }
+            return t;
+        });
 
         TaskSyncResult result = taskSyncService.syncTasks(syncRequest);
 
@@ -335,7 +347,13 @@ class TaskSyncServiceTest {
                 .build();
         when(taskRepository.findByExternalId("PROJ-3")).thenReturn(Optional.of(existingTask3));
 
-        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> {
+            Task t = invocation.getArgument(0);
+            if (t.getId() == null) {
+                t.setId(UUID.randomUUID());
+            }
+            return t;
+        });
 
         TaskSyncResult result = taskSyncService.syncTasks(syncRequest);
 
@@ -348,5 +366,7 @@ class TaskSyncServiceTest {
 
         // 2 saves: 1 for new task, 1 for updated task (unchanged is not saved)
         verify(taskRepository, times(2)).save(any(Task.class));
+        // Workflow initialized only for the 1 new task, not for updated/unchanged
+        verify(workflowEngine, times(1)).initializeWorkflow(eq(tenantId), any(UUID.class), isNull());
     }
 }

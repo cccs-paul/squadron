@@ -49,3 +49,19 @@ export interface TaskFilter {
   projectId?: string;
   search?: string;
 }
+
+export interface TaskSyncRequest {
+  tenantId: string;
+  teamId?: string;
+  projectId: string;
+  platformConnectionId: string;
+  projectKey: string;
+}
+
+export interface TaskSyncResult {
+  created: number;
+  updated: number;
+  unchanged: number;
+  failed: number;
+  errors: string[];
+}

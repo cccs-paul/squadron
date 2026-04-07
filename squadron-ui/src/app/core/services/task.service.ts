@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { ApiService, PageResponse } from './api.service';
-import { Task, TaskFilter, TaskState } from '../models/task.model';
+import { Task, TaskFilter, TaskState, TaskSyncRequest, TaskSyncResult } from '../models/task.model';
+import { ApiResponse } from '../auth/auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class TaskService extends ApiService {
@@ -37,5 +38,11 @@ export class TaskService extends ApiService {
 
   getTaskStats(): Observable<{ total: number; byState: Record<TaskState, number>; byPriority: Record<string, number> }> {
     return this.get('/tasks/stats');
+  }
+
+  syncTasks(request: TaskSyncRequest): Observable<TaskSyncResult> {
+    return this.post<ApiResponse<TaskSyncResult>>('/tasks/sync', request).pipe(
+      map((response) => response.data),
+    );
   }
 }

@@ -162,4 +162,23 @@ describe('TaskService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 50 });
   });
+
+  it('should_syncTasks_when_calledWithSyncRequest', () => {
+    const syncRequest = {
+      tenantId: 't1',
+      projectId: 'p1',
+      platformConnectionId: 'conn-1',
+      projectKey: 'PROJ',
+    };
+    const mockResult = { created: 3, updated: 1, unchanged: 2, failed: 0, errors: [] };
+
+    service.syncTasks(syncRequest as any).subscribe((result) => {
+      expect(result).toEqual(mockResult);
+    });
+
+    const req = httpTesting.expectOne(`${apiUrl}/tasks/sync`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(syncRequest);
+    req.flush({ success: true, data: mockResult, message: 'OK', timestamp: '' });
+  });
 });

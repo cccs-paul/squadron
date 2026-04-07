@@ -3,6 +3,7 @@ package com.squadron.orchestrator.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.orchestrator.dto.TaskSyncRequest;
 import com.squadron.orchestrator.dto.TaskSyncResult;
+import com.squadron.orchestrator.engine.WorkflowEngine;
 import com.squadron.orchestrator.entity.Task;
 import com.squadron.orchestrator.repository.TaskRepository;
 import org.slf4j.Logger;
@@ -26,21 +27,26 @@ public class TaskSyncService {
     private static final Logger log = LoggerFactory.getLogger(TaskSyncService.class);
 
     private final TaskRepository taskRepository;
+    private final WorkflowEngine workflowEngine;
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
 
     @Autowired
     public TaskSyncService(TaskRepository taskRepository,
+                           WorkflowEngine workflowEngine,
                            @Value("${squadron.platform.service-url:http://localhost:8084}") String platformServiceUrl,
                            ObjectMapper objectMapper) {
         this.taskRepository = taskRepository;
+        this.workflowEngine = workflowEngine;
         this.restClient = RestClient.builder().baseUrl(platformServiceUrl).build();
         this.objectMapper = objectMapper;
     }
 
     // Constructor for testing with injected RestClient
-    TaskSyncService(TaskRepository taskRepository, RestClient restClient, ObjectMapper objectMapper) {
+    TaskSyncService(TaskRepository taskRepository, WorkflowEngine workflowEngine,
+                    RestClient restClient, ObjectMapper objectMapper) {
         this.taskRepository = taskRepository;
+        this.workflowEngine = workflowEngine;
         this.restClient = restClient;
         this.objectMapper = objectMapper;
     }
@@ -54,12 +60,12 @@ public class TaskSyncService {
         List<String> errors = new ArrayList<>();
 
         try {
-            // Fetch tasks from platform service
+            // Fetch tasks from platform service via POST /api/platforms/sync/{connectionId}/tasks
             // The platform service returns ApiResponse<List<PlatformTaskDto>>
             // We need to extract from the "data" field
             @SuppressWarnings("unchecked")
-            Map<String, Object> response = restClient.get()
-                    .uri("/api/platform-sync/{connectionId}/tasks?projectKey={key}",
+            Map<String, Object> response = restClient.post()
+                    .uri("/api/platforms/sync/{connectionId}/tasks?projectKey={key}",
                             request.getPlatformConnectionId(), request.getProjectKey())
                     .retrieve()
                     .body(new ParameterizedTypeReference<Map<String, Object>>() {});
@@ -130,7 +136,11 @@ public class TaskSyncService {
                                 .priority(priority)
                                 .labels(labelsJson)
                                 .build();
-                        taskRepository.save(newTask);
+                        newTask = taskRepository.save(newTask);
+
+                        // Initialize workflow so the task appears in the BACKLOG state
+                        workflowEngine.initializeWorkflow(
+                                newTask.getTenantId(), newTask.getId(), null);
                         created++;
                     }
                 } catch (Exception e) {

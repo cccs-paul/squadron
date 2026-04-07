@@ -9,7 +9,7 @@ import { Router } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
-import { TaskState, TaskPriority, Task } from '../../../core/models/task.model';
+import { TaskState, TaskPriority, Task, TaskSyncResult } from '../../../core/models/task.model';
 import { Project } from '../../../core/models/project.model';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { TranslateModule } from '@ngx-translate/core';
@@ -68,7 +68,7 @@ describe('TaskBoardComponent', () => {
   let routerSpy: jasmine.SpyObj<Router>;
 
   beforeEach(async () => {
-    taskServiceSpy = jasmine.createSpyObj('TaskService', ['getTasksByState', 'transitionTask']);
+    taskServiceSpy = jasmine.createSpyObj('TaskService', ['getTasksByState', 'transitionTask', 'syncTasks']);
     projectServiceSpy = jasmine.createSpyObj('ProjectService', ['getProjectsByTenant']);
     agentServiceSpy = jasmine.createSpyObj('AgentService', [
       'getSession', 'sendMessage', 'interruptAgent', 'approvePlan', 'rejectPlan',
@@ -848,5 +848,136 @@ describe('TaskBoardComponent', () => {
   it('should update prompt text for a task', () => {
     component.updatePromptText('task-1', 'hello');
     expect(component.promptText()['task-1']).toBe('hello');
+  });
+
+  // --- Task sync ---
+
+  it('should compute syncableProjects from projects with connectionId and externalProjectId', () => {
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'Syncable', connectionId: 'conn-1', externalProjectId: 'SQ' }),
+      makeProject({ id: 'p2', name: 'No Connection' }),
+      makeProject({ id: 'p3', name: 'Has Connection Only', connectionId: 'conn-2' }),
+      makeProject({ id: 'p4', name: 'Has Key Only', externalProjectId: 'KEY' }),
+      makeProject({ id: 'p5', name: 'Also Syncable', connectionId: 'conn-3', externalProjectId: 'PRJ' }),
+    ]));
+    fixture.detectChanges();
+
+    const syncable = component.syncableProjects();
+    expect(syncable.length).toBe(2);
+    expect(syncable.map(p => p.id)).toEqual(['p1', 'p5']);
+  });
+
+  it('should return empty syncableProjects when no projects have connection+key', () => {
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'No Connection' }),
+      makeProject({ id: 'p2', name: 'Also No Connection' }),
+    ]));
+    fixture.detectChanges();
+
+    expect(component.syncableProjects().length).toBe(0);
+  });
+
+  it('should toggle sync panel on and off', () => {
+    fixture.detectChanges();
+    expect(component.showSyncPanel()).toBeFalse();
+
+    component.toggleSyncPanel();
+    expect(component.showSyncPanel()).toBeTrue();
+
+    component.toggleSyncPanel();
+    expect(component.showSyncPanel()).toBeFalse();
+  });
+
+  it('should reset sync state when closing panel', () => {
+    fixture.detectChanges();
+    component.showSyncPanel.set(true);
+    component.selectedSyncProjectId.set('p1');
+    component.syncResult.set({ created: 1, updated: 0, unchanged: 0, failed: 0, errors: [] });
+    component.syncError.set('some error');
+
+    component.closeSyncPanel();
+
+    expect(component.showSyncPanel()).toBeFalse();
+    expect(component.selectedSyncProjectId()).toBe('');
+    expect(component.syncResult()).toBeNull();
+    expect(component.syncError()).toBeNull();
+  });
+
+  it('should call syncTasks on TaskService with correct request', () => {
+    const syncResult: TaskSyncResult = { created: 2, updated: 1, unchanged: 5, failed: 0, errors: [] };
+    taskServiceSpy.syncTasks.and.returnValue(of(syncResult));
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'My Project', connectionId: 'conn-1', externalProjectId: 'SQ' }),
+    ]));
+    fixture.detectChanges();
+
+    component.showSyncPanel.set(true);
+    component.selectedSyncProjectId.set('p1');
+    component.syncTasks();
+
+    expect(taskServiceSpy.syncTasks).toHaveBeenCalledWith(jasmine.objectContaining({
+      tenantId: 't1',
+      projectId: 'p1',
+      platformConnectionId: 'conn-1',
+      projectKey: 'SQ',
+    }));
+    expect(component.syncResult()).toEqual(syncResult);
+    expect(component.syncing()).toBeFalse();
+  });
+
+  it('should set syncError on sync failure', () => {
+    taskServiceSpy.syncTasks.and.returnValue(throwError(() => new Error('Connection refused')));
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'My Project', connectionId: 'conn-1', externalProjectId: 'SQ' }),
+    ]));
+    fixture.detectChanges();
+
+    component.showSyncPanel.set(true);
+    component.selectedSyncProjectId.set('p1');
+    component.syncTasks();
+
+    expect(component.syncError()).toBe('Connection refused');
+    expect(component.syncing()).toBeFalse();
+    expect(component.syncResult()).toBeNull();
+  });
+
+  it('should not call syncTasks when no project selected', () => {
+    fixture.detectChanges();
+    component.syncTasks();
+    expect(taskServiceSpy.syncTasks).not.toHaveBeenCalled();
+  });
+
+  it('should reload board after successful sync with new tasks', () => {
+    const syncResult: TaskSyncResult = { created: 1, updated: 0, unchanged: 0, failed: 0, errors: [] };
+    taskServiceSpy.syncTasks.and.returnValue(of(syncResult));
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'My Project', connectionId: 'conn-1', externalProjectId: 'SQ' }),
+    ]));
+    fixture.detectChanges();
+    taskServiceSpy.getTasksByState.calls.reset();
+
+    component.showSyncPanel.set(true);
+    component.selectedSyncProjectId.set('p1');
+    component.syncTasks();
+
+    // loadData calls getTasksByState
+    expect(taskServiceSpy.getTasksByState).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not reload board after sync with no changes', () => {
+    const syncResult: TaskSyncResult = { created: 0, updated: 0, unchanged: 5, failed: 0, errors: [] };
+    taskServiceSpy.syncTasks.and.returnValue(of(syncResult));
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'My Project', connectionId: 'conn-1', externalProjectId: 'SQ' }),
+    ]));
+    fixture.detectChanges();
+    taskServiceSpy.getTasksByState.calls.reset();
+
+    component.showSyncPanel.set(true);
+    component.selectedSyncProjectId.set('p1');
+    component.syncTasks();
+
+    // No reload needed since nothing changed
+    expect(taskServiceSpy.getTasksByState).not.toHaveBeenCalled();
   });
 });

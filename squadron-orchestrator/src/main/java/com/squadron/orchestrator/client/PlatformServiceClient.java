@@ -9,7 +9,7 @@ import java.util.Map;
 @FeignClient(name = "squadron-platform", url = "${squadron.platform.service-url}")
 public interface PlatformServiceClient {
 
-    @GetMapping("/api/platform-sync/{connectionId}/tasks")
+    @PostMapping("/api/platforms/sync/{connectionId}/tasks")
     List<Map<String, Object>> fetchTasks(@PathVariable("connectionId") String connectionId,
                                           @RequestParam("projectKey") String projectKey);
 }

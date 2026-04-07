@@ -439,6 +439,19 @@
         "completed": "Agent termine",
         "failed": "Agent echoue"
       },
+      "sync": {
+        "button": "Synchroniser les taches",
+        "title": "Synchroniser les taches depuis le fournisseur",
+        "description": "Importez et mettez a jour les taches depuis votre fournisseur de tickets configure.",
+        "selectProject": "Selectionner un projet...",
+        "syncing": "Synchronisation...",
+        "start": "Demarrer la synchronisation",
+        "resultCreated": "Creees",
+        "resultUpdated": "Mises a jour",
+        "resultUnchanged": "Inchangees",
+        "resultFailed": "Echouees",
+        "error": "Erreur de synchronisation"
+      },
       "actions": {
         "cancel": "Annuler la tache",
         "cancelConfirm": "Etes-vous sur ?",

@@ -10,7 +10,7 @@ import { ProjectService } from '../../../core/services/project.service';
 import { AgentService, AgentSession } from '../../../core/services/agent.service';
 import { WorkspaceService } from '../../../core/services/workspace.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Task, TaskState, TaskPriority } from '../../../core/models/task.model';
+import { Task, TaskState, TaskPriority, TaskSyncRequest, TaskSyncResult } from '../../../core/models/task.model';
 import { Project } from '../../../core/models/project.model';
 
 /** Enriched task with resolved project name and agent session info. */
@@ -68,6 +68,18 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   cancellingTaskId = signal<string | null>(null);
   /** Sending prompt state per task */
   sendingPromptTaskId = signal<string | null>(null);
+
+  /** Sync panel state */
+  showSyncPanel = signal(false);
+  selectedSyncProjectId = signal('');
+  syncing = signal(false);
+  syncResult = signal<TaskSyncResult | null>(null);
+  syncError = signal<string | null>(null);
+
+  /** Projects that can be synced (have connectionId + externalProjectId configured) */
+  syncableProjects = computed(() =>
+    this.projects().filter(p => p.connectionId && p.externalProjectId),
+  );
 
   filteredColumns = computed(() => {
     const cols = this.columns();
@@ -419,6 +431,63 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   hasActivePlan(task: BoardTask): boolean {
     const session = this.agentSessions()[task.id];
     return !!session?.currentPlan && !session.currentPlan.approved;
+  }
+
+  // --- Task sync ---
+
+  toggleSyncPanel(): void {
+    this.showSyncPanel.set(!this.showSyncPanel());
+    if (!this.showSyncPanel()) {
+      this.resetSyncState();
+    }
+  }
+
+  closeSyncPanel(): void {
+    this.showSyncPanel.set(false);
+    this.resetSyncState();
+  }
+
+  private resetSyncState(): void {
+    this.selectedSyncProjectId.set('');
+    this.syncResult.set(null);
+    this.syncError.set(null);
+  }
+
+  syncTasks(): void {
+    const projectId = this.selectedSyncProjectId();
+    if (!projectId) return;
+
+    const project = this.projects().find(p => p.id === projectId);
+    if (!project || !project.connectionId || !project.externalProjectId) return;
+
+    const user = this.authService.user();
+    if (!user?.tenantId) return;
+
+    const request: TaskSyncRequest = {
+      tenantId: user.tenantId,
+      projectId: project.id,
+      platformConnectionId: project.connectionId,
+      projectKey: project.externalProjectId,
+    };
+
+    this.syncing.set(true);
+    this.syncResult.set(null);
+    this.syncError.set(null);
+
+    this.taskService.syncTasks(request).subscribe({
+      next: (result) => {
+        this.syncResult.set(result);
+        this.syncing.set(false);
+        // Reload the board to show newly synced tasks
+        if (result.created > 0 || result.updated > 0) {
+          this.loadData();
+        }
+      },
+      error: (err) => {
+        this.syncError.set(err?.message || 'Sync failed');
+        this.syncing.set(false);
+      },
+    });
   }
 
   // --- Drag-drop ---

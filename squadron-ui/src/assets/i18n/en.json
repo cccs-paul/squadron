@@ -439,6 +439,19 @@
         "completed": "Agent Done",
         "failed": "Agent Failed"
       },
+      "sync": {
+        "button": "Sync Tasks",
+        "title": "Sync Tasks from Provider",
+        "description": "Import and update tasks from your configured ticket provider.",
+        "selectProject": "Select a project...",
+        "syncing": "Syncing...",
+        "start": "Start Sync",
+        "resultCreated": "Created",
+        "resultUpdated": "Updated",
+        "resultUnchanged": "Unchanged",
+        "resultFailed": "Failed",
+        "error": "Sync error"
+      },
       "actions": {
         "cancel": "Cancel Task",
         "cancelConfirm": "Are you sure?",

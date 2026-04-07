@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-04-07
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). Phase 12: Review Bot Integration — end-to-end glue connecting AI review output to git platform bot comments via ReviewBotClient + GitClient, with REVIEW_BOT credential purpose. All backend tests passing (~4,063 across 11 modules). All 915 Angular tests passing (0 failures). Docker deployment: all 20 containers healthy.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). Phase 12: Review Bot Integration — end-to-end glue connecting AI review output to git platform bot comments via ReviewBotClient + GitClient, with REVIEW_BOT credential purpose. Phase 13: Task Sync from Ticket Providers — fixed TaskSyncService URL/method bug, added workflow initialization for synced tasks, built "Sync Tasks" UI on task board with project selection, progress, and result display. All backend tests passing (~4,063 across 11 modules). All 915 Angular tests passing (0 failures). Docker deployment: all 20 containers healthy.
 
 ---
 
@@ -824,6 +824,33 @@
 - [x] `mvn compile` passes across all modules
 - [x] Identified and documented pre-existing Lombok stale cache issue: `mvn clean compile` required for Lombok annotation processing; stale `target/` classes from previous non-Lombok builds break downstream modules. Fix: always use `mvn clean` prefix.
 - [x] All 1,890 tests passing across 4 changed modules (64 + 371 + 944 + 511)
+
+---
+
+### Phase 13: Task Sync from Ticket Providers (End-to-End Fetch & Board UI)
+
+#### Backend Bug Fixes (squadron-orchestrator)
+- [x] `TaskSyncService` URL fix: changed from `GET /api/platform-sync/{connectionId}/tasks` to `POST /api/platforms/sync/{connectionId}/tasks` (matching `PlatformSyncController`)
+- [x] `PlatformServiceClient` Feign interface: `@GetMapping` → `@PostMapping`, URL path corrected to match
+- [x] `TaskSyncService` workflow initialization: added `WorkflowEngine` dependency, calls `initializeWorkflow(tenantId, taskId, null)` for newly created tasks so they appear on the task board in BACKLOG state
+- [x] `ProjectControllerTest` fix: `should_return403_when_developerTriesToDelete` used `developer` role but `@PreAuthorize` already permits it; changed to `viewer` role
+- [x] `TaskSyncServiceTest` updated: mocks changed from `get()` to `post()`, `WorkflowEngine` mock added, task IDs set on save mocks, workflow verification in create/multi-sync tests
+- [x] `PlatformServiceClientTest` updated: `@GetMapping` → `@PostMapping` assertion, URL path assertion updated
+
+#### Frontend: Task Sync UI (squadron-ui)
+- [x] `task.model.ts`: Added `TaskSyncRequest` interface (tenantId, teamId, projectId, platformConnectionId, projectKey) and `TaskSyncResult` interface (created, updated, unchanged, failed, errors)
+- [x] `task.service.ts`: Added `syncTasks(request: TaskSyncRequest): Observable<TaskSyncResult>` method with `ApiResponse` unwrapping
+- [x] `task.service.spec.ts`: Added `should_syncTasks_when_calledWithSyncRequest` test
+- [x] `task-board.component.ts`: Added sync signals (`showSyncPanel`, `selectedSyncProjectId`, `syncing`, `syncResult`, `syncError`), `syncableProjects` computed signal (filters projects with both `connectionId` AND `externalProjectId`), `toggleSyncPanel()`, `closeSyncPanel()`, `resetSyncState()`, `syncTasks()` methods
+- [x] `task-board.component.html`: "Sync Tasks" button (visible only when syncable projects exist), sync panel with project dropdown, start/syncing button, result summary (created/updated/unchanged/failed counts), error display, close button
+- [x] `task-board.component.scss`: Styles for `__sync-panel`, `__sync-header`, `__sync-description`, `__sync-form`, `__sync-result`, `__sync-result-summary`, `__sync-errors`, `__sync-error`
+- [x] `task-board.component.spec.ts`: 9 new sync tests — syncableProjects filtering, empty syncable projects, toggle/close panel with state reset, syncTasks service call, error handling, no-op when no project selected, auto-reload after sync with changes, no reload when no changes
+- [x] `en.json` + `fr.json`: Added `tasks.board.sync.*` translation keys (button, title, description, selectProject, syncing, start, resultCreated, resultUpdated, resultUnchanged, resultFailed, error)
+
+#### Build & Test Verification
+- [x] `mvn clean verify` — all 12 modules SUCCESS, 0 failures
+- [x] `ng build --configuration=production` — Angular build passing
+- [x] All 915 Angular tests passing (0 failures)
 
 ---
 

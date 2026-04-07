@@ -20,13 +20,13 @@ class PlatformServiceClientTest {
     }
 
     @Test
-    void should_haveFetchTasksMethod_withGetMapping() throws NoSuchMethodException {
+    void should_haveFetchTasksMethod_withPostMapping() throws NoSuchMethodException {
         Method method = PlatformServiceClient.class.getMethod("fetchTasks",
                 String.class, String.class);
 
-        GetMapping getMapping = method.getAnnotation(GetMapping.class);
-        assertNotNull(getMapping, "fetchTasks must have @GetMapping");
-        assertArrayEquals(new String[]{"/api/platform-sync/{connectionId}/tasks"}, getMapping.value());
+        PostMapping postMapping = method.getAnnotation(PostMapping.class);
+        assertNotNull(postMapping, "fetchTasks must have @PostMapping");
+        assertArrayEquals(new String[]{"/api/platforms/sync/{connectionId}/tasks"}, postMapping.value());
 
         PathVariable pathVariable = method.getParameters()[0].getAnnotation(PathVariable.class);
         assertNotNull(pathVariable, "connectionId parameter must have @PathVariable");

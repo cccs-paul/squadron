@@ -6,11 +6,74 @@
       <p class="task-board__subtitle">{{ 'tasks.board.subtitle' | translate }}</p>
     </div>
     <div class="task-board__actions">
+      @if (syncableProjects().length > 0) {
+        <button class="sq-btn sq-btn--primary sq-btn--sm" (click)="toggleSyncPanel()">
+          {{ 'tasks.board.sync.button' | translate }}
+        </button>
+      }
       <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="refresh()">
         {{ 'tasks.board.refresh' | translate }}
       </button>
     </div>
   </div>
+
+  <!-- Sync panel -->
+  @if (showSyncPanel()) {
+    <div class="task-board__sync-panel">
+      <div class="task-board__sync-header">
+        <h3>{{ 'tasks.board.sync.title' | translate }}</h3>
+        <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="closeSyncPanel()">&#10005;</button>
+      </div>
+      <p class="task-board__sync-description">{{ 'tasks.board.sync.description' | translate }}</p>
+      <div class="task-board__sync-form">
+        <select
+          class="sq-select"
+          [ngModel]="selectedSyncProjectId()"
+          (ngModelChange)="selectedSyncProjectId.set($event)"
+        >
+          <option value="">{{ 'tasks.board.sync.selectProject' | translate }}</option>
+          @for (project of syncableProjects(); track project.id) {
+            <option [value]="project.id">{{ project.name }}</option>
+          }
+        </select>
+        <button
+          class="sq-btn sq-btn--primary sq-btn--sm"
+          [disabled]="!selectedSyncProjectId() || syncing()"
+          (click)="syncTasks()"
+        >
+          @if (syncing()) {
+            {{ 'tasks.board.sync.syncing' | translate }}
+          } @else {
+            {{ 'tasks.board.sync.start' | translate }}
+          }
+        </button>
+      </div>
+      @if (syncResult()) {
+        <div class="task-board__sync-result">
+          <p class="task-board__sync-result-summary">
+            {{ 'tasks.board.sync.resultCreated' | translate }}: <strong>{{ syncResult()!.created }}</strong>,
+            {{ 'tasks.board.sync.resultUpdated' | translate }}: <strong>{{ syncResult()!.updated }}</strong>,
+            {{ 'tasks.board.sync.resultUnchanged' | translate }}: <strong>{{ syncResult()!.unchanged }}</strong>
+            @if (syncResult()!.failed > 0) {
+              , {{ 'tasks.board.sync.resultFailed' | translate }}: <strong>{{ syncResult()!.failed }}</strong>
+            }
+          </p>
+          @if (syncResult()!.errors.length > 0) {
+            <ul class="task-board__sync-errors">
+              @for (error of syncResult()!.errors; track error) {
+                <li>{{ error }}</li>
+              }
+            </ul>
+          }
+        </div>
+      }
+      @if (syncError()) {
+        <div class="task-board__sync-error">
+          <p>{{ 'tasks.board.sync.error' | translate }}: {{ syncError() }}</p>
+        </div>
+      }
+    </div>
+  }
 
   <!-- Summary bar -->
   <div class="task-board__summary">

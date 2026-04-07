@@ -274,8 +274,8 @@ class ProjectControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = {"developer"})
-    void should_return403_when_developerTriesToDelete() throws Exception {
+    @WithMockUser(roles = {"viewer"})
+    void should_return403_when_viewerTriesToDelete() throws Exception {
         mockMvc.perform(delete("/api/projects/{id}", UUID.randomUUID())
                         .with(csrf()))
                 .andExpect(status().isForbidden());
