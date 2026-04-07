@@ -1038,10 +1038,10 @@ describe('ProjectConfigComponent', () => {
 
   // --- Mapping label ---
 
-  it('should_getMappingLabel_returnNotConfigured_when_notExpanded', () => {
+  it('should_getMappingLabel_returnNotConfigured_when_noMappingsLoaded', () => {
     fixture.detectChanges();
     const ps = component.projectStates()[0];
-    expect(ps.expanded).toBeFalse();
+    expect(ps.mappings.length).toBe(0);
     expect(component.getMappingLabel(ps)).toBe('projectConfig.branchWorkflow.notConfigured');
   });
 
@@ -1051,6 +1051,20 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     const ps = component.projectStates()[0];
     expect(ps.expanded).toBeTrue();
+    expect(component.getMappingLabel(ps)).toBe('projectConfig.branchWorkflow.mappingCount');
+  });
+
+  it('should_getMappingLabel_returnMappingCount_when_collapsedWithMappings', () => {
+    fixture.detectChanges();
+    // Expand to load mappings
+    component.toggleProject(0);
+    fixture.detectChanges();
+    // Collapse again
+    component.toggleProject(0);
+    fixture.detectChanges();
+    const ps = component.projectStates()[0];
+    expect(ps.expanded).toBeFalse();
+    expect(ps.mappings.length).toBeGreaterThan(0);
     expect(component.getMappingLabel(ps)).toBe('projectConfig.branchWorkflow.mappingCount');
   });
 

@@ -1342,7 +1342,7 @@ export class ProjectConfigComponent implements OnInit {
   }
 
   getMappingLabel(ps: ProjectMappingState): string {
-    if (ps.expanded) {
+    if (ps.mappings.length > 0) {
       return this.translate.instant('projectConfig.branchWorkflow.mappingCount', { count: ps.mappings.length });
     }
     return this.translate.instant('projectConfig.branchWorkflow.notConfigured');
