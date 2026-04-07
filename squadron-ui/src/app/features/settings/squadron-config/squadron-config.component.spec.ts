@@ -4,7 +4,12 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TranslateModule } from '@ngx-translate/core';
 import { SquadronConfigComponent } from './squadron-config.component';
 import { UserSquadronService } from '../../../core/services/user-squadron.service';
-import { UserAgentConfig, SquadronLimits } from '../../../core/models/squadron-config.model';
+import {
+  UserAgentConfig,
+  SquadronLimits,
+  PROVIDER_CATALOG,
+  generateAgentDescription,
+} from '../../../core/models/squadron-config.model';
 import { of, throwError } from 'rxjs';
 
 describe('SquadronConfigComponent', () => {
@@ -16,8 +21,12 @@ describe('SquadronConfigComponent', () => {
     return {
       id: 'agent-1',
       agentName: 'Titan',
-      agentType: 'CODING',
+      agentType: 'GENERAL',
       displayOrder: 0,
+      provider: 'github-copilot',
+      model: 'gpt-4o',
+      hostingType: 'PLATFORM',
+      description: 'GPT-4o via GitHub Copilot',
       enabled: true,
       ...overrides,
     };
@@ -34,8 +43,16 @@ describe('SquadronConfigComponent', () => {
     ]);
 
     serviceSpy.getMySquadron.and.returnValue(of([
-      mockAgent({ id: 'a1', agentName: 'Sol', agentType: 'PLANNING', displayOrder: 0 }),
-      mockAgent({ id: 'a2', agentName: 'Titan', agentType: 'CODING', displayOrder: 1 }),
+      mockAgent({
+        id: 'a1', agentName: 'Sol', displayOrder: 0,
+        provider: 'github-copilot', model: 'claude-sonnet-4',
+        hostingType: 'PLATFORM', description: 'Claude Sonnet 4 via GitHub Copilot',
+      }),
+      mockAgent({
+        id: 'a2', agentName: 'Titan', displayOrder: 1,
+        provider: 'github-copilot', model: 'gpt-4o',
+        hostingType: 'PLATFORM', description: 'GPT-4o via GitHub Copilot',
+      }),
     ]));
     serviceSpy.getLimits.and.returnValue(of({ maxAgentsPerUser: 8 } as SquadronLimits));
 
@@ -79,10 +96,38 @@ describe('SquadronConfigComponent', () => {
     expect(names[1].textContent.trim()).toBe('Titan');
   });
 
+  it('should_displayAgentDescriptions_when_loaded', () => {
+    const descriptions = fixture.nativeElement.querySelectorAll('.squadron-config__agent-description');
+    expect(descriptions[0].textContent.trim()).toBe('Claude Sonnet 4 via GitHub Copilot');
+    expect(descriptions[1].textContent.trim()).toBe('GPT-4o via GitHub Copilot');
+  });
+
+  it('should_displayHostingBadges_when_loaded', () => {
+    const badges = fixture.nativeElement.querySelectorAll('.squadron-config__hosting-badge');
+    expect(badges.length).toBe(2);
+    expect(badges[0].textContent.trim()).toBe('Cloud');
+  });
+
   it('should_startEditing_when_editClicked', () => {
     component.startEdit(component.agents()[0]);
     expect(component.editingId()).toBe('a1');
     expect(component.editName).toBe('Sol');
+    expect(component.editProvider).toBe('github-copilot');
+    expect(component.editModel).toBe('claude-sonnet-4');
+    expect(component.editHostingType).toBe('PLATFORM');
+    expect(component.editDescription).toBe('Claude Sonnet 4 via GitHub Copilot');
+  });
+
+  it('should_populateFilteredProviders_when_editingPlatformAgent', () => {
+    component.startEdit(component.agents()[0]);
+    const platformProviders = PROVIDER_CATALOG.filter(p => p.hostingType === 'PLATFORM');
+    expect(component.filteredProviders().length).toBe(platformProviders.length);
+  });
+
+  it('should_populateAvailableModels_when_editingAgentWithProvider', () => {
+    component.startEdit(component.agents()[0]);
+    const copilotModels = PROVIDER_CATALOG.find(p => p.id === 'github-copilot')?.models ?? [];
+    expect(component.availableModels().length).toBe(copilotModels.length);
   });
 
   it('should_cancelEditing_when_cancelClicked', () => {
@@ -93,19 +138,71 @@ describe('SquadronConfigComponent', () => {
     expect(component.editingId()).toBeNull();
   });
 
+  it('should_clearProviderAndModel_when_hostingTypeChanges', () => {
+    component.startEdit(component.agents()[0]);
+    component.editProvider = 'github-copilot';
+    component.editModel = 'gpt-4o';
+
+    component.editHostingType = 'SELF_HOSTED';
+    component.onHostingTypeChange();
+
+    expect(component.editProvider).toBe('');
+    expect(component.editModel).toBe('');
+  });
+
+  it('should_clearModel_when_providerChanges', () => {
+    component.startEdit(component.agents()[0]);
+    component.editModel = 'gpt-4o';
+
+    component.onProviderChange();
+
+    expect(component.editModel).toBe('');
+  });
+
   it('should_saveAgent_when_saveClicked', () => {
-    const updated = mockAgent({ id: 'a1', agentName: 'Updated Sol', agentType: 'PLANNING' });
+    const updated = mockAgent({
+      id: 'a1', agentName: 'Updated Sol',
+      provider: 'anthropic', model: 'claude-opus-4',
+      hostingType: 'PLATFORM', description: 'Claude Opus 4 via Anthropic',
+    });
     serviceSpy.updateAgent.and.returnValue(of(updated));
 
     component.startEdit(component.agents()[0]);
     component.editName = 'Updated Sol';
+    component.editProvider = 'anthropic';
+    component.editModel = 'claude-opus-4';
+    component.editDescription = 'Claude Opus 4 via Anthropic';
     component.saveAgent(component.agents()[0]);
 
     expect(serviceSpy.updateAgent).toHaveBeenCalledWith('a1', jasmine.objectContaining({
       agentName: 'Updated Sol',
+      provider: 'anthropic',
+      model: 'claude-opus-4',
+      hostingType: 'PLATFORM',
+      description: 'Claude Opus 4 via Anthropic',
     }));
     expect(component.editingId()).toBeNull();
     expect(component.agents()[0].agentName).toBe('Updated Sol');
+    expect(component.agents()[0].description).toBe('Claude Opus 4 via Anthropic');
+  });
+
+  it('should_autoGenerateDescription_when_descriptionEmpty', () => {
+    const updated = mockAgent({
+      id: 'a1', agentName: 'Sol',
+      provider: 'openai', model: 'gpt-4o',
+      hostingType: 'PLATFORM', description: 'GPT-4o via OpenAI',
+    });
+    serviceSpy.updateAgent.and.returnValue(of(updated));
+
+    component.startEdit(component.agents()[0]);
+    component.editProvider = 'openai';
+    component.editModel = 'gpt-4o';
+    component.editDescription = ''; // empty => auto-generate
+    component.saveAgent(component.agents()[0]);
+
+    expect(serviceSpy.updateAgent).toHaveBeenCalledWith('a1', jasmine.objectContaining({
+      description: 'GPT-4o via OpenAI',
+    }));
   });
 
   it('should_showError_when_saveFails', () => {
@@ -118,7 +215,7 @@ describe('SquadronConfigComponent', () => {
   });
 
   it('should_addAgent_when_addClicked', () => {
-    const newAgent = mockAgent({ id: 'new-1', agentName: 'Agent 3', agentType: 'CODING', displayOrder: 2 });
+    const newAgent = mockAgent({ id: 'new-1', agentName: 'Agent 3', displayOrder: 2 });
     serviceSpy.addAgent.and.returnValue(of(newAgent));
 
     component.addAgent();
@@ -138,7 +235,6 @@ describe('SquadronConfigComponent', () => {
   });
 
   it('should_notRemoveAgent_when_onlyOneRemaining', () => {
-    // Reduce to 1 agent first
     component.agents.set([mockAgent({ id: 'a1' })]);
     fixture.detectChanges();
 
@@ -149,7 +245,11 @@ describe('SquadronConfigComponent', () => {
 
   it('should_resetToDefaults_when_resetClicked', () => {
     const defaults = [
-      mockAgent({ id: 'd1', agentName: 'Default Planner', agentType: 'PLANNING' }),
+      mockAgent({
+        id: 'd1', agentName: 'Sol',
+        provider: 'github-copilot', model: 'claude-sonnet-4',
+        description: 'Claude Sonnet 4 via GitHub Copilot',
+      }),
     ];
     serviceSpy.resetToDefaults.and.returnValue(of(defaults));
 
@@ -157,7 +257,7 @@ describe('SquadronConfigComponent', () => {
 
     expect(serviceSpy.resetToDefaults).toHaveBeenCalled();
     expect(component.agents().length).toBe(1);
-    expect(component.agents()[0].agentName).toBe('Default Planner');
+    expect(component.agents()[0].agentName).toBe('Sol');
   });
 
   it('should_handleLoadError_when_getMySquadronFails', () => {
@@ -192,5 +292,80 @@ describe('SquadronConfigComponent', () => {
     const resetBtn = fixture.nativeElement.querySelector('.squadron-config__btn--reset');
     expect(resetBtn).toBeTruthy();
     expect(resetBtn.textContent.trim()).toBe('settings.squadronConfig.resetDefaults');
+  });
+
+  it('should_getHostingLabel_for_platform', () => {
+    expect(component.getHostingLabel('PLATFORM')).toBe('Cloud');
+  });
+
+  it('should_getHostingLabel_for_selfHosted', () => {
+    expect(component.getHostingLabel('SELF_HOSTED')).toBe('Local');
+  });
+
+  it('should_getHostingLabel_for_custom', () => {
+    expect(component.getHostingLabel('CUSTOM')).toBe('Custom');
+  });
+
+  it('should_filterProviders_for_selfHosted', () => {
+    component.startEdit(component.agents()[0]);
+    component.editHostingType = 'SELF_HOSTED';
+    component.onHostingTypeChange();
+
+    const selfHostedProviders = PROVIDER_CATALOG.filter(p => p.hostingType === 'SELF_HOSTED');
+    expect(component.filteredProviders().length).toBe(selfHostedProviders.length);
+    expect(component.filteredProviders().every(p => p.hostingType === 'SELF_HOSTED')).toBeTrue();
+  });
+
+  it('should_showAllProviders_for_custom', () => {
+    component.startEdit(component.agents()[0]);
+    component.editHostingType = 'CUSTOM';
+    component.onHostingTypeChange();
+
+    expect(component.filteredProviders().length).toBe(PROVIDER_CATALOG.length);
+  });
+
+  it('should_displayLocalBadge_for_selfHostedAgent', () => {
+    component.agents.set([mockAgent({
+      id: 'a1', agentName: 'Nebula',
+      provider: 'ollama', model: 'llama3.3',
+      hostingType: 'SELF_HOSTED', description: 'Llama 3.3 (local)',
+    })]);
+    fixture.detectChanges();
+
+    const badge = fixture.nativeElement.querySelector('.squadron-config__hosting-badge--self-hosted');
+    expect(badge).toBeTruthy();
+    expect(badge.textContent.trim()).toBe('Local');
+  });
+});
+
+describe('generateAgentDescription', () => {
+  it('should_generatePlatformDescription', () => {
+    expect(generateAgentDescription('anthropic', 'claude-opus-4', 'PLATFORM'))
+      .toBe('Claude Opus 4 via Anthropic');
+  });
+
+  it('should_generateLocalDescription', () => {
+    expect(generateAgentDescription('ollama', 'llama3.3', 'SELF_HOSTED'))
+      .toBe('Llama 3.3 (local)');
+  });
+
+  it('should_generateCustomDescription', () => {
+    expect(generateAgentDescription('custom', 'gpt-4o', 'CUSTOM'))
+      .toBe('gpt-4o via Custom endpoint');
+  });
+
+  it('should_returnUnconfigured_when_noInput', () => {
+    expect(generateAgentDescription(undefined, undefined, undefined))
+      .toBe('Unconfigured');
+  });
+
+  it('should_returnProvider_when_noModel', () => {
+    expect(generateAgentDescription('anthropic', undefined, 'PLATFORM'))
+      .toBe('anthropic');
+  });
+
+  it('should_useRawModel_when_unknownModel', () => {
+    expect(generateAgentDescription('openai', 'my-custom-model', 'PLATFORM'))
+      .toBe('my-custom-model via OpenAI');
   });
 });

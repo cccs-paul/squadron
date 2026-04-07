@@ -133,7 +133,7 @@
     },
     "agentConfig": {
       "title": "Agent Configuration",
-      "subtitle": "Configure AI agent settings for your workspace",
+      "subtitle": "Configure default AI settings for your workspace. Individual agents in your squadron can override these defaults.",
       "loading": "Loading configuration...",
       "saveSuccess": "Configuration saved successfully",
       "saving": "Saving...",
@@ -310,7 +310,23 @@
       },
       "defaults": {
         "agentName": "Agent {{number}}"
-      }
+      },
+      "hostingType": "Hosting Type",
+      "hostingTypes": {
+        "platform": "Cloud Platform",
+        "selfHosted": "Self-Hosted (Local)",
+        "custom": "Custom Endpoint"
+      },
+      "selectProvider": "Select a provider...",
+      "selectModel": "Select a model...",
+      "customProvider": "Custom (OpenAI-compatible)",
+      "baseUrl": "Base URL",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter API key for this endpoint",
+      "description": "Description",
+      "descriptionHint": "Leave blank to auto-generate from provider and model",
+      "systemPrompt": "System Prompt",
+      "systemPromptPlaceholder": "Optional system prompt override for this agent..."
     }
   },
   "notifications": {

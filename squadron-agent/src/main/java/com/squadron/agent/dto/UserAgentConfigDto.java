@@ -46,6 +46,18 @@ public class UserAgentConfigDto {
 
     private String systemPromptOverride;
 
+    @Size(max = 50, message = "Hosting type must not exceed 50 characters")
+    @Builder.Default
+    private String hostingType = "PLATFORM";
+
+    @Size(max = 500, message = "Base URL must not exceed 500 characters")
+    private String baseUrl;
+
+    private String apiKeyRef;
+
+    @Size(max = 500, message = "Description must not exceed 500 characters")
+    private String description;
+
     @Builder.Default
     private boolean enabled = true;
 

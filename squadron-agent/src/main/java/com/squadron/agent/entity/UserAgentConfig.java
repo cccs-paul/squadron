@@ -66,6 +66,19 @@ public class UserAgentConfig {
     @Column(name = "system_prompt_override", columnDefinition = "TEXT")
     private String systemPromptOverride;
 
+    @Column(name = "hosting_type", length = 50)
+    @Builder.Default
+    private String hostingType = "PLATFORM";
+
+    @Column(name = "base_url", length = 500)
+    private String baseUrl;
+
+    @Column(name = "api_key_ref", columnDefinition = "TEXT")
+    private String apiKeyRef;
+
+    @Column(name = "description", length = 500)
+    private String description;
+
     @Column(name = "enabled", nullable = false)
     @Builder.Default
     private boolean enabled = true;

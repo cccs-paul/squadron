@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-04-06
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). All backend tests passing. All 899 Angular tests passing (0 failures). Docker deployment: all 21 containers healthy.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). All backend tests passing (~4,063 across 11 modules). All 915 Angular tests passing (0 failures). Docker deployment: all 20 containers healthy.
 
 ---
 
@@ -68,11 +68,15 @@
 - [x] WebSocket controller
 - [x] Agent dashboard API (DTOs, service, controller, 17 tests)
 - [x] User agent squadron configuration (entity, DTO, repository, service, controller, migration, 28 tests)
+- [x] Agent squadron overhaul: per-agent hosting_type/provider/model/baseUrl/apiKeyRef/description fields
+- [x] Flyway V4 migration: adds hosting_type, base_url, api_key_ref, description columns to user_agent_configs
+- [x] Default agents with provider/model assignments (Sol=github-copilot/claude-sonnet-4, Titan=github-copilot/gpt-4o, etc.)
+- [x] Auto-description generation (humanizeProvider + humanizeModel → "Claude Sonnet 4 via GitHub Copilot")
 - [x] Listeners migrated to JetStreamSubscriber; unified TaskStateDispatcher replaces 5 individual listeners (PlanApproval kept separate)
 - [x] Feign clients (OrchestratorClient, GitServiceClient, ReviewServiceClient, WorkspaceServiceClient)
 - [x] Resilient Feign wrappers (circuit breaker + retry for all 4 Feign clients)
-- [x] Flyway migrations (V1, V2, V3)
-- [x] All tests passing
+- [x] Flyway migrations (V1, V2, V3, V4)
+- [x] All tests passing (932 tests)
 
 ### squadron-workspace (19 src / 18 test)
 - [x] Workspace providers (Kubernetes, Docker)
@@ -133,7 +137,7 @@
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
-### squadron-ui (Angular 21) — 899 tests passing
+### squadron-ui (Angular 21) — 915 tests passing
 - [x] 33 components (dashboard, tasks, projects, reviews, agent-chat, squadron-config, user-tokens, etc.)
 - [x] 25 services (including agent-dashboard, user-squadron, user-token, ssh-key, platform services)
 - [x] 15 models (including agent dashboard, squadron config, user-token, RemoteProject, SshKey interfaces)
@@ -144,6 +148,7 @@
 - [x] Agent-focused dashboard redesign (active/idle agents, active work, timeline, type breakdown)
 - [x] Ticket provider integration UI (connection linking, remote status fetch, status-aware mappings)
 - [x] User agent squadron configuration UI (agent cards, add/edit/remove/reset, inline template)
+- [x] Agent squadron overhaul UI: hosting type badges (Cloud/Local/Custom), provider+model cascading dropdowns, PROVIDER_CATALOG with 6 providers, auto-description generation, base URL/API key fields for self-hosted/custom
 - [x] Celestial body default agent names (Planner→Sol, Coder→Titan, Reviewer→Vega, QA Tester→Comet, Merger→Pulsar, Coverage Analyst→Quasar, Coder 2→Nova, Reviewer 2→Nebula)
 - [x] Unified settings page: 6-tab layout (General, Providers & Projects, Agent Squadron, Notifications, Agent Config, Platform Tokens)
 - [x] User Platform Tokens tab: link/unlink PAT and OAuth2 accounts, view linked accounts per user
@@ -155,12 +160,12 @@
 ### Infrastructure
 - [x] Docker Compose (docker-compose.yml)
 - [x] Parent POM with dependency management
-- [x] All 25 Flyway migrations (V1-V8 for platform, V1-V4 for orchestrator, V1-V3 for identity/agent/git, V1-V2 for review/notification, V1 for config/workspace)
+- [x] All 25 Flyway migrations (V1-V8 for platform, V1-V4 for orchestrator, V1-V4 for agent, V1-V3 for identity/git, V1-V2 for review/notification, V1 for config/workspace)
 - [x] Test LDAP integration (docker-compose-testldap.yml, seed data)
 - [x] Jira Server test instance (docker-compose-testldap.yml, Flyway V7 seed, setup instructions)
 - [x] GitLab CE test instance (docker-compose-testldap.yml, LDAP pre-configured, Flyway V8 seed, setup instructions)
 - [x] Database provisioning fix: `ensure_databases()` creates missing DBs on existing PostgreSQL volumes
-- [x] All 21 containers healthy with testldap-build-and-start.sh
+- [x] All 20 containers healthy with testldap-build-and-start.sh
 - [x] Gateway healthcheck fix: uses `/actuator/health/liveness` (doesn't aggregate downstream services)
 - [x] Gateway SecurityConfig: permits `/actuator/health/**` sub-paths (liveness/readiness probes)
 - [x] Gateway application.yml: liveness/readiness probes enabled by default
@@ -737,6 +742,50 @@
 - [x] Removed `@RequestParam` from both methods, added `TenantContext` import
 - [x] `TaskControllerTest` updated: 4 tests now use `TenantContext.setContext()` + `@AfterEach` cleanup instead of `.param("tenantId", ...)`
 - [x] All orchestrator tests passing, all 899 Angular tests passing
+
+### Phase 11: Agent Squadron Overhaul (Per-Agent Provider/Model Configuration)
+
+#### Backend Changes
+- [x] Flyway V4 migration: `V4__add_agent_config_fields.sql` — adds `hosting_type VARCHAR(50) DEFAULT 'PLATFORM'`, `base_url VARCHAR(500)`, `api_key_ref TEXT`, `description VARCHAR(500)` to `user_agent_configs`
+- [x] `UserAgentConfig.java` entity updated with `hostingType` (default "PLATFORM"), `baseUrl`, `apiKeyRef`, `description` fields with `@Builder.Default`
+- [x] `UserAgentConfigDto.java` updated with matching fields, `@Size` validation, `@Builder.Default` for hostingType
+- [x] `UserAgentConfigService.java` fully rewritten:
+  - DEFAULT_AGENTS now 5-element arrays: `{name, type, provider, model, description}`
+  - `seedDefaults()` sets provider, model, hostingType, description for each default agent
+  - `addAgent()` and `updateAgent()` handle all new fields
+  - `generateDescription(provider, model, hostingType)` auto-generates display descriptions
+  - `humanizeProvider()` and `humanizeModel()` for display-friendly names
+- [x] `UserAgentConfigServiceTest.java` rewritten — 24 tests (seed defaults verify provider/model/hostingType/description, auto-description generation for platform/self-hosted/custom/null)
+- [x] `UserAgentConfigControllerTest.java` rewritten — 10 tests with new fields in buildAgent helper and JSON path assertions
+- [x] All 932 squadron-agent tests passing
+
+#### Frontend Model Changes
+- [x] `squadron-config.model.ts` fully rewritten:
+  - `HostingType` type: `'PLATFORM' | 'SELF_HOSTED' | 'CUSTOM'`
+  - `ProviderCatalogEntry` and `ModelCatalogEntry` interfaces
+  - `PROVIDER_CATALOG` constant with 6 providers (GitHub Copilot, Anthropic, OpenAI, Ollama, Cohere, Google) and their model lists
+  - `generateAgentDescription()` function matching backend logic
+  - `UserAgentConfig` interface extended with `hostingType`, `baseUrl`, `apiKeyRef`, `description`
+
+#### Frontend Component Changes
+- [x] `squadron-config.component.ts` fully rewritten with rich inline template:
+  - Agent cards: name, description, hosting type badge (Cloud=blue/Local=green/Custom=purple)
+  - Edit form: hosting type selector → provider dropdown (filtered by type) → model catalog dropdown → base URL (SELF_HOSTED/CUSTOM) → API key (CUSTOM) → maxTokens/temperature → description → system prompt → enabled
+  - `onHostingTypeChange()` clears provider/model/baseUrl/apiKeyRef, re-filters providers
+  - `onProviderChange()` clears model, updates available models
+  - `autoDescription()` returns generated description for placeholder
+  - `filteredProviders` and `availableModels` signals for reactive UI
+- [x] `squadron-config.component.spec.ts` rewritten — 31 tests (cards, badges, editing, hosting type/provider changes, save with new fields, auto-description, error handling, add/remove/reset, filtered providers, self-hosted badge, `generateAgentDescription` standalone tests)
+
+#### i18n Changes
+- [x] `en.json` updated: `hostingType`, `hostingTypes.platform/selfHosted/custom`, `selectProvider`, `selectModel`, `customProvider`, `baseUrl`, `apiKey`, `apiKeyPlaceholder`, `description`, `descriptionHint`, `systemPrompt`, `systemPromptPlaceholder`
+- [x] `fr.json` updated: French translations for all same keys
+- [x] Agent Config subtitle updated in both languages
+
+#### Verification
+- [x] All 915 Angular tests passing (0 failures)
+- [x] All backend tests passing across all 11 modules (~4,063 tests, BUILD SUCCESS)
+- [x] All 20 Docker containers healthy after rebuild with testldap-build-and-start.sh
 
 ---
 

@@ -133,7 +133,7 @@
     },
     "agentConfig": {
       "title": "Configuration des agents",
-      "subtitle": "Configurez les parametres des agents IA pour votre espace de travail",
+      "subtitle": "Configurer les paramètres IA par défaut de votre espace de travail. Les agents individuels de votre escadron peuvent remplacer ces valeurs.",
       "loading": "Chargement de la configuration...",
       "saveSuccess": "Configuration enregistree avec succes",
       "saving": "Enregistrement...",
@@ -310,7 +310,23 @@
       },
       "defaults": {
         "agentName": "Agent {{number}}"
-      }
+      },
+      "hostingType": "Type d'hébergement",
+      "hostingTypes": {
+        "platform": "Plateforme Cloud",
+        "selfHosted": "Auto-hébergé (local)",
+        "custom": "Point de terminaison personnalisé"
+      },
+      "selectProvider": "Sélectionner un fournisseur...",
+      "selectModel": "Sélectionner un modèle...",
+      "customProvider": "Personnalisé (compatible OpenAI)",
+      "baseUrl": "URL de base",
+      "apiKey": "Clé API",
+      "apiKeyPlaceholder": "Entrer la clé API pour ce point de terminaison",
+      "description": "Description",
+      "descriptionHint": "Laisser vide pour générer automatiquement à partir du fournisseur et du modèle",
+      "systemPrompt": "Prompt système",
+      "systemPromptPlaceholder": "Prompt système optionnel pour cet agent..."
     }
   },
   "notifications": {

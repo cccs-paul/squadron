@@ -26,16 +26,16 @@ public class UserAgentConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(UserAgentConfigService.class);
 
-    /** Default agent names seeded for new users. */
+    /** Default agent names seeded for new users. Each entry: {name, type, provider, model, description}. */
     private static final List<String[]> DEFAULT_AGENTS = List.of(
-            new String[]{"Sol", "GENERAL"},
-            new String[]{"Titan", "GENERAL"},
-            new String[]{"Vega", "GENERAL"},
-            new String[]{"Comet", "GENERAL"},
-            new String[]{"Pulsar", "GENERAL"},
-            new String[]{"Quasar", "GENERAL"},
-            new String[]{"Nova", "GENERAL"},
-            new String[]{"Nebula", "GENERAL"}
+            new String[]{"Sol", "GENERAL", "github-copilot", "claude-sonnet-4", "Claude Sonnet 4 via GitHub Copilot"},
+            new String[]{"Titan", "GENERAL", "github-copilot", "gpt-4o", "GPT-4o via GitHub Copilot"},
+            new String[]{"Vega", "GENERAL", "anthropic", "claude-sonnet-4", "Claude Sonnet 4 via Anthropic"},
+            new String[]{"Comet", "GENERAL", "openai", "o3", "o3 via OpenAI"},
+            new String[]{"Pulsar", "GENERAL", "github-copilot", "o4-mini", "o4-mini via GitHub Copilot"},
+            new String[]{"Quasar", "GENERAL", "google", "gemini-2.5-pro", "Gemini 2.5 Pro via Google"},
+            new String[]{"Nova", "GENERAL", "anthropic", "claude-opus-4", "Claude Opus 4 via Anthropic"},
+            new String[]{"Nebula", "GENERAL", "ollama", "llama3.3", "Llama 3.3 (local)"}
     );
 
     private final UserAgentConfigRepository repository;
@@ -87,6 +87,12 @@ public class UserAgentConfigService {
                 .maxTokens(dto.getMaxTokens())
                 .temperature(dto.getTemperature())
                 .systemPromptOverride(dto.getSystemPromptOverride())
+                .hostingType(dto.getHostingType() != null ? dto.getHostingType() : "PLATFORM")
+                .baseUrl(dto.getBaseUrl())
+                .apiKeyRef(dto.getApiKeyRef())
+                .description(dto.getDescription() != null
+                        ? dto.getDescription()
+                        : generateDescription(dto.getProvider(), dto.getModel(), dto.getHostingType()))
                 .enabled(dto.isEnabled())
                 .build();
 
@@ -124,6 +130,12 @@ public class UserAgentConfigService {
         agent.setMaxTokens(dto.getMaxTokens());
         agent.setTemperature(dto.getTemperature());
         agent.setSystemPromptOverride(dto.getSystemPromptOverride());
+        agent.setHostingType(dto.getHostingType() != null ? dto.getHostingType() : "PLATFORM");
+        agent.setBaseUrl(dto.getBaseUrl());
+        agent.setApiKeyRef(dto.getApiKeyRef());
+        agent.setDescription(dto.getDescription() != null
+                ? dto.getDescription()
+                : generateDescription(dto.getProvider(), dto.getModel(), dto.getHostingType()));
         agent.setEnabled(dto.isEnabled());
 
         UserAgentConfig saved = repository.save(agent);
@@ -176,12 +188,17 @@ public class UserAgentConfigService {
         int limit = Math.min(DEFAULT_AGENTS.size(), maxAgentsPerUser);
         for (int i = 0; i < limit; i++) {
             String[] def = DEFAULT_AGENTS.get(i);
+            String hostingType = "ollama".equals(def[2]) ? "SELF_HOSTED" : "PLATFORM";
             UserAgentConfig agent = UserAgentConfig.builder()
                     .tenantId(tenantId)
                     .userId(userId)
                     .agentName(def[0])
                     .agentType(def[1])
                     .displayOrder(i)
+                    .provider(def[2])
+                    .model(def[3])
+                    .hostingType(hostingType)
+                    .description(def[4])
                     .enabled(true)
                     .build();
             agents.add(agent);
@@ -189,5 +206,58 @@ public class UserAgentConfigService {
         List<UserAgentConfig> saved = repository.saveAll(agents);
         log.info("Seeded {} default agents for user {} in tenant {}", saved.size(), userId, tenantId);
         return saved;
+    }
+
+    /**
+     * Generates a human-readable description from provider, model, and hosting type.
+     * e.g. "Claude Opus 4 via Anthropic", "DeepSeek Coder v2 (local)", "GPT-4o via Custom endpoint"
+     */
+    static String generateDescription(String provider, String model, String hostingType) {
+        if (model == null || model.isBlank()) {
+            return provider != null ? provider : "Unconfigured";
+        }
+        String displayModel = humanizeModel(model);
+        if ("SELF_HOSTED".equals(hostingType)) {
+            return displayModel + " (local)";
+        }
+        if ("CUSTOM".equals(hostingType)) {
+            return displayModel + " via Custom endpoint";
+        }
+        if (provider != null && !provider.isBlank()) {
+            return displayModel + " via " + humanizeProvider(provider);
+        }
+        return displayModel;
+    }
+
+    /** Converts a provider slug to a human-readable name. */
+    private static String humanizeProvider(String provider) {
+        return switch (provider.toLowerCase()) {
+            case "github-copilot" -> "GitHub Copilot";
+            case "anthropic" -> "Anthropic";
+            case "openai" -> "OpenAI";
+            case "ollama" -> "Ollama";
+            case "cohere" -> "Cohere";
+            case "google" -> "Google";
+            default -> provider;
+        };
+    }
+
+    /** Converts a model ID to a friendlier display name. */
+    private static String humanizeModel(String model) {
+        return switch (model.toLowerCase()) {
+            case "claude-opus-4" -> "Claude Opus 4";
+            case "claude-sonnet-4" -> "Claude Sonnet 4";
+            case "claude-haiku-3.5" -> "Claude Haiku 3.5";
+            case "gpt-4o" -> "GPT-4o";
+            case "o3" -> "o3";
+            case "o4-mini" -> "o4-mini";
+            case "gemini-2.5-pro" -> "Gemini 2.5 Pro";
+            case "command-a-03-2025" -> "Command A";
+            case "llama3.3" -> "Llama 3.3";
+            case "deepseek-coder-v2" -> "DeepSeek Coder v2";
+            case "codestral" -> "Codestral";
+            case "qwen2.5-coder" -> "Qwen 2.5 Coder";
+            default -> model;
+        };
     }
 }

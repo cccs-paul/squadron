@@ -80,8 +80,10 @@ class UserAgentConfigControllerTest {
     @WithMockUser(roles = {"developer"})
     void should_getMySquadron_when_authenticated() throws Exception {
         List<UserAgentConfig> agents = List.of(
-                buildAgent("Sol", "PLANNING", 0),
-                buildAgent("Titan", "CODING", 1)
+                buildAgent("Sol", "GENERAL", 0, "github-copilot", "claude-sonnet-4",
+                        "PLATFORM", "Claude Sonnet 4 via GitHub Copilot"),
+                buildAgent("Titan", "GENERAL", 1, "github-copilot", "gpt-4o",
+                        "PLATFORM", "GPT-4o via GitHub Copilot")
         );
 
         when(service.getUserSquadron(tenantId, userId)).thenReturn(agents);
@@ -91,8 +93,13 @@ class UserAgentConfigControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].agentName").value("Sol"))
-                .andExpect(jsonPath("$.data[0].agentType").value("PLANNING"))
-                .andExpect(jsonPath("$.data[1].agentName").value("Titan"));
+                .andExpect(jsonPath("$.data[0].agentType").value("GENERAL"))
+                .andExpect(jsonPath("$.data[0].provider").value("github-copilot"))
+                .andExpect(jsonPath("$.data[0].model").value("claude-sonnet-4"))
+                .andExpect(jsonPath("$.data[0].hostingType").value("PLATFORM"))
+                .andExpect(jsonPath("$.data[0].description").value("Claude Sonnet 4 via GitHub Copilot"))
+                .andExpect(jsonPath("$.data[1].agentName").value("Titan"))
+                .andExpect(jsonPath("$.data[1].description").value("GPT-4o via GitHub Copilot"));
 
         verify(service).getUserSquadron(tenantId, userId);
     }
@@ -127,16 +134,17 @@ class UserAgentConfigControllerTest {
     void should_addAgent_when_validRequest() throws Exception {
         UserAgentConfigDto dto = UserAgentConfigDto.builder()
                 .agentName("New Agent")
-                .agentType("CODING")
+                .agentType("GENERAL")
                 .displayOrder(5)
-                .provider("openai-compatible")
+                .provider("openai")
                 .model("gpt-4o")
+                .hostingType("PLATFORM")
+                .description("GPT-4o via OpenAI")
                 .enabled(true)
                 .build();
 
-        UserAgentConfig savedAgent = buildAgent("New Agent", "CODING", 5);
-        savedAgent.setProvider("openai-compatible");
-        savedAgent.setModel("gpt-4o");
+        UserAgentConfig savedAgent = buildAgent("New Agent", "GENERAL", 5,
+                "openai", "gpt-4o", "PLATFORM", "GPT-4o via OpenAI");
 
         when(service.addAgent(eq(tenantId), eq(userId), any(UserAgentConfigDto.class)))
                 .thenReturn(savedAgent);
@@ -147,8 +155,11 @@ class UserAgentConfigControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.agentName").value("New Agent"))
-                .andExpect(jsonPath("$.data.agentType").value("CODING"))
-                .andExpect(jsonPath("$.data.provider").value("openai-compatible"));
+                .andExpect(jsonPath("$.data.agentType").value("GENERAL"))
+                .andExpect(jsonPath("$.data.provider").value("openai"))
+                .andExpect(jsonPath("$.data.model").value("gpt-4o"))
+                .andExpect(jsonPath("$.data.hostingType").value("PLATFORM"))
+                .andExpect(jsonPath("$.data.description").value("GPT-4o via OpenAI"));
 
         verify(service).addAgent(eq(tenantId), eq(userId), any(UserAgentConfigDto.class));
     }
@@ -157,7 +168,7 @@ class UserAgentConfigControllerTest {
     void should_return401_when_addingAgentUnauthenticated() throws Exception {
         mockMvc.perform(post("/api/agents/squadron")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"agentName\":\"Test\",\"agentType\":\"CODING\"}"))
+                        .content("{\"agentName\":\"Test\",\"agentType\":\"GENERAL\"}"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -172,12 +183,17 @@ class UserAgentConfigControllerTest {
 
         UserAgentConfigDto dto = UserAgentConfigDto.builder()
                 .agentName("Updated Name")
-                .agentType("REVIEW")
+                .agentType("GENERAL")
                 .displayOrder(2)
+                .provider("anthropic")
+                .model("claude-opus-4")
+                .hostingType("PLATFORM")
+                .description("Claude Opus 4 via Anthropic")
                 .enabled(true)
                 .build();
 
-        UserAgentConfig updatedAgent = buildAgent("Updated Name", "REVIEW", 2);
+        UserAgentConfig updatedAgent = buildAgent("Updated Name", "GENERAL", 2,
+                "anthropic", "claude-opus-4", "PLATFORM", "Claude Opus 4 via Anthropic");
 
         when(service.updateAgent(eq(tenantId), eq(userId), eq(agentId), any(UserAgentConfigDto.class)))
                 .thenReturn(updatedAgent);
@@ -188,7 +204,10 @@ class UserAgentConfigControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.agentName").value("Updated Name"))
-                .andExpect(jsonPath("$.data.agentType").value("REVIEW"));
+                .andExpect(jsonPath("$.data.agentType").value("GENERAL"))
+                .andExpect(jsonPath("$.data.provider").value("anthropic"))
+                .andExpect(jsonPath("$.data.hostingType").value("PLATFORM"))
+                .andExpect(jsonPath("$.data.description").value("Claude Opus 4 via Anthropic"));
 
         verify(service).updateAgent(eq(tenantId), eq(userId), eq(agentId), any(UserAgentConfigDto.class));
     }
@@ -225,8 +244,10 @@ class UserAgentConfigControllerTest {
     @WithMockUser(roles = {"developer"})
     void should_resetToDefaults_when_authenticated() throws Exception {
         List<UserAgentConfig> defaults = List.of(
-                buildAgent("Sol", "PLANNING", 0),
-                buildAgent("Titan", "CODING", 1)
+                buildAgent("Sol", "GENERAL", 0, "github-copilot", "claude-sonnet-4",
+                        "PLATFORM", "Claude Sonnet 4 via GitHub Copilot"),
+                buildAgent("Titan", "GENERAL", 1, "github-copilot", "gpt-4o",
+                        "PLATFORM", "GPT-4o via GitHub Copilot")
         );
 
         when(service.resetToDefaults(tenantId, userId)).thenReturn(defaults);
@@ -235,7 +256,8 @@ class UserAgentConfigControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].agentName").value("Sol"));
+                .andExpect(jsonPath("$.data[0].agentName").value("Sol"))
+                .andExpect(jsonPath("$.data[0].description").value("Claude Sonnet 4 via GitHub Copilot"));
 
         verify(service).resetToDefaults(tenantId, userId);
     }
@@ -250,7 +272,9 @@ class UserAgentConfigControllerTest {
     // Helpers
     // ============================================================
 
-    private UserAgentConfig buildAgent(String name, String type, int order) {
+    private UserAgentConfig buildAgent(String name, String type, int order,
+                                       String provider, String model,
+                                       String hostingType, String description) {
         return UserAgentConfig.builder()
                 .id(UUID.randomUUID())
                 .tenantId(tenantId)
@@ -258,6 +282,10 @@ class UserAgentConfigControllerTest {
                 .agentName(name)
                 .agentType(type)
                 .displayOrder(order)
+                .provider(provider)
+                .model(model)
+                .hostingType(hostingType)
+                .description(description)
                 .enabled(true)
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
