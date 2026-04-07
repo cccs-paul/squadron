@@ -328,7 +328,73 @@ class ProjectControllerTest {
 
     @Test
     @WithMockUser(roles = {"developer"})
-    void should_return403_when_developerTriesToSaveMappings() throws Exception {
+    void should_saveWorkflowMappings_when_developerRole() throws Exception {
+        UUID projectId = UUID.randomUUID();
+        List<WorkflowMappingDto> mappings = List.of(
+                WorkflowMappingDto.builder().internalState("REVIEW").externalStatus("Rev").build()
+        );
+
+        ProjectWorkflowMappingsRequest request = ProjectWorkflowMappingsRequest.builder()
+                .mappings(mappings)
+                .build();
+
+        when(mappingService.saveMappings(eq(projectId), any())).thenReturn(mappings);
+
+        mockMvc.perform(put("/api/projects/{projectId}/workflow-mappings", projectId)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].internalState").value("REVIEW"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_updateProject_when_developerRole() throws Exception {
+        UUID projectId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+
+        CreateProjectRequest request = CreateProjectRequest.builder()
+                .tenantId(tenantId)
+                .name("Dev Updated Project")
+                .build();
+
+        Project updated = Project.builder()
+                .id(projectId)
+                .tenantId(tenantId)
+                .name("Dev Updated Project")
+                .build();
+
+        when(projectService.updateProject(eq(projectId), any(CreateProjectRequest.class)))
+                .thenReturn(updated);
+
+        mockMvc.perform(put("/api/projects/{id}", projectId)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.name").value("Dev Updated Project"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_deleteProject_when_developerRole() throws Exception {
+        UUID projectId = UUID.randomUUID();
+
+        doNothing().when(projectService).deleteProject(projectId);
+
+        mockMvc.perform(delete("/api/projects/{id}", projectId)
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+
+        verify(projectService).deleteProject(projectId);
+    }
+
+    @Test
+    @WithMockUser(roles = {"viewer"})
+    void should_return403_when_viewerTriesToSaveMappings() throws Exception {
         UUID projectId = UUID.randomUUID();
         ProjectWorkflowMappingsRequest request = ProjectWorkflowMappingsRequest.builder()
                 .mappings(List.of(

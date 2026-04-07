@@ -834,13 +834,13 @@
         "privateKeyHint": "Stockee chiffree. Jamais transmise apres la creation.",
         "cancel": "Annuler",
         "saving": "Enregistrement...",
-        "saveKey": "Enregistrer la cle SSH"
+        "saveKey": "Enregistrer la cle SSH",
+        "keyUsageLabel": "Utilisation de la cle"
       },
       "errors": {
         "saveFailed": "Echec de l'enregistrement de la cle SSH. Verifiez la paire de cles.",
         "generateFailed": "Echec de la generation de la cle de deploiement. Veuillez reessayer."
       },
-      "keyUsageLabel": "Utilisation de la cle",
       "keyUsage": {
         "userKey": "Cle utilisateur",
         "deployKey": "Cle de deploiement"
@@ -895,10 +895,32 @@
       "description": "Importez des projets depuis vos fournisseurs configures. Definissez les URL de clonage Git et les branches par defaut.",
       "cancelToggle": "Annuler",
       "importProjects": "+ Importer des projets",
+      "editSuccess": "Projet mis a jour avec succes.",
       "noProviders": {
         "title": "Aucun fournisseur configure",
         "description": "Retournez a l'etape 1 ou 2 et ajoutez au moins un fournisseur avant d'importer des projets.",
         "goToTicketProviders": "Aller aux fournisseurs de tickets"
+      },
+      "form": {
+        "editTitle": "Modifier le projet",
+        "nameLabel": "Nom du projet",
+        "namePlaceholder": "ex. Mon projet",
+        "defaultBranchLabel": "Branche par defaut",
+        "defaultBranchPlaceholder": "ex. main",
+        "repositoryUrlLabel": "URL du depot",
+        "repositoryUrlPlaceholder": "ex. git@github.com:org/repo.git",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Breve description du projet",
+        "connectionLabel": "Connexion",
+        "noConnection": "-- Aucune connexion --",
+        "cancel": "Annuler",
+        "saving": "Enregistrement...",
+        "updateProject": "Mettre a jour le projet"
+      },
+      "card": {
+        "edit": "Modifier",
+        "remove": "Supprimer",
+        "removing": "Suppression..."
       },
       "import": {
         "title": "Importer des projets depuis un fournisseur",
@@ -928,7 +950,8 @@
       },
       "errors": {
         "fetchFailed": "Echec de la recuperation des projets. Verifiez la connexion.",
-        "partialImportFailure": "{{errors}} projet(s) n'ont pas pu etre importes. Le reste a ete importe avec succes."
+        "partialImportFailure": "{{errors}} projet(s) n'ont pas pu etre importes. Le reste a ete importe avec succes.",
+        "saveFailed": "Echec de l'enregistrement du projet. Veuillez reessayer."
       }
     },
     "branchWorkflow": {

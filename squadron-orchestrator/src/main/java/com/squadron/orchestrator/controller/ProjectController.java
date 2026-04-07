@@ -99,7 +99,7 @@ public class ProjectController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('squadron-admin','team-lead')")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
     public ResponseEntity<ApiResponse<Project>> updateProject(@PathVariable UUID id,
                                                                @Valid @RequestBody CreateProjectRequest request) {
         Project project = projectService.updateProject(id, request);
@@ -107,7 +107,7 @@ public class ProjectController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('squadron-admin','team-lead')")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
     public ResponseEntity<Void> deleteProject(@PathVariable UUID id) {
         projectService.deleteProject(id);
         return ResponseEntity.noContent().build();
@@ -125,7 +125,7 @@ public class ProjectController {
     }
 
     @PutMapping("/{projectId}/workflow-mappings")
-    @PreAuthorize("hasAnyRole('squadron-admin','team-lead')")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
     @Operation(summary = "Replace all workflow step mappings for a project")
     public ResponseEntity<ApiResponse<List<WorkflowMappingDto>>> saveWorkflowMappings(
             @PathVariable UUID projectId,

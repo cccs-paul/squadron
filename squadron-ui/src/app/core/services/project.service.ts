@@ -21,11 +21,15 @@ export class ProjectService extends ApiService {
   }
 
   createProject(project: Partial<Project>): Observable<Project> {
-    return this.post<Project>('/projects', project);
+    return this.post<ApiResponse<Project>>('/projects', project).pipe(
+      map((response) => response.data),
+    );
   }
 
   updateProject(id: string, project: Partial<Project>): Observable<Project> {
-    return this.put<Project>(`/projects/${id}`, project);
+    return this.put<ApiResponse<Project>>(`/projects/${id}`, project).pipe(
+      map((response) => response.data),
+    );
   }
 
   deleteProject(id: string): Observable<void> {

@@ -179,10 +179,8 @@ build_angular() {
     log_step "Building Angular frontend"
 
     local ui_dir="${SCRIPT_DIR}/squadron-ui"
-    if [ ! -d "$ui_dir/node_modules" ]; then
-        log_info "Installing npm dependencies..."
-        (cd "$ui_dir" && npm ci --silent)
-    fi
+    log_info "Installing npm dependencies..."
+    (cd "$ui_dir" && npm ci --silent)
 
     log_info "Building production bundle..."
     if (cd "$ui_dir" && npx ng build --configuration=production 2>/dev/null); then

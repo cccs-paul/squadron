@@ -834,9 +834,9 @@
         "privateKeyHint": "Stored encrypted. Never transmitted after creation.",
         "cancel": "Cancel",
         "saving": "Saving...",
-        "saveKey": "Save SSH Key"
+        "saveKey": "Save SSH Key",
+        "keyUsageLabel": "Key Usage"
       },
-      "keyUsageLabel": "Key Usage",
       "keyUsage": {
         "userKey": "User Key",
         "deployKey": "Deploy Key"
@@ -895,10 +895,32 @@
       "description": "Import projects from your configured providers. Set Git clone URLs and default branches.",
       "cancelToggle": "Cancel",
       "importProjects": "+ Import Projects",
+      "editSuccess": "Project updated successfully.",
       "noProviders": {
         "title": "No providers configured",
         "description": "Go back to Step 1 or 2 and add at least one provider before importing projects.",
         "goToTicketProviders": "Go to Ticket Providers"
+      },
+      "form": {
+        "editTitle": "Edit Project",
+        "nameLabel": "Project Name",
+        "namePlaceholder": "e.g. My Project",
+        "defaultBranchLabel": "Default Branch",
+        "defaultBranchPlaceholder": "e.g. main",
+        "repositoryUrlLabel": "Repository URL",
+        "repositoryUrlPlaceholder": "e.g. git@github.com:org/repo.git",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Brief project description",
+        "connectionLabel": "Connection",
+        "noConnection": "-- No connection --",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "updateProject": "Update Project"
+      },
+      "card": {
+        "edit": "Edit",
+        "remove": "Remove",
+        "removing": "Removing..."
       },
       "import": {
         "title": "Import Projects from Provider",
@@ -928,7 +950,8 @@
       },
       "errors": {
         "fetchFailed": "Failed to fetch projects. Please check the connection.",
-        "partialImportFailure": "{{errors}} project(s) failed to import. The rest were imported successfully."
+        "partialImportFailure": "{{errors}} project(s) failed to import. The rest were imported successfully.",
+        "saveFailed": "Failed to save project. Please try again."
       }
     },
     "branchWorkflow": {

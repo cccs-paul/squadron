@@ -773,6 +773,68 @@
             }
 
             <!-- Existing Projects List -->
+            @if (projectSaveSuccess()) {
+              <div class="alert alert--success">{{ 'projectConfig.projects.editSuccess' | translate }}</div>
+            }
+
+            @if (showProjectEditForm()) {
+              <div class="form-card">
+                <h4 class="form-card__title">{{ 'projectConfig.projects.form.editTitle' | translate }}</h4>
+
+                @if (projectSaveError()) {
+                  <div class="alert alert--error">{{ projectSaveError() }}</div>
+                }
+
+                <div class="form-card__row">
+                  <div class="form-card__field">
+                    <label class="form-card__label">{{ 'projectConfig.projects.form.nameLabel' | translate }}</label>
+                    <input class="form-input" type="text" [(ngModel)]="projectEditForm.name" [placeholder]="'projectConfig.projects.form.namePlaceholder' | translate" />
+                  </div>
+                  <div class="form-card__field">
+                    <label class="form-card__label">{{ 'projectConfig.projects.form.defaultBranchLabel' | translate }}</label>
+                    <input class="form-input" type="text" [(ngModel)]="projectEditForm.defaultBranch" [placeholder]="'projectConfig.projects.form.defaultBranchPlaceholder' | translate" />
+                  </div>
+                </div>
+
+                <div class="form-card__row">
+                  <div class="form-card__field form-card__field--full">
+                    <label class="form-card__label">{{ 'projectConfig.projects.form.repositoryUrlLabel' | translate }}</label>
+                    <input class="form-input" type="text" [(ngModel)]="projectEditForm.repositoryUrl" [placeholder]="'projectConfig.projects.form.repositoryUrlPlaceholder' | translate" />
+                  </div>
+                </div>
+
+                <div class="form-card__row">
+                  <div class="form-card__field form-card__field--full">
+                    <label class="form-card__label">{{ 'projectConfig.projects.form.descriptionLabel' | translate }}</label>
+                    <input class="form-input" type="text" [(ngModel)]="projectEditForm.description" [placeholder]="'projectConfig.projects.form.descriptionPlaceholder' | translate" />
+                  </div>
+                </div>
+
+                <div class="form-card__row">
+                  <div class="form-card__field">
+                    <label class="form-card__label">{{ 'projectConfig.projects.form.connectionLabel' | translate }}</label>
+                    <select class="form-select" [(ngModel)]="projectEditForm.connectionId">
+                      <option value="">{{ 'projectConfig.projects.form.noConnection' | translate }}</option>
+                      @for (conn of allConnections(); track conn.id) {
+                        <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
+                      }
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-card__actions">
+                  <button class="btn btn--secondary" (click)="toggleProjectEditForm()">{{ 'projectConfig.projects.form.cancel' | translate }}</button>
+                  <button class="btn btn--primary" (click)="saveProject()" [disabled]="!canSaveProject() || savingProject()">
+                    @if (savingProject()) {
+                      {{ 'projectConfig.projects.form.saving' | translate }}
+                    } @else {
+                      {{ 'projectConfig.projects.form.updateProject' | translate }}
+                    }
+                  </button>
+                </div>
+              </div>
+            }
+
             @if (projectStates().length > 0) {
               <div class="project-list">
                 @for (ps of projectStates(); track ps.project.id; let i = $index) {
@@ -797,6 +859,19 @@
                           }
                         </span>
                         <span class="project-card__branch">{{ ps.project.defaultBranch }}</span>
+                        <button
+                          class="btn btn--secondary btn--sm"
+                          (click)="editProject(ps)"
+                        >
+                          {{ 'projectConfig.projects.card.edit' | translate }}
+                        </button>
+                        <button
+                          class="btn btn--danger btn--sm"
+                          (click)="deleteProject(ps.project.id)"
+                          [disabled]="deletingProjectId() === ps.project.id"
+                        >
+                          @if (deletingProjectId() === ps.project.id) { {{ 'projectConfig.projects.card.removing' | translate }} } @else { {{ 'projectConfig.projects.card.remove' | translate }} }
+                        </button>
                       </div>
                     </div>
                   </div>

@@ -49,6 +49,14 @@ interface ImportCandidate {
   branchNamingTemplate: string;
 }
 
+interface ProjectEditForm {
+  name: string;
+  description: string;
+  repositoryUrl: string;
+  defaultBranch: string;
+  connectionId: string;
+}
+
 interface ProjectMappingState {
   project: Project;
   expanded: boolean;
@@ -178,6 +186,15 @@ export class ProjectConfigComponent implements OnInit {
   importSaveError = signal<string | null>(null);
   importProgress = signal<{ done: number; total: number } | null>(null);
   importFetchComplete = signal(false);
+
+  // Project edit/remove
+  editingProjectId = signal<string | null>(null);
+  deletingProjectId = signal<string | null>(null);
+  showProjectEditForm = signal(false);
+  savingProject = signal(false);
+  projectSaveError = signal<string | null>(null);
+  projectSaveSuccess = signal(false);
+  projectEditForm: ProjectEditForm = this.newProjectEditForm();
 
   // Step 4: Branch & Workflow (uses projectStates)
 
@@ -1014,6 +1031,91 @@ export class ProjectConfigComponent implements OnInit {
     });
   }
 
+  // --- Project Edit/Remove ---
+
+  toggleProjectEditForm(): void {
+    this.showProjectEditForm.set(!this.showProjectEditForm());
+    if (!this.showProjectEditForm()) {
+      this.projectEditForm = this.newProjectEditForm();
+      this.projectSaveError.set(null);
+      this.editingProjectId.set(null);
+    }
+  }
+
+  editProject(ps: ProjectMappingState): void {
+    this.editingProjectId.set(ps.project.id);
+    this.projectEditForm = {
+      name: ps.project.name,
+      description: ps.project.description || '',
+      repositoryUrl: ps.project.repositoryUrl || '',
+      defaultBranch: ps.project.defaultBranch || 'main',
+      connectionId: ps.project.connectionId || '',
+    };
+    this.showProjectEditForm.set(true);
+    this.projectSaveError.set(null);
+  }
+
+  canSaveProject(): boolean {
+    const f = this.projectEditForm;
+    return f.name.trim().length > 0;
+  }
+
+  saveProject(): void {
+    const editingId = this.editingProjectId();
+    if (!editingId) return;
+
+    this.savingProject.set(true);
+    this.projectSaveError.set(null);
+
+    const payload: Partial<Project> = {
+      name: this.projectEditForm.name.trim(),
+      description: this.projectEditForm.description.trim() || undefined,
+      repositoryUrl: this.projectEditForm.repositoryUrl.trim() || undefined,
+      defaultBranch: this.projectEditForm.defaultBranch.trim() || 'main',
+      connectionId: this.projectEditForm.connectionId || undefined,
+    };
+
+    this.projectService.updateProject(editingId, payload).subscribe({
+      next: (updated) => {
+        this.projectStates.set(
+          this.projectStates().map((ps) =>
+            ps.project.id === editingId
+              ? {
+                  ...ps,
+                  project: updated,
+                  connectionName: this.getConnectionName(updated.connectionId, this.allConnections()),
+                }
+              : ps,
+          ),
+        );
+        this.savingProject.set(false);
+        this.showProjectEditForm.set(false);
+        this.projectEditForm = this.newProjectEditForm();
+        this.editingProjectId.set(null);
+        this.projectSaveSuccess.set(true);
+        setTimeout(() => this.projectSaveSuccess.set(false), 3000);
+      },
+      error: (err: any) => {
+        const msg = err?.error?.message || this.translate.instant('projectConfig.projects.errors.saveFailed');
+        this.projectSaveError.set(msg);
+        this.savingProject.set(false);
+      },
+    });
+  }
+
+  deleteProject(id: string): void {
+    this.deletingProjectId.set(id);
+    this.projectService.deleteProject(id).subscribe({
+      next: () => {
+        this.projectStates.set(this.projectStates().filter((ps) => ps.project.id !== id));
+        this.deletingProjectId.set(null);
+      },
+      error: () => {
+        this.deletingProjectId.set(null);
+      },
+    });
+  }
+
   // ===== STEP 4: Branch & Workflow =====
 
   toggleProject(index: number): void {
@@ -1326,5 +1428,9 @@ export class ProjectConfigComponent implements OnInit {
 
   private newReviewBotForm(): { connectionId: string; botUsername: string; botAccessToken: string; enabled: boolean; autoAssign: boolean } {
     return { connectionId: '', botUsername: '', botAccessToken: '', enabled: true, autoAssign: true };
+  }
+
+  private newProjectEditForm(): ProjectEditForm {
+    return { name: '', description: '', repositoryUrl: '', defaultBranch: 'main', connectionId: '' };
   }
 }
