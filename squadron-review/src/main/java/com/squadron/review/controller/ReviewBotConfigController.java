@@ -24,7 +24,7 @@ public class ReviewBotConfigController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead')")
+    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead', 'developer')")
     public ResponseEntity<ApiResponse<ReviewBotConfigDto>> createBotConfig(
             @Valid @RequestBody CreateReviewBotConfigRequest request) {
         ReviewBotConfigDto dto = botConfigService.createBotConfig(request);
@@ -46,7 +46,7 @@ public class ReviewBotConfigController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead')")
+    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead', 'developer')")
     public ResponseEntity<ApiResponse<ReviewBotConfigDto>> updateBotConfig(
             @PathVariable UUID id, @Valid @RequestBody CreateReviewBotConfigRequest request) {
         ReviewBotConfigDto dto = botConfigService.updateBotConfig(id, request);
@@ -54,14 +54,14 @@ public class ReviewBotConfigController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead')")
+    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead', 'developer')")
     public ResponseEntity<ApiResponse<Void>> deleteBotConfig(@PathVariable UUID id) {
         botConfigService.deleteBotConfig(id);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @GetMapping("/{id}/token")
-    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead')")
+    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead', 'developer')")
     public ResponseEntity<ApiResponse<String>> getBotToken(@PathVariable UUID id) {
         String token = botConfigService.getDecryptedBotToken(id);
         return ResponseEntity.ok(ApiResponse.success(token));
