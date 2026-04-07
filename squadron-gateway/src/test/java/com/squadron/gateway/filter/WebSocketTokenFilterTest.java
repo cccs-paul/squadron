@@ -59,7 +59,7 @@ class WebSocketTokenFilterTest {
     @Test
     void should_injectAuthorizationHeader_when_webSocketUpgradeWithToken() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/ws/notifications/websocket?access_token=my-jwt-token-123")
+                MockServerHttpRequest.get("/ws/notifications?access_token=my-jwt-token-123")
                         .header(HttpHeaders.UPGRADE, "websocket")
                         .build());
 
@@ -75,10 +75,10 @@ class WebSocketTokenFilterTest {
     }
 
     @Test
-    void should_injectAuthorizationHeader_when_sockJsWebSocketPathWithToken() {
-        // SockJS-style path ending in /websocket under /ws/ — no Upgrade header
+    void should_injectAuthorizationHeader_when_wsPathWithTokenQueryParam() {
+        // No Upgrade header, but /ws/ path with access_token — fallback detection
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/ws/agent/websocket?access_token=agent-token-456")
+                MockServerHttpRequest.get("/ws/agent?access_token=agent-token-456")
                         .build());
 
         ArgumentCaptor<ServerWebExchange> exchangeCaptor = ArgumentCaptor.forClass(ServerWebExchange.class);
@@ -95,7 +95,7 @@ class WebSocketTokenFilterTest {
     @Test
     void should_passThrough_when_webSocketUpgradeWithoutToken() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/ws/notifications/websocket")
+                MockServerHttpRequest.get("/ws/notifications")
                         .header(HttpHeaders.UPGRADE, "websocket")
                         .build());
 
@@ -140,7 +140,7 @@ class WebSocketTokenFilterTest {
     @Test
     void should_passThrough_when_blankToken() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/ws/notifications/websocket?access_token=   ")
+                MockServerHttpRequest.get("/ws/notifications?access_token=   ")
                         .header(HttpHeaders.UPGRADE, "websocket")
                         .build());
 
@@ -155,7 +155,7 @@ class WebSocketTokenFilterTest {
     @Test
     void should_passThrough_when_emptyToken() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/ws/notifications/websocket?access_token=")
+                MockServerHttpRequest.get("/ws/notifications?access_token=")
                         .header(HttpHeaders.UPGRADE, "websocket")
                         .build());
 
@@ -170,7 +170,7 @@ class WebSocketTokenFilterTest {
     @Test
     void should_handleUpgradeHeaderCaseInsensitive() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/ws/notifications/websocket?access_token=case-token")
+                MockServerHttpRequest.get("/ws/notifications?access_token=case-token")
                         .header(HttpHeaders.UPGRADE, "WebSocket")
                         .build());
 

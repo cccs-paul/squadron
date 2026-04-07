@@ -39,6 +39,5 @@ class WebSocketConfigTest {
 
         verify(registry).addEndpoint("/ws/notifications");
         verify(registration).setAllowedOrigins("*");
-        verify(registration).withSockJS();
     }
 }

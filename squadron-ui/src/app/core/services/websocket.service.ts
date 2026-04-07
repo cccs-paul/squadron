@@ -140,12 +140,12 @@ export class WebSocketService implements OnDestroy {
     const token = this.authService.getAccessToken();
     const tokenParam = token ? `?access_token=${encodeURIComponent(token)}` : '';
     // Convert ws:// or wss:// URL to full endpoint
-    // Backend registers /ws/agent with SockJS — for native WebSocket, use /ws/agent/websocket
+    // Backend registers /ws/agent as a native STOMP WebSocket endpoint
     if (base.startsWith('ws://') || base.startsWith('wss://')) {
-      return `${base}/agent/websocket${tokenParam}`;
+      return `${base}/agent${tokenParam}`;
     }
     // Relative URL — build from window.location
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}${base}/agent/websocket${tokenParam}`;
+    return `${protocol}//${window.location.host}${base}/agent${tokenParam}`;
   }
 }

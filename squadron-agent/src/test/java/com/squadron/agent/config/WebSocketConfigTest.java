@@ -34,12 +34,9 @@ class WebSocketConfigTest {
 
         when(registry.addEndpoint("/ws/agent")).thenReturn(registration);
         when(registration.setAllowedOrigins("*")).thenReturn(registration);
-        when(registration.withSockJS()).thenReturn(null);
-
         config.registerStompEndpoints(registry);
 
         verify(registry).addEndpoint("/ws/agent");
         verify(registration).setAllowedOrigins("*");
-        verify(registration).withSockJS();
     }
 }

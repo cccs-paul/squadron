@@ -179,9 +179,9 @@ export class NotificationService extends ApiService implements OnDestroy {
     const token = this.authService.getAccessToken();
     const tokenParam = token ? `?access_token=${encodeURIComponent(token)}` : '';
     if (base.startsWith('ws://') || base.startsWith('wss://')) {
-      return `${base}/notifications/websocket${tokenParam}`;
+      return `${base}/notifications${tokenParam}`;
     }
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}${base}/notifications/websocket${tokenParam}`;
+    return `${protocol}//${window.location.host}${base}/notifications${tokenParam}`;
   }
 }

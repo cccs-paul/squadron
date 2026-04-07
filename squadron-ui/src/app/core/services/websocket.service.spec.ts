@@ -106,7 +106,8 @@ describe('WebSocketService', () => {
   it('should_buildWsUrlWithoutToken_when_noAccessToken', () => {
     authServiceStub.getAccessToken.and.returnValue(null);
     const url = (service as any).buildWsUrl();
-    expect(url).toContain('/agent/websocket');
+    expect(url).toContain('/agent');
+    expect(url).not.toContain('/websocket');
     expect(url).not.toContain('access_token');
   });
 });

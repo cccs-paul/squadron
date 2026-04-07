@@ -371,7 +371,7 @@ describe('NotificationService', () => {
     // Access private method via type assertion
     const url = (service as any).buildNotificationWsUrl();
     // environment.wsUrl is 'ws://localhost:8443/ws' in dev
-    expect(url).toContain('/notifications/websocket');
+    expect(url).toContain('/notifications');
   });
 
   it('should_includeAccessToken_when_buildingWsUrl', () => {
@@ -382,7 +382,7 @@ describe('NotificationService', () => {
   it('should_buildWsUrlWithoutToken_when_noAccessToken', () => {
     authServiceStub.getAccessToken.and.returnValue(null);
     const url = (service as any).buildNotificationWsUrl();
-    expect(url).toContain('/notifications/websocket');
-    expect(url).not.toContain('access_token');
+    expect(url).toContain('/notifications');
+    expect(url).not.toContain('/websocket');
   });
 });

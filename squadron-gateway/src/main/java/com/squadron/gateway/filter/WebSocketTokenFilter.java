@@ -59,8 +59,9 @@ public class WebSocketTokenFilter implements WebFilter, Ordered {
         if ("websocket".equalsIgnoreCase(upgrade)) {
             return true;
         }
-        // Also match SockJS-style /websocket paths under /ws/**
+        // Fallback: match WebSocket endpoint paths under /ws/**
+        // (covers cases where intermediate proxies strip the Upgrade header)
         String path = request.getPath().value();
-        return path.startsWith("/ws/") && path.endsWith("/websocket");
+        return path.startsWith("/ws/") && request.getQueryParams().containsKey("access_token");
     }
 }
