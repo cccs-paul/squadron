@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-04-07
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). Phase 12: Review Bot Integration — end-to-end glue connecting AI review output to git platform bot comments via ReviewBotClient + GitClient, with REVIEW_BOT credential purpose. Phase 13: Task Sync from Ticket Providers — fixed TaskSyncService URL/method bug, added workflow initialization for synced tasks, built "Sync Tasks" UI on task board with project selection, progress, and result display. All backend tests passing (~4,063 across 11 modules). All 915 Angular tests passing (0 failures). Docker deployment: all 20 containers healthy.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). Phase 12: Review Bot Integration — end-to-end glue connecting AI review output to git platform bot comments via ReviewBotClient + GitClient, with REVIEW_BOT credential purpose. Phase 13: Task Sync from Ticket Providers — fixed TaskSyncService URL/method bug, added workflow initialization for synced tasks, built "Sync Tasks" UI on task board with project selection, progress, and result display. Phase 14: Live Testing Bug Fixes — ReviewBotConfigController @PreAuthorize missing developer role, nginx IPv6 listen for healthcheck, getMappingLabel collapsed-card "Not configured" bug. All backend tests passing (~4,063 across 11 modules). All 926 Angular tests passing (2 pre-existing ProjectService failures). Docker deployment: all 20 containers healthy.
 
 ---
 
@@ -137,7 +137,7 @@
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
-### squadron-ui (Angular 21) — 915 tests passing
+### squadron-ui (Angular 21) — 926 tests passing
 - [x] 33 components (dashboard, tasks, projects, reviews, agent-chat, squadron-config, user-tokens, etc.)
 - [x] 25 services (including agent-dashboard, user-squadron, user-token, ssh-key, platform services)
 - [x] 15 models (including agent dashboard, squadron config, user-token, RemoteProject, SshKey interfaces)
@@ -851,6 +851,26 @@
 - [x] `mvn clean verify` — all 12 modules SUCCESS, 0 failures
 - [x] `ng build --configuration=production` — Angular build passing
 - [x] All 915 Angular tests passing (0 failures)
+
+### Phase 14: Live Testing Bug Fixes
+
+#### Bug 1: 403 on POST /api/reviews/bot-config for developer role
+- [x] Root cause: `ReviewBotConfigController` `@PreAuthorize` on POST, PUT, DELETE, and GET token endpoints only allowed `squadron-admin` and `team-lead` roles — missing `developer`
+- [x] Fix: Added `'developer'` to `@PreAuthorize` on all 4 restricted endpoints
+- [x] All 245 squadron-review tests passing
+- [x] Docker image rebuilt, container recreated and healthy
+
+#### Bug 2: nginx healthcheck fails (IPv6 connection refused)
+- [x] Root cause: `nginx.conf` only had `listen 8080` (IPv4). BusyBox `wget` in Alpine resolves `localhost` to `::1` (IPv6) first, gets connection refused. The compose healthcheck uses `127.0.0.1` (correct), but manual `docker run` used `localhost`.
+- [x] Fix: Added `listen [::]:8080;` to `nginx.conf` for defense-in-depth (works with both IPv4 and IPv6 healthchecks)
+- [x] Container recreated with correct `127.0.0.1` healthcheck, now healthy
+
+#### Bug 3: "Not configured" label on collapsed project cards (Branch & Workflow tab)
+- [x] Root cause: `getMappingLabel()` in `project-config.component.ts` checked `ps.expanded` instead of `ps.mappings.length`. After expanding a card (which loads mappings from server) and collapsing it, the badge reverted to "Not configured" despite mappings being in memory.
+- [x] Fix: Changed condition from `ps.expanded` to `ps.mappings.length > 0`
+- [x] Tests updated: renamed existing test, added `should_getMappingLabel_returnMappingCount_when_collapsedWithMappings` test
+- [x] All 926 Angular tests passing (924 success, 2 pre-existing ProjectService failures unrelated to this change)
+- [x] Docker image rebuilt, container recreated and healthy
 
 ---
 
