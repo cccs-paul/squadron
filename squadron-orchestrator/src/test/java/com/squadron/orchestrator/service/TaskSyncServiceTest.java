@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -83,6 +84,8 @@ class TaskSyncServiceTest {
 
         when(restClient.post()).thenReturn(rawBodyUriSpec);
         when(rawBodyUriSpec.uri(anyString(), any(), any())).thenReturn(rawBodySpec);
+        // header() may or may not be called depending on SecurityContext (lenient for tests without JWT)
+        lenient().when(rawBodySpec.header(anyString(), any(String[].class))).thenReturn(rawBodySpec);
         when(rawBodySpec.retrieve()).thenReturn(rawResponseSpec);
         when(rawResponseSpec.body(any(ParameterizedTypeReference.class))).thenReturn(response);
     }
@@ -95,6 +98,8 @@ class TaskSyncServiceTest {
 
         when(restClient.post()).thenReturn(rawBodyUriSpec);
         when(rawBodyUriSpec.uri(anyString(), any(), any())).thenReturn(rawBodySpec);
+        // header() may or may not be called depending on SecurityContext (lenient for tests without JWT)
+        lenient().when(rawBodySpec.header(anyString(), any(String[].class))).thenReturn(rawBodySpec);
         when(rawBodySpec.retrieve()).thenReturn(rawResponseSpec);
         when(rawResponseSpec.body(any(ParameterizedTypeReference.class))).thenThrow(exception);
     }

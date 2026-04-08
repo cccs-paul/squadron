@@ -724,12 +724,6 @@
                                   [ngModel]="candidate.name"
                                   (ngModelChange)="updateCandidateName(ci, $event)" />
                               </div>
-                              <div class="import-card__field">
-                                <label class="form-card__label">{{ 'projectConfig.projects.import.defaultBranchLabel' | translate }}</label>
-                                <input class="form-input" type="text"
-                                  [ngModel]="candidate.defaultBranch"
-                                  (ngModelChange)="updateCandidateBranch(ci, $event)" />
-                              </div>
                             </div>
                             <div class="import-card__row">
                               <div class="import-card__field import-card__field--full">
@@ -854,7 +848,6 @@
                             @case ('MISSING') { &#10007; }
                           }
                         </span>
-                        <span class="project-card__branch">{{ ps.project.defaultBranch }}</span>
                         <button
                           class="btn btn--secondary btn--sm"
                           (click)="editProject(ps)"

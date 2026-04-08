@@ -24,6 +24,7 @@ x-common-env: &common-env
   SQUADRON_JWKS_URI: http://squadron-identity:8081/api/auth/jwks
   SQUADRON_JWT_RSA_KEY: ""
   SQUADRON_ENCRYPTION_KEY: dev-encryption-key-change-in-production
+  PLATFORM_SERVICE_URL: http://squadron-platform:8084
 
 x-service-defaults: &service-defaults
   restart: "no"
@@ -374,6 +375,10 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
       SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
       SPRING_AI_OLLAMA_CHAT_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
+      ORCHESTRATOR_URL: http://squadron-orchestrator:8083
+      GIT_SERVICE_URL: http://squadron-git:8087
+      REVIEW_SERVICE_URL: http://squadron-review:8088
+      WORKSPACE_SERVICE_URL: http://squadron-workspace:8086
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8085/actuator/health || exit 1"]
       interval: 10s
@@ -397,6 +402,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_workspace
       SQUADRON_WORKSPACE_PROVIDER: docker
       SQUADRON_WORKSPACE_DOCKER_HOST: unix:///var/run/docker.sock
+      SQUADRON_PLATFORM_URL: http://squadron-platform:8084
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:

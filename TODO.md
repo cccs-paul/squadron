@@ -1,13 +1,13 @@
 # Squadron - Implementation Progress Tracker
 
-**Last updated:** 2026-04-07
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). Phase 12: Review Bot Integration — end-to-end glue connecting AI review output to git platform bot comments via ReviewBotClient + GitClient, with REVIEW_BOT credential purpose. Phase 13: Task Sync from Ticket Providers — fixed TaskSyncService URL/method bug, added workflow initialization for synced tasks, built "Sync Tasks" UI on task board with project selection, progress, and result display. Phase 14: Live Testing Bug Fixes — ReviewBotConfigController @PreAuthorize missing developer role, nginx IPv6 listen for healthcheck, getMappingLabel collapsed-card "Not configured" bug. All backend tests passing (~4,063 across 11 modules). All 926 Angular tests passing (2 pre-existing ProjectService failures). Docker deployment: all 20 containers healthy.
+**Last updated:** 2026-04-08
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). Phase 12: Review Bot Integration — end-to-end glue connecting AI review output to git platform bot comments via ReviewBotClient + GitClient, with REVIEW_BOT credential purpose. Phase 13: Task Sync from Ticket Providers — fixed TaskSyncService URL/method bug, added workflow initialization for synced tasks, built "Sync Tasks" UI on task board with project selection, progress, and result display. Phase 14: Live Testing Bug Fixes — ReviewBotConfigController @PreAuthorize missing developer role, nginx IPv6 listen for healthcheck, getMappingLabel collapsed-card "Not configured" bug. Phase 15: Live Testing Bug Fixes Round 2 — task sync 403 for developer role, WebSocket 401 on gateway, "Not configured" eager-fetch cascade failure, saveMappings UI refresh, removed default branch from step 3, custom Spring Boot banners for all 10 services, Docker inter-service URL fix (PLATFORM_SERVICE_URL + agent/workspace Feign URLs), task sync 401 JWT forwarding fix (TaskSyncService + FeignConfig RequestInterceptor), Jira JQL double URL-encoding fix (JiraServerAdapter + JiraCloudAdapter). Task sync fully working end-to-end with live Jira Server. All backend tests passing (~4,068 across 11 modules, 4 pre-existing WebSocket integration test failures). All 926 Angular tests passing (2 pre-existing ProjectService failures). Docker deployment: all 20 containers healthy.
 
 ---
 
 ## Completed Modules
 
-### squadron-common (66 src / 64 test)
+### squadron-common (66 src / 66 test)
 - [x] DTOs (TaskDto, TenantDto, TeamDto, UserDto, ProjectDto, etc.)
 - [x] Events (TaskStateChanged, AgentInvoked, AgentCompleted, ReviewUpdated, etc.)
 - [x] Security (TenantContext, TenantFilter, JwtService, TokenEncryption, AccessLevel)
@@ -871,6 +871,79 @@
 - [x] Tests updated: renamed existing test, added `should_getMappingLabel_returnMappingCount_when_collapsedWithMappings` test
 - [x] All 926 Angular tests passing (924 success, 2 pre-existing ProjectService failures unrelated to this change)
 - [x] Docker image rebuilt, container recreated and healthy
+
+### Phase 15: Live Testing Bug Fixes Round 2
+
+#### Bug 4: 403 on POST /api/tasks/sync for developer role
+- [x] Root cause: `TaskController.syncTasks()` `@PreAuthorize` only allowed `squadron-admin` and `team-lead` roles — missing `developer`
+- [x] Fix: Added `'developer'` to `@PreAuthorize` on sync endpoint
+- [x] Tests: 3 new tests (`should_syncTasks_when_developerRole`, `should_syncTasks_when_teamLeadRole`, `should_return403_when_viewerTriesToSync`)
+- [x] All orchestrator tests passing
+
+#### Bug 5: 401 on WebSocket /ws/notifications
+- [x] Root cause: Gateway `SecurityConfig.java` did not include `/ws/**` in `permitAll()` path matchers — all WebSocket paths fell under `.anyExchange().authenticated()`
+- [x] Fix: Added `"/ws/**"` to the `permitAll()` path matchers in gateway SecurityConfig
+- [x] WebSocketTokenFilter (order -200) handles JWT extraction from `access_token` query param; downstream notification service handles STOMP auth
+- [x] Tests: 1 new gateway SecurityConfigTest verification test
+- [x] All gateway tests passing
+
+#### Bug 6: "Not configured" badge on all projects when one fails (Branch & Workflow step)
+- [x] Root cause: Eager mapping fetch used `forkJoin` for all projects' mapping requests; if ANY one failed, the entire forkJoin errored and no mappings populated
+- [x] Fix: Added `catchError(() => of([] as WorkflowMapping[]))` to each individual project mapping request, so one failure doesn't block others
+- [x] Removed forkJoin-level error handler (individual errors now caught)
+
+#### Bug 7: UI not refreshing after "Save Mappings" click
+- [x] Root cause: `saveMappings()` `updateProject()` call only sent `branchNamingTemplate` and `defaultBranch`, missing `connectionId` and `externalProjectId`
+- [x] Fix: Added `connectionId` and `externalProjectId` to `updateProject()` payload; preserved `mappingsLoaded: true` in success handler
+- [x] Tests: Updated `should_saveMappings` test expectations
+
+#### Cleanup: Removed default branch from step 3 (Projects)
+- [x] Default branch display was moved to step 4 (Branch & Workflow) — removed duplicate `<span>` from step 3 project cards
+- [x] Removed default branch input field from import candidate details in step 3
+
+#### Custom Spring Boot Banners
+- [x] Created `banner.txt` in `src/main/resources/` for all 10 service modules
+- [x] Each banner displays Squadron ASCII art logo + spaced-out service name (e.g., `I D E N T I T Y   S E R V I C E`)
+- [x] Includes Spring Boot version and Java version placeholders
+- [x] Modules: identity, gateway, orchestrator, platform, agent, workspace, git, review, notification, config
+
+#### Build & Test Verification
+- [x] `mvn clean verify` — all modules pass except 4 pre-existing WebSocketIntegrationTest failures in squadron-agent
+- [x] All other ~4,059 backend tests passing (0 failures)
+- [x] Angular tests: 926 passing (2 pre-existing ProjectService failures)
+
+#### Bug 8: Task Sync I/O Error in Docker (PLATFORM_SERVICE_URL not set)
+- [x] Root cause: `TaskSyncService` uses a `RestClient` with base URL from `${PLATFORM_SERVICE_URL:http://localhost:8084}`. In Docker, `localhost` points to the orchestrator container itself — the platform service is at `squadron-platform:8084` on the Docker network. The env var was never set in `docker-compose.yml`.
+- [x] Fix: Added `PLATFORM_SERVICE_URL: http://squadron-platform:8084` to `x-common-env` anchor in `docker-compose.yml` (used by orchestrator, git, and agent)
+- [x] Also added missing inter-service URLs to squadron-agent: `ORCHESTRATOR_URL`, `GIT_SERVICE_URL`, `REVIEW_SERVICE_URL`, `WORKSPACE_SERVICE_URL`
+- [x] Also added missing `SQUADRON_PLATFORM_URL` to squadron-workspace
+- [x] Docker compose config validated, all 20 containers healthy after rebuild
+
+#### Bug 9: Task Sync 401 Unauthorized (JWT not forwarded to platform service)
+- [x] Root cause: After fixing the I/O error, the orchestrator's `RestClient` could reach the platform service but got 401 because it wasn't forwarding the JWT. The platform service's `SecurityConfig` requires authentication for `/api/platforms/sync/**`.
+- [x] Fix: Added `extractBearerToken()` method to `TaskSyncService` that reads the JWT from `SecurityContextHolder` and adds an `Authorization: Bearer` header to the `RestClient` call
+- [x] Tests: Updated `TaskSyncServiceTest` with lenient mock for the `header()` call since unit tests don't have a SecurityContext
+
+#### Bug 10: Jira JQL double URL-encoding (400 Bad Request on /rest/api/2/search)
+- [x] Root cause: `JiraServerAdapter.fetchTasks()` (and `JiraCloudAdapter`) manually encoded the JQL with `URLEncoder.encode()`, then passed the result to `webClient.get().uri(string)` which re-encoded it. This produced garbled JQL that Jira rejected with 400.
+- [x] Fix: Replaced manual `URLEncoder.encode()` + string URI with `uriBuilder` using `queryParam()` — WebClient handles encoding correctly via `UriBuilder`
+- [x] Removed unused `java.net.URLEncoder` import from both adapters
+- [x] Tests: Updated `setupGetMock()` in both `JiraServerAdapterTest` and `JiraCloudAdapterTest` with lenient `Function`-based URI mock alongside string-based URI mock
+- [x] All 530 platform tests passing
+
+#### Systemic Fix: FeignConfig JWT Forwarding (RequestInterceptor)
+- [x] Root cause: `FeignConfig` in `squadron-common` had no `RequestInterceptor` — all Feign-based inter-service calls from authenticated user requests would silently drop the JWT, causing 401 on downstream services
+- [x] Fix: Added `authorizationForwardingInterceptor()` bean that reads `Authorization: Bearer` header from the incoming HTTP request via `RequestContextHolder` and forwards it to all outbound Feign calls
+- [x] Gracefully skips forwarding when no HTTP request context (NATS-triggered, scheduled calls)
+- [x] Tests: 5 new `FeignConfigTest` tests (interceptor creation, bearer forwarding, no auth header, non-bearer auth, no request context)
+- [x] All 606 common tests passing
+
+#### Build & Test Verification (Phase 15 final)
+- [x] `mvn clean verify` — all modules pass except 4 pre-existing WebSocketIntegrationTest failures in squadron-agent
+- [x] All other ~4,068 backend tests passing (0 failures)
+- [x] Angular tests: 926 passing (2 pre-existing ProjectService failures)
+- [x] Task sync fully working end-to-end with live Jira Server instance
+- [x] All 20 Docker containers healthy
 
 ---
 

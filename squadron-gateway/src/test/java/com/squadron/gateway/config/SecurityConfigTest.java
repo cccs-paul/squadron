@@ -101,6 +101,15 @@ class SecurityConfigTest {
         assertThat(field.getType()).isEqualTo(String.class);
     }
 
+    @Test
+    void should_haveSecurityWebFilterChainMethod_withServerHttpSecurityParam() throws NoSuchMethodException {
+        var method = SecurityConfig.class.getMethod("securityWebFilterChain",
+                org.springframework.security.config.web.server.ServerHttpSecurity.class);
+        assertThat(method).isNotNull();
+        // The method exists and accepts ServerHttpSecurity -- the chain should permit /ws/** paths
+        // for WebSocket connections (auth is handled by the downstream notification service)
+    }
+
     private SecurityConfig createSecurityConfig(String authMode, String squadronJwksUri, String keycloakJwksUri) throws Exception {
         SecurityConfig config = new SecurityConfig();
 

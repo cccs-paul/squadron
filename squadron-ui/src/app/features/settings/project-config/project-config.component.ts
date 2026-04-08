@@ -18,7 +18,7 @@ import {
   ReviewBotConfig,
   CreateReviewBotConfigRequest,
 } from '../../../core/models/security.model';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin, of, catchError } from 'rxjs';
 
 export type WizardStep = 'ticket-providers' | 'git-remotes' | 'projects' | 'branch-workflow';
 
@@ -257,21 +257,15 @@ export class ProjectConfigComponent implements OnInit {
         // Eagerly fetch mappings for all projects so collapsed cards show correct counts
         if (projects.length > 0) {
           const mappingRequests = projects.map((p) =>
-            this.projectService.getWorkflowMappings(p.id),
+            this.projectService.getWorkflowMappings(p.id).pipe(
+              catchError(() => of([] as WorkflowMapping[])),
+            ),
           );
           forkJoin(mappingRequests).subscribe({
             next: (allMappings) => {
               const updated = this.projectStates().map((ps, i) => ({
                 ...ps,
                 mappings: allMappings[i] ?? [],
-                mappingsLoaded: true,
-              }));
-              this.projectStates.set(updated);
-            },
-            error: () => {
-              // Mark as loaded even on error so the label doesn't show "loading"
-              const updated = this.projectStates().map((ps) => ({
-                ...ps,
                 mappingsLoaded: true,
               }));
               this.projectStates.set(updated);
@@ -1314,23 +1308,27 @@ export class ProjectConfigComponent implements OnInit {
     states[index] = state;
     this.projectStates.set(states);
 
-    // Save workflow mappings, branch naming template, and default branch together
+    // Save workflow mappings, branch naming template, default branch, and connection info together
     forkJoin({
       mappings: this.projectService.saveWorkflowMappings(state.project.id, validMappings),
       project: this.projectService.updateProject(state.project.id, {
         branchNamingTemplate: state.project.branchNamingTemplate || '{strategy}/{ticket}-{description}',
         defaultBranch: state.project.defaultBranch || 'main',
+        connectionId: state.project.connectionId,
+        externalProjectId: state.project.externalProjectId,
       }),
     }).subscribe({
       next: ({ mappings, project }) => {
         const updated = [...this.projectStates()];
+        const current = updated[index];
         updated[index] = {
-          ...updated[index],
+          ...current,
           mappings,
-          project,
+          project: { ...project, connectionId: project.connectionId, externalProjectId: project.externalProjectId },
           saving: false,
           saveSuccess: true,
           saveError: null,
+          mappingsLoaded: true,
         };
         this.projectStates.set(updated);
         setTimeout(() => {

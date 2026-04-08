@@ -66,7 +66,8 @@ class JiraServerAdapterTest {
     @SuppressWarnings("unchecked")
     private void setupGetMock() {
         when(webClient.get()).thenReturn(requestHeadersUriSpec);
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        lenient().when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        lenient().when(requestHeadersUriSpec.uri(any(java.util.function.Function.class))).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
     }
 

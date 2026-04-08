@@ -5,6 +5,8 @@ import com.squadron.common.security.TenantContext;
 import com.squadron.orchestrator.config.SecurityConfig;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
 import com.squadron.orchestrator.dto.TaskStatsDto;
+import com.squadron.orchestrator.dto.TaskSyncRequest;
+import com.squadron.orchestrator.dto.TaskSyncResult;
 import com.squadron.orchestrator.dto.TaskWorkflowDto;
 import com.squadron.orchestrator.dto.TransitionRequest;
 import com.squadron.orchestrator.entity.Task;
@@ -433,5 +435,91 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.byState.BACKLOG").value(2))
                 .andExpect(jsonPath("$.data.byPriority").isEmpty());
+    }
+
+    @Test
+    void should_syncTasks_when_developerRole() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID connectionId = UUID.randomUUID();
+
+        TaskSyncRequest request = TaskSyncRequest.builder()
+                .tenantId(tenantId)
+                .projectId(projectId)
+                .platformConnectionId(connectionId)
+                .projectKey("PROJ")
+                .build();
+
+        TaskSyncResult result = TaskSyncResult.builder()
+                .created(3)
+                .updated(1)
+                .unchanged(2)
+                .failed(0)
+                .errors(Collections.emptyList())
+                .build();
+
+        when(taskSyncService.syncTasks(any(TaskSyncRequest.class))).thenReturn(result);
+
+        mockMvc.perform(post("/api/tasks/sync")
+                        .with(jwt().jwt(j -> j.subject(UUID.randomUUID().toString())
+                                .claim("roles", List.of("developer")))
+                                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_developer")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.created").value(3))
+                .andExpect(jsonPath("$.data.updated").value(1));
+    }
+
+    @Test
+    void should_syncTasks_when_teamLeadRole() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID connectionId = UUID.randomUUID();
+
+        TaskSyncRequest request = TaskSyncRequest.builder()
+                .tenantId(tenantId)
+                .projectId(projectId)
+                .platformConnectionId(connectionId)
+                .projectKey("PROJ")
+                .build();
+
+        TaskSyncResult result = TaskSyncResult.builder()
+                .created(0)
+                .updated(0)
+                .unchanged(5)
+                .failed(0)
+                .errors(Collections.emptyList())
+                .build();
+
+        when(taskSyncService.syncTasks(any(TaskSyncRequest.class))).thenReturn(result);
+
+        mockMvc.perform(post("/api/tasks/sync")
+                        .with(jwt().jwt(j -> j.subject(UUID.randomUUID().toString())
+                                .claim("roles", List.of("team-lead")))
+                                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_team-lead")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.unchanged").value(5));
+    }
+
+    @Test
+    @WithMockUser(roles = {"viewer"})
+    void should_return403_when_viewerTriesToSync() throws Exception {
+        TaskSyncRequest request = TaskSyncRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .projectId(UUID.randomUUID())
+                .platformConnectionId(UUID.randomUUID())
+                .projectKey("PROJ")
+                .build();
+
+        mockMvc.perform(post("/api/tasks/sync")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
     }
 }

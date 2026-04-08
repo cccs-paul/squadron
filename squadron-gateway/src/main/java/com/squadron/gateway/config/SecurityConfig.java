@@ -45,7 +45,8 @@ public class SecurityConfig {
                             "/actuator/health", "/actuator/health/**", "/actuator/info",
                             "/api/auth/**", "/api/identity/auth/**",
                             "/api/health/**",
-                            "/.well-known/**"
+                            "/.well-known/**",
+                            "/ws/**"
                         ).permitAll()
                         .anyExchange().authenticated()
                 )

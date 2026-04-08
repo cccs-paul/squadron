@@ -974,6 +974,8 @@ describe('ProjectConfigComponent', () => {
     expect(projectServiceSpy.updateProject).toHaveBeenCalledWith('p1', jasmine.objectContaining({
       branchNamingTemplate: jasmine.any(String),
       defaultBranch: jasmine.any(String),
+      connectionId: 'pc-1',
+      externalProjectId: 'SQ',
     }));
   });
 

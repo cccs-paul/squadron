@@ -11,6 +11,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
@@ -60,13 +63,22 @@ public class TaskSyncService {
         List<String> errors = new ArrayList<>();
 
         try {
+            // Extract JWT from SecurityContext to forward to platform service
+            String bearerToken = extractBearerToken();
+
             // Fetch tasks from platform service via POST /api/platforms/sync/{connectionId}/tasks
             // The platform service returns ApiResponse<List<PlatformTaskDto>>
             // We need to extract from the "data" field
-            @SuppressWarnings("unchecked")
-            Map<String, Object> response = restClient.post()
+            RestClient.RequestBodySpec requestSpec = restClient.post()
                     .uri("/api/platforms/sync/{connectionId}/tasks?projectKey={key}",
-                            request.getPlatformConnectionId(), request.getProjectKey())
+                            request.getPlatformConnectionId(), request.getProjectKey());
+
+            if (bearerToken != null) {
+                requestSpec = requestSpec.header("Authorization", "Bearer " + bearerToken);
+            }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = requestSpec
                     .retrieve()
                     .body(new ParameterizedTypeReference<Map<String, Object>>() {});
 
@@ -167,5 +179,17 @@ public class TaskSyncService {
                 created, updated, unchanged, failed);
 
         return result;
+    }
+
+    /**
+     * Extracts the JWT token value from the current SecurityContext.
+     * Returns null if no JWT authentication is present (e.g., in tests or NATS-triggered calls).
+     */
+    private String extractBearerToken() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
+            return jwt.getTokenValue();
+        }
+        return null;
     }
 }

@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
@@ -96,11 +95,13 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
             }
             int maxResults = (filter != null && filter.getMaxResults() != null) ? filter.getMaxResults() : 50;
 
-            String encodedJql = URLEncoder.encode(jql.toString(), StandardCharsets.UTF_8);
-            String uri = "/search?jql=" + encodedJql + "&maxResults=" + maxResults + "&fields=" + SEARCH_FIELDS;
-
             String responseBody = webClient.get()
-                    .uri(uri)
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/search")
+                            .queryParam("jql", jql.toString())
+                            .queryParam("maxResults", maxResults)
+                            .queryParam("fields", SEARCH_FIELDS)
+                            .build())
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();

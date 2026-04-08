@@ -164,7 +164,7 @@ public class TaskController {
     }
 
     @PostMapping("/sync")
-    @PreAuthorize("hasAnyRole('squadron-admin','team-lead')")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
     @Operation(summary = "Sync tasks from external platform", description = "Imports tasks from connected ticketing platform")
     public ResponseEntity<ApiResponse<TaskSyncResult>> syncTasks(@Valid @RequestBody TaskSyncRequest request) {
         TaskSyncResult result = taskSyncService.syncTasks(request);
