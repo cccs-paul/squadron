@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.platform.config.SecurityConfig;
 import com.squadron.platform.dto.CreateConnectionRequest;
 import com.squadron.platform.dto.PlatformProjectDto;
+import com.squadron.platform.dto.UpdateConnectionRequest;
 import com.squadron.platform.entity.PlatformConnection;
 import com.squadron.platform.service.PlatformConnectionService;
 import org.junit.jupiter.api.Test;
@@ -194,8 +195,7 @@ class PlatformConnectionControllerTest {
         UUID connectionId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
 
-        CreateConnectionRequest request = CreateConnectionRequest.builder()
-                .tenantId(tenantId)
+        UpdateConnectionRequest request = UpdateConnectionRequest.builder()
                 .name("Updated Jira Cloud")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://updated.atlassian.net")
@@ -214,7 +214,7 @@ class PlatformConnectionControllerTest {
                 .updatedAt(Instant.now())
                 .build();
 
-        when(connectionService.updateConnection(eq(connectionId), any(CreateConnectionRequest.class))).thenReturn(updated);
+        when(connectionService.updateConnection(eq(connectionId), any(UpdateConnectionRequest.class))).thenReturn(updated);
 
         mockMvc.perform(put("/api/platforms/connections/{id}", connectionId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -224,7 +224,7 @@ class PlatformConnectionControllerTest {
                 .andExpect(jsonPath("$.data.name").value("Updated Jira Cloud"))
                 .andExpect(jsonPath("$.data.baseUrl").value("https://updated.atlassian.net"));
 
-        verify(connectionService).updateConnection(eq(connectionId), any(CreateConnectionRequest.class));
+        verify(connectionService).updateConnection(eq(connectionId), any(UpdateConnectionRequest.class));
     }
 
     // --- DELETE /api/platforms/connections/{id} ---

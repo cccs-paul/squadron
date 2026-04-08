@@ -4,6 +4,7 @@ import com.squadron.common.dto.ApiResponse;
 import com.squadron.platform.dto.ConnectionInfoResponse;
 import com.squadron.platform.dto.CreateConnectionRequest;
 import com.squadron.platform.dto.PlatformProjectDto;
+import com.squadron.platform.dto.UpdateConnectionRequest;
 import com.squadron.platform.entity.PlatformConnection;
 import com.squadron.platform.service.PlatformConnectionService;
 import jakarta.validation.Valid;
@@ -59,7 +60,7 @@ public class PlatformConnectionController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ConnectionInfoResponse>> updateConnection(
             @PathVariable UUID id,
-            @Valid @RequestBody CreateConnectionRequest request) {
+            @RequestBody UpdateConnectionRequest request) {
         PlatformConnection connection = connectionService.updateConnection(id, request);
         return ResponseEntity.ok(ApiResponse.success(ConnectionInfoResponse.fromEntity(connection)));
     }

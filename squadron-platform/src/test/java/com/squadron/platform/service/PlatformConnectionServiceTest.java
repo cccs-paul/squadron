@@ -7,6 +7,7 @@ import com.squadron.common.security.TokenEncryptionService;
 import com.squadron.platform.adapter.PlatformAdapterRegistry;
 import com.squadron.platform.adapter.TicketingPlatformAdapter;
 import com.squadron.platform.dto.CreateConnectionRequest;
+import com.squadron.platform.dto.UpdateConnectionRequest;
 import com.squadron.platform.entity.PlatformConnection;
 import com.squadron.platform.repository.PlatformConnectionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -164,8 +165,7 @@ class PlatformConnectionServiceTest {
                 .authType("OAUTH2")
                 .build();
 
-        CreateConnectionRequest request = CreateConnectionRequest.builder()
-                .tenantId(existing.getTenantId())
+        UpdateConnectionRequest request = UpdateConnectionRequest.builder()
                 .name("Updated Name")
                 .platformType("JIRA_SERVER")
                 .baseUrl("https://new.jira.com")
@@ -200,8 +200,7 @@ class PlatformConnectionServiceTest {
                 .credentials("{\"clientId\":\"old\"}")
                 .build();
 
-        CreateConnectionRequest request = CreateConnectionRequest.builder()
-                .tenantId(existing.getTenantId())
+        UpdateConnectionRequest request = UpdateConnectionRequest.builder()
                 .name("Existing Connection")
                 .platformType("JIRA_CLOUD")
                 .baseUrl("https://new.atlassian.net")

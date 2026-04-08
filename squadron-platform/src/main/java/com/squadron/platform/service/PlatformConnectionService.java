@@ -9,6 +9,7 @@ import com.squadron.platform.adapter.PlatformAdapterRegistry;
 import com.squadron.platform.adapter.TicketingPlatformAdapter;
 import com.squadron.platform.dto.CreateConnectionRequest;
 import com.squadron.platform.dto.PlatformProjectDto;
+import com.squadron.platform.dto.UpdateConnectionRequest;
 import com.squadron.platform.entity.PlatformConnection;
 import com.squadron.platform.repository.PlatformConnectionRepository;
 import org.slf4j.Logger;
@@ -92,14 +93,23 @@ public class PlatformConnectionService {
     }
 
     /**
-     * Updates an existing platform connection. Re-encrypts credentials if provided.
+     * Updates an existing platform connection. Only non-null fields are applied.
+     * Re-encrypts credentials if provided. TenantId is never changed.
      */
-    public PlatformConnection updateConnection(UUID id, CreateConnectionRequest request) {
+    public PlatformConnection updateConnection(UUID id, UpdateConnectionRequest request) {
         PlatformConnection connection = getConnection(id);
-        connection.setName(request.getName());
-        connection.setPlatformType(request.getPlatformType());
-        connection.setBaseUrl(request.getBaseUrl());
-        connection.setAuthType(request.getAuthType());
+        if (request.getName() != null) {
+            connection.setName(request.getName());
+        }
+        if (request.getPlatformType() != null) {
+            connection.setPlatformType(request.getPlatformType());
+        }
+        if (request.getBaseUrl() != null) {
+            connection.setBaseUrl(request.getBaseUrl());
+        }
+        if (request.getAuthType() != null) {
+            connection.setAuthType(request.getAuthType());
+        }
         if (request.getCredentials() != null) {
             connection.setCredentials(encryptCredentials(request.getCredentials()));
         }

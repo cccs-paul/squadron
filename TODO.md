@@ -87,7 +87,7 @@
 - [x] Flyway migration (V1)
 - [x] All 191 tests passing
 
-### squadron-platform (35 src / 35 test)
+### squadron-platform (36 src / 36 test)
 - [x] Adapter pattern with registry
 - [x] JIRA Cloud adapter
 - [x] JIRA Server adapter
@@ -104,8 +104,9 @@
 - [x] SSH key private-key endpoint: `GET /api/platforms/ssh-keys/{id}/private-key` (returns decrypted key for inter-service use)
 - [x] `platform_category` column on `platform_connections` (TICKET_PROVIDER / GIT_REMOTE), auto-determined by platform type
 - [x] `PlatformConnectionService.listConnectionsByTenantAndCategory()` + `GET /tenant/{tenantId}/category/{category}` endpoint
+- [x] `UpdateConnectionRequest` DTO for partial updates without tenantId constraint
 - [x] Flyway migrations (V1, V2, V3, V4, V5, V6)
-- [x] All 476 tests passing
+- [x] All 536 tests passing
 
 ### squadron-git (34 src / 36 test)
 - [x] Git platform adapters (GitHub, GitLab, Bitbucket)
@@ -938,6 +939,14 @@
 - [x] Tests: 5 new `FeignConfigTest` tests (interceptor creation, bearer forwarding, no auth header, non-bearer auth, no request context)
 - [x] All 606 common tests passing
 
+#### Bug 11: Update Connection tenantId Validation Error (400 on PUT /api/platforms/connections/{id})
+- [x] Root cause: `PUT /api/platforms/connections/{id}` reused `CreateConnectionRequest` DTO which has `@NotNull tenantId`. The frontend correctly doesn't send `tenantId` on updates (tenant can't change), so Jakarta validation failed with "tenantId: Tenant ID is required".
+- [x] Fix: Created dedicated `UpdateConnectionRequest` DTO without `tenantId` field — only includes mutable fields (`name`, `platformType`, `baseUrl`, `authType`, `credentials`, `metadata`)
+- [x] `PlatformConnectionController.updateConnection()` now accepts `UpdateConnectionRequest` instead of `CreateConnectionRequest`
+- [x] `PlatformConnectionService.updateConnection()` rewritten with true partial update logic — only non-null fields applied to existing entity
+- [x] Tests: `UpdateConnectionRequestTest` (6 tests), controller and service tests updated for new DTO
+- [x] All 536 platform tests passing
+
 #### Build & Test Verification (Phase 15 final)
 - [x] `mvn clean verify` — all modules pass except 4 pre-existing WebSocketIntegrationTest failures in squadron-agent
 - [x] All other ~4,068 backend tests passing (0 failures)
@@ -957,7 +966,7 @@
 | squadron-orchestrator | 39 | 36 | Complete |
 | squadron-agent | 98 | 97 | Complete |
 | squadron-workspace | 20 | 19 | Complete |
-| squadron-platform | 47 | 45 | Complete |
+| squadron-platform | 48 | 46 | Complete |
 | squadron-git | 37 | 38 | Complete |
 | squadron-review | 33 | 33 | Complete |
 | squadron-config | 12 | 12 | Complete |
