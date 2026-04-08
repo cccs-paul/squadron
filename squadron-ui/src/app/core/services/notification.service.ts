@@ -31,7 +31,14 @@ export class NotificationService extends ApiService implements OnDestroy {
   readonly onNotification$ = this.incomingNotification$.asObservable();
 
   getNotifications(page = 0, size = 20): Observable<PageResponse<Notification>> {
-    return this.get<PageResponse<Notification>>('/notifications', { page, size }).pipe(
+    const userId = this.authService.user()?.id;
+    if (!userId) {
+      return new Observable((subscriber) => {
+        subscriber.next({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 0 });
+        subscriber.complete();
+      });
+    }
+    return this.get<PageResponse<Notification>>(`/notifications/user/${userId}`, { page, size }).pipe(
       tap((response) => {
         this.notifications.set(response.content);
         this.unreadCount.set(response.content.filter((n) => !n.read).length);
@@ -40,7 +47,7 @@ export class NotificationService extends ApiService implements OnDestroy {
   }
 
   markAsRead(id: string): Observable<void> {
-    return this.post<void>(`/notifications/${id}/read`, {}).pipe(
+    return this.put<void>(`/notifications/${id}/read`, {}).pipe(
       tap(() => {
         this.notifications.update((notifs) =>
           notifs.map((n) => (n.id === id ? { ...n, read: true } : n)),
@@ -51,7 +58,9 @@ export class NotificationService extends ApiService implements OnDestroy {
   }
 
   markAllAsRead(): Observable<void> {
-    return this.post<void>('/notifications/read-all', {}).pipe(
+    const userId = this.authService.user()?.id;
+    if (!userId) return new Observable((subscriber) => { subscriber.next(); subscriber.complete(); });
+    return this.put<void>(`/notifications/user/${userId}/read-all`, {}).pipe(
       tap(() => {
         this.notifications.update((notifs) => notifs.map((n) => ({ ...n, read: true })));
         this.unreadCount.set(0);

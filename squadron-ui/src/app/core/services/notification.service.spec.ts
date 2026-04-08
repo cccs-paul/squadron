@@ -69,7 +69,7 @@ describe('NotificationService', () => {
     });
 
     const req = httpTesting.expectOne((r) =>
-      r.url === `${apiUrl}/notifications` &&
+      r.url === `${apiUrl}/notifications/user/u1` &&
       r.params.get('page') === '0' &&
       r.params.get('size') === '20'
     );
@@ -91,7 +91,7 @@ describe('NotificationService', () => {
 
     service.getNotifications().subscribe();
 
-    const req = httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications`);
+    const req = httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications/user/u1`);
     req.flush(mockPage);
 
     expect(service.notifications()).toEqual(mockPage.content as any);
@@ -112,7 +112,7 @@ describe('NotificationService', () => {
 
     service.getNotifications().subscribe();
 
-    const req = httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications`);
+    const req = httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications/user/u1`);
     req.flush(mockPage);
 
     expect(service.unreadCount()).toBe(2);
@@ -122,7 +122,7 @@ describe('NotificationService', () => {
     service.getNotifications(2, 10).subscribe();
 
     const req = httpTesting.expectOne((r) =>
-      r.url === `${apiUrl}/notifications` &&
+      r.url === `${apiUrl}/notifications/user/u1` &&
       r.params.get('page') === '2' &&
       r.params.get('size') === '10'
     );
@@ -143,7 +143,7 @@ describe('NotificationService', () => {
       size: 20,
     };
     service.getNotifications().subscribe();
-    httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications`).flush(mockPage);
+    httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications/user/u1`).flush(mockPage);
 
     expect(service.unreadCount()).toBe(2);
 
@@ -151,7 +151,7 @@ describe('NotificationService', () => {
     service.markAsRead('n1').subscribe();
 
     const req = httpTesting.expectOne(`${apiUrl}/notifications/n1/read`);
-    expect(req.request.method).toBe('POST');
+    expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({});
     req.flush(null);
   });
@@ -169,7 +169,7 @@ describe('NotificationService', () => {
       size: 20,
     };
     service.getNotifications().subscribe();
-    httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications`).flush(mockPage);
+    httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications/user/u1`).flush(mockPage);
 
     service.markAsRead('n1').subscribe();
     httpTesting.expectOne(`${apiUrl}/notifications/n1/read`).flush(null);
@@ -192,7 +192,7 @@ describe('NotificationService', () => {
       size: 20,
     };
     service.getNotifications().subscribe();
-    httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications`).flush(mockPage);
+    httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications/user/u1`).flush(mockPage);
 
     expect(service.unreadCount()).toBe(2);
 
@@ -212,7 +212,7 @@ describe('NotificationService', () => {
       size: 20,
     };
     service.getNotifications().subscribe();
-    httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications`).flush(mockPage);
+    httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications/user/u1`).flush(mockPage);
 
     expect(service.unreadCount()).toBe(0);
 
@@ -225,8 +225,8 @@ describe('NotificationService', () => {
   it('should_markAllAsRead_when_called', () => {
     service.markAllAsRead().subscribe();
 
-    const req = httpTesting.expectOne(`${apiUrl}/notifications/read-all`);
-    expect(req.request.method).toBe('POST');
+    const req = httpTesting.expectOne(`${apiUrl}/notifications/user/u1/read-all`);
+    expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({});
     req.flush(null);
   });
@@ -245,12 +245,12 @@ describe('NotificationService', () => {
       size: 20,
     };
     service.getNotifications().subscribe();
-    httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications`).flush(mockPage);
+    httpTesting.expectOne((r) => r.url === `${apiUrl}/notifications/user/u1`).flush(mockPage);
 
     expect(service.unreadCount()).toBe(2);
 
     service.markAllAsRead().subscribe();
-    httpTesting.expectOne(`${apiUrl}/notifications/read-all`).flush(null);
+    httpTesting.expectOne(`${apiUrl}/notifications/user/u1/read-all`).flush(null);
 
     expect(service.unreadCount()).toBe(0);
     expect(service.notifications().every((n: any) => n.read)).toBe(true);

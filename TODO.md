@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-04-08
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). Phase 12: Review Bot Integration — end-to-end glue connecting AI review output to git platform bot comments via ReviewBotClient + GitClient, with REVIEW_BOT credential purpose. Phase 13: Task Sync from Ticket Providers — fixed TaskSyncService URL/method bug, added workflow initialization for synced tasks, built "Sync Tasks" UI on task board with project selection, progress, and result display. Phase 14: Live Testing Bug Fixes — ReviewBotConfigController @PreAuthorize missing developer role, nginx IPv6 listen for healthcheck, getMappingLabel collapsed-card "Not configured" bug. Phase 15: Live Testing Bug Fixes Round 2 — task sync 403 for developer role, WebSocket 401 on gateway, "Not configured" eager-fetch cascade failure, saveMappings UI refresh, removed default branch from step 3, custom Spring Boot banners for all 10 services, Docker inter-service URL fix (PLATFORM_SERVICE_URL + agent/workspace Feign URLs), task sync 401 JWT forwarding fix (TaskSyncService + FeignConfig RequestInterceptor), Jira JQL double URL-encoding fix (JiraServerAdapter + JiraCloudAdapter). Task sync fully working end-to-end with live Jira Server. All backend tests passing (~4,068 across 11 modules, 4 pre-existing WebSocket integration test failures). All 926 Angular tests passing (2 pre-existing ProjectService failures). Docker deployment: all 20 containers healthy.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). Phase 12: Review Bot Integration — end-to-end glue connecting AI review output to git platform bot comments via ReviewBotClient + GitClient, with REVIEW_BOT credential purpose. Phase 13: Task Sync from Ticket Providers — fixed TaskSyncService URL/method bug, added workflow initialization for synced tasks, built "Sync Tasks" UI on task board with project selection, progress, and result display. Phase 14: Live Testing Bug Fixes — ReviewBotConfigController @PreAuthorize missing developer role, nginx IPv6 listen for healthcheck, getMappingLabel collapsed-card "Not configured" bug. Phase 15: Live Testing Bug Fixes Round 2 — task sync 403 for developer role, WebSocket 401 on gateway, "Not configured" eager-fetch cascade failure, saveMappings UI refresh, removed default branch from step 3, custom Spring Boot banners for all 10 services, Docker inter-service URL fix (PLATFORM_SERVICE_URL + agent/workspace Feign URLs), task sync 401 JWT forwarding fix (TaskSyncService + FeignConfig RequestInterceptor), Jira JQL double URL-encoding fix (JiraServerAdapter + JiraCloudAdapter). Task sync fully working end-to-end with live Jira Server. All backend tests passing (~4,068 across 11 modules, 4 pre-existing WebSocket integration test failures). All 926 Angular tests passing (2 pre-existing ProjectService failures). Docker deployment: all 20 containers healthy. Phase 16: Live Testing Bug Fixes Round 3 — authType dropdown sends i18n key instead of backend value (added value field to AUTH_TYPE_OPTIONS, updated form bindings), NotificationService path mismatches (wrong URLs and HTTP methods for getNotifications, markAsRead, markAllAsRead). All 932 Angular tests passing.
 
 ---
 
@@ -953,6 +953,24 @@
 - [x] Angular tests: 926 passing (2 pre-existing ProjectService failures)
 - [x] Task sync fully working end-to-end with live Jira Server instance
 - [x] All 20 Docker containers healthy
+
+### Phase 16: Live Testing Bug Fixes Round 3
+
+#### BUG 12: authType sends i18n key instead of backend value
+- [x] **Root cause:** `AUTH_TYPE_OPTIONS` in `project-config.component.ts` used `label` (i18n translation key like `'projectConfig.authTypes.pat'`) as both the display label AND the value sent to the backend. The backend stores plain strings like `"PAT"`, `"API Token"`, etc.
+- [x] **Fix:** Added a `value` field to each `AUTH_TYPE_OPTIONS` entry with the backend value, changed all form lookups/assignments from `label` to `value`, updated `getTicketAuthTypeOptions()` and `getGitAuthTypeOptions()` return types to include `value`, updated `getFirstAuthType()` to match/return `value` with legacy i18n key fallback, updated `newTicketForm()`/`newGitForm()` defaults, updated HTML template `<option>` elements to use `[value]="opt.value"` while displaying `{{ opt.label | translate }}`
+- [x] **Files:** `project-config.component.ts`, `project-config.component.html`, `project-config.component.spec.ts`
+
+#### BUG 13: NotificationService path mismatches
+- [x] **Root cause:** Three frontend service methods used wrong URLs/methods vs backend controller
+- [x] **Fix 1:** `getNotifications()` — changed from `GET /notifications` to `GET /notifications/user/${userId}`
+- [x] **Fix 2:** `markAsRead()` — changed from `POST /notifications/{id}/read` to `PUT /notifications/{id}/read`
+- [x] **Fix 3:** `markAllAsRead()` — changed from `POST /notifications/read-all` to `PUT /notifications/user/${userId}/read-all`
+- [x] **Files:** `notification.service.ts`, `notification.service.spec.ts` (all 13+ tests updated)
+
+#### Build & Test Verification (Phase 16 final)
+- [x] Angular tests: 932 passing (0 failures)
+- [x] Backend: no changes, pre-existing squadron-identity Lombok annotation-processing test failures unrelated
 
 ---
 

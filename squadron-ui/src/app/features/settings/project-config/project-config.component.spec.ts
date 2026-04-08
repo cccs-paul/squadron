@@ -361,7 +361,7 @@ describe('ProjectConfigComponent', () => {
   it('should_returnTicketAuthFields_forSelectedAuthType', () => {
     fixture.detectChanges();
     component.ticketForm.platformType = 'JIRA_CLOUD';
-    component.ticketForm.authType = 'projectConfig.authTypes.apiToken';
+     component.ticketForm.authType = 'API Token';
     const fields = component.getTicketAuthFields();
     expect(fields.length).toBe(2);
     expect(fields[0].key).toBe('email');
@@ -371,13 +371,13 @@ describe('ProjectConfigComponent', () => {
   it('should_resetAuthTypeAndCredentials_when_ticketPlatformTypeChanges', () => {
     fixture.detectChanges();
     component.ticketForm.platformType = 'JIRA_CLOUD';
-    component.ticketForm.authType = 'projectConfig.authTypes.apiToken';
+     component.ticketForm.authType = 'API Token';
     component.ticketForm.credentials = { email: 'test@test.com', apiToken: 'abc' };
 
     component.ticketForm.platformType = 'AZURE_DEVOPS';
     component.onTicketPlatformTypeChange();
 
-    expect(component.ticketForm.authType).toBe('projectConfig.authTypes.pat');
+    expect(component.ticketForm.authType).toBe('PAT');
     expect(component.ticketForm.credentials).toEqual({});
   });
 
@@ -397,7 +397,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.ticketForm = {
       name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
-      authType: 'projectConfig.authTypes.apiToken', credentials: { email: 'me@test.com', apiToken: 'abc123' },
+      authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
     expect(component.canSaveTicketProvider()).toBeTrue();
   });
@@ -406,7 +406,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.ticketForm = {
       name: 'My Jira', platformType: 'JIRA_SERVER', baseUrl: '',
-      authType: 'projectConfig.authTypes.pat', credentials: { pat: 'abc123' },
+      authType: 'PAT', credentials: { pat: 'abc123' },
     };
     expect(component.canSaveTicketProvider()).toBeFalse();
 
@@ -420,7 +420,7 @@ describe('ProjectConfigComponent', () => {
     const initialCount = component.ticketProviders().length;
     component.ticketForm = {
       name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
-      authType: 'projectConfig.authTypes.apiToken', credentials: { email: 'me@test.com', apiToken: 'abc123' },
+      authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
 
     component.saveTicketProvider();
@@ -439,7 +439,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.ticketForm = {
       name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
-      authType: 'projectConfig.authTypes.apiToken', credentials: { email: 'me@test.com', apiToken: 'abc123' },
+      authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
 
     component.saveTicketProvider();
@@ -453,7 +453,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.ticketForm = {
       name: 'My Jira', platformType: 'JIRA_CLOUD', baseUrl: 'https://myorg.atlassian.net',
-      authType: 'projectConfig.authTypes.apiToken', credentials: { email: 'me@test.com', apiToken: 'abc123' },
+      authType: 'API Token', credentials: { email: 'me@test.com', apiToken: 'abc123' },
     };
     component.saveTicketProvider();
     expect(component.ticketSaveSuccess()).toBeTrue();
@@ -497,7 +497,7 @@ describe('ProjectConfigComponent', () => {
   it('should_returnGitAuthFields_forSelectedAuthType', () => {
     fixture.detectChanges();
     component.gitForm.platformType = 'GITHUB';
-    component.gitForm.authType = 'projectConfig.authTypes.pat';
+    component.gitForm.authType = 'PAT';
     const fields = component.getGitAuthFields();
     expect(fields.length).toBe(1);
     expect(fields[0].key).toBe('pat');
@@ -512,7 +512,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.gitForm = {
       name: 'GitHub - MyOrg', platformType: 'GITHUB', baseUrl: 'https://api.github.com',
-      authType: 'projectConfig.authTypes.pat', credentials: { pat: 'ghp_abc123' },
+      authType: 'PAT', credentials: { pat: 'ghp_abc123' },
     };
     expect(component.canSaveGitRemote()).toBeTrue();
   });
@@ -522,7 +522,7 @@ describe('ProjectConfigComponent', () => {
     const initialGitCount = component.gitRemotes().length;
     component.gitForm = {
       name: 'GitHub - MyOrg', platformType: 'GITHUB', baseUrl: 'https://api.github.com',
-      authType: 'projectConfig.authTypes.pat', credentials: { pat: 'ghp_abc123' },
+      authType: 'PAT', credentials: { pat: 'ghp_abc123' },
     };
 
     component.saveGitRemote();
@@ -540,7 +540,7 @@ describe('ProjectConfigComponent', () => {
     fixture.detectChanges();
     component.gitForm = {
       name: 'GitHub', platformType: 'GITHUB', baseUrl: 'https://api.github.com',
-      authType: 'projectConfig.authTypes.pat', credentials: { pat: 'bad' },
+      authType: 'PAT', credentials: { pat: 'bad' },
     };
 
     component.saveGitRemote();

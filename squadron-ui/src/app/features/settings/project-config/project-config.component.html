@@ -116,8 +116,8 @@
                 <div class="form-card__field">
                   <label class="form-card__label">{{ 'projectConfig.ticketProviders.form.authLabel' | translate }}</label>
                   <select class="form-select" [(ngModel)]="ticketForm.authType" (ngModelChange)="onTicketAuthTypeChange()">
-                    @for (opt of getTicketAuthTypeOptions(); track opt.label) {
-                      <option [value]="opt.label">{{ opt.label | translate }}</option>
+                    @for (opt of getTicketAuthTypeOptions(); track opt.value) {
+                      <option [value]="opt.value">{{ opt.label | translate }}</option>
                     }
                   </select>
                 </div>
@@ -274,8 +274,8 @@
                 <div class="form-card__field">
                   <label class="form-card__label">{{ 'projectConfig.gitRemotes.form.authLabel' | translate }}</label>
                   <select class="form-select" [(ngModel)]="gitForm.authType" (ngModelChange)="onGitAuthTypeChange()">
-                    @for (opt of getGitAuthTypeOptions(); track opt.label) {
-                      <option [value]="opt.label">{{ opt.label | translate }}</option>
+                    @for (opt of getGitAuthTypeOptions(); track opt.value) {
+                      <option [value]="opt.value">{{ opt.label | translate }}</option>
                     }
                   </select>
                 </div>

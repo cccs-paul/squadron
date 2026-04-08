@@ -78,27 +78,27 @@ const GIT_REMOTE_TYPES = new Set(['GITHUB', 'GITLAB', 'BITBUCKET']);
 /** Cloud platforms that don't need a base URL */
 const CLOUD_PLATFORMS = new Set(['GITHUB', 'GITLAB', 'JIRA_CLOUD']);
 
-const AUTH_TYPE_OPTIONS: Record<string, { label: string; fields: { key: string; label: string; secret: boolean }[] }[]> = {
+const AUTH_TYPE_OPTIONS: Record<string, { value: string; label: string; fields: { key: string; label: string; secret: boolean }[] }[]> = {
   JIRA_CLOUD: [
-    { label: 'projectConfig.authTypes.apiToken', fields: [{ key: 'email', label: 'projectConfig.authFields.email', secret: false }, { key: 'apiToken', label: 'projectConfig.authFields.apiToken', secret: true }] },
-    { label: 'projectConfig.authTypes.oauth2', fields: [{ key: 'clientId', label: 'projectConfig.authFields.clientId', secret: false }, { key: 'clientSecret', label: 'projectConfig.authFields.clientSecret', secret: true }] },
+    { value: 'API Token', label: 'projectConfig.authTypes.apiToken', fields: [{ key: 'email', label: 'projectConfig.authFields.email', secret: false }, { key: 'apiToken', label: 'projectConfig.authFields.apiToken', secret: true }] },
+    { value: 'OAuth 2.0', label: 'projectConfig.authTypes.oauth2', fields: [{ key: 'clientId', label: 'projectConfig.authFields.clientId', secret: false }, { key: 'clientSecret', label: 'projectConfig.authFields.clientSecret', secret: true }] },
   ],
   JIRA_SERVER: [
-    { label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
-    { label: 'projectConfig.authTypes.basicAuth', fields: [{ key: 'username', label: 'projectConfig.authFields.username', secret: false }, { key: 'password', label: 'projectConfig.authFields.password', secret: true }] },
+    { value: 'PAT', label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
+    { value: 'Basic Auth', label: 'projectConfig.authTypes.basicAuth', fields: [{ key: 'username', label: 'projectConfig.authFields.username', secret: false }, { key: 'password', label: 'projectConfig.authFields.password', secret: true }] },
   ],
   GITHUB: [
-    { label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
-    { label: 'projectConfig.authTypes.app', fields: [{ key: 'appId', label: 'projectConfig.authFields.appId', secret: false }, { key: 'installationId', label: 'projectConfig.authFields.installationId', secret: false }, { key: 'privateKey', label: 'projectConfig.authFields.privateKey', secret: true }] },
+    { value: 'PAT', label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
+    { value: 'GitHub App', label: 'projectConfig.authTypes.app', fields: [{ key: 'appId', label: 'projectConfig.authFields.appId', secret: false }, { key: 'installationId', label: 'projectConfig.authFields.installationId', secret: false }, { key: 'privateKey', label: 'projectConfig.authFields.privateKey', secret: true }] },
   ],
   GITLAB: [
-    { label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
+    { value: 'PAT', label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
   ],
   AZURE_DEVOPS: [
-    { label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
+    { value: 'PAT', label: 'projectConfig.authTypes.pat', fields: [{ key: 'pat', label: 'projectConfig.authFields.personalAccessToken', secret: true }] },
   ],
   BITBUCKET: [
-    { label: 'projectConfig.authTypes.appPassword', fields: [{ key: 'username', label: 'projectConfig.authFields.username', secret: false }, { key: 'password', label: 'projectConfig.authFields.appPassword', secret: true }] },
+    { value: 'App Password', label: 'projectConfig.authTypes.appPassword', fields: [{ key: 'username', label: 'projectConfig.authFields.username', secret: false }, { key: 'password', label: 'projectConfig.authFields.appPassword', secret: true }] },
   ],
 };
 
@@ -362,19 +362,19 @@ export class ProjectConfigComponent implements OnInit {
 
   // ===== STEP 1: Ticket Providers =====
 
-  getTicketAuthTypeOptions(): { label: string; fields: { key: string; label: string; secret: boolean }[] }[] {
+  getTicketAuthTypeOptions(): { value: string; label: string; fields: { key: string; label: string; secret: boolean }[] }[] {
     return AUTH_TYPE_OPTIONS[this.ticketForm.platformType] ?? [];
   }
 
   getTicketAuthFields(): { key: string; label: string; secret: boolean }[] {
     const options = this.getTicketAuthTypeOptions();
-    const selected = options.find((o) => o.label === this.ticketForm.authType);
+    const selected = options.find((o) => o.value === this.ticketForm.authType);
     return selected?.fields ?? [];
   }
 
   onTicketPlatformTypeChange(): void {
     const options = this.getTicketAuthTypeOptions();
-    this.ticketForm.authType = options.length > 0 ? options[0].label : '';
+    this.ticketForm.authType = options.length > 0 ? options[0].value : '';
     this.ticketForm.credentials = {};
     if (this.isCloudPlatform(this.ticketForm.platformType)) {
       this.ticketForm.baseUrl = this.getDefaultBaseUrl(this.ticketForm.platformType);
@@ -513,19 +513,19 @@ export class ProjectConfigComponent implements OnInit {
 
   // ===== STEP 2: Git Remotes =====
 
-  getGitAuthTypeOptions(): { label: string; fields: { key: string; label: string; secret: boolean }[] }[] {
+  getGitAuthTypeOptions(): { value: string; label: string; fields: { key: string; label: string; secret: boolean }[] }[] {
     return AUTH_TYPE_OPTIONS[this.gitForm.platformType] ?? [];
   }
 
   getGitAuthFields(): { key: string; label: string; secret: boolean }[] {
     const options = this.getGitAuthTypeOptions();
-    const selected = options.find((o) => o.label === this.gitForm.authType);
+    const selected = options.find((o) => o.value === this.gitForm.authType);
     return selected?.fields ?? [];
   }
 
   onGitPlatformTypeChange(): void {
     const options = this.getGitAuthTypeOptions();
-    this.gitForm.authType = options.length > 0 ? options[0].label : '';
+    this.gitForm.authType = options.length > 0 ? options[0].value : '';
     this.gitForm.credentials = {};
     if (this.isCloudPlatform(this.gitForm.platformType)) {
       this.gitForm.baseUrl = this.getDefaultBaseUrl(this.gitForm.platformType);
@@ -1392,27 +1392,28 @@ export class ProjectConfigComponent implements OnInit {
   // --- Private helpers ---
 
   /**
-   * Given a platformType and a stored authType string (which may be a raw key like
-   * "API_TOKEN" or a translation key like "projectConfig.authTypes.apiToken"), returns
-   * the matching AUTH_TYPE_OPTIONS label for that platform, falling back to the first
-   * available auth type.
-   */
-  private getFirstAuthType(platformType: string, storedAuthType?: string): string {
+   * Given a platformType and a stored authType string (which may be a raw backend value
+    * like "PAT" or "API Token"), returns the matching AUTH_TYPE_OPTIONS value for that
+    * platform, falling back to the first available auth type.
+    */
+   private getFirstAuthType(platformType: string, storedAuthType?: string): string {
     const options = AUTH_TYPE_OPTIONS[platformType] ?? [];
     if (options.length === 0) return '';
     if (storedAuthType) {
-      // Direct match (already a label / translation key)
-      const direct = options.find((o) => o.label === storedAuthType);
-      if (direct) return direct.label;
-      // Match by raw key (e.g. "API_TOKEN" -> "projectConfig.authTypes.apiToken")
-      const normalized = storedAuthType.toLowerCase().replace(/_/g, '');
+      // Direct match by value (e.g. "PAT", "API Token")
+      const direct = options.find((o) => o.value === storedAuthType);
+      if (direct) return direct.value;
+      // Legacy match: stored value may be an i18n key from before the fix
+      const legacy = options.find((o) => o.label === storedAuthType);
+      if (legacy) return legacy.value;
+      // Match by normalized key (e.g. "API_TOKEN" -> "apitoken" matches "API Token" -> "apitoken")
+      const normalized = storedAuthType.toLowerCase().replace(/[_ ]/g, '');
       const byKey = options.find((o) => {
-        const labelEnd = o.label.split('.').pop() ?? '';
-        return labelEnd.toLowerCase() === normalized;
+        return o.value.toLowerCase().replace(/[_ ]/g, '') === normalized;
       });
-      if (byKey) return byKey.label;
+      if (byKey) return byKey.value;
     }
-    return options[0].label;
+    return options[0].value;
   }
 
   private categorizeConnections(connections: PlatformConnection[]): void {
@@ -1456,11 +1457,11 @@ export class ProjectConfigComponent implements OnInit {
   }
 
   private newTicketForm(): ProviderForm {
-    return { name: '', platformType: 'JIRA_CLOUD', baseUrl: '', authType: 'projectConfig.authTypes.apiToken', credentials: {} };
+    return { name: '', platformType: 'JIRA_CLOUD', baseUrl: '', authType: 'API Token', credentials: {} };
   }
 
   private newGitForm(): ProviderForm {
-    return { name: '', platformType: 'GITHUB', baseUrl: 'https://api.github.com', authType: 'projectConfig.authTypes.pat', credentials: {} };
+    return { name: '', platformType: 'GITHUB', baseUrl: 'https://api.github.com', authType: 'PAT', credentials: {} };
   }
 
   private newSshKeyForm(): SshKeyForm {
