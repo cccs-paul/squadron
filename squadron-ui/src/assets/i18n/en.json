@@ -999,6 +999,23 @@
         "templateHint": "Variables: {strategy}, {ticket}, {description}, {type}, {user}",
         "previewLabel": "Preview:"
       },
+      "gitConfig": {
+        "title": "Git Repository",
+        "gitRemoteLabel": "Git Remote Provider",
+        "noGitRemotePlaceholder": "-- No git remote --",
+        "gitRemoteHint": "The git platform connection used for credentials when cloning/pushing.",
+        "cloneUrlLabel": "Git Clone URL",
+        "cloneUrlPlaceholder": "e.g. git@github.com:org/repo.git or https://github.com/org/repo.git",
+        "cloneUrlHint": "The URL used by agents to clone this repository (HTTPS or SSH).",
+        "repositoryUrlLabel": "Repository URL (Human-Readable)",
+        "repositoryUrlPlaceholder": "e.g. https://github.com/org/repo",
+        "repositoryUrlHint": "A browser-friendly URL for linking to this repo in the UI.",
+        "testGitAccess": "Test Git Access",
+        "testing": "Testing...",
+        "testSuccess": "Git access verified!",
+        "testFailed": "Git access failed",
+        "branchDetected": "Branch: {{branch}}"
+      },
       "ticketProviderConnection": {
         "title": "Ticket Provider",
         "connectionLabel": "Ticket Provider",
@@ -1089,6 +1106,12 @@
     },
     "errors": {
       "notAuthenticated": "Not authenticated"
+    },
+    "testConnection": {
+      "test": "Test",
+      "testing": "Testing...",
+      "success": "Connected",
+      "failed": "Connection failed"
     }
   },
   "admin": {

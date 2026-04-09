@@ -45,9 +45,9 @@ class TicketingPlatformAdapterTest {
     }
 
     @Test
-    void should_haveExactlyNineMethods() {
+    void should_haveExactlyTenMethods() {
         Method[] methods = TicketingPlatformAdapter.class.getDeclaredMethods();
-        assertEquals(9, methods.length);
+        assertEquals(10, methods.length);
     }
 
     @Test

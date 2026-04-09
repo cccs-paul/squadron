@@ -57,7 +57,7 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
 
     @Override
     public void configure(String baseUrl, Map<String, String> credentials) {
-        this.baseUrl = baseUrl;
+        this.baseUrl = normalizeBaseUrl(baseUrl);
         this.accessToken = resolveToken(credentials);
 
         // Jira Server supports PAT (Bearer) and Basic Auth (username:password)
@@ -74,7 +74,7 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
         }
 
         this.webClient = sslHelper.trustedBuilder()
-                .baseUrl(baseUrl + "/rest/api/2")
+                .baseUrl(this.baseUrl + "/rest/api/2")
                 .defaultHeader("Authorization", authHeader)
                 .defaultHeader("Accept", "application/json")
                 .defaultHeader("Content-Type", "application/json")

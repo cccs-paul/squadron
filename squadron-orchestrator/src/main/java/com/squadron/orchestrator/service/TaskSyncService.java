@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class TaskSyncService {
@@ -151,8 +152,9 @@ public class TaskSyncService {
                         newTask = taskRepository.save(newTask);
 
                         // Initialize workflow so the task appears in the BACKLOG state
+                        UUID syncUserId = extractUserId();
                         workflowEngine.initializeWorkflow(
-                                newTask.getTenantId(), newTask.getId(), null);
+                                newTask.getTenantId(), newTask.getId(), syncUserId);
                         created++;
                     }
                 } catch (Exception e) {
@@ -191,5 +193,21 @@ public class TaskSyncService {
             return jwt.getTokenValue();
         }
         return null;
+    }
+
+    /**
+     * Extracts the user ID from the current SecurityContext JWT claims.
+     * Returns a deterministic "system" UUID if no JWT authentication is present.
+     */
+    private UUID extractUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
+            String userId = jwt.getClaimAsString("user_id");
+            if (userId != null) {
+                return UUID.fromString(userId);
+            }
+        }
+        // Fallback: deterministic system user UUID for automated/NATS-triggered syncs
+        return new UUID(0L, 1L);
     }
 }

@@ -45,6 +45,7 @@ class ProjectServiceTest {
         UUID tenantId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
         UUID connectionId = UUID.randomUUID();
+        UUID gitConnectionId = UUID.randomUUID();
 
         CreateProjectRequest request = CreateProjectRequest.builder()
                 .tenantId(tenantId)
@@ -56,6 +57,8 @@ class ProjectServiceTest {
                 .connectionId(connectionId)
                 .externalProjectId("EXT-1")
                 .settings("{}")
+                .gitConnectionId(gitConnectionId)
+                .cloneUrl("git@github.com:test/repo.git")
                 .build();
 
         Project savedProject = Project.builder()
@@ -69,6 +72,8 @@ class ProjectServiceTest {
                 .connectionId(connectionId)
                 .externalProjectId("EXT-1")
                 .settings("{}")
+                .gitConnectionId(gitConnectionId)
+                .cloneUrl("git@github.com:test/repo.git")
                 .build();
 
         when(projectRepository.save(any(Project.class))).thenReturn(savedProject);
@@ -79,6 +84,8 @@ class ProjectServiceTest {
         assertEquals("Test Project", result.getName());
         assertEquals(tenantId, result.getTenantId());
         assertEquals("develop", result.getDefaultBranch());
+        assertEquals(gitConnectionId, result.getGitConnectionId());
+        assertEquals("git@github.com:test/repo.git", result.getCloneUrl());
         verify(projectRepository).save(any(Project.class));
     }
 
@@ -172,6 +179,7 @@ class ProjectServiceTest {
     @Test
     void should_updateProject_when_allFieldsProvided() {
         UUID projectId = UUID.randomUUID();
+        UUID gitConnectionId = UUID.randomUUID();
         Project existing = Project.builder()
                 .id(projectId)
                 .tenantId(UUID.randomUUID())
@@ -191,6 +199,8 @@ class ProjectServiceTest {
                 .connectionId(UUID.randomUUID())
                 .externalProjectId("EXT-NEW")
                 .settings("{\"new\":true}")
+                .gitConnectionId(gitConnectionId)
+                .cloneUrl("git@github.com:new/repo.git")
                 .build();
 
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(existing));
@@ -204,11 +214,14 @@ class ProjectServiceTest {
         assertEquals("GIT_FLOW", existing.getBranchStrategy());
         assertEquals("EXT-NEW", existing.getExternalProjectId());
         assertEquals("{\"new\":true}", existing.getSettings());
+        assertEquals(gitConnectionId, existing.getGitConnectionId());
+        assertEquals("git@github.com:new/repo.git", existing.getCloneUrl());
     }
 
     @Test
     void should_updateProject_when_onlyNameProvided() {
         UUID projectId = UUID.randomUUID();
+        UUID existingGitConnectionId = UUID.randomUUID();
         Project existing = Project.builder()
                 .id(projectId)
                 .tenantId(UUID.randomUUID())
@@ -217,6 +230,8 @@ class ProjectServiceTest {
                 .repoUrl("old-url")
                 .defaultBranch("main")
                 .branchStrategy("TRUNK_BASED")
+                .gitConnectionId(existingGitConnectionId)
+                .cloneUrl("git@github.com:old/repo.git")
                 .build();
 
         CreateProjectRequest request = CreateProjectRequest.builder()
@@ -231,6 +246,8 @@ class ProjectServiceTest {
         assertEquals("New Name", existing.getName());
         assertEquals("old-url", existing.getRepoUrl()); // unchanged
         assertEquals("main", existing.getDefaultBranch()); // unchanged
+        assertEquals(existingGitConnectionId, existing.getGitConnectionId()); // unchanged
+        assertEquals("git@github.com:old/repo.git", existing.getCloneUrl()); // unchanged
     }
 
     @Test

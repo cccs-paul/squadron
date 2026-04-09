@@ -43,7 +43,7 @@ public class TaskWorkflow {
     @Column(name = "transition_at", nullable = false)
     private Instant transitionAt;
 
-    @Column(name = "transitioned_by", nullable = false)
+    @Column(name = "transitioned_by")
     private UUID transitionedBy;
 
     @JdbcTypeCode(SqlTypes.JSON)

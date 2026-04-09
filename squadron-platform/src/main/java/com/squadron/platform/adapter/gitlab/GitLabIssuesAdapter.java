@@ -52,15 +52,15 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
 
     @Override
     public void configure(String baseUrl, Map<String, String> credentials) {
-        this.baseUrl = baseUrl;
+        this.baseUrl = normalizeBaseUrl(baseUrl);
         this.accessToken = resolveToken(credentials);
         this.webClient = sslHelper.trustedBuilder()
-                .baseUrl(baseUrl + "/api/v4")
+                .baseUrl(this.baseUrl + "/api/v4")
                 .defaultHeader("PRIVATE-TOKEN", this.accessToken)
                 .defaultHeader("Accept", "application/json")
                 .defaultHeader("Content-Type", "application/json")
                 .build();
-        log.info("Configured GitLab Issues adapter for {}", baseUrl);
+        log.info("Configured GitLab Issues adapter for {}", this.baseUrl);
     }
 
     @Override

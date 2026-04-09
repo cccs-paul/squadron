@@ -56,7 +56,7 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
 
     @Override
     public void configure(String baseUrl, Map<String, String> credentials) {
-        this.baseUrl = baseUrl;
+        this.baseUrl = normalizeBaseUrl(baseUrl);
         this.accessToken = resolveToken(credentials);
 
         // Azure DevOps PAT uses Basic auth with an empty username: base64(:pat)
@@ -64,7 +64,7 @@ public class AzureDevOpsAdapter implements TicketingPlatformAdapter {
                 (":" + this.accessToken).getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
         this.webClient = sslHelper.trustedBuilder()
-                .baseUrl(baseUrl)
+                .baseUrl(this.baseUrl)
                 .defaultHeader("Authorization", "Basic " + encoded)
                 .defaultHeader("Accept", "application/json")
                 .defaultHeader("Content-Type", "application/json")

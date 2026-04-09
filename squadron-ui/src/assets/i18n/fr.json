@@ -999,6 +999,23 @@
         "templateHint": "Variables : {strategy}, {ticket}, {description}, {type}, {user}",
         "previewLabel": "Apercu :"
       },
+      "gitConfig": {
+        "title": "Depot Git",
+        "gitRemoteLabel": "Fournisseur Git distant",
+        "noGitRemotePlaceholder": "-- Pas de distant Git --",
+        "gitRemoteHint": "La connexion de plateforme Git utilisee pour les identifiants lors du clonage/push.",
+        "cloneUrlLabel": "URL de clonage Git",
+        "cloneUrlPlaceholder": "ex. git@github.com:org/repo.git ou https://github.com/org/repo.git",
+        "cloneUrlHint": "L'URL utilisee par les agents pour cloner ce depot (HTTPS ou SSH).",
+        "repositoryUrlLabel": "URL du depot (lisible)",
+        "repositoryUrlPlaceholder": "ex. https://github.com/org/repo",
+        "repositoryUrlHint": "Une URL pour navigateur permettant de lier ce depot dans l'interface.",
+        "testGitAccess": "Tester l'acces Git",
+        "testing": "Test en cours...",
+        "testSuccess": "Acces Git verifie !",
+        "testFailed": "Echec de l'acces Git",
+        "branchDetected": "Branche : {{branch}}"
+      },
       "ticketProviderConnection": {
         "title": "Fournisseur de tickets",
         "connectionLabel": "Fournisseur de tickets",
@@ -1089,6 +1106,12 @@
     },
     "errors": {
       "notAuthenticated": "Non authentifie"
+    },
+    "testConnection": {
+      "test": "Tester",
+      "testing": "Test en cours...",
+      "success": "Connecte",
+      "failed": "Connexion echouee"
     }
   },
   "admin": {

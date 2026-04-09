@@ -679,6 +679,89 @@ class PlatformConnectionServiceTest {
         assertTrue(result.isEmpty());
     }
 
+    // --- normalizeBaseUrl ---
+
+    @Test
+    void should_normalizeBaseUrl_when_missingScheme() {
+        assertEquals("https://example.atlassian.net",
+                PlatformConnectionService.normalizeBaseUrl("example.atlassian.net"));
+    }
+
+    @Test
+    void should_normalizeBaseUrl_when_trailingSlash() {
+        assertEquals("https://example.atlassian.net",
+                PlatformConnectionService.normalizeBaseUrl("https://example.atlassian.net/"));
+    }
+
+    @Test
+    void should_normalizeBaseUrl_when_multipleTrailingSlashes() {
+        assertEquals("https://example.atlassian.net",
+                PlatformConnectionService.normalizeBaseUrl("https://example.atlassian.net///"));
+    }
+
+    @Test
+    void should_normalizeBaseUrl_when_httpScheme() {
+        assertEquals("http://example.com",
+                PlatformConnectionService.normalizeBaseUrl("http://example.com"));
+    }
+
+    @Test
+    void should_normalizeBaseUrl_when_alreadyCorrect() {
+        assertEquals("https://example.atlassian.net",
+                PlatformConnectionService.normalizeBaseUrl("https://example.atlassian.net"));
+    }
+
+    @Test
+    void should_returnNull_when_normalizeBaseUrlNull() {
+        assertNull(PlatformConnectionService.normalizeBaseUrl(null));
+    }
+
+    @Test
+    void should_returnBlank_when_normalizeBaseUrlBlank() {
+        assertEquals("", PlatformConnectionService.normalizeBaseUrl(""));
+    }
+
+    @Test
+    void should_normalizeBaseUrl_when_creatingConnection() {
+        CreateConnectionRequest request = CreateConnectionRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .name("Jira No Scheme")
+                .platformType("JIRA_CLOUD")
+                .baseUrl("acme.atlassian.net")
+                .authType("API_TOKEN")
+                .credentials(null)
+                .build();
+
+        when(connectionRepository.save(any(PlatformConnection.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PlatformConnection result = connectionService.createConnection(request);
+
+        assertEquals("https://acme.atlassian.net", result.getBaseUrl());
+    }
+
+    @Test
+    void should_normalizeBaseUrl_when_updatingConnection() {
+        UUID connectionId = UUID.randomUUID();
+        PlatformConnection existing = PlatformConnection.builder()
+                .id(connectionId)
+                .tenantId(UUID.randomUUID())
+                .name("Old Connection")
+                .platformType("JIRA_CLOUD")
+                .baseUrl("https://old.atlassian.net")
+                .build();
+
+        UpdateConnectionRequest request = UpdateConnectionRequest.builder()
+                .baseUrl("new.atlassian.net/")
+                .build();
+
+        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(existing));
+        when(connectionRepository.save(any(PlatformConnection.class))).thenReturn(existing);
+
+        connectionService.updateConnection(connectionId, request);
+
+        assertEquals("https://new.atlassian.net", existing.getBaseUrl());
+    }
+
     // --- createConnection sets platformCategory ---
 
     @Test

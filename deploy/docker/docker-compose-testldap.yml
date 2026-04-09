@@ -180,7 +180,6 @@ services:
         ## Disable monitoring services to save memory
         prometheus_monitoring['enable'] = false
         alertmanager['enable'] = false
-        grafana['enable'] = false
         node_exporter['enable'] = false
         redis_exporter['enable'] = false
         postgres_exporter['enable'] = false

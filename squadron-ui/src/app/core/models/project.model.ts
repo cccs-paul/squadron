@@ -5,6 +5,8 @@ export interface Project {
   name: string;
   description?: string;
   repositoryUrl?: string;
+  cloneUrl?: string;
+  gitConnectionId?: string;
   platformType?: PlatformType;
   platformProjectId?: string;
   connectionId?: string;

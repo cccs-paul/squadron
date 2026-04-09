@@ -154,7 +154,9 @@ class TaskSyncServiceTest {
         assertTrue(result.getErrors().isEmpty());
         verify(taskRepository, times(2)).save(any(Task.class));
         // Verify workflow is initialized for each new task
-        verify(workflowEngine, times(2)).initializeWorkflow(eq(tenantId), any(UUID.class), isNull());
+        // When no JWT is present (unit tests), extractUserId() returns the system user UUID
+        UUID systemUserId = new UUID(0L, 1L);
+        verify(workflowEngine, times(2)).initializeWorkflow(eq(tenantId), any(UUID.class), eq(systemUserId));
     }
 
     @Test
@@ -372,6 +374,7 @@ class TaskSyncServiceTest {
         // 2 saves: 1 for new task, 1 for updated task (unchanged is not saved)
         verify(taskRepository, times(2)).save(any(Task.class));
         // Workflow initialized only for the 1 new task, not for updated/unchanged
-        verify(workflowEngine, times(1)).initializeWorkflow(eq(tenantId), any(UUID.class), isNull());
+        UUID systemUserId = new UUID(0L, 1L);
+        verify(workflowEngine, times(1)).initializeWorkflow(eq(tenantId), any(UUID.class), eq(systemUserId));
     }
 }

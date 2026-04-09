@@ -136,7 +136,7 @@ class JiraCloudAdapterTest {
     @SuppressWarnings("unchecked")
     void should_fetchTasks_when_validProjectKey() {
         configureAdapter();
-        setupGetMock();
+        setupPostMock();
 
         String jsonResponse = """
                 {
@@ -199,13 +199,16 @@ class JiraCloudAdapterTest {
         assertEquals("To Do", task2.getStatus());
         assertNull(task2.getAssignee());
         assertTrue(task2.getLabels().isEmpty());
+
+        // Verify POST was used (not GET)
+        verify(webClient).post();
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void should_fetchTasks_with_statusFilter() {
         configureAdapter();
-        setupGetMock();
+        setupPostMock();
 
         String jsonResponse = "{\"issues\": []}";
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(jsonResponse));
@@ -219,13 +222,14 @@ class JiraCloudAdapterTest {
 
         assertNotNull(tasks);
         assertTrue(tasks.isEmpty());
+        verify(webClient).post();
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void should_fetchTasks_with_nullFilter() {
         configureAdapter();
-        setupGetMock();
+        setupPostMock();
 
         String jsonResponse = "{\"issues\": []}";
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(jsonResponse));
@@ -233,13 +237,14 @@ class JiraCloudAdapterTest {
         List<PlatformTaskDto> tasks = adapter.fetchTasks("PROJ", null);
         assertNotNull(tasks);
         assertTrue(tasks.isEmpty());
+        verify(webClient).post();
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void should_throwException_when_fetchTasksFails() {
         configureAdapter();
-        setupGetMock();
+        setupPostMock();
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.error(new RuntimeException("500 Server Error")));
 
         assertThrows(RuntimeException.class, () -> adapter.fetchTasks("PROJ", null));
@@ -608,11 +613,173 @@ class JiraCloudAdapterTest {
     @SuppressWarnings("unchecked")
     void should_throwException_when_fetchTasksReceivesHtmlResponse() {
         configureAdapter();
-        setupGetMock();
+        setupPostMock();
         String htmlResponse = "<!DOCTYPE html><html><body>Error</body></html>";
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(htmlResponse));
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> adapter.fetchTasks("PROJ", null));
         assertTrue(ex.getMessage().contains("Received HTML instead of JSON"));
+    }
+
+    // --- Pagination ---
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_fetchAllPages_when_paginatedResponse() {
+        configureAdapter();
+        setupPostMock();
+
+        String page1Response = """
+                {
+                  "issues": [
+                    {
+                      "key": "PROJ-1",
+                      "fields": {
+                        "summary": "Issue 1",
+                        "description": null,
+                        "status": {"name": "To Do"},
+                        "priority": {"name": "Medium"},
+                        "assignee": null,
+                        "labels": [],
+                        "created": "2024-01-01T00:00:00.000+0000",
+                        "updated": "2024-01-01T00:00:00.000+0000"
+                      }
+                    }
+                  ],
+                  "nextPageToken": "page2token"
+                }
+                """;
+        String page2Response = """
+                {
+                  "issues": [
+                    {
+                      "key": "PROJ-2",
+                      "fields": {
+                        "summary": "Issue 2",
+                        "description": null,
+                        "status": {"name": "In Progress"},
+                        "priority": {"name": "High"},
+                        "assignee": null,
+                        "labels": [],
+                        "created": "2024-01-02T00:00:00.000+0000",
+                        "updated": "2024-01-02T00:00:00.000+0000"
+                      }
+                    }
+                  ],
+                  "nextPageToken": "page3token"
+                }
+                """;
+        String page3Response = """
+                {
+                  "issues": [
+                    {
+                      "key": "PROJ-3",
+                      "fields": {
+                        "summary": "Issue 3",
+                        "description": null,
+                        "status": {"name": "Done"},
+                        "priority": {"name": "Low"},
+                        "assignee": null,
+                        "labels": [],
+                        "created": "2024-01-03T00:00:00.000+0000",
+                        "updated": "2024-01-03T00:00:00.000+0000"
+                      }
+                    }
+                  ]
+                }
+                """;
+
+        when(responseSpec.bodyToMono(String.class))
+                .thenReturn(Mono.just(page1Response))
+                .thenReturn(Mono.just(page2Response))
+                .thenReturn(Mono.just(page3Response));
+
+        PlatformTaskFilter filter = PlatformTaskFilter.builder().maxResults(1).build();
+        List<PlatformTaskDto> tasks = adapter.fetchTasks("PROJ", filter);
+
+        assertNotNull(tasks);
+        assertEquals(3, tasks.size());
+        assertEquals("PROJ-1", tasks.get(0).getExternalId());
+        assertEquals("PROJ-2", tasks.get(1).getExternalId());
+        assertEquals("PROJ-3", tasks.get(2).getExternalId());
+
+        // POST was called 3 times (one per page)
+        verify(webClient, times(3)).post();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_stopPaginating_when_noNextPageToken() {
+        configureAdapter();
+        setupPostMock();
+
+        String singlePageResponse = """
+                {
+                  "issues": [
+                    {
+                      "key": "PROJ-1",
+                      "fields": {
+                        "summary": "Only issue",
+                        "description": null,
+                        "status": {"name": "To Do"},
+                        "priority": null,
+                        "assignee": null,
+                        "labels": [],
+                        "created": null,
+                        "updated": null
+                      }
+                    }
+                  ]
+                }
+                """;
+
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(singlePageResponse));
+
+        List<PlatformTaskDto> tasks = adapter.fetchTasks("PROJ", null);
+
+        assertEquals(1, tasks.size());
+        verify(webClient, times(1)).post();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void should_returnEmptyList_when_noIssuesInPaginatedResponse() {
+        configureAdapter();
+        setupPostMock();
+
+        String emptyResponse = "{\"issues\": []}";
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(emptyResponse));
+
+        List<PlatformTaskDto> tasks = adapter.fetchTasks("PROJ", null);
+
+        assertNotNull(tasks);
+        assertTrue(tasks.isEmpty());
+        verify(webClient, times(1)).post();
+    }
+
+    // --- normalizeBaseUrl (via configure) ---
+
+    @Test
+    void should_normalizeBaseUrl_when_missingScheme() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
+        when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
+        when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
+        when(webClientBuilder.build()).thenReturn(webClient);
+
+        adapter.configure("example.atlassian.net", Map.of("apiToken", "token"));
+
+        verify(webClientBuilder).baseUrl("https://example.atlassian.net/rest/api/3");
+    }
+
+    @Test
+    void should_normalizeBaseUrl_when_trailingSlash() {
+        when(sslHelper.trustedBuilder()).thenReturn(webClientBuilder);
+        when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
+        when(webClientBuilder.defaultHeader(anyString(), anyString())).thenReturn(webClientBuilder);
+        when(webClientBuilder.build()).thenReturn(webClient);
+
+        adapter.configure("https://example.atlassian.net/", Map.of("apiToken", "token"));
+
+        verify(webClientBuilder).baseUrl("https://example.atlassian.net/rest/api/3");
     }
 }

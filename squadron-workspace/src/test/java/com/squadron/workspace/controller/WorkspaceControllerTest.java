@@ -5,6 +5,8 @@ import com.squadron.workspace.client.ResilientPlatformServiceClient;
 import com.squadron.workspace.dto.CreateWorkspaceRequest;
 import com.squadron.workspace.dto.ExecRequest;
 import com.squadron.workspace.dto.ExecResult;
+import com.squadron.workspace.dto.TestGitAccessRequest;
+import com.squadron.workspace.dto.TestGitAccessResult;
 import com.squadron.workspace.dto.WorkspaceDto;
 import com.squadron.workspace.service.WorkspaceGitService;
 import com.squadron.workspace.service.WorkspaceService;
@@ -463,5 +465,107 @@ class WorkspaceControllerTest {
 
         verify(platformServiceClient).getDecryptedPrivateKey(sshKeyId);
         verify(workspaceGitService).cloneRepository(workspaceId, "my-token", decryptedKey);
+    }
+
+    // --- Test Git Access endpoint tests ---
+
+    @Test
+    void should_testGitAccess_successfully() throws Exception {
+        TestGitAccessRequest request = TestGitAccessRequest.builder()
+                .cloneUrl("https://github.com/test/repo.git")
+                .accessToken("my-token")
+                .branch("main")
+                .build();
+
+        TestGitAccessResult gitResult = TestGitAccessResult.builder()
+                .success(true)
+                .message("Git repository is accessible")
+                .branch("main")
+                .durationMs(1500)
+                .build();
+
+        when(workspaceGitService.testGitAccess(
+                eq("https://github.com/test/repo.git"), eq("my-token"), isNull(), eq("main")))
+                .thenReturn(gitResult);
+
+        mockMvc.perform(post("/api/workspaces/test-git-access")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.success").value(true))
+                .andExpect(jsonPath("$.data.message").value("Git repository is accessible"))
+                .andExpect(jsonPath("$.data.branch").value("main"))
+                .andExpect(jsonPath("$.data.durationMs").value(1500));
+
+        verify(workspaceGitService).testGitAccess("https://github.com/test/repo.git", "my-token", null, "main");
+        verify(platformServiceClient, never()).getDecryptedPrivateKey(any());
+    }
+
+    @Test
+    void should_testGitAccess_withSshKeyId() throws Exception {
+        UUID sshKeyId = UUID.randomUUID();
+        String decryptedKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----";
+
+        TestGitAccessRequest request = TestGitAccessRequest.builder()
+                .cloneUrl("git@github.com:test/repo.git")
+                .sshKeyId(sshKeyId)
+                .build();
+
+        TestGitAccessResult gitResult = TestGitAccessResult.builder()
+                .success(true)
+                .message("Git repository is accessible")
+                .durationMs(2000)
+                .build();
+
+        when(platformServiceClient.getDecryptedPrivateKey(sshKeyId)).thenReturn(decryptedKey);
+        when(workspaceGitService.testGitAccess(
+                eq("git@github.com:test/repo.git"), isNull(), eq(decryptedKey), isNull()))
+                .thenReturn(gitResult);
+
+        mockMvc.perform(post("/api/workspaces/test-git-access")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.success").value(true));
+
+        verify(platformServiceClient).getDecryptedPrivateKey(sshKeyId);
+        verify(workspaceGitService).testGitAccess("git@github.com:test/repo.git", null, decryptedKey, null);
+    }
+
+    @Test
+    void should_testGitAccess_returnBadRequest_whenCloneUrlMissing() throws Exception {
+        TestGitAccessRequest request = TestGitAccessRequest.builder().build();
+
+        mockMvc.perform(post("/api/workspaces/test-git-access")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_testGitAccess_returnFailureResult() throws Exception {
+        TestGitAccessRequest request = TestGitAccessRequest.builder()
+                .cloneUrl("https://github.com/test/nonexistent.git")
+                .build();
+
+        TestGitAccessResult gitResult = TestGitAccessResult.builder()
+                .success(false)
+                .message("Git clone failed: repository not found")
+                .durationMs(3000)
+                .build();
+
+        when(workspaceGitService.testGitAccess(
+                eq("https://github.com/test/nonexistent.git"), isNull(), isNull(), isNull()))
+                .thenReturn(gitResult);
+
+        mockMvc.perform(post("/api/workspaces/test-git-access")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.success").value(false))
+                .andExpect(jsonPath("$.data.message").value("Git clone failed: repository not found"));
     }
 }

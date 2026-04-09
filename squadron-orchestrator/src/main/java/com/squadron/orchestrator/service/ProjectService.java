@@ -40,6 +40,8 @@ public class ProjectService {
                 .connectionId(request.getConnectionId())
                 .externalProjectId(request.getExternalProjectId())
                 .settings(request.getSettings())
+                .gitConnectionId(request.getGitConnectionId())
+                .cloneUrl(request.getCloneUrl())
                 .build();
 
         return projectRepository.save(project);
@@ -95,6 +97,12 @@ public class ProjectService {
         }
         if (request.getSettings() != null) {
             project.setSettings(request.getSettings());
+        }
+        if (request.getGitConnectionId() != null) {
+            project.setGitConnectionId(request.getGitConnectionId());
+        }
+        if (request.getCloneUrl() != null) {
+            project.setCloneUrl(request.getCloneUrl());
         }
 
         return projectRepository.save(project);

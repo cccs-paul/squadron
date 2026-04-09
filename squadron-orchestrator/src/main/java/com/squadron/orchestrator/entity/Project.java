@@ -1,5 +1,6 @@
 package com.squadron.orchestrator.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -45,8 +46,15 @@ public class Project {
     @Column(name = "external_project_id")
     private String externalProjectId;
 
+    @JsonProperty("repositoryUrl")
     @Column(name = "repo_url")
     private String repoUrl;
+
+    @Column(name = "git_connection_id")
+    private UUID gitConnectionId;
+
+    @Column(name = "clone_url", length = 1000)
+    private String cloneUrl;
 
     @Builder.Default
     @Column(name = "default_branch")

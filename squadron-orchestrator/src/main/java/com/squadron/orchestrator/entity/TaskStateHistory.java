@@ -36,7 +36,7 @@ public class TaskStateHistory {
     @Column(name = "to_state", nullable = false)
     private String toState;
 
-    @Column(name = "triggered_by", nullable = false)
+    @Column(name = "triggered_by")
     private UUID triggeredBy;
 
     @Column(columnDefinition = "text")

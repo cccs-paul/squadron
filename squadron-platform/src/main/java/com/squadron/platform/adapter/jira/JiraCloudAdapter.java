@@ -56,7 +56,7 @@ public class JiraCloudAdapter implements TicketingPlatformAdapter {
 
     @Override
     public void configure(String baseUrl, Map<String, String> credentials) {
-        this.baseUrl = baseUrl;
+        this.baseUrl = normalizeBaseUrl(baseUrl);
         this.accessToken = resolveToken(credentials);
 
         // Determine the correct Authorization header based on available credentials.
@@ -75,12 +75,12 @@ public class JiraCloudAdapter implements TicketingPlatformAdapter {
         }
 
         this.webClient = sslHelper.trustedBuilder()
-                .baseUrl(baseUrl + "/rest/api/3")
+                .baseUrl(this.baseUrl + "/rest/api/3")
                 .defaultHeader("Authorization", authHeader)
                 .defaultHeader("Accept", "application/json")
                 .defaultHeader("Content-Type", "application/json")
                 .build();
-        log.info("Configured Jira Cloud adapter for {}", baseUrl);
+        log.info("Configured Jira Cloud adapter for {} (normalized: {})", baseUrl, this.baseUrl);
     }
 
     @Override
@@ -96,33 +96,80 @@ public class JiraCloudAdapter implements TicketingPlatformAdapter {
             }
             int maxResults = (filter != null && filter.getMaxResults() != null) ? filter.getMaxResults() : 50;
 
-            String responseBody = webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/search")
-                            .queryParam("jql", jql.toString())
-                            .queryParam("maxResults", maxResults)
-                            .queryParam("fields", SEARCH_FIELDS)
-                            .build())
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
+            // Use POST /search/jql — Atlassian deprecated GET /search (returns 410 Gone)
+            // This endpoint uses cursor-based pagination with nextPageToken
+            List<String> fieldsList = List.of(SEARCH_FIELDS.split(","));
 
-            String htmlError = AdapterErrorHelper.checkForHtmlResponse(responseBody, log);
-            if (htmlError != null) {
-                throw new RuntimeException("Failed to fetch tasks from Jira Cloud: " + htmlError);
+            List<PlatformTaskDto> allTasks = new ArrayList<>();
+            String nextPageToken = null;
+
+            do {
+                Map<String, Object> requestBody = new java.util.HashMap<>();
+                requestBody.put("jql", jql.toString());
+                requestBody.put("maxResults", maxResults);
+                requestBody.put("fields", fieldsList);
+                if (nextPageToken != null) {
+                    requestBody.put("nextPageToken", nextPageToken);
+                }
+
+                String responseBody = webClient.post()
+                        .uri("/search/jql")
+                        .bodyValue(requestBody)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .block();
+
+                String htmlError = AdapterErrorHelper.checkForHtmlResponse(responseBody, log);
+                if (htmlError != null) {
+                    throw new RuntimeException("Failed to fetch tasks from Jira Cloud: " + htmlError);
+                }
+
+                Map<String, Object> responseMap = objectMapper.readValue(responseBody, new TypeReference<>() {});
+                List<Map<String, Object>> issues = castToListOfMaps(responseMap.get("issues"));
+                if (issues != null) {
+                    for (Map<String, Object> issue : issues) {
+                        allTasks.add(mapIssueToPlatformTask(issue));
+                    }
+                }
+
+                // Check for next page — Jira Cloud POST /search/jql uses cursor-based pagination
+                Object tokenObj = responseMap.get("nextPageToken");
+                nextPageToken = (tokenObj instanceof String) ? (String) tokenObj : null;
+
+                log.debug("Fetched {} issues from Jira Cloud (total so far: {}), nextPageToken: {}",
+                        issues != null ? issues.size() : 0, allTasks.size(),
+                        nextPageToken != null ? "present" : "null");
+
+            } while (nextPageToken != null);
+
+            log.info("Fetched {} total tasks from Jira Cloud for project {}", allTasks.size(), projectKey);
+
+            // If no tasks found, check whether the API user can actually see this project
+            if (allTasks.isEmpty()) {
+                try {
+                    List<PlatformProjectDto> visibleProjects = getProjects();
+                    boolean projectVisible = visibleProjects.stream()
+                            .anyMatch(p -> projectKey.equalsIgnoreCase(p.getKey()));
+                    if (visibleProjects.isEmpty()) {
+                        log.warn("Jira Cloud API user has no visible projects. "
+                                + "Ensure the API token user has 'Browse Projects' permission. "
+                                + "Visible projects: 0");
+                    } else if (!projectVisible) {
+                        log.warn("Project '{}' is not visible to the Jira Cloud API user. "
+                                + "Visible projects: {}. "
+                                + "Ensure the user has 'Browse Projects' permission for this project.",
+                                projectKey, visibleProjects.stream()
+                                        .map(PlatformProjectDto::getKey)
+                                        .reduce((a, b) -> a + ", " + b).orElse("none"));
+                    } else {
+                        log.info("Project '{}' is visible but has no issues matching the filter", projectKey);
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not verify project visibility: {}", e.getMessage());
+                }
             }
 
-            Map<String, Object> responseMap = objectMapper.readValue(responseBody, new TypeReference<>() {});
-            List<Map<String, Object>> issues = castToListOfMaps(responseMap.get("issues"));
-            if (issues == null) {
-                return Collections.emptyList();
-            }
-
-            List<PlatformTaskDto> result = new ArrayList<>();
-            for (Map<String, Object> issue : issues) {
-                result.add(mapIssueToPlatformTask(issue));
-            }
-            return result;
+            return allTasks;
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {

@@ -5,12 +5,14 @@ import { ProjectService } from '../../../core/services/project.service';
 import { PlatformService } from '../../../core/services/platform.service';
 import { SshKeyService } from '../../../core/services/ssh-key.service';
 import { ReviewBotConfigService } from '../../../core/services/review-bot-config.service';
+import { WorkspaceService, TestGitAccessResult } from '../../../core/services/workspace.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Project, RemoteProject, WorkflowMapping, BranchStrategyType } from '../../../core/models/project.model';
 import {
   PlatformConnection,
   PlatformConnectionType,
   PlatformCategory,
+  ConnectionStatus,
   CreateConnectionRequest,
   SshKey,
   CreateSshKeyRequest,
@@ -44,15 +46,11 @@ interface ImportCandidate {
   selected: boolean;
   name: string;
   description: string;
-  defaultBranch: string;
-  repositoryUrl: string;
-  branchNamingTemplate: string;
 }
 
 interface ProjectEditForm {
   name: string;
   description: string;
-  repositoryUrl: string;
   connectionId: string;
 }
 
@@ -125,6 +123,7 @@ export class ProjectConfigComponent implements OnInit {
   private platformService = inject(PlatformService);
   private sshKeyService = inject(SshKeyService);
   private reviewBotConfigService = inject(ReviewBotConfigService);
+  private workspaceService = inject(WorkspaceService);
   private authService = inject(AuthService);
   private translate = inject(TranslateService);
 
@@ -153,6 +152,10 @@ export class ProjectConfigComponent implements OnInit {
   gitSaveSuccess = signal(false);
   editingGitRemoteId = signal<string | null>(null);
   gitForm: ProviderForm = this.newGitForm();
+
+  // Test Connection
+  testingConnectionId = signal<string | null>(null);
+  testConnectionResult = signal<{ id: string; success: boolean } | null>(null);
 
   // SSH Keys
   sshKeys = signal<SshKey[]>([]);
@@ -197,6 +200,8 @@ export class ProjectConfigComponent implements OnInit {
   projectEditForm: ProjectEditForm = this.newProjectEditForm();
 
   // Step 4: Branch & Workflow (uses projectStates)
+  testingGitAccessProjectId = signal<string | null>(null);
+  testGitAccessResult = signal<{ projectId: string; result: TestGitAccessResult } | null>(null);
 
   readonly ticketPlatformTypes = TICKET_PLATFORM_TYPES;
   readonly gitPlatformTypes = GIT_PLATFORM_TYPES;
@@ -507,6 +512,35 @@ export class ProjectConfigComponent implements OnInit {
       },
       error: () => {
         this.deletingConnectionId.set(null);
+      },
+    });
+  }
+
+  // ===== Test Connection (shared by Steps 1 & 2) =====
+
+  testConnection(conn: PlatformConnection): void {
+    this.testingConnectionId.set(conn.id);
+    this.testConnectionResult.set(null);
+
+    this.platformService.testConnection(conn.id).subscribe({
+      next: (success) => {
+        this.testingConnectionId.set(null);
+        this.testConnectionResult.set({ id: conn.id, success });
+        // Update the connection status in-place
+        const status = success ? ConnectionStatus.ACTIVE : ConnectionStatus.ERROR;
+        this.ticketProviders.set(this.ticketProviders().map((c) => c.id === conn.id ? { ...c, status } : c));
+        this.gitRemotes.set(this.gitRemotes().map((c) => c.id === conn.id ? { ...c, status } : c));
+        this.allConnections.set(this.allConnections().map((c) => c.id === conn.id ? { ...c, status } : c));
+        setTimeout(() => this.testConnectionResult.set(null), 5000);
+      },
+      error: () => {
+        this.testingConnectionId.set(null);
+        this.testConnectionResult.set({ id: conn.id, success: false });
+        // Update the connection status to ERROR
+        this.ticketProviders.set(this.ticketProviders().map((c) => c.id === conn.id ? { ...c, status: ConnectionStatus.ERROR } : c));
+        this.gitRemotes.set(this.gitRemotes().map((c) => c.id === conn.id ? { ...c, status: ConnectionStatus.ERROR } : c));
+        this.allConnections.set(this.allConnections().map((c) => c.id === conn.id ? { ...c, status: ConnectionStatus.ERROR } : c));
+        setTimeout(() => this.testConnectionResult.set(null), 5000);
       },
     });
   }
@@ -877,7 +911,7 @@ export class ProjectConfigComponent implements OnInit {
     if (!this.showImportPanel()) {
       this.resetImportState();
     } else {
-      const conns = this.allConnections();
+      const conns = this.ticketProviders();
       if (conns.length === 1) {
         this.importConnectionId.set(conns[0].id);
         this.fetchRemoteProjects();
@@ -917,9 +951,6 @@ export class ProjectConfigComponent implements OnInit {
           selected: false,
           name: rp.name,
           description: rp.description ?? '',
-          defaultBranch: 'main',
-          repositoryUrl: rp.url ?? '',
-          branchNamingTemplate: '{strategy}/{ticket}-{description}',
         }));
         candidates.forEach((c) => {
           if (existingKeys.has(c.remote.key)) {
@@ -970,18 +1001,6 @@ export class ProjectConfigComponent implements OnInit {
     this.importCandidates.set(candidates);
   }
 
-  updateCandidateBranch(index: number, value: string): void {
-    const candidates = [...this.importCandidates()];
-    candidates[index] = { ...candidates[index], defaultBranch: value };
-    this.importCandidates.set(candidates);
-  }
-
-  updateCandidateRepoUrl(index: number, value: string): void {
-    const candidates = [...this.importCandidates()];
-    candidates[index] = { ...candidates[index], repositoryUrl: value };
-    this.importCandidates.set(candidates);
-  }
-
   getSelectedCandidates(): ImportCandidate[] {
     return this.importCandidates().filter((c) => c.selected);
   }
@@ -1009,11 +1028,10 @@ export class ProjectConfigComponent implements OnInit {
       const project: Partial<Project> = {
         name: candidate.name.trim(),
         description: candidate.description.trim() || undefined,
-        defaultBranch: candidate.defaultBranch.trim() || 'main',
-        repositoryUrl: candidate.repositoryUrl.trim() || undefined,
+        defaultBranch: 'main',
         connectionId: this.importConnectionId(),
         externalProjectId: candidate.remote.key,
-        branchNamingTemplate: candidate.branchNamingTemplate || '{strategy}/{ticket}-{description}',
+        branchNamingTemplate: '{strategy}/{ticket}-{description}',
       };
 
       this.projectService.createProject(project).subscribe({
@@ -1067,7 +1085,6 @@ export class ProjectConfigComponent implements OnInit {
     this.projectEditForm = {
       name: ps.project.name,
       description: ps.project.description || '',
-      repositoryUrl: ps.project.repositoryUrl || '',
       connectionId: ps.project.connectionId || '',
     };
     this.showProjectEditForm.set(true);
@@ -1089,7 +1106,6 @@ export class ProjectConfigComponent implements OnInit {
     const payload: Partial<Project> = {
       name: this.projectEditForm.name.trim(),
       description: this.projectEditForm.description.trim() || undefined,
-      repositoryUrl: this.projectEditForm.repositoryUrl.trim() || undefined,
       connectionId: this.projectEditForm.connectionId || undefined,
     };
 
@@ -1246,6 +1262,85 @@ export class ProjectConfigComponent implements OnInit {
     this.projectStates.set(states);
   }
 
+  updateGitConnectionId(index: number, connectionId: string): void {
+    const states = [...this.projectStates()];
+    const state = { ...states[index] };
+    state.project = { ...state.project, gitConnectionId: connectionId || undefined };
+    states[index] = state;
+    this.projectStates.set(states);
+  }
+
+  updateCloneUrl(index: number, value: string): void {
+    const states = [...this.projectStates()];
+    const state = { ...states[index] };
+    state.project = { ...state.project, cloneUrl: value || undefined };
+    states[index] = state;
+    this.projectStates.set(states);
+  }
+
+  updateRepositoryUrl(index: number, value: string): void {
+    const states = [...this.projectStates()];
+    const state = { ...states[index] };
+    state.project = { ...state.project, repositoryUrl: value || undefined };
+    states[index] = state;
+    this.projectStates.set(states);
+  }
+
+  testGitAccess(index: number): void {
+    const state = this.projectStates()[index];
+    const project = state.project;
+
+    if (!project.cloneUrl) return;
+
+    this.testingGitAccessProjectId.set(project.id);
+    this.testGitAccessResult.set(null);
+
+    // Resolve credentials from the git connection
+    const gitConn = project.gitConnectionId
+      ? this.allConnections().find((c) => c.id === project.gitConnectionId)
+      : null;
+
+    // Look for SSH keys associated with the git connection
+    const sshKey = project.gitConnectionId
+      ? this.sshKeys().find((k) => k.connectionId === project.gitConnectionId)
+      : null;
+
+    // Build request — the backend needs either accessToken or sshKeyId
+    // Since we don't store the raw token client-side (it's encrypted in the connection),
+    // we pass the sshKeyId if available, otherwise we rely on the connection's stored credentials
+    const request: { cloneUrl: string; accessToken?: string; sshKeyId?: string; branch?: string } = {
+      cloneUrl: project.cloneUrl,
+      branch: project.defaultBranch || 'main',
+    };
+
+    if (sshKey) {
+      request.sshKeyId = sshKey.id;
+    }
+
+    this.workspaceService.testGitAccess(request).subscribe({
+      next: (result) => {
+        this.testingGitAccessProjectId.set(null);
+        this.testGitAccessResult.set({ projectId: project.id, result });
+        setTimeout(() => this.testGitAccessResult.set(null), 10000);
+      },
+      error: (err: any) => {
+        this.testingGitAccessProjectId.set(null);
+        const message = err?.error?.message || err?.message || this.translate.instant('projectConfig.branchWorkflow.gitConfig.testFailed');
+        this.testGitAccessResult.set({
+          projectId: project.id,
+          result: { success: false, message, durationMs: 0 },
+        });
+        setTimeout(() => this.testGitAccessResult.set(null), 10000);
+      },
+    });
+  }
+
+  getGitConnectionName(gitConnectionId: string | undefined): string | null {
+    if (!gitConnectionId) return null;
+    const conn = this.allConnections().find((c) => c.id === gitConnectionId);
+    return conn ? conn.name : null;
+  }
+
   addMapping(index: number): void {
     const states = [...this.projectStates()];
     const state = { ...states[index] };
@@ -1308,7 +1403,7 @@ export class ProjectConfigComponent implements OnInit {
     states[index] = state;
     this.projectStates.set(states);
 
-    // Save workflow mappings, branch naming template, default branch, and connection info together
+    // Save workflow mappings, branch naming template, default branch, git config, and connection info together
     forkJoin({
       mappings: this.projectService.saveWorkflowMappings(state.project.id, validMappings),
       project: this.projectService.updateProject(state.project.id, {
@@ -1316,6 +1411,9 @@ export class ProjectConfigComponent implements OnInit {
         defaultBranch: state.project.defaultBranch || 'main',
         connectionId: state.project.connectionId,
         externalProjectId: state.project.externalProjectId,
+        gitConnectionId: state.project.gitConnectionId,
+        cloneUrl: state.project.cloneUrl,
+        repositoryUrl: state.project.repositoryUrl,
       }),
     }).subscribe({
       next: ({ mappings, project }) => {
@@ -1473,6 +1571,6 @@ export class ProjectConfigComponent implements OnInit {
   }
 
   private newProjectEditForm(): ProjectEditForm {
-    return { name: '', description: '', repositoryUrl: '', connectionId: '' };
+    return { name: '', description: '', connectionId: '' };
   }
 }

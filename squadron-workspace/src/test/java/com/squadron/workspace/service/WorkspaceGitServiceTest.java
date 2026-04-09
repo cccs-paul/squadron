@@ -2,6 +2,8 @@ package com.squadron.workspace.service;
 
 import com.squadron.common.exception.ResourceNotFoundException;
 import com.squadron.workspace.dto.ExecResult;
+import com.squadron.workspace.dto.TestGitAccessResult;
+import com.squadron.workspace.dto.WorkspaceSpec;
 import com.squadron.workspace.entity.Workspace;
 import com.squadron.workspace.provider.WorkspaceProvider;
 import com.squadron.workspace.repository.WorkspaceRepository;
@@ -687,5 +689,194 @@ class WorkspaceGitServiceTest {
         // Should not throw — stripping failure is non-fatal
         ExecResult result = workspaceGitService.pushChanges(workspaceId, "main", "my-token");
         assertEquals(0, result.getExitCode());
+    }
+
+    // ========================================================================
+    // testGitAccess tests
+    // ========================================================================
+
+    @Test
+    void should_testGitAccess_successWithHttpsToken() {
+        String containerId = "test-container-123";
+        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
+        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
+
+        // git is installed
+        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+
+        // clone succeeds
+        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(2000).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"git", "clone", "--depth", "1", "--single-branch",
+                "--branch", "main", "https://oauth2:my-token@github.com/test/repo.git", "/tmp/test-clone"}))).thenReturn(cloneResult);
+
+        TestGitAccessResult result = workspaceGitService.testGitAccess(
+                "https://github.com/test/repo.git", "my-token", null, "main");
+
+        assertTrue(result.isSuccess());
+        assertEquals("Git repository is accessible", result.getMessage());
+        assertEquals("main", result.getBranch());
+        assertTrue(result.getDurationMs() >= 0);
+
+        // Verify container was destroyed
+        verify(workspaceProvider).destroyContainer(containerId);
+    }
+
+    @Test
+    void should_testGitAccess_successWithSshKey() {
+        String containerId = "test-container-456";
+        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
+        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
+
+        // git is installed
+        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+
+        // SSH key setup
+        ExecResult writeKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult chmodResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        when(workspaceProvider.exec(eq(containerId), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("printf") && cmd[2].contains("/tmp/.squadron_ssh_key")))).thenReturn(writeKeyResult);
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}))).thenReturn(chmodResult);
+
+        // Clone via SSH
+        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(3000).build();
+        when(workspaceProvider.exec(eq(containerId), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("GIT_SSH_COMMAND") && cmd[2].contains("clone")))).thenReturn(cloneResult);
+
+        // SSH key cleanup
+        ExecResult rmKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}))).thenReturn(rmKeyResult);
+
+        String sshKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----\n";
+        TestGitAccessResult result = workspaceGitService.testGitAccess(
+                "git@github.com:test/repo.git", null, sshKey, null);
+
+        assertTrue(result.isSuccess());
+        assertEquals("Git repository is accessible", result.getMessage());
+
+        // Verify SSH key cleanup and container destruction
+        verify(workspaceProvider).exec(eq(containerId), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}));
+        verify(workspaceProvider).destroyContainer(containerId);
+    }
+
+    @Test
+    void should_testGitAccess_failureNonZeroExitCode() {
+        String containerId = "test-container-789";
+        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
+        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
+
+        // git is installed
+        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+
+        // clone fails
+        ExecResult cloneFailure = ExecResult.builder().exitCode(128).stdout("")
+                .stderr("fatal: repository 'https://github.com/test/repo.git' not found").durationMs(2000).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"git", "clone", "--depth", "1", "--single-branch",
+                "https://github.com/test/repo.git", "/tmp/test-clone"}))).thenReturn(cloneFailure);
+
+        TestGitAccessResult result = workspaceGitService.testGitAccess(
+                "https://github.com/test/repo.git", null, null, null);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getMessage().contains("Git clone failed"));
+        assertTrue(result.getDurationMs() >= 0);
+
+        // Verify container was still destroyed
+        verify(workspaceProvider).destroyContainer(containerId);
+    }
+
+    @Test
+    void should_testGitAccess_cleanupOnException() {
+        String containerId = "test-container-exc";
+        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
+        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
+
+        // git check throws exception
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"})))
+                .thenThrow(new RuntimeException("Container crashed"));
+
+        TestGitAccessResult result = workspaceGitService.testGitAccess(
+                "https://github.com/test/repo.git", null, null, null);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getMessage().contains("Git access test error"));
+
+        // Verify container was still destroyed even on exception
+        verify(workspaceProvider).destroyContainer(containerId);
+    }
+
+    @Test
+    void should_testGitAccess_containerDestroyedAfterTest() {
+        String containerId = "test-container-destroy";
+        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
+        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
+
+        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+
+        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(1000).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"git", "clone", "--depth", "1", "--single-branch",
+                "--branch", "develop", "https://github.com/test/repo.git", "/tmp/test-clone"}))).thenReturn(cloneResult);
+
+        TestGitAccessResult result = workspaceGitService.testGitAccess(
+                "https://github.com/test/repo.git", null, null, "develop");
+
+        assertTrue(result.isSuccess());
+        assertEquals("develop", result.getBranch());
+
+        // Verify container was destroyed exactly once
+        verify(workspaceProvider, times(1)).destroyContainer(containerId);
+    }
+
+    @Test
+    void should_testGitAccess_withoutBranch() {
+        String containerId = "test-container-nobranch";
+        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
+        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
+
+        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+
+        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(1000).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"git", "clone", "--depth", "1", "--single-branch",
+                "https://github.com/test/repo.git", "/tmp/test-clone"}))).thenReturn(cloneResult);
+
+        TestGitAccessResult result = workspaceGitService.testGitAccess(
+                "https://github.com/test/repo.git", null, null, null);
+
+        assertTrue(result.isSuccess());
+        assertNull(result.getBranch());
+        verify(workspaceProvider).destroyContainer(containerId);
+    }
+
+    @Test
+    void should_testGitAccess_createsContainerWithCorrectSpec() {
+        String containerId = "test-container-spec";
+        when(workspaceProvider.getProviderType()).thenReturn("DOCKER");
+        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenAnswer(invocation -> {
+            WorkspaceSpec spec = invocation.getArgument(0);
+            assertEquals("alpine:latest", spec.getBaseImage());
+            assertEquals("64Mi", spec.getResourceLimits().get("memory"));
+            assertEquals("DOCKER", spec.getProviderType());
+            assertEquals("https://github.com/test/repo.git", spec.getRepoUrl());
+            assertNotNull(spec.getTenantId());
+            assertNotNull(spec.getTaskId());
+            assertNotNull(spec.getUserId());
+            return containerId;
+        });
+
+        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+
+        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(1000).build();
+        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"git", "clone", "--depth", "1", "--single-branch",
+                "https://github.com/test/repo.git", "/tmp/test-clone"}))).thenReturn(cloneResult);
+
+        workspaceGitService.testGitAccess("https://github.com/test/repo.git", null, null, null);
+
+        verify(workspaceProvider).createContainer(any(WorkspaceSpec.class));
+        verify(workspaceProvider).destroyContainer(containerId);
     }
 }

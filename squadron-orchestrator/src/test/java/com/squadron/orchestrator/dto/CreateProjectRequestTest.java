@@ -1,5 +1,6 @@
 package com.squadron.orchestrator.dto;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -16,6 +17,7 @@ class CreateProjectRequestTest {
         UUID tenantId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
         UUID connectionId = UUID.randomUUID();
+        UUID gitConnectionId = UUID.randomUUID();
 
         CreateProjectRequest request = CreateProjectRequest.builder()
                 .tenantId(tenantId)
@@ -27,6 +29,8 @@ class CreateProjectRequestTest {
                 .connectionId(connectionId)
                 .externalProjectId("EXT-123")
                 .settings("{\"key\":\"value\"}")
+                .gitConnectionId(gitConnectionId)
+                .cloneUrl("git@github.com:test/repo.git")
                 .build();
 
         assertEquals(tenantId, request.getTenantId());
@@ -38,6 +42,8 @@ class CreateProjectRequestTest {
         assertEquals(connectionId, request.getConnectionId());
         assertEquals("EXT-123", request.getExternalProjectId());
         assertEquals("{\"key\":\"value\"}", request.getSettings());
+        assertEquals(gitConnectionId, request.getGitConnectionId());
+        assertEquals("git@github.com:test/repo.git", request.getCloneUrl());
     }
 
     @Test
@@ -88,17 +94,55 @@ class CreateProjectRequestTest {
     }
 
     @Test
+    void should_deserializeRepositoryUrl_when_frontendSendsRepositoryUrl() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        String json = "{\"name\":\"Test\",\"repositoryUrl\":\"https://github.com/org/repo\"}";
+
+        CreateProjectRequest request = mapper.readValue(json, CreateProjectRequest.class);
+
+        assertEquals("https://github.com/org/repo", request.getRepoUrl());
+    }
+
+    @Test
+    void should_deserializeRepoUrl_when_backendSendsRepoUrl() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        String json = "{\"name\":\"Test\",\"repoUrl\":\"https://github.com/org/repo\"}";
+
+        CreateProjectRequest request = mapper.readValue(json, CreateProjectRequest.class);
+
+        assertEquals("https://github.com/org/repo", request.getRepoUrl());
+    }
+
+    @Test
+    void should_serializeAsRepositoryUrl_when_jacksonSerializes() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        CreateProjectRequest request = CreateProjectRequest.builder()
+                .name("Test")
+                .repoUrl("https://github.com/org/repo")
+                .build();
+
+        String json = mapper.writeValueAsString(request);
+
+        assert json.contains("\"repositoryUrl\"");
+        assert !json.contains("\"repoUrl\"");
+    }
+
+    @Test
     void should_createWithAllArgsConstructor() {
         UUID tenantId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
         UUID connectionId = UUID.randomUUID();
+        UUID gitConnectionId = UUID.randomUUID();
 
         CreateProjectRequest request = new CreateProjectRequest(
                 tenantId, teamId, "Name", "url", "main", "TRUNK_BASED",
-                "{strategy}/{ticket}-{description}", connectionId, "ext-1", "{}"
+                "{strategy}/{ticket}-{description}", connectionId, "ext-1", "{}",
+                gitConnectionId, "git@github.com:test/repo.git"
         );
 
         assertEquals(tenantId, request.getTenantId());
         assertEquals("Name", request.getName());
+        assertEquals(gitConnectionId, request.getGitConnectionId());
+        assertEquals("git@github.com:test/repo.git", request.getCloneUrl());
     }
 }

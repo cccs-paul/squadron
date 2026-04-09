@@ -1,5 +1,7 @@
 package com.squadron.orchestrator.entity;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -18,6 +20,7 @@ class ProjectTest {
         UUID tenantId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
         UUID connectionId = UUID.randomUUID();
+        UUID gitConnectionId = UUID.randomUUID();
 
         Project project = Project.builder()
                 .id(id)
@@ -27,6 +30,8 @@ class ProjectTest {
                 .connectionId(connectionId)
                 .externalProjectId("EXT-1")
                 .repoUrl("https://github.com/test/repo")
+                .gitConnectionId(gitConnectionId)
+                .cloneUrl("git@github.com:test/repo.git")
                 .defaultBranch("develop")
                 .branchStrategy("GIT_FLOW")
                 .settings("{}")
@@ -39,6 +44,8 @@ class ProjectTest {
         assertEquals(connectionId, project.getConnectionId());
         assertEquals("EXT-1", project.getExternalProjectId());
         assertEquals("https://github.com/test/repo", project.getRepoUrl());
+        assertEquals(gitConnectionId, project.getGitConnectionId());
+        assertEquals("git@github.com:test/repo.git", project.getCloneUrl());
         assertEquals("develop", project.getDefaultBranch());
         assertEquals("GIT_FLOW", project.getBranchStrategy());
         assertEquals("{}", project.getSettings());
@@ -115,6 +122,26 @@ class ProjectTest {
         Project project = Project.builder().name("Test").build();
         assertNotNull(project.toString());
         assert project.toString().contains("Test");
+    }
+
+    @Test
+    void should_serializeRepoUrlAsRepositoryUrl() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+
+        Project project = Project.builder()
+                .id(UUID.randomUUID())
+                .tenantId(UUID.randomUUID())
+                .name("Test")
+                .repoUrl("https://github.com/org/repo")
+                .build();
+        project.onCreate();
+
+        String json = mapper.writeValueAsString(project);
+
+        assert json.contains("\"repositoryUrl\"") : "Expected JSON key 'repositoryUrl' but got: " + json;
+        assert !json.contains("\"repoUrl\"") : "Should not contain 'repoUrl' key in JSON: " + json;
+        assert json.contains("https://github.com/org/repo");
     }
 
     @Test

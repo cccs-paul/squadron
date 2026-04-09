@@ -86,7 +86,7 @@ class GatewayConfigTest {
 
         List<Route> routes = routeLocator.getRoutes().collectList().block();
         assertThat(routes).isNotNull();
-        assertThat(routes).hasSize(17);
+        assertThat(routes).hasSize(18);
     }
 
     @Test
@@ -202,6 +202,7 @@ class GatewayConfigTest {
                 "tenant-service",
                 "identity-service",
                 "user-service",
+                "team-service",
                 "config-service",
                 "orchestrator-projects",
                 "orchestrator-service",
@@ -285,6 +286,16 @@ class GatewayConfigTest {
         List<Route> routes = getRoutes();
 
         Route route = findRoute(routes, "user-service");
+        assertThat(route).isNotNull();
+        assertThat(route.getUri().toString()).isEqualTo("http://squadron-identity:8081");
+        assertThat(route.getFilters()).isEmpty();
+    }
+
+    @Test
+    void should_defineTeamServiceRoute_with_correctUri() {
+        List<Route> routes = getRoutes();
+
+        Route route = findRoute(routes, "team-service");
         assertThat(route).isNotNull();
         assertThat(route.getUri().toString()).isEqualTo("http://squadron-identity:8081");
         assertThat(route.getFilters()).isEmpty();

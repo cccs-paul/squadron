@@ -1,6 +1,8 @@
 package com.squadron.workspace.service;
 
 import com.squadron.workspace.dto.ExecResult;
+import com.squadron.workspace.dto.TestGitAccessResult;
+import com.squadron.workspace.dto.WorkspaceSpec;
 import com.squadron.workspace.entity.Workspace;
 import com.squadron.workspace.provider.WorkspaceProvider;
 import com.squadron.workspace.repository.WorkspaceRepository;
@@ -10,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -228,6 +231,119 @@ public class WorkspaceGitService {
                 new String[]{"git", "-C", WORKSPACE_DIR, "status"});
     }
 
+    /**
+     * Tests git access by performing a shallow clone in a temporary container.
+     * The container is created without persisting a Workspace entity and is
+     * destroyed after the test completes (success or failure).
+     *
+     * @param cloneUrl      the git clone URL (HTTPS or SSH)
+     * @param accessToken   OAuth2 access token for HTTPS auth (may be null)
+     * @param sshPrivateKey SSH private key for SSH auth (may be null)
+     * @param branch        optional branch to verify (may be null)
+     * @return TestGitAccessResult with success/failure, message, and duration
+     */
+    public TestGitAccessResult testGitAccess(String cloneUrl, String accessToken,
+                                              String sshPrivateKey, String branch) {
+        long startTime = System.currentTimeMillis();
+        String containerId = null;
+
+        try {
+            // 1. Create a temporary container using the workspace provider
+            WorkspaceSpec spec = WorkspaceSpec.builder()
+                    .tenantId(UUID.randomUUID())
+                    .taskId(UUID.randomUUID())
+                    .userId(UUID.randomUUID())
+                    .repoUrl(cloneUrl)
+                    .branch(branch)
+                    .baseImage("alpine:latest")
+                    .resourceLimits(Map.of("memory", "64Mi"))
+                    .providerType(workspaceProvider.getProviderType())
+                    .build();
+
+            containerId = workspaceProvider.createContainer(spec);
+            log.info("Created temporary container {} for git access test", containerId);
+
+            // 2. Ensure git is installed in the container
+            ensureGitInstalled(containerId);
+
+            // 3. Set up SSH key if provided and URL is SSH
+            boolean usingSsh = false;
+            if (sshPrivateKey != null && !sshPrivateKey.isBlank() && isSshUrl(cloneUrl)) {
+                setupSshKey(containerId, sshPrivateKey);
+                usingSsh = true;
+            }
+
+            try {
+                // 4. Build clone URL (inject token if HTTPS)
+                String effectiveUrl = cloneUrl;
+                if (!usingSsh && accessToken != null && !accessToken.isBlank()) {
+                    effectiveUrl = injectTokenIntoUrl(cloneUrl, accessToken);
+                }
+
+                // 5. Perform a shallow clone
+                String[] cloneCmd;
+                if (branch != null && !branch.isBlank()) {
+                    cloneCmd = new String[]{"git", "clone", "--depth", "1", "--single-branch",
+                            "--branch", branch, effectiveUrl, "/tmp/test-clone"};
+                } else {
+                    cloneCmd = new String[]{"git", "clone", "--depth", "1", "--single-branch",
+                            effectiveUrl, "/tmp/test-clone"};
+                }
+
+                ExecResult result;
+                if (usingSsh) {
+                    result = execWithSshCommand(containerId, cloneCmd);
+                } else {
+                    result = workspaceProvider.exec(containerId, cloneCmd);
+                }
+
+                // 6. Check exit code
+                long durationMs = System.currentTimeMillis() - startTime;
+                if (result.getExitCode() == 0) {
+                    log.info("Git access test succeeded for URL: {}", cloneUrl);
+                    return TestGitAccessResult.builder()
+                            .success(true)
+                            .message("Git repository is accessible")
+                            .branch(branch)
+                            .durationMs(durationMs)
+                            .build();
+                } else {
+                    String errorMessage = sanitizeOutput(result.getStderr());
+                    log.warn("Git access test failed for URL: {} - {}", cloneUrl, errorMessage);
+                    return TestGitAccessResult.builder()
+                            .success(false)
+                            .message("Git clone failed: " + errorMessage)
+                            .branch(branch)
+                            .durationMs(durationMs)
+                            .build();
+                }
+            } finally {
+                // Clean up SSH key before container destruction
+                if (usingSsh) {
+                    cleanupSshKey(containerId);
+                }
+            }
+        } catch (Exception e) {
+            long durationMs = System.currentTimeMillis() - startTime;
+            log.error("Git access test error for URL: {}", cloneUrl, e);
+            return TestGitAccessResult.builder()
+                    .success(false)
+                    .message("Git access test error: " + e.getMessage())
+                    .durationMs(durationMs)
+                    .build();
+        } finally {
+            // 7. Clean up: destroy the temporary container
+            if (containerId != null) {
+                try {
+                    workspaceProvider.destroyContainer(containerId);
+                    log.info("Destroyed temporary container {} after git access test", containerId);
+                } catch (Exception e) {
+                    log.warn("Failed to destroy temporary container {}: {}", containerId, e.getMessage());
+                }
+            }
+        }
+    }
+
     private Workspace getWorkspace(UUID workspaceId) {
         return workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
@@ -287,7 +403,7 @@ public class WorkspaceGitService {
      * Executes a git command with GIT_SSH_COMMAND environment variable set
      * for SSH key authentication.
      */
-    private ExecResult execWithSshCommand(String containerId, String[] gitCmd) {
+    ExecResult execWithSshCommand(String containerId, String[] gitCmd) {
         // Wrap the git command with GIT_SSH_COMMAND env var
         StringBuilder cmdBuilder = new StringBuilder();
         cmdBuilder.append("GIT_SSH_COMMAND='").append(GIT_SSH_COMMAND).append("' ");
@@ -308,7 +424,7 @@ public class WorkspaceGitService {
         return value.replace("'", "'\\''");
     }
 
-    private String sanitizeOutput(String output) {
+    String sanitizeOutput(String output) {
         if (output == null) return "";
         // Remove embedded credentials from URLs in output
         return output.replaceAll("(https?://)[^@/]+@", "$1***@")

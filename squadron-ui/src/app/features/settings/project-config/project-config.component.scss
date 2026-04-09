@@ -157,6 +157,11 @@ $bg: var(--sq-bg, #f9fafb);
     &--disconnected { background: #fef3c7; color: #92400e; }
     &--error { background: #fee2e2; color: #991b1b; }
   }
+  &__test-result {
+    font-size: .75rem; font-weight: 500; padding: 2px 8px; border-radius: 4px;
+    &--success { color: #065f46; background: #d1fae5; }
+    &--error { color: #991b1b; background: #fee2e2; }
+  }
 }
 
 // ===== Cloud Notice =====
@@ -488,4 +493,18 @@ $bg: var(--sq-bg, #f9fafb);
   &--linked { background: #d1fae5; color: #065f46; }
   &--expired { background: #fef3c7; color: #92400e; }
   &--missing { background: #fee2e2; color: #991b1b; }
+}
+
+// ===== Git Test Result =====
+
+.git-test-result {
+  @extend %fa; gap: .5rem; flex-wrap: wrap;
+  padding: .625rem 1rem; border-radius: 8px;
+  font-size: .8125rem; margin-top: .5rem;
+
+  &--success { background: var(--sq-success-50, #ecfdf5); color: var(--sq-success, #059669); border: 1px solid var(--sq-success, #059669); }
+  &--error { background: var(--sq-danger-50, #fef2f2); color: var(--sq-danger, #dc2626); border: 1px solid var(--sq-danger, #dc2626); }
+
+  &__icon { font-size: 1rem; font-weight: 700; }
+  &__detail { font-size: .75rem; opacity: .8; }
 }

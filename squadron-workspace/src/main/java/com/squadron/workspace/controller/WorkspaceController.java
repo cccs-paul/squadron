@@ -5,6 +5,8 @@ import com.squadron.workspace.client.ResilientPlatformServiceClient;
 import com.squadron.workspace.dto.CreateWorkspaceRequest;
 import com.squadron.workspace.dto.ExecRequest;
 import com.squadron.workspace.dto.ExecResult;
+import com.squadron.workspace.dto.TestGitAccessRequest;
+import com.squadron.workspace.dto.TestGitAccessResult;
 import com.squadron.workspace.dto.WorkspaceDto;
 import com.squadron.workspace.service.WorkspaceGitService;
 import com.squadron.workspace.service.WorkspaceService;
@@ -111,6 +113,16 @@ public class WorkspaceController {
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=" + extractFilename(path))
                 .body(content);
+    }
+
+    @PostMapping("/test-git-access")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
+    public ResponseEntity<ApiResponse<TestGitAccessResult>> testGitAccess(
+            @Valid @RequestBody TestGitAccessRequest request) {
+        String sshPrivateKey = resolveSshPrivateKey(request.getSshKeyId());
+        TestGitAccessResult result = workspaceGitService.testGitAccess(
+                request.getCloneUrl(), request.getAccessToken(), sshPrivateKey, request.getBranch());
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @PostMapping("/{id}/git/clone")

@@ -83,6 +83,12 @@ public class TenantService {
         return toDto(saved);
     }
 
+    public void deleteTenant(UUID id) {
+        Tenant tenant = tenantRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Tenant", "id", id));
+        tenantRepository.delete(tenant);
+    }
+
     @Transactional(readOnly = true)
     public List<TenantDto> listTenants() {
         return tenantRepository.findAll().stream()

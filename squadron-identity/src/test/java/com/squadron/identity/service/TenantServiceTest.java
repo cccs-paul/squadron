@@ -231,4 +231,20 @@ class TenantServiceTest {
         assertNotNull(result.getSettings());
         assertTrue(result.getSettings().isEmpty());
     }
+
+    @Test
+    void should_deleteTenant_when_tenantExists() {
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+
+        tenantService.deleteTenant(tenantId);
+
+        verify(tenantRepository).delete(tenant);
+    }
+
+    @Test
+    void should_throwNotFound_when_deletingNonExistentTenant() {
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> tenantService.deleteTenant(tenantId));
+    }
 }

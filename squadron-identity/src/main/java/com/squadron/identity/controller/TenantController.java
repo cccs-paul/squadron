@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -75,6 +76,12 @@ public class TenantController {
                                                                 @Valid @RequestBody TenantDto dto) {
         TenantDto updated = tenantService.updateTenant(id, dto);
         return ResponseEntity.ok(ApiResponse.success(updated));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteTenant(@PathVariable UUID id) {
+        tenantService.deleteTenant(id);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     private UUID extractTenantId() {

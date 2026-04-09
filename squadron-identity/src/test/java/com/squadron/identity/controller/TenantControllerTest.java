@@ -26,7 +26,10 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -219,6 +222,27 @@ class TenantControllerTest {
         when(tenantService.getTenant(TEST_TENANT_ID)).thenThrow(new ResourceNotFoundException("Tenant", "id", TEST_TENANT_ID));
 
         mockMvc.perform(get("/api/tenants/current"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void should_return200_when_deleteTenantSuccessful() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        doNothing().when(tenantService).deleteTenant(tenantId);
+
+        mockMvc.perform(delete("/api/tenants/{id}", tenantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void should_return404_when_deleteTenantNotFound() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        doThrow(new ResourceNotFoundException("Tenant", "id", tenantId))
+                .when(tenantService).deleteTenant(tenantId);
+
+        mockMvc.perform(delete("/api/tenants/{id}", tenantId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }

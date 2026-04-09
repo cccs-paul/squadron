@@ -1,5 +1,7 @@
 package com.squadron.orchestrator.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,6 +23,8 @@ public class CreateProjectRequest {
     @NotBlank(message = "Project name is required")
     private String name;
 
+    @JsonProperty("repositoryUrl")
+    @JsonAlias("repoUrl")
     private String repoUrl;
 
     private String defaultBranch;
@@ -34,4 +38,8 @@ public class CreateProjectRequest {
     private String externalProjectId;
 
     private String settings;
+
+    private UUID gitConnectionId;
+
+    private String cloneUrl;
 }

@@ -178,6 +178,28 @@
                     <span class="provider-card__status provider-card__status--{{ conn.status.toLowerCase() }}">
                       {{ conn.status }}
                     </span>
+                    @if (testConnectionResult(); as result) {
+                      @if (result.id === conn.id) {
+                        <span class="provider-card__test-result" [class.provider-card__test-result--success]="result.success" [class.provider-card__test-result--error]="!result.success">
+                          @if (result.success) {
+                            &#10003; {{ 'projectConfig.testConnection.success' | translate }}
+                          } @else {
+                            &#10007; {{ 'projectConfig.testConnection.failed' | translate }}
+                          }
+                        </span>
+                      }
+                    }
+                    <button
+                      class="btn btn--secondary btn--sm"
+                      (click)="testConnection(conn)"
+                      [disabled]="testingConnectionId() === conn.id"
+                    >
+                      @if (testingConnectionId() === conn.id) {
+                        <span class="spinner spinner--inline"></span> {{ 'projectConfig.testConnection.testing' | translate }}
+                      } @else {
+                        {{ 'projectConfig.testConnection.test' | translate }}
+                      }
+                    </button>
                     <button
                       class="btn btn--secondary btn--sm"
                       (click)="editTicketProvider(conn)"
@@ -339,6 +361,28 @@
                     <span class="provider-card__status provider-card__status--{{ conn.status.toLowerCase() }}">
                       {{ conn.status }}
                     </span>
+                    @if (testConnectionResult(); as result) {
+                      @if (result.id === conn.id) {
+                        <span class="provider-card__test-result" [class.provider-card__test-result--success]="result.success" [class.provider-card__test-result--error]="!result.success">
+                          @if (result.success) {
+                            &#10003; {{ 'projectConfig.testConnection.success' | translate }}
+                          } @else {
+                            &#10007; {{ 'projectConfig.testConnection.failed' | translate }}
+                          }
+                        </span>
+                      }
+                    }
+                    <button
+                      class="btn btn--secondary btn--sm"
+                      (click)="testConnection(conn)"
+                      [disabled]="testingConnectionId() === conn.id"
+                    >
+                      @if (testingConnectionId() === conn.id) {
+                        <span class="spinner spinner--inline"></span> {{ 'projectConfig.testConnection.testing' | translate }}
+                      } @else {
+                        {{ 'projectConfig.testConnection.test' | translate }}
+                      }
+                    </button>
                     <button
                       class="btn btn--secondary btn--sm"
                       (click)="editGitRemote(conn)"
@@ -618,14 +662,14 @@
               <h3 class="step-panel__title">{{ 'projectConfig.projects.title' | translate }}</h3>
               <p class="step-panel__desc">{{ 'projectConfig.projects.description' | translate }}</p>
             </div>
-            @if (allConnections().length > 0) {
+            @if (ticketProviders().length > 0) {
               <button class="btn btn--primary btn--sm" (click)="toggleImportPanel()">
                 @if (showImportPanel()) { {{ 'projectConfig.projects.cancelToggle' | translate }} } @else { {{ 'projectConfig.projects.importProjects' | translate }} }
               </button>
             }
           </div>
 
-          @if (allConnections().length === 0) {
+          @if (ticketProviders().length === 0) {
             <div class="empty-state">
               <div class="empty-state__icon">&#9888;</div>
               <h4 class="empty-state__title">{{ 'projectConfig.projects.noProviders.title' | translate }}</h4>
@@ -647,7 +691,7 @@
                     <label class="form-card__label">{{ 'projectConfig.projects.import.providerLabel' | translate }}</label>
                     <select class="form-select" [ngModel]="importConnectionId()" (ngModelChange)="onImportConnectionChange($event)">
                       <option value="">{{ 'projectConfig.projects.import.selectProviderPlaceholder' | translate }}</option>
-                      @for (conn of allConnections(); track conn.id) {
+                      @for (conn of ticketProviders(); track conn.id) {
                         <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
                       }
                     </select>
@@ -727,15 +771,6 @@
                             </div>
                             <div class="import-card__row">
                               <div class="import-card__field import-card__field--full">
-                                <label class="form-card__label">{{ 'projectConfig.projects.import.gitCloneUrlLabel' | translate }}</label>
-                                <input class="form-input" type="text"
-                                  [ngModel]="candidate.repositoryUrl"
-                                  (ngModelChange)="updateCandidateRepoUrl(ci, $event)"
-                                  [placeholder]="'projectConfig.projects.import.gitCloneUrlPlaceholder' | translate" />
-                              </div>
-                            </div>
-                            <div class="import-card__row">
-                              <div class="import-card__field import-card__field--full">
                                 <label class="form-card__label">{{ 'projectConfig.projects.import.descriptionLabel' | translate }}</label>
                                 <input class="form-input" type="text"
                                   [ngModel]="candidate.description"
@@ -788,13 +823,6 @@
 
                 <div class="form-card__row">
                   <div class="form-card__field form-card__field--full">
-                    <label class="form-card__label">{{ 'projectConfig.projects.form.repositoryUrlLabel' | translate }}</label>
-                    <input class="form-input" type="text" [(ngModel)]="projectEditForm.repositoryUrl" [placeholder]="'projectConfig.projects.form.repositoryUrlPlaceholder' | translate" />
-                  </div>
-                </div>
-
-                <div class="form-card__row">
-                  <div class="form-card__field form-card__field--full">
                     <label class="form-card__label">{{ 'projectConfig.projects.form.descriptionLabel' | translate }}</label>
                     <input class="form-input" type="text" [(ngModel)]="projectEditForm.description" [placeholder]="'projectConfig.projects.form.descriptionPlaceholder' | translate" />
                   </div>
@@ -832,9 +860,6 @@
                     <div class="project-card__header">
                       <div class="project-card__info">
                         <span class="project-card__name">{{ ps.project.name }}</span>
-                        @if (ps.project.repositoryUrl) {
-                          <span class="project-card__url">{{ ps.project.repositoryUrl }}</span>
-                        }
                       </div>
                       <div class="project-card__meta">
                         @if (getConnectionPlatformType(ps.project.connectionId); as platformType) {
@@ -960,6 +985,76 @@
                             }}
                           </code>
                         </div>
+                      </div>
+
+                      <!-- Git Repository Configuration -->
+                      <div class="config-section">
+                        <h4 class="config-section__title">{{ 'projectConfig.branchWorkflow.gitConfig.title' | translate }}</h4>
+                        <div class="config-section__row config-section__row--cols">
+                          <div class="config-section__field">
+                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.gitConfig.gitRemoteLabel' | translate }}</label>
+                            <select class="form-select"
+                              [ngModel]="ps.project.gitConnectionId || ''"
+                              (ngModelChange)="updateGitConnectionId(i, $event)">
+                              <option value="">{{ 'projectConfig.branchWorkflow.gitConfig.noGitRemotePlaceholder' | translate }}</option>
+                              @for (conn of gitRemotes(); track conn.id) {
+                                <option [value]="conn.id">{{ platformIcon(conn.platformType) }} - {{ conn.name }}</option>
+                              }
+                            </select>
+                            <span class="form-hint">{{ 'projectConfig.branchWorkflow.gitConfig.gitRemoteHint' | translate }}</span>
+                          </div>
+                          <div class="config-section__field">
+                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.gitConfig.cloneUrlLabel' | translate }}</label>
+                            <input class="form-input" type="text"
+                              [ngModel]="ps.project.cloneUrl || ''"
+                              (ngModelChange)="updateCloneUrl(i, $event)"
+                              [placeholder]="'projectConfig.branchWorkflow.gitConfig.cloneUrlPlaceholder' | translate" />
+                            <span class="form-hint">{{ 'projectConfig.branchWorkflow.gitConfig.cloneUrlHint' | translate }}</span>
+                          </div>
+                        </div>
+                        <div class="config-section__row config-section__row--cols">
+                          <div class="config-section__field">
+                            <label class="form-card__label">{{ 'projectConfig.branchWorkflow.gitConfig.repositoryUrlLabel' | translate }}</label>
+                            <input class="form-input" type="text"
+                              [ngModel]="ps.project.repositoryUrl || ''"
+                              (ngModelChange)="updateRepositoryUrl(i, $event)"
+                              [placeholder]="'projectConfig.branchWorkflow.gitConfig.repositoryUrlPlaceholder' | translate" />
+                            <span class="form-hint">{{ 'projectConfig.branchWorkflow.gitConfig.repositoryUrlHint' | translate }}</span>
+                          </div>
+                          <div class="config-section__action config-section__action--bottom">
+                            <button
+                              class="btn btn--secondary"
+                              (click)="testGitAccess(i)"
+                              [disabled]="!ps.project.cloneUrl || testingGitAccessProjectId() === ps.project.id"
+                            >
+                              @if (testingGitAccessProjectId() === ps.project.id) {
+                                <span class="spinner spinner--inline"></span> {{ 'projectConfig.branchWorkflow.gitConfig.testing' | translate }}
+                              } @else {
+                                {{ 'projectConfig.branchWorkflow.gitConfig.testGitAccess' | translate }}
+                              }
+                            </button>
+                          </div>
+                        </div>
+                        @if (testGitAccessResult(); as gitResult) {
+                          @if (gitResult.projectId === ps.project.id) {
+                            <div class="git-test-result" [class.git-test-result--success]="gitResult.result.success" [class.git-test-result--error]="!gitResult.result.success">
+                              @if (gitResult.result.success) {
+                                <span class="git-test-result__icon">&#10003;</span>
+                                <span>{{ 'projectConfig.branchWorkflow.gitConfig.testSuccess' | translate }}</span>
+                                @if (gitResult.result.branch) {
+                                  <span class="git-test-result__detail">{{ 'projectConfig.branchWorkflow.gitConfig.branchDetected' | translate:{ branch: gitResult.result.branch } }}</span>
+                                }
+                                <span class="git-test-result__detail">{{ gitResult.result.durationMs }}ms</span>
+                              } @else {
+                                <span class="git-test-result__icon">&#10007;</span>
+                                <span>{{ 'projectConfig.branchWorkflow.gitConfig.testFailed' | translate }}</span>
+                                @if (gitResult.result.message) {
+                                  <span class="git-test-result__detail">{{ gitResult.result.message }}</span>
+                                }
+                              }
+                            </div>
+                          }
+                        }
                       </div>
 
                       <!-- Ticket Provider Connection -->

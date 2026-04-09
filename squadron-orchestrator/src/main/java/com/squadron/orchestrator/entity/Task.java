@@ -33,7 +33,7 @@ public class Task {
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
 
-    @Column(name = "team_id", nullable = false)
+    @Column(name = "team_id")
     private UUID teamId;
 
     @Column(name = "project_id", nullable = false)

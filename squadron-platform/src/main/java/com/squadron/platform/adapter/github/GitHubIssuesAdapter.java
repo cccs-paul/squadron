@@ -52,7 +52,7 @@ public class GitHubIssuesAdapter implements TicketingPlatformAdapter {
 
     @Override
     public void configure(String baseUrl, Map<String, String> credentials) {
-        this.baseUrl = baseUrl != null && !baseUrl.isBlank() ? baseUrl : DEFAULT_BASE_URL;
+        this.baseUrl = baseUrl != null && !baseUrl.isBlank() ? normalizeBaseUrl(baseUrl) : DEFAULT_BASE_URL;
         this.accessToken = resolveToken(credentials);
         this.webClient = sslHelper.trustedBuilder()
                 .baseUrl(this.baseUrl)

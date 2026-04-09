@@ -8,8 +8,9 @@ import { ProjectService } from '../../../core/services/project.service';
 import { PlatformService } from '../../../core/services/platform.service';
 import { SshKeyService } from '../../../core/services/ssh-key.service';
 import { ReviewBotConfigService } from '../../../core/services/review-bot-config.service';
+import { WorkspaceService, TestGitAccessResult } from '../../../core/services/workspace.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { Project, RemoteProject, WorkflowMapping } from '../../../core/models/project.model';
 import {
   PlatformConnection,
@@ -26,6 +27,7 @@ describe('ProjectConfigComponent', () => {
   let platformServiceSpy: jasmine.SpyObj<PlatformService>;
   let sshKeyServiceSpy: jasmine.SpyObj<SshKeyService>;
   let reviewBotConfigServiceSpy: jasmine.SpyObj<ReviewBotConfigService>;
+  let workspaceServiceSpy: jasmine.SpyObj<WorkspaceService>;
   let authServiceSpy: jasmine.SpyObj<AuthService>;
 
   const mockUser = {
@@ -101,13 +103,16 @@ describe('ProjectConfigComponent', () => {
     ]);
     platformServiceSpy = jasmine.createSpyObj('PlatformService', [
       'getConnectionsByTenant', 'getProjectStatuses', 'createConnectionFromRequest',
-      'updateConnection', 'deleteConnection', 'getRemoteProjects',
+      'updateConnection', 'deleteConnection', 'getRemoteProjects', 'testConnection',
     ]);
     sshKeyServiceSpy = jasmine.createSpyObj('SshKeyService', [
       'createSshKey', 'getSshKey', 'getSshKeysByTenant', 'getSshKeysByConnection', 'deleteSshKey', 'generateDeployKey',
     ]);
     reviewBotConfigServiceSpy = jasmine.createSpyObj('ReviewBotConfigService', [
       'getConfigsByTenant', 'createConfig', 'updateConfig', 'deleteConfig',
+    ]);
+    workspaceServiceSpy = jasmine.createSpyObj('WorkspaceService', [
+      'getWorkspaceByTask', 'destroyWorkspace', 'testGitAccess',
     ]);
     authServiceSpy = jasmine.createSpyObj('AuthService', ['getAccessToken'], {
       user: jasmine.createSpy('user').and.returnValue(mockUser),
@@ -128,6 +133,7 @@ describe('ProjectConfigComponent', () => {
     platformServiceSpy.updateConnection.and.returnValue(of(mockTicketConnection));
     platformServiceSpy.deleteConnection.and.returnValue(of(void 0));
     platformServiceSpy.getRemoteProjects.and.returnValue(of(mockRemoteProjects));
+    platformServiceSpy.testConnection.and.returnValue(of(true));
     sshKeyServiceSpy.getSshKeysByTenant.and.returnValue(of(mockSshKeys));
     sshKeyServiceSpy.createSshKey.and.returnValue(of(mockSshKeys[0]));
     sshKeyServiceSpy.deleteSshKey.and.returnValue(of(void 0));
@@ -136,6 +142,7 @@ describe('ProjectConfigComponent', () => {
     reviewBotConfigServiceSpy.createConfig.and.returnValue(of(mockReviewBotConfigs[0]));
     reviewBotConfigServiceSpy.updateConfig.and.returnValue(of({ ...mockReviewBotConfigs[0], enabled: false }));
     reviewBotConfigServiceSpy.deleteConfig.and.returnValue(of(void 0));
+    workspaceServiceSpy.testGitAccess.and.returnValue(of({ success: true, message: 'OK', branch: 'main', durationMs: 250 }));
 
     await TestBed.configureTestingModule({
       imports: [ProjectConfigComponent, TranslateModule.forRoot()],
@@ -147,6 +154,7 @@ describe('ProjectConfigComponent', () => {
         { provide: PlatformService, useValue: platformServiceSpy },
         { provide: SshKeyService, useValue: sshKeyServiceSpy },
         { provide: ReviewBotConfigService, useValue: reviewBotConfigServiceSpy },
+        { provide: WorkspaceService, useValue: workspaceServiceSpy },
         { provide: AuthService, useValue: authServiceSpy },
       ],
     }).compileComponents();
@@ -802,12 +810,6 @@ describe('ProjectConfigComponent', () => {
 
     component.updateCandidateDescription(1, 'Custom Desc');
     expect(component.importCandidates()[1].description).toBe('Custom Desc');
-
-    component.updateCandidateBranch(1, 'develop');
-    expect(component.importCandidates()[1].defaultBranch).toBe('develop');
-
-    component.updateCandidateRepoUrl(1, 'https://github.com/org/repo');
-    expect(component.importCandidates()[1].repositoryUrl).toBe('https://github.com/org/repo');
   });
 
   it('should_setDefaultCandidateValues_fromRemoteProject', () => {
@@ -818,8 +820,6 @@ describe('ProjectConfigComponent', () => {
     const candidate = component.importCandidates()[1]; // DEV
     expect(candidate.name).toBe('DevTools');
     expect(candidate.description).toBe('Dev utilities');
-    expect(candidate.defaultBranch).toBe('main');
-    expect(candidate.repositoryUrl).toBe('https://jira.example.com/browse/DEV');
   });
 
   it('should_importSelected_createProjectsAndUpdateList', () => {
@@ -884,6 +884,15 @@ describe('ProjectConfigComponent', () => {
   });
 
   it('should_notAutoSelect_when_multipleProviders', () => {
+    // Need 2+ ticket providers for auto-select to be skipped
+    const secondTicket: PlatformConnection = {
+      ...mockTicketConnection, id: 'pc-3', name: 'Jira Server - Staging',
+      platformType: PlatformConnectionType.JIRA_SERVER, platformCategory: 'TICKET_PROVIDER',
+      baseUrl: 'https://jira-staging.myorg.com',
+    };
+    platformServiceSpy.getConnectionsByTenant.and.returnValue(of([mockTicketConnection, secondTicket, mockGitConnection]));
+    fixture = TestBed.createComponent(ProjectConfigComponent);
+    component = fixture.componentInstance;
     fixture.detectChanges();
     platformServiceSpy.getRemoteProjects.calls.reset();
 
@@ -1079,6 +1088,108 @@ describe('ProjectConfigComponent', () => {
     tick(5000);
     expect(component.projectStates()[0].saveError).toBeNull();
   }));
+
+  // --- Step 4: Git Configuration ---
+
+  it('should_updateGitConnectionId', () => {
+    fixture.detectChanges();
+    component.updateGitConnectionId(0, 'pc-2');
+    expect(component.projectStates()[0].project.gitConnectionId).toBe('pc-2');
+  });
+
+  it('should_clearGitConnectionId_when_empty', () => {
+    fixture.detectChanges();
+    component.updateGitConnectionId(0, '');
+    expect(component.projectStates()[0].project.gitConnectionId).toBeUndefined();
+  });
+
+  it('should_updateCloneUrl', () => {
+    fixture.detectChanges();
+    component.updateCloneUrl(0, 'git@github.com:org/repo.git');
+    expect(component.projectStates()[0].project.cloneUrl).toBe('git@github.com:org/repo.git');
+  });
+
+  it('should_clearCloneUrl_when_empty', () => {
+    fixture.detectChanges();
+    component.updateCloneUrl(0, '');
+    expect(component.projectStates()[0].project.cloneUrl).toBeUndefined();
+  });
+
+  it('should_updateRepositoryUrl', () => {
+    fixture.detectChanges();
+    component.updateRepositoryUrl(0, 'https://github.com/org/repo');
+    expect(component.projectStates()[0].project.repositoryUrl).toBe('https://github.com/org/repo');
+  });
+
+  it('should_clearRepositoryUrl_when_empty', () => {
+    fixture.detectChanges();
+    component.updateRepositoryUrl(0, '');
+    expect(component.projectStates()[0].project.repositoryUrl).toBeUndefined();
+  });
+
+  it('should_testGitAccess_success', fakeAsync(() => {
+    fixture.detectChanges();
+    component.updateCloneUrl(0, 'git@github.com:org/repo.git');
+    component.updateGitConnectionId(0, 'pc-2');
+    component.testGitAccess(0);
+
+    expect(workspaceServiceSpy.testGitAccess).toHaveBeenCalledWith(jasmine.objectContaining({
+      cloneUrl: 'git@github.com:org/repo.git',
+      branch: 'main',
+      sshKeyId: 'sk-1',
+    }));
+
+    expect(component.testingGitAccessProjectId()).toBeNull();
+    expect(component.testGitAccessResult()).toBeTruthy();
+    expect(component.testGitAccessResult()!.result.success).toBeTrue();
+
+    tick(10000);
+    expect(component.testGitAccessResult()).toBeNull();
+  }));
+
+  it('should_testGitAccess_failure', fakeAsync(() => {
+    workspaceServiceSpy.testGitAccess.and.returnValue(throwError(() => ({ error: { message: 'Auth failed' } })));
+    fixture.detectChanges();
+    component.updateCloneUrl(0, 'https://github.com/org/repo.git');
+    component.testGitAccess(0);
+
+    expect(component.testingGitAccessProjectId()).toBeNull();
+    expect(component.testGitAccessResult()).toBeTruthy();
+    expect(component.testGitAccessResult()!.result.success).toBeFalse();
+    expect(component.testGitAccessResult()!.result.message).toBe('Auth failed');
+
+    tick(10000);
+    expect(component.testGitAccessResult()).toBeNull();
+  }));
+
+  it('should_notTestGitAccess_when_noCloneUrl', () => {
+    fixture.detectChanges();
+    component.testGitAccess(0);
+    expect(workspaceServiceSpy.testGitAccess).not.toHaveBeenCalled();
+  });
+
+  it('should_getGitConnectionName', () => {
+    fixture.detectChanges();
+    expect(component.getGitConnectionName('pc-2')).toBe('GitHub - Organization');
+    expect(component.getGitConnectionName('nonexistent')).toBeNull();
+    expect(component.getGitConnectionName(undefined)).toBeNull();
+  });
+
+  it('should_saveMappings_includeGitFields', () => {
+    fixture.detectChanges();
+    component.toggleProject(0);
+    fixture.detectChanges();
+    component.updateGitConnectionId(0, 'pc-2');
+    component.updateCloneUrl(0, 'git@github.com:org/repo.git');
+    component.updateRepositoryUrl(0, 'https://github.com/org/repo');
+    component.saveMappings(0);
+
+    expect(projectServiceSpy.updateProject).toHaveBeenCalledWith('p1', jasmine.objectContaining({
+      gitConnectionId: 'pc-2',
+      cloneUrl: 'git@github.com:org/repo.git',
+      repositoryUrl: 'https://github.com/org/repo',
+    }));
+  });
 
   // --- Mapping label ---
 
@@ -1637,5 +1748,101 @@ describe('ProjectConfigComponent', () => {
     component.saveGitRemote();
 
     expect(component.allConnections().find((c) => c.id === 'pc-2')!.name).toBe('Renamed GitHub');
+  });
+
+  // ===== Test Connection =====
+
+  it('should_testConnection_callServiceAndUpdateStatus_onSuccess', () => {
+    platformServiceSpy.testConnection.and.returnValue(of(true));
+    fixture.detectChanges();
+
+    const conn = component.ticketProviders()[0];
+    component.testConnection(conn);
+
+    expect(platformServiceSpy.testConnection).toHaveBeenCalledWith('pc-1');
+    expect(component.testingConnectionId()).toBeNull();
+    expect(component.testConnectionResult()).toEqual({ id: 'pc-1', success: true });
+    expect(component.ticketProviders()[0].status).toBe('ACTIVE');
+    expect(component.allConnections().find((c) => c.id === 'pc-1')!.status).toBe('ACTIVE');
+  });
+
+  it('should_testConnection_setErrorStatus_onFailure', () => {
+    platformServiceSpy.testConnection.and.returnValue(of(false));
+    fixture.detectChanges();
+
+    const conn = component.ticketProviders()[0];
+    component.testConnection(conn);
+
+    expect(component.testConnectionResult()).toEqual({ id: 'pc-1', success: false });
+    expect(component.ticketProviders()[0].status).toBe('ERROR');
+    expect(component.allConnections().find((c) => c.id === 'pc-1')!.status).toBe('ERROR');
+  });
+
+  it('should_testConnection_setErrorStatus_onNetworkError', () => {
+    platformServiceSpy.testConnection.and.returnValue(throwError(() => new Error('Network error')));
+    fixture.detectChanges();
+
+    const conn = component.gitRemotes()[0];
+    component.testConnection(conn);
+
+    expect(component.testingConnectionId()).toBeNull();
+    expect(component.testConnectionResult()).toEqual({ id: 'pc-2', success: false });
+    expect(component.gitRemotes()[0].status).toBe('ERROR');
+    expect(component.allConnections().find((c) => c.id === 'pc-2')!.status).toBe('ERROR');
+  });
+
+  it('should_testConnection_clearResult_after5Seconds', fakeAsync(() => {
+    platformServiceSpy.testConnection.and.returnValue(of(true));
+    fixture.detectChanges();
+
+    const conn = component.ticketProviders()[0];
+    component.testConnection(conn);
+    expect(component.testConnectionResult()).toBeTruthy();
+
+    tick(5000);
+    expect(component.testConnectionResult()).toBeNull();
+  }));
+
+  it('should_testConnection_setTestingConnectionId_whileInProgress', () => {
+    const subject = new Subject<boolean>();
+    platformServiceSpy.testConnection.and.returnValue(subject.asObservable());
+    fixture.detectChanges();
+
+    const conn = component.ticketProviders()[0];
+    component.testConnection(conn);
+
+    expect(component.testingConnectionId()).toBe('pc-1');
+    expect(component.testConnectionResult()).toBeNull();
+
+    subject.next(true);
+    subject.complete();
+
+    expect(component.testingConnectionId()).toBeNull();
+  });
+
+  it('should_testConnection_updateAllConnectionLists', () => {
+    platformServiceSpy.testConnection.and.returnValue(of(true));
+    fixture.detectChanges();
+
+    const conn = component.gitRemotes()[0];
+    component.testConnection(conn);
+
+    // Check all three lists are updated
+    expect(component.gitRemotes()[0].status).toBe('ACTIVE');
+    expect(component.allConnections().find((c) => c.id === 'pc-2')!.status).toBe('ACTIVE');
+  });
+
+  // ===== Import Dropdown Filter =====
+
+  it('should_importDropdown_onlyShowTicketProviders', () => {
+    fixture.detectChanges();
+    // toggleImportPanel uses ticketProviders(), not allConnections()
+    // With 1 ticket provider, it should auto-select
+    component.toggleImportPanel();
+    expect(component.importConnectionId()).toBe('pc-1');
+    // The import connection should be a ticket provider, not a git remote
+    const selectedConn = component.ticketProviders().find((c) => c.id === component.importConnectionId());
+    expect(selectedConn).toBeTruthy();
+    expect(selectedConn!.platformCategory).toBe('TICKET_PROVIDER');
   });
 });

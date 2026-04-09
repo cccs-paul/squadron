@@ -65,4 +65,25 @@ public interface TicketingPlatformAdapter {
      * to track in Squadron.
      */
     List<PlatformProjectDto> getProjects();
+
+    /**
+     * Normalizes a base URL by ensuring it has a scheme (https:// by default)
+     * and stripping any trailing slashes.
+     * This prevents silent failures when URLs are stored without a scheme
+     * (e.g., "mysite.atlassian.net" instead of "https://mysite.atlassian.net").
+     */
+    default String normalizeBaseUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return url;
+        }
+        String normalized = url.strip();
+        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+            normalized = "https://" + normalized;
+        }
+        // Strip trailing slashes
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
+    }
 }

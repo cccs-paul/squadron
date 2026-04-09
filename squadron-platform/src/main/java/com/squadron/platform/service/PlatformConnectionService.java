@@ -68,7 +68,7 @@ public class PlatformConnectionService {
                 .tenantId(request.getTenantId())
                 .name(request.getName())
                 .platformType(request.getPlatformType())
-                .baseUrl(request.getBaseUrl())
+                .baseUrl(normalizeBaseUrl(request.getBaseUrl()))
                 .authType(request.getAuthType())
                 .credentials(encryptCredentials(request.getCredentials()))
                 .metadata(serializeToJson(request.getMetadata()))
@@ -105,7 +105,7 @@ public class PlatformConnectionService {
             connection.setPlatformType(request.getPlatformType());
         }
         if (request.getBaseUrl() != null) {
-            connection.setBaseUrl(request.getBaseUrl());
+            connection.setBaseUrl(normalizeBaseUrl(request.getBaseUrl()));
         }
         if (request.getAuthType() != null) {
             connection.setAuthType(request.getAuthType());
@@ -321,6 +321,25 @@ public class PlatformConnectionService {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Failed to serialize to JSON", e);
         }
+    }
+
+    /**
+     * Normalizes a base URL by ensuring it has a scheme (https:// by default)
+     * and stripping any trailing slashes. Prevents silent failures when URLs
+     * are stored without a scheme (e.g., "mysite.atlassian.net").
+     */
+    static String normalizeBaseUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return url;
+        }
+        String normalized = url.strip();
+        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+            normalized = "https://" + normalized;
+        }
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     /**
