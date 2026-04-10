@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.common.security.TenantContext;
 import com.squadron.orchestrator.config.SecurityConfig;
 import com.squadron.orchestrator.dto.CreateProjectRequest;
+import com.squadron.orchestrator.dto.ProjectSummaryDto;
 import com.squadron.orchestrator.dto.ProjectWorkflowMappingsRequest;
 import com.squadron.orchestrator.dto.WorkflowMappingDto;
 import com.squadron.orchestrator.entity.Project;
@@ -27,6 +28,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -488,5 +490,43 @@ class ProjectControllerTest {
     void should_return401_when_listingProjectsUnauthenticated() throws Exception {
         mockMvc.perform(get("/api/projects"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // --- Project Summary Tests ---
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_getProjectSummaries_when_authenticated() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+
+        List<ProjectSummaryDto> summaries = List.of(
+            ProjectSummaryDto.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .name("Project Alpha")
+                .totalTasks(10)
+                .activeTasks(3)
+                .taskCountsByState(Map.of("PLANNING", 2L, "REVIEW", 1L))
+                .workflowMappingsConfigured(true)
+                .workflowMappingCount(5)
+                .build()
+        );
+
+        when(projectService.getProjectSummaries(tenantId)).thenReturn(summaries);
+
+        mockMvc.perform(get("/api/projects/tenant/{tenantId}/summary", tenantId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data[0].name").value("Project Alpha"))
+            .andExpect(jsonPath("$.data[0].totalTasks").value(10))
+            .andExpect(jsonPath("$.data[0].activeTasks").value(3))
+            .andExpect(jsonPath("$.data[0].workflowMappingsConfigured").value(true))
+            .andExpect(jsonPath("$.data[0].workflowMappingCount").value(5));
+    }
+
+    @Test
+    void should_return401_when_gettingSummariesUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/projects/tenant/{tenantId}/summary", UUID.randomUUID()))
+            .andExpect(status().isUnauthorized());
     }
 }

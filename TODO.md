@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-04-09
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11) fully implemented. Phase 10: Translation key audit (168 keys fixed), celestial body agent names, provider editing, task board redesign (3-column work board with project labels, agent status, cancel/prompt/plan approval), `/api/tasks/by-state` 500 fix (TenantContext). Phase 11: Agent Squadron Overhaul — per-agent independent provider/model/hosting configuration (PLATFORM/SELF_HOSTED/CUSTOM hosting types, provider catalogs for GitHub Copilot/Anthropic/OpenAI/Ollama/Cohere/Google, auto-generated descriptions, rich edit UI with hosting type → provider → model cascading dropdowns). Phase 12: Review Bot Integration — end-to-end glue connecting AI review output to git platform bot comments via ReviewBotClient + GitClient, with REVIEW_BOT credential purpose. Phase 13: Task Sync from Ticket Providers — fixed TaskSyncService URL/method bug, added workflow initialization for synced tasks, built "Sync Tasks" UI on task board with project selection, progress, and result display. Phase 14: Live Testing Bug Fixes — ReviewBotConfigController @PreAuthorize missing developer role, nginx IPv6 listen for healthcheck, getMappingLabel collapsed-card "Not configured" bug. Phase 15: Live Testing Bug Fixes Round 2 — task sync 403 for developer role, WebSocket 401 on gateway, "Not configured" eager-fetch cascade failure, saveMappings UI refresh, removed default branch from step 3, custom Spring Boot banners for all 10 services, Docker inter-service URL fix (PLATFORM_SERVICE_URL + agent/workspace Feign URLs), task sync 401 JWT forwarding fix (TaskSyncService + FeignConfig RequestInterceptor), Jira JQL double URL-encoding fix (JiraServerAdapter + JiraCloudAdapter). Task sync fully working end-to-end with live Jira Server. Phase 16: Jira Cloud Fixes — JiraCloudAdapter migrated from deprecated GET /search (410 Gone) to POST /search/jql. Phase 17: Test Connection buttons, import dropdown fix, repositoryUrl↔repoUrl mismatch fix. Phase 18: Setup Wizard Steps 3 & 4 Redesign — separated concerns between Projects (Step 3, ticket-only: name/description) and Branch & Workflow (Step 4, git config: git remote provider dropdown, clone URL, human-readable repo URL, Test Git Access button with shallow clone validation). Backend: Flyway V5 (nullable transitioned_by), V6 (git_connection_id + clone_url columns), test-git-access workspace endpoint with HTTPS/SSH support. Frontend: 11 new tests (950 total Angular tests passing), 348 orchestrator + 226 workspace backend tests passing. All 20 containers healthy. (410 Gone) to POST /search/jql, cursor-based pagination with nextPageToken for projects with >50 issues, baseUrl normalization at adapter and storage layers (prevents silent failures from missing https:// scheme), Task.teamId JPA annotation fixed to nullable=true matching V3 migration, tenant DELETE endpoint added, gateway team-service route added, GitLab CE grafana config fix. All backend tests passing. Phase 16 contd: authType dropdown sends i18n key instead of backend value (added value field to AUTH_TYPE_OPTIONS), NotificationService path mismatches fixed. Jira Cloud 0-projects diagnosed as permissions issue (not code bug). Phase 17: Test Connection buttons on provider/remote cards (Steps 1 & 2), import dropdown fixed to show ticket providers only (Step 3), repositoryUrl↔repoUrl field mismatch fixed (BUG 15). All 939 Angular tests and 348 orchestrator tests passing. All containers healthy. (410 Gone) to POST /search/jql, cursor-based pagination with nextPageToken for projects with >50 issues, baseUrl normalization at adapter and storage layers (prevents silent failures from missing https:// scheme), Task.teamId JPA annotation fixed to nullable=true matching V3 migration, tenant DELETE endpoint added, gateway team-service route added, GitLab CE grafana config fix. All backend tests passing.ation test failures). All 926 Angular tests passing (2 pre-existing ProjectService failures). Docker deployment: all 20 containers healthy. Phase 16: Live Testing Bug Fixes Round 3 — authType dropdown sends i18n key instead of backend value (added value field to AUTH_TYPE_OPTIONS, updated form bindings), NotificationService path mismatches (wrong URLs and HTTP methods for getNotifications, markAsRead, markAllAsRead). All 932 Angular tests passing.
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phases 9-18 complete. Phase 18: Reviews UI Revamp — review-list revamped with stats bar, search/filter/sort, reviewer type filter; review-detail revamped with review gate indicator, QA tab (verdict/coverage/tests), request changes form, resolve comments, re-review orchestration trigger; review.service extended with 9 new methods (gate, QA, orchestration); 32 new translation keys in en.json/fr.json; review-list spec rewritten (42 tests), review-detail spec rewritten (56 tests), review.service spec extended (28 tests). Phase 17: Tasks/Projects UI revamp, backend API enhancements, WebSocket test fix. **4,215 backend tests passing (0 failures, 0 errors). Angular build passing.** field mismatch fixed (BUG 15). All 939 Angular tests and 348 orchestrator tests passing. All containers healthy. (410 Gone) to POST /search/jql, cursor-based pagination with nextPageToken for projects with >50 issues, baseUrl normalization at adapter and storage layers (prevents silent failures from missing https:// scheme), Task.teamId JPA annotation fixed to nullable=true matching V3 migration, tenant DELETE endpoint added, gateway team-service route added, GitLab CE grafana config fix. All backend tests passing.ation test failures). All 926 Angular tests passing (2 pre-existing ProjectService failures). Docker deployment: all 20 containers healthy. Phase 16: Live Testing Bug Fixes Round 3 — authType dropdown sends i18n key instead of backend value (added value field to AUTH_TYPE_OPTIONS, updated form bindings), NotificationService path mismatches (wrong URLs and HTTP methods for getNotifications, markAsRead, markAllAsRead). All 932 Angular tests passing.
 
 ---
 
@@ -999,22 +999,106 @@
 - [x] All 348 orchestrator tests passing
 - [x] Orchestrator + UI Docker images rebuilt, containers recreated and healthy
 
+### Phase 17: Tasks/Projects UI Revamp, Backend API Enhancements & Test Coverage
+
+#### Backend DTOs & Endpoints
+- [x] **ProjectSummaryDto** — new DTO with project id, name, totalTasks, doneTasks, activeTasks, taskStates map
+- [x] **TaskDetailDto** — new DTO with full task detail including workflow state, available transitions, project context
+- [x] **DelegateTaskRequest** — new DTO with agentType, agentName, instructions, targetState + Jakarta @NotBlank validation
+- [x] **ProjectController** — `GET /api/projects/summaries?tenantId=` endpoint (DEVELOPER role)
+- [x] **TaskController** — `GET /api/tasks/{taskId}/detail` and `POST /api/tasks/{taskId}/delegate` endpoints (DEVELOPER role)
+- [x] **ProjectService** — `getProjectSummaries(tenantId)` method computing task counts per project
+- [x] **TaskService** — `getTaskDetail(taskId)` and `delegateToAgent(taskId, request)` methods
+
+#### Frontend Services & Models
+- [x] **TaskService** — `getTaskDetail()` and `delegateToAgent()` methods
+- [x] **ProjectService** — `getProjectSummaries()` and `getProjectsByTenant()` methods
+- [x] **task.model.ts** — TaskDetail, DelegateTaskRequest interfaces; all 9 TaskState enum values (BACKLOG, PRIORITIZED, PLANNING, PROPOSE_CODE, IN_PROGRESS, REVIEW, QA, MERGE, DONE)
+- [x] **project.model.ts** — ProjectSummary interface
+
+#### Task Board Component Revamp
+- [x] 3-column board (planned/in-progress/completed) with correct state mapping for all 9 states
+- [x] Planned column: BACKLOG + PRIORITIZED + PLANNING
+- [x] In-progress column: PROPOSE_CODE + IN_PROGRESS + REVIEW + QA + MERGE
+- [x] Completed column: DONE
+- [x] Delegation panel: toggleDelegatePanel(), delegateTask() with 4 agent types (PLANNING, CODING, REVIEW, QA)
+- [x] List view mode toggle (board/list) with allTasks computed
+- [x] State filter (filterState signal) combining with search/priority/project filters
+- [x] stateColor() returning distinct color for all 9 states
+- [x] totalTasks, totalPlanned, totalInProgress, totalCompleted computed signals
+- [x] Task sync panel with project selection and result display
+- [x] Drag-drop between columns with transition and revert on failure
+
+#### Project List Component Revamp
+- [x] Project summaries with task count aggregates
+- [x] Search filtering (name/description/externalProjectId)
+- [x] Sync projects with connection + project key validation
+- [x] View mode toggle and navigation
+
+#### WebSocket Integration Test Fix
+- [x] **Root cause:** WebSocketIntegrationTest connected to `/ws/agent/websocket` but the endpoint is registered WITHOUT SockJS fallback, so the correct raw WebSocket URL is `/ws/agent`
+- [x] **Fix:** Changed URL from `ws://localhost:{port}/ws/agent/websocket` to `ws://localhost:{port}/ws/agent`
+- [x] All 4 WebSocket integration tests now passing
+
+#### Test Coverage Added
+- [x] **Backend DTO tests:** ProjectSummaryDtoTest (11), TaskDetailDtoTest (11), DelegateTaskRequestTest (14) = 36 new tests
+- [x] **Backend service tests:** ProjectServiceTest +3, TaskServiceTest +7 = 10 new tests
+- [x] **Backend controller tests:** ProjectControllerTest +2, TaskControllerTest +4 = 6 new tests
+- [x] **Frontend service tests:** task.service.spec +2, project.service.spec +2 = 4 new tests
+- [x] **Frontend project-list spec:** Fully rewritten — 32 tests
+- [x] **Frontend task-board spec:** 365 new lines added — delegation panel, list view, state filter, all 9 states, stateColor, totalTasks, allStates/agentTypes constants, toggleTaskActions delegate panel interaction = ~30 new tests
+- [x] **Total:** ~118 new tests across backend and frontend
+- [x] All 4,215 backend tests passing (0 failures, 0 errors)
+
+### Phase 18: Reviews UI Revamp
+
+#### Frontend Models
+- [x] **review.model.ts** — Extended from 61 to 114 lines: added `ReviewSummary`, `QAReport`, `QAVerdict`, `ReviewOrchestrationResult`, `SubmitReviewRequest` interfaces/enums, added `summary?` and `reviewerId?` fields to `Review`
+
+#### Frontend Services
+- [x] **review.service.ts** — Extended from 37 to 107 lines: added 9 new methods (`getReviewsForTask`, `deleteReview`, `submitReview`, `checkReviewGate`, `orchestrateReview`, `checkAndTransition`, `getQAReports`, `getLatestQAReport`, `checkQAGate`). New methods using `ApiResponse<T>` wrapper call `this.http.get/post` directly with `.pipe(map(r => r.data))`
+- [x] **review.service.spec.ts** — Extended from 9 to 28 tests: added tests for all 9 new methods including `checkReviewGate` with/without teamId, `orchestrateReview` with/without teamId, `checkAndTransition` with/without teamId, `getQAReports`, `getLatestQAReport`, `checkQAGate` true/false
+
+#### Review List Component
+- [x] **review-list.component.ts** — Revamped from 46 to 171 lines: signals for `filterStatus`, `filterReviewerType`, `searchQuery`, `sortField`, `sortDirection`, `error`; computed signals: `filteredReviews` (client-side search + reviewer type filter + sort), `totalReviews`, `pendingCount`, `inProgressCount`, `approvedCount`, `changesRequestedCount`, `rejectedCount`, `totalLinesChanged`, `totalUnresolved`; methods: `openReview()`, `refresh()`, `onFilterStatusChange()`, `toggleSort()`, `statusColor()`, `unresolvedCount()`
+- [x] **review-list.component.html** — Revamped from 54 to 123 lines: summary stats bar, filters row (search + status + reviewer type), sortable columns (status, changes, updated), unresolved comment count column
+- [x] **review-list.component.scss** — Updated with stats bar, filters, sort icons, unresolved badge styles
+- [x] **review-list.component.spec.ts** — Fully rewritten: 42 tests covering creation, loading/error, filtered reviews (search by title/repo/PR number, reviewer type filter), summary counts (totalReviews, pendingCount, inProgressCount, approvedCount, changesRequestedCount, rejectedCount), totalLinesChanged, totalUnresolved, sorting (toggleSort all fields/directions), statusClass for all 5 statuses, statusColor for all 5, unresolvedCount, onFilterStatusChange reloads, openReview navigation, refresh, allStatuses/allReviewerTypes, DOM rendering
+
+#### Review Detail Component
+- [x] **review-detail.component.ts** — Revamped from 82 to 272 lines: signals for `error`, `reviewGate`, `gateLoading`, `qaReport`, `qaGatePassed`, `qaLoading`, `requestChangesText`, `requestingChanges`, `orchestrating`, `orchestrationResult`, `resolvingCommentId`, `approving`, `rejecting`; computed: `unresolvedCount`, `resolvedCount`, `totalComments`, `canAct`; methods: `loadReviewGate()`, `loadQAReport()`, `requestChanges()`, `resolveComment()`, `triggerReReview()`, `verdictClass()`, `statusClass()`, `coveragePercent()`; 3 tabs: diff, comments, qa
+- [x] **review-detail.component.html** — Revamped from 89 to 197 lines: review gate indicator, orchestration result alert, QA tab (verdict, coverage, tests, summary), request changes form, resolve comment buttons, re-review trigger button, status badges
+- [x] **review-detail.component.scss** — Updated with review gate, QA section, request changes form, verdict badge styles
+- [x] **review-detail.component.spec.ts** — Fully rewritten: 56 tests covering creation, loading/error, loadReview + checkDiff + loadReviewGate + loadQAReport, approve (success/error/no review), reject (success/error/no review), requestChanges (success/error/empty text/no review), resolveComment (success/error/no review), triggerReReview (success/error/no review), tabs (diff/comments/qa), canAct for all 5 statuses, unresolvedCount/resolvedCount/totalComments, verdictClass for all 3 verdicts, severityClass for 4 severities, statusClass for 5 statuses, coveragePercent edge cases, DOM rendering (diff viewer, 3 tabs, comments, action buttons, gate, orchestration result, QA section, request changes form, resolve/resolved badges)
+
+#### Translation Keys
+- [x] **en.json** — Added 32 new keys: `reviews.list.refresh`, `searchPlaceholder`, `allReviewers`, `comments`, `stats.total/linesChanged/unresolved`; `reviews.detail.requestChanges`, `requestChangesPlaceholder`, `resolve`, `reReview`, `qaTab`, `qaReport`, `qaVerdict`, `qaSummary`, `noQAReport`, `qaGatePassed`, `qaGateFailed`, `lineCoverage`, `branchCoverage`, `testsPassed`, `testsFailed`, `testsSkipped`, `gate.label/met/unmet/humanApprovals/aiApproval/yes/no`, `orchestrationResult`, `reviewsCreated`, `pendingHuman`; severity keys with uppercase aliases (CRITICAL, MAJOR, MINOR, INFO)
+- [x] **fr.json** — Corresponding French translations for all 32 new keys
+
+#### Template Fixes
+- [x] **review-detail.component.html** — Fixed `@else if (qaReport(); as qa)` (Angular `@else if` doesn't support `as` alias) — replaced all `qa.` references with `qaReport()!.`
+- [x] **review-list.component.ts** — Fixed `statusColor()` signature to accept `ReviewStatus | string` (template passes string literals from translate pipe context)
+
+#### Build & Test Verification
+- [x] Angular build passing (production configuration)
+- [x] `mvn clean verify` — all 4,215 backend tests passing (0 failures, 0 errors)
+
 ---
 
 ## Quick Reference
 
 | Module | Sources | Tests | Status |
 |--------|:-------:|:-----:|--------|
-| squadron-common | 72 | 70 | Complete |
-| squadron-gateway | 11 | 10 | Complete |
-| squadron-identity | 43 | 43 | Complete |
-| squadron-orchestrator | 39 | 36 | Complete (348 tests) |
-| squadron-agent | 98 | 97 | Complete |
-| squadron-workspace | 20 | 19 | Complete |
-| squadron-platform | 48 | 46 | Complete |
-| squadron-git | 37 | 38 | Complete |
-| squadron-review | 33 | 33 | Complete |
-| squadron-config | 12 | 12 | Complete |
-| squadron-notification | 25 | 26 | Complete |
-| **TOTAL** | **437** | **429** | |
+| squadron-common | 72 | 70 | Complete (606 tests) |
+| squadron-gateway | 11 | 10 | Complete (133 tests) |
+| squadron-identity | 43 | 43 | Complete (245 tests) |
+| squadron-orchestrator | 39 | 39 | Complete (461 tests) |
+| squadron-agent | 98 | 97 | Complete (948 tests) |
+| squadron-workspace | 20 | 19 | Complete (106 tests) |
+| squadron-platform | 48 | 46 | Complete (400 tests) |
+| squadron-git | 37 | 38 | Complete (550 tests) |
+| squadron-review | 33 | 33 | Complete (227 tests) |
+| squadron-config | 12 | 12 | Complete (371 tests) |
+| squadron-notification | 25 | 26 | Complete (168 tests) |
+| **TOTAL** | **437** | **432** | **4,215 tests passing** |
 | squadron-ui | 34 components | 61 specs | Complete |

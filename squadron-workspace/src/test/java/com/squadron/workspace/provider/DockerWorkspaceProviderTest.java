@@ -35,6 +35,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -49,9 +50,9 @@ class DockerWorkspaceProviderTest {
     @BeforeEach
     void setUp() throws Exception {
         Constructor<DockerWorkspaceProvider> ctor = DockerWorkspaceProvider.class
-                .getDeclaredConstructor(DockerClient.class);
+                .getDeclaredConstructor(DockerClient.class, String.class);
         ctor.setAccessible(true);
-        provider = ctor.newInstance(dockerClient);
+        provider = ctor.newInstance(dockerClient, "squadron-net");
     }
 
     @Test
@@ -60,7 +61,7 @@ class DockerWorkspaceProviderTest {
     }
 
     @Test
-    void should_createContainer_successfully() {
+    void should_createContainer_successfully() throws Exception {
         WorkspaceSpec spec = WorkspaceSpec.builder()
                 .tenantId(UUID.randomUUID())
                 .taskId(UUID.randomUUID())
@@ -72,14 +73,31 @@ class DockerWorkspaceProviderTest {
         CreateContainerCmd createCmd = mock(CreateContainerCmd.class);
         CreateContainerResponse response = mock(CreateContainerResponse.class);
         StartContainerCmd startCmd = mock(StartContainerCmd.class);
+        ExecCreateCmd initExecCmd = mock(ExecCreateCmd.class);
+        ExecCreateCmdResponse initExecResponse = mock(ExecCreateCmdResponse.class);
+        ExecStartCmd initExecStartCmd = mock(ExecStartCmd.class);
+        ExecStartResultCallback initCallback = mock(ExecStartResultCallback.class);
 
         when(dockerClient.createContainerCmd("node:18")).thenReturn(createCmd);
         when(createCmd.withHostConfig(any())).thenReturn(createCmd);
+        when(createCmd.withUser(anyString())).thenReturn(createCmd);
+        when(createCmd.withWorkingDir(anyString())).thenReturn(createCmd);
         when(createCmd.withCmd(anyString(), anyString())).thenReturn(createCmd);
         when(createCmd.withLabels(any())).thenReturn(createCmd);
         when(createCmd.exec()).thenReturn(response);
         when(response.getId()).thenReturn("container-abc123");
         when(dockerClient.startContainerCmd("container-abc123")).thenReturn(startCmd);
+        // Init exec mocks for initializeWorkspaceUser
+        when(dockerClient.execCreateCmd("container-abc123")).thenReturn(initExecCmd);
+        when(initExecCmd.withAttachStdout(true)).thenReturn(initExecCmd);
+        when(initExecCmd.withAttachStderr(true)).thenReturn(initExecCmd);
+        when(initExecCmd.withUser(anyString())).thenReturn(initExecCmd);
+        when(initExecCmd.withCmd(any(String[].class))).thenReturn(initExecCmd);
+        when(initExecCmd.exec()).thenReturn(initExecResponse);
+        when(initExecResponse.getId()).thenReturn("exec-init-abc");
+        when(dockerClient.execStartCmd("exec-init-abc")).thenReturn(initExecStartCmd);
+        lenient().doReturn(initCallback).when(initExecStartCmd).exec(any(ExecStartResultCallback.class));
+        lenient().when(initCallback.awaitCompletion(anyLong(), any())).thenReturn(true);
 
         String containerId = provider.createContainer(spec);
 
@@ -88,7 +106,7 @@ class DockerWorkspaceProviderTest {
     }
 
     @Test
-    void should_createContainer_withDefaultImage_whenBaseImageIsNull() {
+    void should_createContainer_withDefaultImage_whenBaseImageIsNull() throws Exception {
         WorkspaceSpec spec = WorkspaceSpec.builder()
                 .tenantId(UUID.randomUUID())
                 .taskId(UUID.randomUUID())
@@ -99,14 +117,31 @@ class DockerWorkspaceProviderTest {
         CreateContainerCmd createCmd = mock(CreateContainerCmd.class);
         CreateContainerResponse response = mock(CreateContainerResponse.class);
         StartContainerCmd startCmd = mock(StartContainerCmd.class);
+        ExecCreateCmd initExecCmd = mock(ExecCreateCmd.class);
+        ExecCreateCmdResponse initExecResponse = mock(ExecCreateCmdResponse.class);
+        ExecStartCmd initExecStartCmd = mock(ExecStartCmd.class);
+        ExecStartResultCallback initCallback = mock(ExecStartResultCallback.class);
 
         when(dockerClient.createContainerCmd("ubuntu:22.04")).thenReturn(createCmd);
         when(createCmd.withHostConfig(any())).thenReturn(createCmd);
+        when(createCmd.withUser(anyString())).thenReturn(createCmd);
+        when(createCmd.withWorkingDir(anyString())).thenReturn(createCmd);
         when(createCmd.withCmd(anyString(), anyString())).thenReturn(createCmd);
         when(createCmd.withLabels(any())).thenReturn(createCmd);
         when(createCmd.exec()).thenReturn(response);
         when(response.getId()).thenReturn("container-def456");
         when(dockerClient.startContainerCmd("container-def456")).thenReturn(startCmd);
+        // Init exec mocks for initializeWorkspaceUser
+        when(dockerClient.execCreateCmd("container-def456")).thenReturn(initExecCmd);
+        when(initExecCmd.withAttachStdout(true)).thenReturn(initExecCmd);
+        when(initExecCmd.withAttachStderr(true)).thenReturn(initExecCmd);
+        when(initExecCmd.withUser(anyString())).thenReturn(initExecCmd);
+        when(initExecCmd.withCmd(any(String[].class))).thenReturn(initExecCmd);
+        when(initExecCmd.exec()).thenReturn(initExecResponse);
+        when(initExecResponse.getId()).thenReturn("exec-init-def");
+        when(dockerClient.execStartCmd("exec-init-def")).thenReturn(initExecStartCmd);
+        lenient().doReturn(initCallback).when(initExecStartCmd).exec(any(ExecStartResultCallback.class));
+        lenient().when(initCallback.awaitCompletion(anyLong(), any())).thenReturn(true);
 
         String containerId = provider.createContainer(spec);
 
@@ -114,7 +149,7 @@ class DockerWorkspaceProviderTest {
     }
 
     @Test
-    void should_createContainer_withResourceLimits() {
+    void should_createContainer_withResourceLimits() throws Exception {
         WorkspaceSpec spec = WorkspaceSpec.builder()
                 .tenantId(UUID.randomUUID())
                 .taskId(UUID.randomUUID())
@@ -126,14 +161,31 @@ class DockerWorkspaceProviderTest {
         CreateContainerCmd createCmd = mock(CreateContainerCmd.class);
         CreateContainerResponse response = mock(CreateContainerResponse.class);
         StartContainerCmd startCmd = mock(StartContainerCmd.class);
+        ExecCreateCmd initExecCmd = mock(ExecCreateCmd.class);
+        ExecCreateCmdResponse initExecResponse = mock(ExecCreateCmdResponse.class);
+        ExecStartCmd initExecStartCmd = mock(ExecStartCmd.class);
+        ExecStartResultCallback initCallback = mock(ExecStartResultCallback.class);
 
         when(dockerClient.createContainerCmd("ubuntu:22.04")).thenReturn(createCmd);
         when(createCmd.withHostConfig(any())).thenReturn(createCmd);
+        when(createCmd.withUser(anyString())).thenReturn(createCmd);
+        when(createCmd.withWorkingDir(anyString())).thenReturn(createCmd);
         when(createCmd.withCmd(anyString(), anyString())).thenReturn(createCmd);
         when(createCmd.withLabels(any())).thenReturn(createCmd);
         when(createCmd.exec()).thenReturn(response);
         when(response.getId()).thenReturn("container-limits");
         when(dockerClient.startContainerCmd("container-limits")).thenReturn(startCmd);
+        // Init exec mocks for initializeWorkspaceUser
+        when(dockerClient.execCreateCmd("container-limits")).thenReturn(initExecCmd);
+        when(initExecCmd.withAttachStdout(true)).thenReturn(initExecCmd);
+        when(initExecCmd.withAttachStderr(true)).thenReturn(initExecCmd);
+        when(initExecCmd.withUser(anyString())).thenReturn(initExecCmd);
+        when(initExecCmd.withCmd(any(String[].class))).thenReturn(initExecCmd);
+        when(initExecCmd.exec()).thenReturn(initExecResponse);
+        when(initExecResponse.getId()).thenReturn("exec-init-lim");
+        when(dockerClient.execStartCmd("exec-init-lim")).thenReturn(initExecStartCmd);
+        lenient().doReturn(initCallback).when(initExecStartCmd).exec(any(ExecStartResultCallback.class));
+        lenient().when(initCallback.awaitCompletion(anyLong(), any())).thenReturn(true);
 
         String containerId = provider.createContainer(spec);
 
@@ -356,5 +408,53 @@ class DockerWorkspaceProviderTest {
         RuntimeException ex = assertThrows(RuntimeException.class,
                 () -> provider.copyFromContainer("container-123", "/tmp/missing.txt"));
         assertTrue(ex.getMessage().contains("not found"));
+    }
+
+    @Test
+    void should_createContainer_withRootlessConfiguration() throws Exception {
+        WorkspaceSpec spec = WorkspaceSpec.builder()
+                .tenantId(UUID.randomUUID())
+                .taskId(UUID.randomUUID())
+                .userId(UUID.randomUUID())
+                .repoUrl("https://github.com/test/repo.git")
+                .baseImage("node:18")
+                .build();
+
+        CreateContainerCmd createCmd = mock(CreateContainerCmd.class);
+        CreateContainerResponse response = mock(CreateContainerResponse.class);
+        StartContainerCmd startCmd = mock(StartContainerCmd.class);
+        // Init exec mocks for initializeWorkspaceUser
+        ExecCreateCmd execCreateCmd = mock(ExecCreateCmd.class);
+        ExecCreateCmdResponse execCreateResponse = mock(ExecCreateCmdResponse.class);
+        ExecStartCmd execStartCmd = mock(ExecStartCmd.class);
+        ExecStartResultCallback callback = mock(ExecStartResultCallback.class);
+
+        when(dockerClient.createContainerCmd("node:18")).thenReturn(createCmd);
+        when(createCmd.withHostConfig(any())).thenReturn(createCmd);
+        when(createCmd.withUser(anyString())).thenReturn(createCmd);
+        when(createCmd.withWorkingDir(anyString())).thenReturn(createCmd);
+        when(createCmd.withCmd(anyString(), anyString())).thenReturn(createCmd);
+        when(createCmd.withLabels(any())).thenReturn(createCmd);
+        when(createCmd.exec()).thenReturn(response);
+        when(response.getId()).thenReturn("container-rootless");
+        when(dockerClient.startContainerCmd("container-rootless")).thenReturn(startCmd);
+        // Init exec mocks
+        when(dockerClient.execCreateCmd("container-rootless")).thenReturn(execCreateCmd);
+        when(execCreateCmd.withAttachStdout(true)).thenReturn(execCreateCmd);
+        when(execCreateCmd.withAttachStderr(true)).thenReturn(execCreateCmd);
+        when(execCreateCmd.withUser(anyString())).thenReturn(execCreateCmd);
+        when(execCreateCmd.withCmd(any(String[].class))).thenReturn(execCreateCmd);
+        when(execCreateCmd.exec()).thenReturn(execCreateResponse);
+        when(execCreateResponse.getId()).thenReturn("exec-init-123");
+        when(dockerClient.execStartCmd("exec-init-123")).thenReturn(execStartCmd);
+        lenient().doReturn(callback).when(execStartCmd).exec(any(ExecStartResultCallback.class));
+        lenient().when(callback.awaitCompletion(anyLong(), any())).thenReturn(true);
+
+        String containerId = provider.createContainer(spec);
+
+        assertEquals("container-rootless", containerId);
+        // Verify rootless user was set
+        verify(createCmd).withUser("1000:1000");
+        verify(createCmd).withWorkingDir("/home/squadron");
     }
 }

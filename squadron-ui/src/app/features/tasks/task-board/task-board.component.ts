@@ -4,14 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { SlicePipe } from '@angular/common';
 import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { forkJoin, Subscription } from 'rxjs';
+import { forkJoin, Subscription, of, catchError } from 'rxjs';
 import { TaskService } from '../../../core/services/task.service';
 import { ProjectService } from '../../../core/services/project.service';
 import { AgentService, AgentSession } from '../../../core/services/agent.service';
 import { WorkspaceService } from '../../../core/services/workspace.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Task, TaskState, TaskPriority, TaskSyncRequest, TaskSyncResult } from '../../../core/models/task.model';
-import { Project } from '../../../core/models/project.model';
+import { Task, TaskState, TaskPriority, TaskSyncRequest, TaskSyncResult, DelegateTaskRequest } from '../../../core/models/task.model';
+import { Project, ProjectSummary } from '../../../core/models/project.model';
 
 /** Enriched task with resolved project name and agent session info. */
 export interface BoardTask extends Task {
@@ -19,6 +19,7 @@ export interface BoardTask extends Task {
   agentStatus?: 'ACTIVE' | 'WAITING_INPUT' | 'COMPLETED' | 'FAILED' | null;
   agentSessionId?: string;
   agentType?: string;
+  mappedExternalStatus?: string;
 }
 
 export interface BoardColumn {
@@ -29,6 +30,14 @@ export interface BoardColumn {
   states: TaskState[];
   tasks: BoardTask[];
 }
+
+/** Agent types available for delegation */
+export const AGENT_TYPES = [
+  { value: 'PLANNING', label: 'tasks.delegate.agentPlanning', icon: 'plan' },
+  { value: 'CODING', label: 'tasks.delegate.agentCoding', icon: 'code' },
+  { value: 'REVIEW', label: 'tasks.delegate.agentReview', icon: 'review' },
+  { value: 'QA', label: 'tasks.delegate.agentQA', icon: 'qa' },
+];
 
 @Component({
   selector: 'sq-task-board',
@@ -51,12 +60,16 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   loading = signal(true);
   filterPriority = signal('');
   filterProject = signal('');
+  filterState = signal('');
   searchQuery = signal('');
+  viewMode = signal<'board' | 'list'>('board');
 
   /** All projects indexed by id for quick lookup */
   projectMap = signal<Record<string, Project>>({});
   /** List of distinct projects for filter dropdown */
   projects = signal<Project[]>([]);
+  /** Project summaries with task counts */
+  projectSummaries = signal<ProjectSummary[]>([]);
   /** Active agent sessions indexed by taskId */
   agentSessions = signal<Record<string, AgentSession>>({});
 
@@ -69,6 +82,12 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   /** Sending prompt state per task */
   sendingPromptTaskId = signal<string | null>(null);
 
+  /** Delegation panel state */
+  showDelegatePanel = signal<string | null>(null);
+  delegateAgentType = signal('PLANNING');
+  delegateInstructions = signal('');
+  delegating = signal(false);
+
   /** Sync panel state */
   showSyncPanel = signal(false);
   selectedSyncProjectId = signal('');
@@ -76,18 +95,28 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   syncResult = signal<TaskSyncResult | null>(null);
   syncError = signal<string | null>(null);
 
+  /** All unique states for state filter */
+  allStates = Object.values(TaskState);
+  agentTypes = AGENT_TYPES;
+
   /** Projects that can be synced (have connectionId + externalProjectId configured) */
   syncableProjects = computed(() =>
     this.projects().filter(p => p.connectionId && p.externalProjectId),
   );
+
+  /** All tasks flat list for list view */
+  allTasks = computed(() => {
+    return this.filteredColumns().reduce((acc, col) => [...acc, ...col.tasks], [] as BoardTask[]);
+  });
 
   filteredColumns = computed(() => {
     const cols = this.columns();
     const search = this.searchQuery().toLowerCase().trim();
     const priority = this.filterPriority();
     const projectId = this.filterProject();
+    const state = this.filterState();
 
-    if (!search && !priority && !projectId) {
+    if (!search && !priority && !projectId && !state) {
       return cols;
     }
 
@@ -102,7 +131,8 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
           (task.projectName?.toLowerCase().includes(search));
         const matchesPriority = !priority || task.priority === priority;
         const matchesProject = !projectId || task.projectId === projectId;
-        return matchesSearch && matchesPriority && matchesProject;
+        const matchesState = !state || task.state === state;
+        return matchesSearch && matchesPriority && matchesProject && matchesState;
       }),
     }));
   });
@@ -122,6 +152,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     const col = this.filteredColumns().find(c => c.id === 'completed');
     return col ? col.tasks.length : 0;
   });
+  totalTasks = computed(() => this.totalInProgress() + this.totalPlanned() + this.totalCompleted());
 
   ngOnInit(): void {
     this.loadData();
@@ -131,7 +162,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(s => s.unsubscribe());
   }
 
-  private loadData(): void {
+  loadData(): void {
     this.loading.set(true);
     const user = this.authService.user();
     const tenantId = user?.tenantId;
@@ -141,18 +172,23 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     };
     if (tenantId) {
       sources['projects'] = this.projectService.getProjectsByTenant(tenantId);
+      sources['summaries'] = this.projectService.getProjectSummaries(tenantId).pipe(
+        catchError(() => of([] as ProjectSummary[])),
+      );
     }
 
     forkJoin(sources).subscribe({
       next: (results: any) => {
         const tasksByState: Record<TaskState, Task[]> = results.tasksByState;
         const projectList: Project[] = results.projects ?? [];
+        const summaries: ProjectSummary[] = results.summaries ?? [];
 
         // Build project map
         const pMap: Record<string, Project> = {};
         projectList.forEach(p => pMap[p.id] = p);
         this.projectMap.set(pMap);
         this.projects.set(projectList);
+        this.projectSummaries.set(summaries);
 
         // Build columns
         this.buildColumns(tasksByState, pMap);
@@ -175,13 +211,16 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     });
 
     const inProgressTasks = [
+      ...(tasksByState[TaskState.PROPOSE_CODE] ?? []),
       ...(tasksByState[TaskState.IN_PROGRESS] ?? []),
       ...(tasksByState[TaskState.REVIEW] ?? []),
       ...(tasksByState[TaskState.QA] ?? []),
+      ...(tasksByState[TaskState.MERGE] ?? []),
     ].map(enrichTask);
 
     const plannedTasks = [
       ...(tasksByState[TaskState.BACKLOG] ?? []),
+      ...(tasksByState[TaskState.PRIORITIZED] ?? []),
       ...(tasksByState[TaskState.PLANNING] ?? []),
     ].map(enrichTask);
 
@@ -195,7 +234,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         label: 'tasks.board.column.planned',
         color: '#818CF8',
         icon: 'calendar',
-        states: [TaskState.BACKLOG, TaskState.PLANNING],
+        states: [TaskState.BACKLOG, TaskState.PRIORITIZED, TaskState.PLANNING],
         tasks: plannedTasks,
       },
       {
@@ -203,7 +242,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         label: 'tasks.board.column.inProgress',
         color: '#06B6D4',
         icon: 'play',
-        states: [TaskState.IN_PROGRESS, TaskState.REVIEW, TaskState.QA],
+        states: [TaskState.PROPOSE_CODE, TaskState.IN_PROGRESS, TaskState.REVIEW, TaskState.QA, TaskState.MERGE],
         tasks: inProgressTasks,
       },
       {
@@ -218,24 +257,18 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   }
 
   private loadAgentSessions(): void {
-    // Load agent sessions for in-progress tasks only
     const inProgressCol = this.columns().find(c => c.id === 'in-progress');
     if (!inProgressCol) return;
 
-    const tasksWithSessions = inProgressCol.tasks.filter(t => t.agentSessionId);
-    tasksWithSessions.forEach(task => {
-      if (!task.agentSessionId) return;
+    inProgressCol.tasks.forEach(task => {
       const sub = this.agentService.getSession(task.id).subscribe({
         next: (session) => {
           const sessions = { ...this.agentSessions() };
           sessions[task.id] = session;
           this.agentSessions.set(sessions);
-          // Update the task's agent status in the column
           this.updateTaskAgentStatus(task.id, session);
         },
-        error: () => {
-          // Session not found or error - no status to show
-        },
+        error: () => { /* No session found -- normal for most tasks */ },
       });
       this.subscriptions.push(sub);
     });
@@ -255,11 +288,11 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   }
 
   private getAgentTypeFromSession(session: AgentSession): string | undefined {
-    // Extract agent type from session messages if available
     const systemMsg = session.messages?.find(m => m.role === 'SYSTEM');
     if (systemMsg?.content?.includes('Planner')) return 'Planner';
     if (systemMsg?.content?.includes('Coder')) return 'Coder';
     if (systemMsg?.content?.includes('Reviewer')) return 'Reviewer';
+    if (systemMsg?.content?.includes('QA')) return 'QA';
     return undefined;
   }
 
@@ -276,8 +309,10 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   toggleTaskActions(taskId: string): void {
     if (this.expandedTaskId() === taskId) {
       this.expandedTaskId.set(null);
+      this.showDelegatePanel.set(null);
     } else {
       this.expandedTaskId.set(taskId);
+      this.showDelegatePanel.set(null);
     }
   }
 
@@ -301,16 +336,64 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     }
   }
 
+  stateColor(state: string): string {
+    switch (state) {
+      case TaskState.BACKLOG: return '#94A3B8';
+      case TaskState.PRIORITIZED: return '#A78BFA';
+      case TaskState.PLANNING: return '#818CF8';
+      case TaskState.PROPOSE_CODE: return '#38BDF8';
+      case TaskState.IN_PROGRESS: return '#06B6D4';
+      case TaskState.REVIEW: return '#F59E0B';
+      case TaskState.QA: return '#8B5CF6';
+      case TaskState.MERGE: return '#22C55E';
+      case TaskState.DONE: return '#10B981';
+      default: return '#94A3B8';
+    }
+  }
+
+  // --- Delegate to agent ---
+
+  toggleDelegatePanel(taskId: string): void {
+    if (this.showDelegatePanel() === taskId) {
+      this.showDelegatePanel.set(null);
+    } else {
+      this.showDelegatePanel.set(taskId);
+      this.delegateAgentType.set('PLANNING');
+      this.delegateInstructions.set('');
+    }
+  }
+
+  delegateTask(task: BoardTask): void {
+    const request: DelegateTaskRequest = {
+      agentType: this.delegateAgentType(),
+      instructions: this.delegateInstructions() || undefined,
+      targetState: this.delegateAgentType(),
+    };
+
+    this.delegating.set(true);
+    this.taskService.delegateToAgent(task.id, request).subscribe({
+      next: () => {
+        this.delegating.set(false);
+        this.showDelegatePanel.set(null);
+        this.expandedTaskId.set(null);
+        // Reload to show updated state
+        this.loadData();
+      },
+      error: () => {
+        this.delegating.set(false);
+      },
+    });
+  }
+
   // --- Cancel task ---
 
   cancelTask(task: BoardTask): void {
     this.cancellingTaskId.set(task.id);
 
-    // 1. If agent session is active, interrupt it first
     if (task.agentSessionId && task.agentStatus === 'ACTIVE') {
       this.agentService.interruptAgent(task.agentSessionId, 'USER_CANCEL').subscribe({
         next: () => this.transitionToBacklog(task),
-        error: () => this.transitionToBacklog(task), // still transition even if interrupt fails
+        error: () => this.transitionToBacklog(task),
       });
     } else {
       this.transitionToBacklog(task);
@@ -320,11 +403,8 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   private transitionToBacklog(task: BoardTask): void {
     this.taskService.transitionTask(task.id, TaskState.BACKLOG).subscribe({
       next: () => {
-        // Move task from current column to planned column
         this.moveTaskToColumn(task, 'planned');
         this.cancellingTaskId.set(null);
-
-        // Try to clean up workspace
         this.cleanupWorkspace(task.id);
       },
       error: () => {
@@ -340,9 +420,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
           this.workspaceService.destroyWorkspace(workspace.id).subscribe();
         }
       },
-      error: () => {
-        // No workspace or error - ignore
-      },
+      error: () => { /* No workspace or error - ignore */ },
     });
   }
 
@@ -392,7 +470,6 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
 
     this.agentService.approvePlan(task.agentSessionId, session.currentPlan.id).subscribe({
       next: () => {
-        // Reload the session to get updated status
         this.agentService.getSession(task.id).subscribe({
           next: (updated) => {
             this.updateTaskAgentStatus(task.id, updated);
@@ -415,7 +492,6 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         const prompts = { ...this.promptText() };
         prompts[task.id] = '';
         this.promptText.set(prompts);
-        // Reload session
         this.agentService.getSession(task.id).subscribe({
           next: (updated) => {
             this.updateTaskAgentStatus(task.id, updated);
@@ -479,7 +555,6 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
       next: (result) => {
         this.syncResult.set(result);
         this.syncing.set(false);
-        // Reload the board to show newly synced tasks
         if (result.created > 0 || result.updated > 0) {
           this.loadData();
         }
@@ -505,11 +580,9 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         event.currentIndex,
       );
 
-      // Determine target state (first state of the target column)
       const targetState = targetColumn.states[0];
       this.taskService.transitionTask(task.id, targetState).subscribe({
         error: () => {
-          // Revert on failure
           transferArrayItem(
             event.container.data,
             event.previousContainer.data,
@@ -519,6 +592,12 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         },
       });
     }
+  }
+
+  // --- View mode toggle ---
+
+  setViewMode(mode: 'board' | 'list'): void {
+    this.viewMode.set(mode);
   }
 
   // --- Refresh ---

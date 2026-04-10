@@ -1,15 +1,23 @@
 package com.squadron.orchestrator.service;
 
+import com.squadron.common.config.NatsEventPublisher;
+import com.squadron.common.event.TaskStateChangedEvent;
 import com.squadron.common.exception.ResourceNotFoundException;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
+import com.squadron.orchestrator.dto.DelegateTaskRequest;
+import com.squadron.orchestrator.dto.TaskDetailDto;
 import com.squadron.orchestrator.dto.TaskStatsDto;
 import com.squadron.orchestrator.dto.TaskWorkflowDto;
 import com.squadron.orchestrator.dto.TransitionRequest;
 import com.squadron.orchestrator.engine.TaskState;
 import com.squadron.orchestrator.engine.WorkflowEngine;
+import com.squadron.orchestrator.entity.Project;
+import com.squadron.orchestrator.entity.ProjectWorkflowMapping;
 import com.squadron.orchestrator.entity.Task;
 import com.squadron.orchestrator.entity.TaskStateHistory;
 import com.squadron.orchestrator.entity.TaskWorkflow;
+import com.squadron.orchestrator.repository.ProjectRepository;
+import com.squadron.orchestrator.repository.ProjectWorkflowMappingRepository;
 import com.squadron.orchestrator.repository.TaskRepository;
 import com.squadron.orchestrator.repository.TaskStateHistoryRepository;
 import com.squadron.orchestrator.repository.TaskWorkflowRepository;
@@ -35,15 +43,24 @@ public class TaskService {
     private final TaskWorkflowRepository taskWorkflowRepository;
     private final TaskStateHistoryRepository taskStateHistoryRepository;
     private final WorkflowEngine workflowEngine;
+    private final ProjectRepository projectRepository;
+    private final ProjectWorkflowMappingRepository mappingRepository;
+    private final NatsEventPublisher natsEventPublisher;
 
     public TaskService(TaskRepository taskRepository,
                        TaskWorkflowRepository taskWorkflowRepository,
                        TaskStateHistoryRepository taskStateHistoryRepository,
-                       WorkflowEngine workflowEngine) {
+                       WorkflowEngine workflowEngine,
+                       ProjectRepository projectRepository,
+                       ProjectWorkflowMappingRepository mappingRepository,
+                       NatsEventPublisher natsEventPublisher) {
         this.taskRepository = taskRepository;
         this.taskWorkflowRepository = taskWorkflowRepository;
         this.taskStateHistoryRepository = taskStateHistoryRepository;
         this.workflowEngine = workflowEngine;
+        this.projectRepository = projectRepository;
+        this.mappingRepository = mappingRepository;
+        this.natsEventPublisher = natsEventPublisher;
     }
 
     public Task createTask(CreateTaskRequest request, UUID userId) {
@@ -205,5 +222,103 @@ public class TaskService {
                 .byState(byState)
                 .byPriority(byPriority)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public TaskDetailDto getTaskDetail(UUID taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+
+        // Get workflow state
+        TaskWorkflow workflow = taskWorkflowRepository.findByTaskId(taskId).orElse(null);
+
+        // Get project name and mapped external status
+        String projectName = null;
+        String mappedExternalStatus = null;
+        if (task.getProjectId() != null) {
+            Project project = projectRepository.findById(task.getProjectId()).orElse(null);
+            if (project != null) {
+                projectName = project.getName();
+                // Look up workflow mapping for current state
+                if (workflow != null) {
+                    List<ProjectWorkflowMapping> mappings = mappingRepository.findByProjectId(project.getId());
+                    mappedExternalStatus = mappings.stream()
+                            .filter(m -> m.getInternalState().equals(workflow.getCurrentState()))
+                            .map(ProjectWorkflowMapping::getExternalStatus)
+                            .findFirst()
+                            .orElse(null);
+                }
+            }
+        }
+
+        // Get available transitions
+        List<String> availableTransitions = List.of();
+        if (workflow != null) {
+            try {
+                availableTransitions = workflowEngine.getAvailableTransitions(taskId);
+            } catch (Exception e) {
+                log.debug("Could not get available transitions for task {}: {}", taskId, e.getMessage());
+            }
+        }
+
+        // Parse labels from JSON string to list
+        List<String> labelsList = List.of();
+        if (task.getLabels() != null) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                labelsList = mapper.readValue(task.getLabels(),
+                        mapper.getTypeFactory().constructCollectionType(List.class, String.class));
+            } catch (Exception e) {
+                log.debug("Could not parse labels for task {}: {}", taskId, e.getMessage());
+            }
+        }
+
+        return TaskDetailDto.builder()
+                .id(task.getId())
+                .tenantId(task.getTenantId())
+                .projectId(task.getProjectId())
+                .teamId(task.getTeamId())
+                .assigneeId(task.getAssigneeId())
+                .title(task.getTitle())
+                .description(task.getDescription())
+                .externalId(task.getExternalId())
+                .externalUrl(task.getExternalUrl())
+                .priority(task.getPriority())
+                .labels(labelsList)
+                .tokenUsage(task.getTokenUsage() != null ? task.getTokenUsage() : 0L)
+                .currentState(workflow != null ? workflow.getCurrentState() : null)
+                .previousState(workflow != null ? workflow.getPreviousState() : null)
+                .lastTransitionAt(workflow != null && workflow.getTransitionAt() != null ? workflow.getTransitionAt().toString() : null)
+                .availableTransitions(availableTransitions)
+                .projectName(projectName)
+                .mappedExternalStatus(mappedExternalStatus)
+                .createdAt(task.getCreatedAt() != null ? task.getCreatedAt().toString() : null)
+                .updatedAt(task.getUpdatedAt() != null ? task.getUpdatedAt().toString() : null)
+                .build();
+    }
+
+    public void delegateToAgent(UUID taskId, DelegateTaskRequest request) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+
+        // If a target state is specified, transition the task first
+        if (request.getTargetState() != null && !request.getTargetState().isBlank()) {
+            workflowEngine.transition(taskId, request.getTargetState(), null, "Delegated to agent: " + request.getAgentType());
+        }
+
+        // Publish a NATS event to trigger the agent
+        TaskStateChangedEvent event = new TaskStateChangedEvent();
+        event.setTenantId(task.getTenantId());
+        event.setSource("squadron-orchestrator");
+        event.setTaskId(taskId);
+        event.setFromState(null);
+        event.setToState(request.getTargetState() != null ? request.getTargetState() : "PLANNING");
+        event.setReason("Delegated to agent: " + request.getAgentType());
+
+        try {
+            natsEventPublisher.publishAsync("squadron.tasks.state-changed", event);
+        } catch (Exception e) {
+            log.warn("Failed to publish delegate event for task {}: {}", taskId, e.getMessage());
+        }
     }
 }

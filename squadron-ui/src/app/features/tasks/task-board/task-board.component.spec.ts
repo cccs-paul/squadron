@@ -49,10 +49,13 @@ function makeProject(overrides: Partial<Project> = {}): Project {
 function makeApiData(overrides: Partial<Record<TaskState, Task[]>> = {}): Record<TaskState, Task[]> {
   return {
     [TaskState.BACKLOG]: [],
+    [TaskState.PRIORITIZED]: [],
     [TaskState.PLANNING]: [],
+    [TaskState.PROPOSE_CODE]: [],
     [TaskState.IN_PROGRESS]: [],
     [TaskState.REVIEW]: [],
     [TaskState.QA]: [],
+    [TaskState.MERGE]: [],
     [TaskState.DONE]: [],
     ...overrides,
   };
@@ -69,8 +72,8 @@ describe('TaskBoardComponent', () => {
   let routerSpy: jasmine.SpyObj<Router>;
 
   beforeEach(async () => {
-    taskServiceSpy = jasmine.createSpyObj('TaskService', ['getTasksByState', 'transitionTask', 'syncTasks']);
-    projectServiceSpy = jasmine.createSpyObj('ProjectService', ['getProjectsByTenant']);
+    taskServiceSpy = jasmine.createSpyObj('TaskService', ['getTasksByState', 'transitionTask', 'syncTasks', 'delegateToAgent']);
+    projectServiceSpy = jasmine.createSpyObj('ProjectService', ['getProjectsByTenant', 'getProjectSummaries']);
     agentServiceSpy = jasmine.createSpyObj('AgentService', [
       'getSession', 'sendMessage', 'interruptAgent', 'approvePlan', 'rejectPlan',
     ]);
@@ -86,6 +89,7 @@ describe('TaskBoardComponent', () => {
     // Default: return empty tasks and no projects
     taskServiceSpy.getTasksByState.and.returnValue(of(makeApiData()));
     projectServiceSpy.getProjectsByTenant.and.returnValue(of([]));
+    projectServiceSpy.getProjectSummaries.and.returnValue(of([]));
 
     await TestBed.configureTestingModule({
       imports: [TaskBoardComponent, TranslateModule.forRoot()],
@@ -793,8 +797,8 @@ describe('TaskBoardComponent', () => {
     };
 
     component.drop(event as CdkDragDrop<BoardTask[]>, inProgressCol);
-    // Target state is first state of the target column = IN_PROGRESS
-    expect(taskServiceSpy.transitionTask).toHaveBeenCalledWith('1', TaskState.IN_PROGRESS);
+    // Target state is first state of the target column = PROPOSE_CODE
+    expect(taskServiceSpy.transitionTask).toHaveBeenCalledWith('1', TaskState.PROPOSE_CODE);
     expect(sourceData.length).toBe(0);
     expect(targetData.length).toBe(2);
   });
@@ -981,5 +985,370 @@ describe('TaskBoardComponent', () => {
 
     // No reload needed since nothing changed
     expect(taskServiceSpy.getTasksByState).not.toHaveBeenCalled();
+  });
+
+  // --- Column mapping: PRIORITIZED, PROPOSE_CODE, MERGE states ---
+
+  it('should group PRIORITIZED into planned column', () => {
+    const apiData = makeApiData({
+      [TaskState.PRIORITIZED]: [makeTask({ id: '1', state: TaskState.PRIORITIZED })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    const planned = component.columns().find(c => c.id === 'planned');
+    expect(planned!.tasks.length).toBe(1);
+    expect(planned!.tasks[0].state).toBe(TaskState.PRIORITIZED);
+  });
+
+  it('should group PROPOSE_CODE into in-progress column', () => {
+    const apiData = makeApiData({
+      [TaskState.PROPOSE_CODE]: [makeTask({ id: '1', state: TaskState.PROPOSE_CODE })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    const inProgress = component.columns().find(c => c.id === 'in-progress');
+    expect(inProgress!.tasks.length).toBe(1);
+    expect(inProgress!.tasks[0].state).toBe(TaskState.PROPOSE_CODE);
+  });
+
+  it('should group MERGE into in-progress column', () => {
+    const apiData = makeApiData({
+      [TaskState.MERGE]: [makeTask({ id: '1', state: TaskState.MERGE })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    const inProgress = component.columns().find(c => c.id === 'in-progress');
+    expect(inProgress!.tasks.length).toBe(1);
+    expect(inProgress!.tasks[0].state).toBe(TaskState.MERGE);
+  });
+
+  it('should place all 9 states into correct columns', () => {
+    const apiData = makeApiData({
+      [TaskState.BACKLOG]: [makeTask({ id: '1', state: TaskState.BACKLOG })],
+      [TaskState.PRIORITIZED]: [makeTask({ id: '2', state: TaskState.PRIORITIZED })],
+      [TaskState.PLANNING]: [makeTask({ id: '3', state: TaskState.PLANNING })],
+      [TaskState.PROPOSE_CODE]: [makeTask({ id: '4', state: TaskState.PROPOSE_CODE })],
+      [TaskState.IN_PROGRESS]: [makeTask({ id: '5', state: TaskState.IN_PROGRESS })],
+      [TaskState.REVIEW]: [makeTask({ id: '6', state: TaskState.REVIEW })],
+      [TaskState.QA]: [makeTask({ id: '7', state: TaskState.QA })],
+      [TaskState.MERGE]: [makeTask({ id: '8', state: TaskState.MERGE })],
+      [TaskState.DONE]: [makeTask({ id: '9', state: TaskState.DONE })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    const planned = component.columns().find(c => c.id === 'planned')!;
+    const inProgress = component.columns().find(c => c.id === 'in-progress')!;
+    const completed = component.columns().find(c => c.id === 'completed')!;
+
+    expect(planned.tasks.length).toBe(3);
+    expect(inProgress.tasks.length).toBe(5);
+    expect(completed.tasks.length).toBe(1);
+  });
+
+  it('should store correct states array on each column', () => {
+    fixture.detectChanges();
+    const planned = component.columns().find(c => c.id === 'planned')!;
+    const inProgress = component.columns().find(c => c.id === 'in-progress')!;
+    const completed = component.columns().find(c => c.id === 'completed')!;
+
+    expect(planned.states).toEqual([TaskState.BACKLOG, TaskState.PRIORITIZED, TaskState.PLANNING]);
+    expect(inProgress.states).toEqual([TaskState.PROPOSE_CODE, TaskState.IN_PROGRESS, TaskState.REVIEW, TaskState.QA, TaskState.MERGE]);
+    expect(completed.states).toEqual([TaskState.DONE]);
+  });
+
+  // --- stateColor ---
+
+  it('should return correct color for all 9 task states', () => {
+    expect(component.stateColor(TaskState.BACKLOG)).toBe('#94A3B8');
+    expect(component.stateColor(TaskState.PRIORITIZED)).toBe('#A78BFA');
+    expect(component.stateColor(TaskState.PLANNING)).toBe('#818CF8');
+    expect(component.stateColor(TaskState.PROPOSE_CODE)).toBe('#38BDF8');
+    expect(component.stateColor(TaskState.IN_PROGRESS)).toBe('#06B6D4');
+    expect(component.stateColor(TaskState.REVIEW)).toBe('#F59E0B');
+    expect(component.stateColor(TaskState.QA)).toBe('#8B5CF6');
+    expect(component.stateColor(TaskState.MERGE)).toBe('#22C55E');
+    expect(component.stateColor(TaskState.DONE)).toBe('#10B981');
+  });
+
+  it('should return default color for unknown state', () => {
+    expect(component.stateColor('UNKNOWN')).toBe('#94A3B8');
+  });
+
+  // --- totalTasks ---
+
+  it('should compute totalTasks as sum of all columns', () => {
+    const apiData = makeApiData({
+      [TaskState.BACKLOG]: [makeTask({ id: '1', state: TaskState.BACKLOG })],
+      [TaskState.IN_PROGRESS]: [makeTask({ id: '2' }), makeTask({ id: '3' })],
+      [TaskState.DONE]: [makeTask({ id: '4', state: TaskState.DONE })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    expect(component.totalTasks()).toBe(4);
+  });
+
+  it('should return zero totalTasks when board is empty', () => {
+    fixture.detectChanges();
+    expect(component.totalTasks()).toBe(0);
+  });
+
+  // --- filterState ---
+
+  it('should filter tasks by state', () => {
+    const apiData = makeApiData({
+      [TaskState.BACKLOG]: [makeTask({ id: '1', state: TaskState.BACKLOG })],
+      [TaskState.IN_PROGRESS]: [makeTask({ id: '2', state: TaskState.IN_PROGRESS })],
+      [TaskState.REVIEW]: [makeTask({ id: '3', state: TaskState.REVIEW })],
+      [TaskState.DONE]: [makeTask({ id: '4', state: TaskState.DONE })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    component.filterState.set(TaskState.REVIEW);
+    const totalFiltered = component.filteredColumns().reduce((sum, col) => sum + col.tasks.length, 0);
+    expect(totalFiltered).toBe(1);
+    const inProgress = component.filteredColumns().find(c => c.id === 'in-progress')!;
+    expect(inProgress.tasks[0].state).toBe(TaskState.REVIEW);
+  });
+
+  it('should return all tasks when filterState is empty', () => {
+    const apiData = makeApiData({
+      [TaskState.BACKLOG]: [makeTask({ id: '1', state: TaskState.BACKLOG })],
+      [TaskState.IN_PROGRESS]: [makeTask({ id: '2', state: TaskState.IN_PROGRESS })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    component.filterState.set('');
+    const totalFiltered = component.filteredColumns().reduce((sum, col) => sum + col.tasks.length, 0);
+    expect(totalFiltered).toBe(2);
+  });
+
+  it('should combine filterState with search query', () => {
+    const apiData = makeApiData({
+      [TaskState.REVIEW]: [
+        makeTask({ id: '1', state: TaskState.REVIEW, title: 'Fix auth' }),
+        makeTask({ id: '2', state: TaskState.REVIEW, title: 'Fix dashboard' }),
+      ],
+      [TaskState.IN_PROGRESS]: [
+        makeTask({ id: '3', state: TaskState.IN_PROGRESS, title: 'Fix auth too' }),
+      ],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    component.filterState.set(TaskState.REVIEW);
+    component.searchQuery.set('auth');
+    const totalFiltered = component.filteredColumns().reduce((sum, col) => sum + col.tasks.length, 0);
+    expect(totalFiltered).toBe(1);
+  });
+
+  // --- View mode (board / list) ---
+
+  it('should default to board view mode', () => {
+    fixture.detectChanges();
+    expect(component.viewMode()).toBe('board');
+  });
+
+  it('should switch to list view mode', () => {
+    fixture.detectChanges();
+    component.setViewMode('list');
+    expect(component.viewMode()).toBe('list');
+  });
+
+  it('should switch back to board view mode', () => {
+    fixture.detectChanges();
+    component.setViewMode('list');
+    component.setViewMode('board');
+    expect(component.viewMode()).toBe('board');
+  });
+
+  it('should compute allTasks as flat list of filtered tasks', () => {
+    const apiData = makeApiData({
+      [TaskState.BACKLOG]: [makeTask({ id: '1', state: TaskState.BACKLOG })],
+      [TaskState.IN_PROGRESS]: [makeTask({ id: '2', state: TaskState.IN_PROGRESS })],
+      [TaskState.DONE]: [makeTask({ id: '3', state: TaskState.DONE })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    expect(component.allTasks().length).toBe(3);
+  });
+
+  it('should reflect filters in allTasks', () => {
+    const apiData = makeApiData({
+      [TaskState.BACKLOG]: [
+        makeTask({ id: '1', state: TaskState.BACKLOG, priority: TaskPriority.HIGH }),
+        makeTask({ id: '2', state: TaskState.BACKLOG, priority: TaskPriority.LOW }),
+      ],
+      [TaskState.IN_PROGRESS]: [
+        makeTask({ id: '3', state: TaskState.IN_PROGRESS, priority: TaskPriority.HIGH }),
+      ],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    component.filterPriority.set('HIGH');
+    expect(component.allTasks().length).toBe(2);
+  });
+
+  // --- Delegation panel ---
+
+  it('should toggle delegate panel for a task', () => {
+    fixture.detectChanges();
+    expect(component.showDelegatePanel()).toBeNull();
+
+    component.toggleDelegatePanel('task-1');
+    expect(component.showDelegatePanel()).toBe('task-1');
+
+    component.toggleDelegatePanel('task-1');
+    expect(component.showDelegatePanel()).toBeNull();
+  });
+
+  it('should reset agent type and instructions when opening delegate panel', () => {
+    fixture.detectChanges();
+    component.delegateAgentType.set('CODING');
+    component.delegateInstructions.set('some old instructions');
+
+    component.toggleDelegatePanel('task-1');
+
+    expect(component.delegateAgentType()).toBe('PLANNING');
+    expect(component.delegateInstructions()).toBe('');
+  });
+
+  it('should switch delegate panel to different task', () => {
+    fixture.detectChanges();
+    component.toggleDelegatePanel('task-1');
+    expect(component.showDelegatePanel()).toBe('task-1');
+
+    component.toggleDelegatePanel('task-2');
+    expect(component.showDelegatePanel()).toBe('task-2');
+  });
+
+  it('should delegate task successfully and reload data', () => {
+    const apiData = makeApiData({
+      [TaskState.IN_PROGRESS]: [makeTask({ id: 'task-1', state: TaskState.IN_PROGRESS })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    taskServiceSpy.delegateToAgent.and.returnValue(of({} as Task));
+    fixture.detectChanges();
+
+    component.showDelegatePanel.set('task-1');
+    component.delegateAgentType.set('CODING');
+    component.delegateInstructions.set('Implement the feature');
+
+    const task = component.columns().find(c => c.id === 'in-progress')!.tasks[0] as BoardTask;
+    component.delegateTask(task);
+
+    expect(taskServiceSpy.delegateToAgent).toHaveBeenCalledWith('task-1', jasmine.objectContaining({
+      agentType: 'CODING',
+      instructions: 'Implement the feature',
+      targetState: 'CODING',
+    }));
+    expect(component.delegating()).toBeFalse();
+    expect(component.showDelegatePanel()).toBeNull();
+    expect(component.expandedTaskId()).toBeNull();
+  });
+
+  it('should set delegating to true during delegation request', () => {
+    // Use a Subject to control when the observable emits
+    const apiData = makeApiData({
+      [TaskState.IN_PROGRESS]: [makeTask({ id: 'task-1', state: TaskState.IN_PROGRESS })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    // Return an observable that resolves synchronously for test simplicity
+    taskServiceSpy.delegateToAgent.and.returnValue(of({} as Task));
+    fixture.detectChanges();
+
+    component.showDelegatePanel.set('task-1');
+    const task = component.columns().find(c => c.id === 'in-progress')!.tasks[0] as BoardTask;
+
+    // After completion, delegating should be false
+    component.delegateTask(task);
+    expect(component.delegating()).toBeFalse();
+  });
+
+  it('should reset delegating on delegation error', () => {
+    const apiData = makeApiData({
+      [TaskState.IN_PROGRESS]: [makeTask({ id: 'task-1', state: TaskState.IN_PROGRESS })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    taskServiceSpy.delegateToAgent.and.returnValue(throwError(() => new Error('Agent unavailable')));
+    fixture.detectChanges();
+
+    component.showDelegatePanel.set('task-1');
+    const task = component.columns().find(c => c.id === 'in-progress')!.tasks[0] as BoardTask;
+    component.delegateTask(task);
+
+    expect(component.delegating()).toBeFalse();
+    // Panel should remain open on error so user can retry
+    expect(component.showDelegatePanel()).toBe('task-1');
+  });
+
+  it('should send empty instructions as undefined in delegate request', () => {
+    const apiData = makeApiData({
+      [TaskState.IN_PROGRESS]: [makeTask({ id: 'task-1', state: TaskState.IN_PROGRESS })],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    taskServiceSpy.delegateToAgent.and.returnValue(of({} as Task));
+    fixture.detectChanges();
+
+    component.showDelegatePanel.set('task-1');
+    component.delegateAgentType.set('REVIEW');
+    component.delegateInstructions.set('');
+
+    const task = component.columns().find(c => c.id === 'in-progress')!.tasks[0] as BoardTask;
+    component.delegateTask(task);
+
+    const callArgs = taskServiceSpy.delegateToAgent.calls.mostRecent().args;
+    expect(callArgs[1].instructions).toBeUndefined();
+  });
+
+  // --- allStates and agentTypes constants ---
+
+  it('should expose all 9 TaskState values in allStates', () => {
+    expect(component.allStates.length).toBe(9);
+    expect(component.allStates).toContain(TaskState.BACKLOG);
+    expect(component.allStates).toContain(TaskState.PRIORITIZED);
+    expect(component.allStates).toContain(TaskState.PLANNING);
+    expect(component.allStates).toContain(TaskState.PROPOSE_CODE);
+    expect(component.allStates).toContain(TaskState.IN_PROGRESS);
+    expect(component.allStates).toContain(TaskState.REVIEW);
+    expect(component.allStates).toContain(TaskState.QA);
+    expect(component.allStates).toContain(TaskState.MERGE);
+    expect(component.allStates).toContain(TaskState.DONE);
+  });
+
+  it('should expose 4 agent types for delegation', () => {
+    expect(component.agentTypes.length).toBe(4);
+    const values = component.agentTypes.map(a => a.value);
+    expect(values).toEqual(['PLANNING', 'CODING', 'REVIEW', 'QA']);
+  });
+
+  // --- toggleTaskActions clears delegate panel ---
+
+  it('should close delegate panel when toggling task actions off', () => {
+    fixture.detectChanges();
+    component.toggleTaskActions('task-1');
+    component.showDelegatePanel.set('task-1');
+
+    component.toggleTaskActions('task-1');
+    expect(component.showDelegatePanel()).toBeNull();
+    expect(component.expandedTaskId()).toBeNull();
+  });
+
+  it('should close delegate panel when switching to different task actions', () => {
+    fixture.detectChanges();
+    component.toggleTaskActions('task-1');
+    component.showDelegatePanel.set('task-1');
+
+    component.toggleTaskActions('task-2');
+    expect(component.expandedTaskId()).toBe('task-2');
+    expect(component.showDelegatePanel()).toBeNull();
   });
 });

@@ -54,9 +54,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
-import org.springframework.web.socket.sockjs.client.SockJsClient;
-import org.springframework.web.socket.sockjs.client.Transport;
-import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -64,7 +61,6 @@ import reactor.core.publisher.Flux;
 
 import java.lang.reflect.Type;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -252,11 +248,10 @@ class WebSocketIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        List<Transport> transports = new ArrayList<>();
-        transports.add(new WebSocketTransport(new StandardWebSocketClient()));
-
-        SockJsClient sockJsClient = new SockJsClient(transports);
-        stompClient = new WebSocketStompClient(sockJsClient);
+        // Use raw WebSocket transport directly (not SockJS) to avoid the /info endpoint
+        // returning 500 in the test environment. The STOMP protocol works the same way
+        // regardless of the underlying transport.
+        stompClient = new WebSocketStompClient(new StandardWebSocketClient());
         stompClient.setMessageConverter(new MappingJackson2MessageConverter());
 
         String url = "ws://localhost:" + port + "/ws/agent";

@@ -31,6 +31,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -40,11 +42,18 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
 
     private static final Logger log = LoggerFactory.getLogger(DockerWorkspaceProvider.class);
 
+    /** Non-root UID/GID used inside workspace containers. */
+    private static final long WORKSPACE_USER_ID = 1000L;
+    private static final long WORKSPACE_GROUP_ID = 1000L;
+    private static final String WORKSPACE_USER = "squadron";
+
     private final DockerClient dockerClient;
+    private final String networkName;
 
     @Autowired
     public DockerWorkspaceProvider(
-            @Value("${squadron.workspace.docker.host:unix:///var/run/docker.sock}") String dockerHost) {
+            @Value("${squadron.workspace.docker.host:unix:///var/run/docker.sock}") String dockerHost,
+            @Value("${squadron.workspace.docker.network:}") String networkName) {
         DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost(dockerHost)
                 .build();
@@ -52,12 +61,21 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
                 .dockerHost(URI.create(dockerHost))
                 .build();
         this.dockerClient = DockerClientImpl.getInstance(config, httpClient);
+        this.networkName = networkName != null && !networkName.isBlank() ? networkName : null;
     }
 
     // Visible for testing
     @SuppressWarnings("unused")
     private DockerWorkspaceProvider(DockerClient dockerClient) {
         this.dockerClient = dockerClient;
+        this.networkName = null;
+    }
+
+    // Visible for testing -- with network
+    @SuppressWarnings("unused")
+    private DockerWorkspaceProvider(DockerClient dockerClient, String networkName) {
+        this.dockerClient = dockerClient;
+        this.networkName = networkName != null && !networkName.isBlank() ? networkName : null;
     }
 
     @Override
@@ -71,6 +89,33 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
 
         try {
             HostConfig hostConfig = HostConfig.newHostConfig();
+
+            // Connect to the squadron Docker network so the workspace container
+            // can reach squadron services (platform, git, etc.)
+            if (networkName != null) {
+                hostConfig.withNetworkMode(networkName);
+            }
+
+            // Drop all capabilities and re-add only what's needed
+            hostConfig.withCapDrop(com.github.dockerjava.api.model.Capability.ALL);
+            hostConfig.withCapAdd(
+                    com.github.dockerjava.api.model.Capability.NET_RAW   // needed for git/curl
+            );
+
+            // Read-only root filesystem with writable tmpfs mounts
+            hostConfig.withReadonlyRootfs(true);
+            hostConfig.withTmpFs(Map.of(
+                    "/tmp", "rw,noexec,nosuid,size=256m",
+                    "/home/" + WORKSPACE_USER, "rw,noexec,nosuid,size=2g",
+                    "/var/tmp", "rw,noexec,nosuid,size=128m",
+                    "/run", "rw,noexec,nosuid,size=64m"
+            ));
+
+            // Security options: no new privileges
+            hostConfig.withSecurityOpts(List.of("no-new-privileges"));
+
+            // Disable PID namespace sharing for isolation
+            hostConfig.withPidsLimit(256L);
 
             if (spec.getResourceLimits() != null) {
                 Map<String, Object> limits = spec.getResourceLimits();
@@ -86,23 +131,71 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
                 }
             }
 
-            CreateContainerResponse container = dockerClient.createContainerCmd(image)
+            // Create container running as non-root user
+            var createCmd = dockerClient.createContainerCmd(image)
                     .withHostConfig(hostConfig)
+                    .withUser(WORKSPACE_USER_ID + ":" + WORKSPACE_GROUP_ID)
+                    .withWorkingDir("/home/" + WORKSPACE_USER)
                     .withCmd("sleep", "infinity")
                     .withLabels(Map.of(
                             "squadron.task-id", spec.getTaskId().toString(),
                             "squadron.tenant-id", spec.getTenantId().toString(),
                             "squadron.app", "squadron-workspace"
-                    ))
-                    .exec();
+                    ));
+
+            CreateContainerResponse container = createCmd.exec();
 
             String containerId = container.getId();
             dockerClient.startContainerCmd(containerId).exec();
-            log.info("Created and started Docker container {}", containerId);
+
+            // Ensure the workspace user's home directory is writable and git is available
+            initializeWorkspaceUser(containerId);
+
+            log.info("Created and started rootless Docker container {} (user={}:{})",
+                    containerId, WORKSPACE_USER_ID, WORKSPACE_GROUP_ID);
             return containerId;
         } catch (Exception e) {
             log.error("Failed to create Docker container", e);
             throw new RuntimeException("Failed to create Docker workspace", e);
+        }
+    }
+
+    /**
+     * Initialize the workspace container: ensure git is installed and /home/squadron
+     * is owned by the workspace user. This runs as root via exec since the container
+     * process itself runs as UID 1000.
+     */
+    private void initializeWorkspaceUser(String containerId) {
+        // For images where git isn't pre-installed, install it.
+        // We use exec with user=root for this one-time setup.
+        try {
+            ExecCreateCmdResponse installGit = dockerClient.execCreateCmd(containerId)
+                    .withAttachStdout(true)
+                    .withAttachStderr(true)
+                    .withUser("0")
+                    .withCmd("sh", "-c",
+                            "if ! command -v git >/dev/null 2>&1; then " +
+                            "  if command -v apt-get >/dev/null 2>&1; then " +
+                            "    apt-get update -qq && apt-get install -y -qq git >/dev/null 2>&1; " +
+                            "  elif command -v apk >/dev/null 2>&1; then " +
+                            "    apk add --no-cache git >/dev/null 2>&1; " +
+                            "  fi; " +
+                            "fi")
+                    .exec();
+
+            ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+            ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+            dockerClient.execStartCmd(installGit.getId())
+                    .exec(new ExecStartResultCallback(stdout, stderr))
+                    .awaitCompletion(120, TimeUnit.SECONDS);
+
+            log.debug("Workspace init stdout: {}", stdout.toString(StandardCharsets.UTF_8).trim());
+            String stderrStr = stderr.toString(StandardCharsets.UTF_8).trim();
+            if (!stderrStr.isEmpty()) {
+                log.debug("Workspace init stderr: {}", stderrStr);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to initialize workspace container (git install) -- continuing: {}", e.getMessage());
         }
     }
 

@@ -1,15 +1,22 @@
 package com.squadron.orchestrator.service;
 
+import com.squadron.common.config.NatsEventPublisher;
 import com.squadron.common.exception.ResourceNotFoundException;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
+import com.squadron.orchestrator.dto.DelegateTaskRequest;
+import com.squadron.orchestrator.dto.TaskDetailDto;
 import com.squadron.orchestrator.dto.TaskStatsDto;
 import com.squadron.orchestrator.dto.TaskWorkflowDto;
 import com.squadron.orchestrator.dto.TransitionRequest;
 import com.squadron.orchestrator.engine.TaskState;
 import com.squadron.orchestrator.engine.WorkflowEngine;
+import com.squadron.orchestrator.entity.Project;
+import com.squadron.orchestrator.entity.ProjectWorkflowMapping;
 import com.squadron.orchestrator.entity.Task;
 import com.squadron.orchestrator.entity.TaskStateHistory;
 import com.squadron.orchestrator.entity.TaskWorkflow;
+import com.squadron.orchestrator.repository.ProjectRepository;
+import com.squadron.orchestrator.repository.ProjectWorkflowMappingRepository;
 import com.squadron.orchestrator.repository.TaskRepository;
 import com.squadron.orchestrator.repository.TaskStateHistoryRepository;
 import com.squadron.orchestrator.repository.TaskWorkflowRepository;
@@ -28,9 +35,13 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,12 +60,22 @@ class TaskServiceTest {
     @Mock
     private WorkflowEngine workflowEngine;
 
+    @Mock
+    private ProjectRepository projectRepository;
+
+    @Mock
+    private ProjectWorkflowMappingRepository mappingRepository;
+
+    @Mock
+    private NatsEventPublisher natsEventPublisher;
+
     private TaskService taskService;
 
     @BeforeEach
     void setUp() {
         taskService = new TaskService(taskRepository, taskWorkflowRepository,
-                taskStateHistoryRepository, workflowEngine);
+                taskStateHistoryRepository, workflowEngine, projectRepository,
+                mappingRepository, natsEventPublisher);
     }
 
     @Test
@@ -491,5 +512,195 @@ class TaskServiceTest {
         assertEquals(2L, result.getByState().get("BACKLOG"));
         assertNotNull(result.getByPriority());
         assertEquals(0, result.getByPriority().size());
+    }
+
+    // --- Task detail ---
+
+    @Test
+    void should_getTaskDetail_when_taskExistsWithWorkflow() {
+        UUID taskId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Instant transitionAt = Instant.now();
+
+        Task task = Task.builder()
+                .id(taskId)
+                .tenantId(tenantId)
+                .projectId(projectId)
+                .title("Detail Task")
+                .description("A detailed task")
+                .externalId("EXT-42")
+                .externalUrl("https://jira.example.com/EXT-42")
+                .priority("HIGH")
+                .labels("[\"bug\",\"urgent\"]")
+                .tokenUsage(500L)
+                .build();
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+
+        TaskWorkflow workflow = TaskWorkflow.builder()
+                .id(UUID.randomUUID())
+                .taskId(taskId)
+                .tenantId(tenantId)
+                .currentState("REVIEW")
+                .previousState("PROPOSE_CODE")
+                .transitionAt(transitionAt)
+                .transitionedBy(UUID.randomUUID())
+                .build();
+        when(taskWorkflowRepository.findByTaskId(taskId)).thenReturn(Optional.of(workflow));
+
+        Project project = Project.builder()
+                .id(projectId)
+                .tenantId(tenantId)
+                .name("Test Project")
+                .build();
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
+
+        ProjectWorkflowMapping mapping = ProjectWorkflowMapping.builder()
+                .id(UUID.randomUUID())
+                .projectId(projectId)
+                .tenantId(tenantId)
+                .internalState("REVIEW")
+                .externalStatus("In Code Review")
+                .build();
+        when(mappingRepository.findByProjectId(projectId)).thenReturn(List.of(mapping));
+
+        when(workflowEngine.getAvailableTransitions(taskId)).thenReturn(List.of("QA", "MERGE"));
+
+        TaskDetailDto result = taskService.getTaskDetail(taskId);
+
+        assertEquals(taskId, result.getId());
+        assertEquals("Detail Task", result.getTitle());
+        assertEquals("A detailed task", result.getDescription());
+        assertEquals("EXT-42", result.getExternalId());
+        assertEquals("HIGH", result.getPriority());
+        assertEquals(500L, result.getTokenUsage());
+        assertEquals(List.of("bug", "urgent"), result.getLabels());
+        assertEquals("REVIEW", result.getCurrentState());
+        assertEquals("PROPOSE_CODE", result.getPreviousState());
+        assertEquals(transitionAt.toString(), result.getLastTransitionAt());
+        assertEquals("Test Project", result.getProjectName());
+        assertEquals("In Code Review", result.getMappedExternalStatus());
+        assertEquals(List.of("QA", "MERGE"), result.getAvailableTransitions());
+    }
+
+    @Test
+    void should_getTaskDetail_when_noWorkflow() {
+        UUID taskId = UUID.randomUUID();
+
+        Task task = Task.builder()
+                .id(taskId)
+                .tenantId(UUID.randomUUID())
+                .title("No Workflow Task")
+                .build();
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+        when(taskWorkflowRepository.findByTaskId(taskId)).thenReturn(Optional.empty());
+
+        TaskDetailDto result = taskService.getTaskDetail(taskId);
+
+        assertNull(result.getCurrentState());
+        assertTrue(result.getAvailableTransitions().isEmpty());
+    }
+
+    @Test
+    void should_getTaskDetail_when_noProject() {
+        UUID taskId = UUID.randomUUID();
+
+        Task task = Task.builder()
+                .id(taskId)
+                .tenantId(UUID.randomUUID())
+                .projectId(null)
+                .title("Orphan Task")
+                .build();
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+        when(taskWorkflowRepository.findByTaskId(taskId)).thenReturn(Optional.empty());
+
+        TaskDetailDto result = taskService.getTaskDetail(taskId);
+
+        assertNull(result.getProjectName());
+        assertNull(result.getMappedExternalStatus());
+    }
+
+    @Test
+    void should_throwNotFound_when_taskDetailMissing() {
+        UUID taskId = UUID.randomUUID();
+        when(taskRepository.findById(taskId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> taskService.getTaskDetail(taskId));
+    }
+
+    // --- Delegate to agent ---
+
+    @Test
+    void should_delegateToAgent_when_validRequest() {
+        UUID taskId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+
+        Task task = Task.builder()
+                .id(taskId)
+                .tenantId(tenantId)
+                .title("Delegate Task")
+                .build();
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+
+        DelegateTaskRequest request = DelegateTaskRequest.builder()
+                .agentType("CODING")
+                .targetState("PROPOSE_CODE")
+                .build();
+
+        TaskWorkflow transitioned = TaskWorkflow.builder()
+                .taskId(taskId)
+                .currentState("PROPOSE_CODE")
+                .previousState("PLANNING")
+                .transitionAt(Instant.now())
+                .build();
+        when(workflowEngine.transition(eq(taskId), eq("PROPOSE_CODE"), any(), any()))
+                .thenReturn(transitioned);
+
+        taskService.delegateToAgent(taskId, request);
+
+        verify(workflowEngine).transition(eq(taskId), eq("PROPOSE_CODE"), any(), any());
+        verify(natsEventPublisher).publishAsync(eq("squadron.tasks.state-changed"), any());
+    }
+
+    @Test
+    void should_delegateToAgent_when_noTargetState() {
+        UUID taskId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+
+        Task task = Task.builder()
+                .id(taskId)
+                .tenantId(tenantId)
+                .title("Delegate No Target")
+                .build();
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+
+        DelegateTaskRequest request = DelegateTaskRequest.builder()
+                .agentType("PLANNING")
+                .targetState(null)
+                .build();
+
+        taskService.delegateToAgent(taskId, request);
+
+        verify(workflowEngine, never()).transition(any(), any(), any(), any());
+        verify(natsEventPublisher).publishAsync(eq("squadron.tasks.state-changed"), any());
+    }
+
+    @Test
+    void should_throwNotFound_when_delegatingMissingTask() {
+        UUID taskId = UUID.randomUUID();
+        when(taskRepository.findById(taskId)).thenReturn(Optional.empty());
+
+        DelegateTaskRequest request = DelegateTaskRequest.builder()
+                .agentType("CODING")
+                .targetState("PROPOSE_CODE")
+                .build();
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> taskService.delegateToAgent(taskId, request));
     }
 }

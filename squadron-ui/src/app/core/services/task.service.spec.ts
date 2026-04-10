@@ -181,4 +181,44 @@ describe('TaskService', () => {
     expect(req.request.body).toEqual(syncRequest);
     req.flush({ success: true, data: mockResult, message: 'OK', timestamp: '' });
   });
+
+  it('should_getTaskDetail_when_calledWithTaskId', () => {
+    const mockDetail = {
+      id: 'task-1',
+      title: 'Bug Fix',
+      currentState: 'REVIEW',
+      previousState: 'PROPOSE_CODE',
+      projectName: 'My Project',
+      mappedExternalStatus: 'In Review',
+      availableTransitions: ['QA', 'MERGE'],
+      labels: ['bug'],
+      tokenUsage: 500,
+    };
+
+    service.getTaskDetail('task-1').subscribe((detail) => {
+      expect(detail.title).toBe('Bug Fix');
+      expect(detail.currentState).toBe('REVIEW');
+      expect(detail.projectName).toBe('My Project');
+      expect(detail.availableTransitions).toEqual(['QA', 'MERGE'] as any);
+    });
+
+    const req = httpTesting.expectOne(`${apiUrl}/tasks/task-1/detail`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ success: true, data: mockDetail, message: 'OK', timestamp: '' });
+  });
+
+  it('should_delegateToAgent_when_calledWithTaskIdAndRequest', () => {
+    const delegateReq = {
+      agentType: 'CODING',
+      targetState: 'PROPOSE_CODE',
+      instructions: 'Focus on login module',
+    };
+
+    service.delegateToAgent('task-1', delegateReq as any).subscribe();
+
+    const req = httpTesting.expectOne(`${apiUrl}/tasks/task-1/delegate`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(delegateReq);
+    req.flush({ success: true, data: null, message: 'OK', timestamp: '' });
+  });
 });

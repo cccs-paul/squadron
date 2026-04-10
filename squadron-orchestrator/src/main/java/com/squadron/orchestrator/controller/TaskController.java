@@ -3,6 +3,8 @@ package com.squadron.orchestrator.controller;
 import com.squadron.common.dto.ApiResponse;
 import com.squadron.common.security.TenantContext;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
+import com.squadron.orchestrator.dto.DelegateTaskRequest;
+import com.squadron.orchestrator.dto.TaskDetailDto;
 import com.squadron.orchestrator.dto.TaskStatsDto;
 import com.squadron.orchestrator.dto.TaskSyncRequest;
 import com.squadron.orchestrator.dto.TaskSyncResult;
@@ -69,6 +71,23 @@ public class TaskController {
     public ResponseEntity<ApiResponse<Task>> getTask(@PathVariable UUID id) {
         Task task = taskService.getTask(id);
         return ResponseEntity.ok(ApiResponse.success(task));
+    }
+
+    @GetMapping("/{id}/detail")
+    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead', 'developer', 'qa', 'viewer')")
+    @Operation(summary = "Get detailed task info with workflow state and project context")
+    public ApiResponse<TaskDetailDto> getTaskDetail(@PathVariable UUID id) {
+        TaskDetailDto detail = taskService.getTaskDetail(id);
+        return ApiResponse.success(detail);
+    }
+
+    @PostMapping("/{id}/delegate")
+    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead', 'developer')")
+    @Operation(summary = "Delegate a task to an AI agent for processing")
+    public ApiResponse<Void> delegateToAgent(@PathVariable UUID id,
+                                              @Valid @RequestBody DelegateTaskRequest request) {
+        taskService.delegateToAgent(id, request);
+        return ApiResponse.success(null);
     }
 
     @GetMapping("/project/{projectId}")

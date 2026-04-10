@@ -409,13 +409,16 @@
     "board": {
       "title": "Tableau des taches",
       "subtitle": "Suivez et gerez le travail sur tous les projets",
+      "viewBoard": "Tableau",
+      "viewList": "Liste",
       "searchPlaceholder": "Rechercher des taches...",
       "noTasks": "Aucune tache",
       "loading": "Chargement des taches...",
       "refresh": "Actualiser",
       "filter": {
         "allPriorities": "Toutes les priorites",
-        "allProjects": "Tous les projets"
+        "allProjects": "Tous les projets",
+        "allStates": "Tous les états"
       },
       "emptyColumn": "Aucune tache",
       "column": {
@@ -431,7 +434,9 @@
       "summary": {
         "inProgress": "En cours",
         "planned": "Planifie",
-        "completed": "Termine"
+        "completed": "Termine",
+        "total": "Total",
+        "projects": "Projets"
       },
       "agentStatus": {
         "active": "Agent actif",
@@ -461,7 +466,11 @@
         "sending": "Envoi...",
         "approvePlan": "Approuver le plan",
         "rejectPlan": "Rejeter le plan",
-        "openChat": "Ouvrir le chat agent"
+        "openChat": "Ouvrir le chat agent",
+        "delegate": "Déléguer à un agent",
+        "delegateInstructions": "Instructions pour l'agent (facultatif)",
+        "delegating": "Délégation...",
+        "delegateStart": "Démarrer l'agent"
       }
     },
     "detail": {
@@ -503,6 +512,21 @@
       "medium": "Moyenne",
       "low": "Basse"
     },
+    "delegate": {
+      "agentPlanning": "Agent de planification",
+      "agentCoding": "Agent de développement",
+      "agentReview": "Agent de revue",
+      "agentQA": "Agent QA"
+    },
+    "list": {
+      "priority": "Priorité",
+      "id": "ID",
+      "titleCol": "Titre",
+      "project": "Projet",
+      "state": "État",
+      "agent": "Agent",
+      "actions": "Actions"
+    },
     "state": {
       "BACKLOG": "File d'attente",
       "PLANNING": "Planification",
@@ -510,7 +534,10 @@
       "REVIEW": "Revue",
       "QA": "AQ",
       "DONE": "Termine",
-      "CANCELLED": "Annule"
+      "CANCELLED": "Annule",
+      "PRIORITIZED": "Priorisé",
+      "PROPOSE_CODE": "Proposition de code",
+      "MERGE": "Fusion"
     }
   },
   "reviews": {
@@ -525,6 +552,15 @@
       "updated": "Mis a jour",
       "allStatuses": "Tous les statuts",
       "noReviews": "Aucune revue trouvee",
+      "refresh": "Actualiser",
+      "searchPlaceholder": "Rechercher par titre, depot ou numero de PR...",
+      "allReviewers": "Tous les reviseurs",
+      "comments": "Commentaires",
+      "stats": {
+        "total": "Total",
+        "linesChanged": "Lignes modifiees",
+        "unresolved": "Non resolus"
+      },
       "filter": {
         "allStatuses": "Tous les statuts",
         "pending": "En attente",
@@ -583,8 +619,40 @@
         "critical": "Critique",
         "major": "Majeur",
         "minor": "Mineur",
-        "info": "Info"
-      }
+        "info": "Info",
+        "CRITICAL": "Critique",
+        "MAJOR": "Majeur",
+        "MINOR": "Mineur",
+        "INFO": "Info"
+      },
+      "requestChanges": "Demander des modifications",
+      "requestChangesPlaceholder": "Decrivez les modifications souhaitees...",
+      "resolve": "Resoudre",
+      "reReview": "Re-revue",
+      "qaTab": "QA",
+      "qaReport": "Rapport QA",
+      "qaVerdict": "Verdict",
+      "qaSummary": "Resume",
+      "noQAReport": "Aucun rapport QA disponible",
+      "qaGatePassed": "Porte QA franchie",
+      "qaGateFailed": "Porte QA echouee",
+      "lineCoverage": "Couverture de lignes",
+      "branchCoverage": "Couverture de branches",
+      "testsPassed": "Tests reussis",
+      "testsFailed": "Tests echoues",
+      "testsSkipped": "Tests ignores",
+      "gate": {
+        "label": "Porte de revue",
+        "met": "Politique respectee",
+        "unmet": "Politique non respectee",
+        "humanApprovals": "Approbations humaines",
+        "aiApproval": "Approbation IA",
+        "yes": "Oui",
+        "no": "Non"
+      },
+      "orchestrationResult": "Resultat d'orchestration",
+      "reviewsCreated": "revues creees",
+      "pendingHuman": "revues humaines en attente"
     },
     "status": {
       "PENDING": "En attente",
@@ -599,6 +667,42 @@
     }
   },
   "projects": {
+    "title": "Projets",
+    "subtitle": "Gérez vos projets, synchronisez les tâches et surveillez les workflows",
+    "viewGrid": "Grille",
+    "viewList": "Liste",
+    "configure": "Configurer",
+    "refresh": "Actualiser",
+    "loading": "Chargement des projets...",
+    "empty": "Aucun projet configuré",
+    "addFirst": "Ajouter un projet",
+    "searchPlaceholder": "Rechercher des projets...",
+    "summary": {
+      "projects": "Projets",
+      "totalTasks": "Total tâches",
+      "activeTasks": "Actives",
+      "configured": "Configurés"
+    },
+    "card": {
+      "tasksLabel": "taches",
+      "activeLabel": "actives",
+      "tasks": "taches",
+      "active": "actives",
+      "totalTasks": "Total",
+      "activeTasks": "Actives",
+      "mappingsConfigured": "Mappé",
+      "mappingsNotConfigured": "Non mappé",
+      "sync": "Sync",
+      "syncing": "Synchronisation..."
+    },
+    "table": {
+      "name": "Nom",
+      "key": "Clé",
+      "tasks": "Tâches",
+      "active": "Actives",
+      "mappings": "Mappages",
+      "actions": "Actions"
+    },
     "list": {
       "heading": "Projets",
       "subheading": "Gerez vos depots et projets",
@@ -609,12 +713,6 @@
       "importHint": "Les projets sont importes depuis les fournisseurs de tickets. Configurez les fournisseurs dans les Parametres pour importer des projets.",
       "goToSettings": "Aller aux Parametres",
       "emptyState": "Aucun projet pour l'instant. Configurez les fournisseurs de tickets dans les Parametres pour importer des projets."
-    },
-    "card": {
-      "tasksLabel": "taches",
-      "activeLabel": "actives",
-      "tasks": "taches",
-      "active": "actives"
     },
     "detail": {
       "backLink": "Retour aux projets",

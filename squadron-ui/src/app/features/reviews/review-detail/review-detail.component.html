@@ -1,5 +1,7 @@
 @if (loading()) {
   <div class="loading">{{ 'reviews.detail.loading' | translate }}</div>
+} @else if (error()) {
+  <div class="sq-alert sq-alert--error">{{ error() }}</div>
 } @else {
   @if (review(); as r) {
   <div class="review-detail">
@@ -13,21 +15,51 @@
     <div class="review-detail__title-bar">
       <div>
         <h1>PR #{{ r.pullRequestNumber }} - {{ r.taskTitle }}</h1>
-        <p class="repo-name">{{ r.repositoryName }}</p>
+        <div class="title-meta">
+          <span class="repo-name">{{ r.repositoryName }}</span>
+          <span class="sq-badge" [class]="'sq-badge--' + statusClass(r.status)">{{ 'reviews.status.' + r.status | translate }}</span>
+          <span class="sq-badge sq-badge--neutral">{{ 'reviews.reviewerType.' + r.reviewerType | translate }}</span>
+        </div>
       </div>
       <div class="action-buttons">
-        @if (r.status === 'PENDING' || r.status === 'IN_PROGRESS') {
-          <button class="sq-btn sq-btn--success" (click)="approveReview()">{{ 'reviews.detail.approve' | translate }}</button>
-          <button class="sq-btn sq-btn--danger" (click)="rejectReview()">{{ 'reviews.detail.reject' | translate }}</button>
+        @if (canAct()) {
+          <button class="sq-btn sq-btn--success" (click)="approveReview()" [disabled]="approving()">
+            {{ 'reviews.detail.approve' | translate }}
+          </button>
+          <button class="sq-btn sq-btn--warning" (click)="setTab('comments')">
+            {{ 'reviews.detail.requestChanges' | translate }}
+          </button>
+          <button class="sq-btn sq-btn--danger" (click)="rejectReview()" [disabled]="rejecting()">
+            {{ 'reviews.detail.reject' | translate }}
+          </button>
         }
+        <button class="sq-btn sq-btn--secondary" (click)="triggerReReview()" [disabled]="orchestrating()">
+          {{ 'reviews.detail.reReview' | translate }}
+        </button>
       </div>
     </div>
+
+    <!-- Review gate indicator -->
+    @if (reviewGate(); as gate) {
+      <div class="review-gate" [class.review-gate--met]="gate.policyMet" [class.review-gate--unmet]="!gate.policyMet">
+        <span class="gate-label">{{ 'reviews.detail.gate.label' | translate }}</span>
+        <span class="gate-status">{{ gate.policyMet ? ('reviews.detail.gate.met' | translate) : ('reviews.detail.gate.unmet' | translate) }}</span>
+        <span class="gate-detail">{{ 'reviews.detail.gate.humanApprovals' | translate }}: {{ gate.humanApprovals }} | {{ 'reviews.detail.gate.aiApproval' | translate }}: {{ gate.aiApproval ? ('reviews.detail.gate.yes' | translate) : ('reviews.detail.gate.no' | translate) }}</span>
+      </div>
+    }
+
+    <!-- Orchestration result -->
+    @if (orchestrationResult(); as orch) {
+      <div class="sq-alert sq-alert--info">
+        {{ 'reviews.detail.orchestrationResult' | translate }}: {{ orch.createdReviewIds.length }} {{ 'reviews.detail.reviewsCreated' | translate }}, {{ orch.pendingHumanReviews }} {{ 'reviews.detail.pendingHuman' | translate }}
+      </div>
+    }
 
     <div class="review-detail__stats">
       <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.filesChanged' | translate }}</span><span class="stat-val">{{ r.filesChanged }}</span></div>
       <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.linesAdded' | translate }}</span><span class="stat-val stat-val--add">+{{ r.linesAdded }}</span></div>
       <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.linesRemoved' | translate }}</span><span class="stat-val stat-val--remove">-{{ r.linesRemoved }}</span></div>
-      <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.comments' | translate }}</span><span class="stat-val">{{ r.comments.length }}</span></div>
+      <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.comments' | translate }}</span><span class="stat-val">{{ totalComments() }}</span></div>
       <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.unresolved' | translate }}</span><span class="stat-val" [class.stat-val--remove]="unresolvedCount() > 0">{{ unresolvedCount() }}</span></div>
       <div class="stat-item"><span class="stat-label">{{ 'reviews.detail.resolved' | translate }}</span><span class="stat-val stat-val--add">{{ resolvedCount() }}</span></div>
     </div>
@@ -35,14 +67,16 @@
     <!-- Tabs -->
     <div class="review-tabs">
       <button class="review-tab" [class.review-tab--active]="activeTab() === 'diff'" (click)="setTab('diff')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         {{ 'reviews.detail.diffTab' | translate }}
         @if (hasDiff()) { <span class="review-tab__badge">{{ r.filesChanged }}</span> }
       </button>
       <button class="review-tab" [class.review-tab--active]="activeTab() === 'comments'" (click)="setTab('comments')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         {{ 'reviews.detail.commentsTab' | translate }}
-        <span class="review-tab__badge">{{ r.comments.length }}</span>
+        <span class="review-tab__badge">{{ totalComments() }}</span>
+      </button>
+      <button class="review-tab" [class.review-tab--active]="activeTab() === 'qa'" (click)="setTab('qa')">
+        {{ 'reviews.detail.qaTab' | translate }}
+        @if (qaReport()) { <span class="review-tab__badge" [class]="'review-tab__badge--' + verdictClass(qaReport()!.verdict)">{{ qaReport()!.verdict }}</span> }
       </button>
     </div>
 
@@ -56,7 +90,22 @@
     <!-- Comments Tab -->
     @if (activeTab() === 'comments') {
       <div class="comments-section sq-card">
-        <div class="card-header"><h3>{{ 'reviews.detail.reviewComments' | translate }}</h3></div>
+        <div class="card-header">
+          <h3>{{ 'reviews.detail.reviewComments' | translate }}</h3>
+        </div>
+
+        <!-- Request changes form -->
+        @if (canAct()) {
+          <div class="request-changes-form">
+            <textarea class="sq-input" rows="3"
+              [placeholder]="'reviews.detail.requestChangesPlaceholder' | translate"
+              [ngModel]="requestChangesText()" (ngModelChange)="requestChangesText.set($event)"></textarea>
+            <button class="sq-btn sq-btn--warning" (click)="requestChanges()" [disabled]="requestingChanges() || !requestChangesText().trim()">
+              {{ 'reviews.detail.requestChanges' | translate }}
+            </button>
+          </div>
+        }
+
         <div class="comments-list">
           @for (comment of r.comments; track comment.id) {
             <div class="comment" [class.comment--resolved]="comment.resolved">
@@ -69,7 +118,14 @@
                 <div class="comment__badges">
                   <span class="sq-badge" [class]="'sq-badge--' + severityClass(comment.severity)">{{ 'reviews.detail.severity.' + comment.severity | translate }}</span>
                   <span class="sq-badge sq-badge--neutral">{{ comment.category }}</span>
-                  @if (comment.resolved) { <span class="sq-badge sq-badge--success">{{ 'reviews.detail.resolved' | translate }}</span> }
+                  @if (comment.resolved) {
+                    <span class="sq-badge sq-badge--success">{{ 'reviews.detail.resolved' | translate }}</span>
+                  } @else {
+                    <button class="sq-btn sq-btn--sm sq-btn--ghost" (click)="resolveComment(comment.id)"
+                      [disabled]="resolvingCommentId() === comment.id">
+                      {{ 'reviews.detail.resolve' | translate }}
+                    </button>
+                  }
                 </div>
               </div>
               <p class="comment__body">{{ comment.body }}</p>
@@ -82,6 +138,58 @@
             <div class="no-comments">{{ 'reviews.detail.noComments' | translate }}</div>
           }
         </div>
+      </div>
+    }
+
+    <!-- QA Tab -->
+    @if (activeTab() === 'qa') {
+      <div class="qa-section sq-card">
+        <div class="card-header">
+          <h3>{{ 'reviews.detail.qaReport' | translate }}</h3>
+          @if (qaGatePassed() !== null) {
+            <span class="sq-badge" [class]="qaGatePassed() ? 'sq-badge--success' : 'sq-badge--error'">
+              {{ qaGatePassed() ? ('reviews.detail.qaGatePassed' | translate) : ('reviews.detail.qaGateFailed' | translate) }}
+            </span>
+          }
+        </div>
+        @if (qaLoading()) {
+          <div class="qa-loading">{{ 'reviews.detail.loading' | translate }}</div>
+        } @else if (qaReport()) {
+          <div class="qa-stats">
+            <div class="stat-item">
+              <span class="stat-label">{{ 'reviews.detail.qaVerdict' | translate }}</span>
+              <span class="sq-badge" [class]="'sq-badge--' + verdictClass(qaReport()!.verdict)">{{ qaReport()!.verdict }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">{{ 'reviews.detail.lineCoverage' | translate }}</span>
+              <span class="stat-val">{{ coveragePercent(qaReport()!.lineCoverage) }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">{{ 'reviews.detail.branchCoverage' | translate }}</span>
+              <span class="stat-val">{{ coveragePercent(qaReport()!.branchCoverage) }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">{{ 'reviews.detail.testsPassed' | translate }}</span>
+              <span class="stat-val stat-val--add">{{ qaReport()!.testsPassed ?? '-' }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">{{ 'reviews.detail.testsFailed' | translate }}</span>
+              <span class="stat-val" [class.stat-val--remove]="(qaReport()!.testsFailed ?? 0) > 0">{{ qaReport()!.testsFailed ?? '-' }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">{{ 'reviews.detail.testsSkipped' | translate }}</span>
+              <span class="stat-val">{{ qaReport()!.testsSkipped ?? '-' }}</span>
+            </div>
+          </div>
+          @if (qaReport()!.summary) {
+            <div class="qa-summary">
+              <h4>{{ 'reviews.detail.qaSummary' | translate }}</h4>
+              <p>{{ qaReport()!.summary }}</p>
+            </div>
+          }
+        } @else {
+          <div class="no-qa">{{ 'reviews.detail.noQAReport' | translate }}</div>
+        }
       </div>
     }
   </div>

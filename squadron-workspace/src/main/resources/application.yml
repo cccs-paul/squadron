@@ -39,6 +39,7 @@ squadron:
       image: ${WORKSPACE_BASE_IMAGE:ubuntu:22.04}
     docker:
       host: ${DOCKER_HOST:unix:///var/run/docker.sock}
+      network: ${SQUADRON_WORKSPACE_DOCKER_NETWORK:}
 
 management:
   endpoints:

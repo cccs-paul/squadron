@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.common.security.TenantContext;
 import com.squadron.orchestrator.config.SecurityConfig;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
+import com.squadron.orchestrator.dto.DelegateTaskRequest;
+import com.squadron.orchestrator.dto.TaskDetailDto;
 import com.squadron.orchestrator.dto.TaskStatsDto;
 import com.squadron.orchestrator.dto.TaskSyncRequest;
 import com.squadron.orchestrator.dto.TaskSyncResult;
@@ -521,5 +523,86 @@ class TaskControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
+    }
+
+    // --- Task Detail Tests ---
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_getTaskDetail_when_authenticated() throws Exception {
+        UUID taskId = UUID.randomUUID();
+
+        TaskDetailDto detail = TaskDetailDto.builder()
+            .id(taskId)
+            .title("Bug Fix")
+            .currentState("REVIEW")
+            .previousState("PROPOSE_CODE")
+            .projectName("My Project")
+            .mappedExternalStatus("In Review")
+            .availableTransitions(List.of("QA", "MERGE"))
+            .labels(List.of("bug"))
+            .tokenUsage(500)
+            .build();
+
+        when(taskService.getTaskDetail(taskId)).thenReturn(detail);
+
+        mockMvc.perform(get("/api/tasks/{id}/detail", taskId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data.title").value("Bug Fix"))
+            .andExpect(jsonPath("$.data.currentState").value("REVIEW"))
+            .andExpect(jsonPath("$.data.projectName").value("My Project"))
+            .andExpect(jsonPath("$.data.mappedExternalStatus").value("In Review"))
+            .andExpect(jsonPath("$.data.availableTransitions[0]").value("QA"))
+            .andExpect(jsonPath("$.data.labels[0]").value("bug"))
+            .andExpect(jsonPath("$.data.tokenUsage").value(500));
+    }
+
+    // --- Delegate to Agent Tests ---
+
+    @Test
+    void should_delegateToAgent_when_developerRole() throws Exception {
+        UUID taskId = UUID.randomUUID();
+
+        DelegateTaskRequest request = DelegateTaskRequest.builder()
+            .agentType("CODING")
+            .targetState("PROPOSE_CODE")
+            .instructions("Focus on the login module")
+            .build();
+
+        doNothing().when(taskService).delegateToAgent(eq(taskId), any(DelegateTaskRequest.class));
+
+        mockMvc.perform(post("/api/tasks/{id}/delegate", taskId)
+                .with(jwt().jwt(j -> j.subject(UUID.randomUUID().toString())
+                    .claim("roles", List.of("developer")))
+                    .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_developer")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true));
+
+        verify(taskService).delegateToAgent(eq(taskId), any(DelegateTaskRequest.class));
+    }
+
+    @Test
+    @WithMockUser(roles = {"viewer"})
+    void should_return403_when_viewerTriesToDelegate() throws Exception {
+        DelegateTaskRequest request = DelegateTaskRequest.builder()
+            .agentType("PLANNING")
+            .build();
+
+        mockMvc.perform(post("/api/tasks/{id}/delegate", UUID.randomUUID())
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void should_return401_when_delegatingUnauthenticated() throws Exception {
+        mockMvc.perform(post("/api/tasks/{id}/delegate", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"agentType\":\"CODING\"}"))
+            .andExpect(status().isUnauthorized());
     }
 }

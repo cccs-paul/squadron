@@ -23,6 +23,8 @@ public interface TaskWorkflowRepository extends JpaRepository<TaskWorkflow, UUID
 
     List<TaskWorkflow> findByTenantId(UUID tenantId);
 
+    List<TaskWorkflow> findByTaskIdIn(List<UUID> taskIds);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT tw FROM TaskWorkflow tw WHERE tw.taskId = :taskId")
     Optional<TaskWorkflow> findByTaskIdForUpdate(@Param("taskId") UUID taskId);

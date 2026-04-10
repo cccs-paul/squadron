@@ -91,7 +91,13 @@ public class KubernetesWorkspaceProvider implements WorkspaceProvider {
                     .name("workspace")
                     .image(image)
                     .command(List.of("sleep", "infinity"))
-                    .resources(resources);
+                    .resources(resources)
+                    .securityContext(new io.kubernetes.client.openapi.models.V1SecurityContext()
+                            .runAsNonRoot(true)
+                            .runAsUser(1000L)
+                            .runAsGroup(1000L)
+                            .allowPrivilegeEscalation(false)
+                            .readOnlyRootFilesystem(true));
 
             V1Pod pod = new V1Pod()
                     .metadata(new V1ObjectMeta()
@@ -100,6 +106,11 @@ public class KubernetesWorkspaceProvider implements WorkspaceProvider {
                             .labels(labels))
                     .spec(new V1PodSpec()
                             .containers(Collections.singletonList(container))
+                            .securityContext(new io.kubernetes.client.openapi.models.V1PodSecurityContext()
+                                    .runAsNonRoot(true)
+                                    .runAsUser(1000L)
+                                    .runAsGroup(1000L)
+                                    .fsGroup(1000L))
                             .restartPolicy("Never"));
 
             coreV1Api.createNamespacedPod(namespace, pod, null, null, null, null);

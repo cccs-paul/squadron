@@ -3,6 +3,7 @@ package com.squadron.orchestrator.controller;
 import com.squadron.common.dto.ApiResponse;
 import com.squadron.common.security.TenantContext;
 import com.squadron.orchestrator.dto.CreateProjectRequest;
+import com.squadron.orchestrator.dto.ProjectSummaryDto;
 import com.squadron.orchestrator.dto.ProjectWorkflowMappingsRequest;
 import com.squadron.orchestrator.dto.WorkflowMappingDto;
 import com.squadron.orchestrator.entity.Project;
@@ -81,6 +82,14 @@ public class ProjectController {
     public ResponseEntity<ApiResponse<List<Project>>> listByTenant(@PathVariable UUID tenantId) {
         List<Project> projects = projectService.listProjectsByTenant(tenantId);
         return ResponseEntity.ok(ApiResponse.success(projects));
+    }
+
+    @GetMapping("/tenant/{tenantId}/summary")
+    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead', 'developer', 'qa', 'viewer')")
+    @Operation(summary = "Get project summaries with task counts and workflow mapping info")
+    public ApiResponse<List<ProjectSummaryDto>> getProjectSummaries(@PathVariable UUID tenantId) {
+        List<ProjectSummaryDto> summaries = projectService.getProjectSummaries(tenantId);
+        return ApiResponse.success(summaries);
     }
 
     @GetMapping("/team/{teamId}")

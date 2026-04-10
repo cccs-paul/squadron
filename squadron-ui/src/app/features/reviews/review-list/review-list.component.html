@@ -4,14 +4,66 @@
       <h1>{{ 'reviews.list.title' | translate }}</h1>
       <p>{{ 'reviews.list.subtitle' | translate }}</p>
     </div>
-    <select class="sq-select" [(ngModel)]="filterStatus" (ngModelChange)="loadReviews()">
+    <div class="header-actions">
+      <button class="sq-btn sq-btn--secondary" (click)="refresh()">{{ 'reviews.list.refresh' | translate }}</button>
+    </div>
+  </div>
+
+  <!-- Summary stats bar -->
+  <div class="review-list__stats">
+    <div class="stat-item">
+      <span class="stat-label">{{ 'reviews.list.stats.total' | translate }}</span>
+      <span class="stat-val">{{ totalReviews() }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">{{ 'reviews.status.PENDING' | translate }}</span>
+      <span class="stat-val" [style.color]="statusColor('PENDING')">{{ pendingCount() }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">{{ 'reviews.status.IN_PROGRESS' | translate }}</span>
+      <span class="stat-val" [style.color]="statusColor('IN_PROGRESS')">{{ inProgressCount() }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">{{ 'reviews.status.APPROVED' | translate }}</span>
+      <span class="stat-val" [style.color]="statusColor('APPROVED')">{{ approvedCount() }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">{{ 'reviews.status.CHANGES_REQUESTED' | translate }}</span>
+      <span class="stat-val" [style.color]="statusColor('CHANGES_REQUESTED')">{{ changesRequestedCount() }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">{{ 'reviews.list.stats.linesChanged' | translate }}</span>
+      <span class="stat-val">{{ totalLinesChanged() }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">{{ 'reviews.list.stats.unresolved' | translate }}</span>
+      <span class="stat-val" [class.stat-val--warning]="totalUnresolved() > 0">{{ totalUnresolved() }}</span>
+    </div>
+  </div>
+
+  <!-- Filters row -->
+  <div class="review-list__filters">
+    <input type="text" class="sq-input" [placeholder]="'reviews.list.searchPlaceholder' | translate"
+      [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)">
+
+    <select class="sq-select" [ngModel]="filterStatus()" (ngModelChange)="onFilterStatusChange($event)">
       <option value="">{{ 'reviews.list.allStatuses' | translate }}</option>
-      <option value="PENDING">{{ 'reviews.status.PENDING' | translate }}</option>
-      <option value="IN_PROGRESS">{{ 'reviews.status.IN_PROGRESS' | translate }}</option>
-      <option value="APPROVED">{{ 'reviews.status.APPROVED' | translate }}</option>
-      <option value="CHANGES_REQUESTED">{{ 'reviews.status.CHANGES_REQUESTED' | translate }}</option>
+      @for (s of allStatuses; track s) {
+        <option [value]="s">{{ 'reviews.status.' + s | translate }}</option>
+      }
+    </select>
+
+    <select class="sq-select" [ngModel]="filterReviewerType()" (ngModelChange)="filterReviewerType.set($event)">
+      <option value="">{{ 'reviews.list.allReviewers' | translate }}</option>
+      @for (rt of allReviewerTypes; track rt) {
+        <option [value]="rt">{{ 'reviews.reviewerType.' + rt | translate }}</option>
+      }
     </select>
   </div>
+
+  @if (error()) {
+    <div class="sq-alert sq-alert--error">{{ error() }}</div>
+  }
 
   <div class="review-table sq-card">
     <table class="sq-table">
@@ -19,15 +71,25 @@
         <tr>
           <th>{{ 'reviews.list.pullRequest' | translate }}</th>
           <th>{{ 'reviews.list.task' | translate }}</th>
-          <th>{{ 'reviews.list.status' | translate }}</th>
-          <th>{{ 'reviews.list.changes' | translate }}</th>
+          <th class="sortable" (click)="toggleSort('status')">
+            {{ 'reviews.list.status' | translate }}
+            @if (sortField() === 'status') { <span class="sort-icon">{{ sortDirection() === 'asc' ? '▲' : '▼' }}</span> }
+          </th>
+          <th class="sortable" (click)="toggleSort('linesAdded')">
+            {{ 'reviews.list.changes' | translate }}
+            @if (sortField() === 'linesAdded') { <span class="sort-icon">{{ sortDirection() === 'asc' ? '▲' : '▼' }}</span> }
+          </th>
           <th>{{ 'reviews.list.reviewer' | translate }}</th>
-          <th>{{ 'reviews.list.updated' | translate }}</th>
+          <th>{{ 'reviews.list.comments' | translate }}</th>
+          <th class="sortable" (click)="toggleSort('updatedAt')">
+            {{ 'reviews.list.updated' | translate }}
+            @if (sortField() === 'updatedAt') { <span class="sort-icon">{{ sortDirection() === 'asc' ? '▲' : '▼' }}</span> }
+          </th>
         </tr>
       </thead>
       <tbody>
-        @for (review of reviews(); track review.id) {
-          <tr [routerLink]="['/reviews', review.id]" class="clickable-row">
+        @for (review of filteredReviews(); track review.id) {
+          <tr (click)="openReview(review)" class="clickable-row">
             <td>
               <div class="pr-info">
                 <span class="pr-number">#{{ review.pullRequestNumber }}</span>
@@ -43,10 +105,17 @@
               </span>
             </td>
             <td><span class="sq-badge sq-badge--neutral">{{ 'reviews.reviewerType.' + review.reviewerType | translate }}</span></td>
+            <td>
+              @if (unresolvedCount(review) > 0) {
+                <span class="unresolved-badge">{{ unresolvedCount(review) }}</span>
+              } @else {
+                <span class="no-comments">-</span>
+              }
+            </td>
             <td><span class="date">{{ review.updatedAt | timeAgo }}</span></td>
           </tr>
         } @empty {
-          <tr><td colspan="6" class="empty-row">{{ 'reviews.list.noReviews' | translate }}</td></tr>
+          <tr><td colspan="7" class="empty-row">{{ 'reviews.list.noReviews' | translate }}</td></tr>
         }
       </tbody>
     </table>

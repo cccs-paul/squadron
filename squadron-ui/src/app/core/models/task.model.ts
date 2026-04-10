@@ -22,10 +22,13 @@ export interface Task {
 
 export enum TaskState {
   BACKLOG = 'BACKLOG',
+  PRIORITIZED = 'PRIORITIZED',
   PLANNING = 'PLANNING',
+  PROPOSE_CODE = 'PROPOSE_CODE',
   IN_PROGRESS = 'IN_PROGRESS',
   REVIEW = 'REVIEW',
   QA = 'QA',
+  MERGE = 'MERGE',
   DONE = 'DONE',
 }
 
@@ -64,4 +67,36 @@ export interface TaskSyncResult {
   unchanged: number;
   failed: number;
   errors: string[];
+}
+
+/** Detailed task with workflow state, transitions, and project context */
+export interface TaskDetail {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  teamId?: string;
+  assigneeId?: string;
+  title: string;
+  description?: string;
+  externalId?: string;
+  externalUrl?: string;
+  priority: TaskPriority;
+  labels: string[];
+  tokenUsage: number;
+  currentState: TaskState;
+  previousState?: TaskState;
+  lastTransitionAt?: string;
+  availableTransitions: TaskState[];
+  projectName?: string;
+  mappedExternalStatus?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Request to delegate a task to an AI agent */
+export interface DelegateTaskRequest {
+  agentType: string;
+  agentName?: string;
+  instructions?: string;
+  targetState?: string;
 }

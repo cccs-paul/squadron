@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { ApiService, PageResponse } from './api.service';
-import { Project, WorkflowMapping, WorkflowMappingsRequest } from '../models/project.model';
+import { Project, ProjectSummary, WorkflowMapping, WorkflowMappingsRequest } from '../models/project.model';
 import { ApiResponse } from '../auth/auth.models';
 
 @Injectable({ providedIn: 'root' })
@@ -55,5 +55,10 @@ export class ProjectService extends ApiService {
     return this.get<ApiResponse<string[]>>('/projects/workflow-states').pipe(
       map((response) => response.data),
     );
+  }
+
+  getProjectSummaries(tenantId: string): Observable<ProjectSummary[]> {
+    return this.http.get<ApiResponse<ProjectSummary[]>>(`${this.baseUrl}/projects/tenant/${tenantId}/summary`)
+      .pipe(map(r => r.data));
   }
 }

@@ -1,30 +1,196 @@
 <div class="project-list">
+  <!-- Header -->
   <div class="project-list__header">
-    <div><h1>{{ 'projects.list.title' | translate }}</h1><p>{{ 'projects.list.subtitle' | translate }}</p></div>
-    <a class="sq-btn sq-btn--secondary" routerLink="/settings" fragment="project-config">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-      {{ 'projects.list.goToSettings' | translate }}
-    </a>
-  </div>
-  <p class="project-list__hint">{{ 'projects.list.importHint' | translate }}</p>
-  <div class="projects-grid">
-    @for (project of projects(); track project.id) {
-      <div class="project-card sq-card" [routerLink]="['/projects', project.id]">
-        <div class="project-card__header">
-          <div class="project-card__icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          </div>
-          <h3>{{ project.name }}</h3>
-        </div>
-        @if (project.description) { <p class="project-card__desc">{{ project.description }}</p> }
-        <div class="project-card__stats">
-          <span><strong>{{ project.taskCount }}</strong> {{ 'projects.card.tasks' | translate }}</span>
-          <span><strong>{{ project.activeTaskCount }}</strong> {{ 'projects.card.active' | translate }}</span>
-          <span class="project-card__date">{{ project.createdAt | timeAgo }}</span>
-        </div>
+    <div class="project-list__header-left">
+      <h1 class="project-list__title">{{ 'projects.title' | translate }}</h1>
+      <p class="project-list__subtitle">{{ 'projects.subtitle' | translate }}</p>
+    </div>
+    <div class="project-list__header-right">
+      <div class="project-list__view-toggle">
+        <button class="project-list__view-btn" [class.active]="viewMode() === 'grid'" (click)="setViewMode('grid')">
+          {{ 'projects.viewGrid' | translate }}
+        </button>
+        <button class="project-list__view-btn" [class.active]="viewMode() === 'list'" (click)="setViewMode('list')">
+          {{ 'projects.viewList' | translate }}
+        </button>
       </div>
-    } @empty {
-      <div class="empty-state"><p>{{ 'projects.list.emptyState' | translate }}</p></div>
-    }
+      <button class="sq-btn sq-btn--secondary sq-btn--sm" (click)="openSettings()">
+        {{ 'projects.configure' | translate }}
+      </button>
+      <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="refresh()">
+        {{ 'projects.refresh' | translate }}
+      </button>
+    </div>
   </div>
+
+  <!-- Summary bar -->
+  <div class="project-list__summary">
+    <div class="project-list__summary-item">
+      <span class="project-list__summary-number">{{ totalProjects() }}</span>
+      <span class="project-list__summary-label">{{ 'projects.summary.projects' | translate }}</span>
+    </div>
+    <div class="project-list__summary-divider"></div>
+    <div class="project-list__summary-item">
+      <span class="project-list__summary-number project-list__summary-number--sm">{{ totalTasks() }}</span>
+      <span class="project-list__summary-label">{{ 'projects.summary.totalTasks' | translate }}</span>
+    </div>
+    <div class="project-list__summary-item">
+      <span class="project-list__summary-dot" style="background: #06B6D4"></span>
+      <span class="project-list__summary-number project-list__summary-number--sm">{{ totalActiveTasks() }}</span>
+      <span class="project-list__summary-label">{{ 'projects.summary.activeTasks' | translate }}</span>
+    </div>
+    <div class="project-list__summary-item">
+      <span class="project-list__summary-dot" style="background: #10B981"></span>
+      <span class="project-list__summary-number project-list__summary-number--sm">{{ configuredProjects() }}</span>
+      <span class="project-list__summary-label">{{ 'projects.summary.configured' | translate }}</span>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="project-list__filters">
+    <input type="text" class="sq-input project-list__search" [placeholder]="'projects.searchPlaceholder' | translate" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+  </div>
+
+  @if (loading()) {
+    <div class="project-list__loading">
+      <div class="project-list__spinner"></div>
+      <p>{{ 'projects.loading' | translate }}</p>
+    </div>
+  } @else if (viewMode() === 'grid') {
+    <!-- Grid view -->
+    <div class="project-grid">
+      @for (project of filteredProjects(); track project.id) {
+        <div class="project-card" (click)="openProject(project)">
+          <div class="project-card__header">
+            <h3 class="project-card__name">{{ project.name }}</h3>
+            @if (project.externalProjectId) {
+              <span class="project-card__key">{{ project.externalProjectId }}</span>
+            }
+          </div>
+
+          @if (project.description) {
+            <p class="project-card__description">{{ project.description }}</p>
+          }
+
+          <!-- Task breakdown -->
+          @if (getSummary(project.id); as summary) {
+            <div class="project-card__stats">
+              <div class="project-card__stat">
+                <span class="project-card__stat-value">{{ summary.totalTasks }}</span>
+                <span class="project-card__stat-label">{{ 'projects.card.totalTasks' | translate }}</span>
+              </div>
+              <div class="project-card__stat">
+                <span class="project-card__stat-value project-card__stat-value--active">{{ summary.activeTasks }}</span>
+                <span class="project-card__stat-label">{{ 'projects.card.activeTasks' | translate }}</span>
+              </div>
+            </div>
+
+            <!-- State distribution bar -->
+            @if (getTaskStateEntries(summary).length > 0) {
+              <div class="project-card__state-bar">
+                @for (entry of getTaskStateEntries(summary); track entry.state) {
+                  <div class="project-card__state-segment" [style.flex]="entry.count" [style.background]="stateColor(entry.state)" [title]="entry.state + ': ' + entry.count"></div>
+                }
+              </div>
+            }
+
+            <!-- Config status -->
+            <div class="project-card__config">
+              @if (summary.workflowMappingsConfigured) {
+                <span class="project-card__config-badge project-card__config-badge--ok">
+                  {{ 'projects.card.mappingsConfigured' | translate }} ({{ summary.workflowMappingCount }})
+                </span>
+              } @else {
+                <span class="project-card__config-badge project-card__config-badge--pending">
+                  {{ 'projects.card.mappingsNotConfigured' | translate }}
+                </span>
+              }
+            </div>
+          }
+
+          <!-- Meta row -->
+          <div class="project-card__meta">
+            @if (project.repositoryUrl) {
+              <span class="project-card__repo">{{ project.repositoryUrl }}</span>
+            }
+            @if (project.defaultBranch) {
+              <span class="project-card__branch">{{ project.defaultBranch }}</span>
+            }
+          </div>
+
+          <!-- Actions -->
+          <div class="project-card__actions" (click)="$event.stopPropagation()">
+            @if (canSync(project)) {
+              <button class="sq-btn sq-btn--secondary sq-btn--xs" [disabled]="syncingProjectId() === project.id" (click)="syncProject(project)">
+                @if (syncingProjectId() === project.id) { {{ 'projects.card.syncing' | translate }} }
+                @else { {{ 'projects.card.sync' | translate }} }
+              </button>
+            }
+          </div>
+
+          <!-- Sync result -->
+          @if (syncResults()[project.id]; as result) {
+            <div class="project-card__sync-result">
+              <span class="project-card__sync-stat">+{{ result.created }}</span>
+              <span class="project-card__sync-stat project-card__sync-stat--updated">~{{ result.updated }}</span>
+              <span class="project-card__sync-stat project-card__sync-stat--unchanged">={{ result.unchanged }}</span>
+            </div>
+          }
+          @if (syncErrors()[project.id]; as error) {
+            <div class="project-card__sync-error">{{ error }}</div>
+          }
+        </div>
+      } @empty {
+        <div class="project-grid__empty">
+          <p>{{ 'projects.empty' | translate }}</p>
+          <button class="sq-btn sq-btn--primary sq-btn--sm" (click)="openSettings()">{{ 'projects.addFirst' | translate }}</button>
+        </div>
+      }
+    </div>
+  } @else {
+    <!-- List view -->
+    <div class="project-table">
+      <div class="project-table__header">
+        <span class="project-table__col project-table__col--name">{{ 'projects.table.name' | translate }}</span>
+        <span class="project-table__col project-table__col--key">{{ 'projects.table.key' | translate }}</span>
+        <span class="project-table__col project-table__col--tasks">{{ 'projects.table.tasks' | translate }}</span>
+        <span class="project-table__col project-table__col--active">{{ 'projects.table.active' | translate }}</span>
+        <span class="project-table__col project-table__col--mappings">{{ 'projects.table.mappings' | translate }}</span>
+        <span class="project-table__col project-table__col--actions">{{ 'projects.table.actions' | translate }}</span>
+      </div>
+      @for (project of filteredProjects(); track project.id) {
+        <div class="project-table__row" (click)="openProject(project)">
+          <span class="project-table__col project-table__col--name">
+            <span class="project-table__name-text">{{ project.name }}</span>
+            @if (project.description) {
+              <span class="project-table__name-desc">{{ project.description }}</span>
+            }
+          </span>
+          <span class="project-table__col project-table__col--key">
+            <span class="project-table__key-badge">{{ project.externalProjectId || '-' }}</span>
+          </span>
+          <span class="project-table__col project-table__col--tasks">{{ getSummary(project.id)?.totalTasks ?? 0 }}</span>
+          <span class="project-table__col project-table__col--active">{{ getSummary(project.id)?.activeTasks ?? 0 }}</span>
+          <span class="project-table__col project-table__col--mappings">
+            @if (getSummary(project.id)?.workflowMappingsConfigured) {
+              <span class="project-table__mapping-ok">{{ getSummary(project.id)?.workflowMappingCount }}</span>
+            } @else {
+              <span class="project-table__mapping-pending">-</span>
+            }
+          </span>
+          <span class="project-table__col project-table__col--actions" (click)="$event.stopPropagation()">
+            @if (canSync(project)) {
+              <button class="sq-btn sq-btn--ghost sq-btn--xs" [disabled]="syncingProjectId() === project.id" (click)="syncProject(project)">
+                {{ 'projects.card.sync' | translate }}
+              </button>
+            }
+          </span>
+        </div>
+      } @empty {
+        <div class="project-table__empty">
+          <p>{{ 'projects.empty' | translate }}</p>
+        </div>
+      }
+    </div>
+  }
 </div>

@@ -52,3 +52,25 @@ export interface RemoteProject {
   url?: string;
   avatarUrl?: string;
 }
+
+/** Project summary with task counts and sync status */
+export interface ProjectSummary {
+  id: string;
+  tenantId: string;
+  teamId?: string;
+  name: string;
+  description?: string;
+  repositoryUrl?: string;
+  defaultBranch: string;
+  branchNamingTemplate?: string;
+  connectionId?: string;
+  externalProjectId?: string;
+  gitConnectionId?: string;
+  totalTasks: number;
+  activeTasks: number;
+  taskCountsByState: Record<string, number>;
+  workflowMappingsConfigured: boolean;
+  workflowMappingCount: number;
+  createdAt: string;
+  updatedAt?: string;
+}

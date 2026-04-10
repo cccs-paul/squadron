@@ -403,8 +403,11 @@ services:
       SQUADRON_WORKSPACE_PROVIDER: docker
       SQUADRON_WORKSPACE_DOCKER_HOST: unix:///var/run/docker.sock
       SQUADRON_PLATFORM_URL: http://squadron-platform:8084
+      SQUADRON_WORKSPACE_DOCKER_NETWORK: squadron-net
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    group_add:
+      - "${DOCKER_GID:-0}"
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8086/actuator/health || exit 1"]
       interval: 10s

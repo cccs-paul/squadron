@@ -409,13 +409,16 @@
     "board": {
       "title": "Task Board",
       "subtitle": "Track and manage work across all projects",
+      "viewBoard": "Board",
+      "viewList": "List",
       "searchPlaceholder": "Search tasks...",
       "noTasks": "No tasks",
       "loading": "Loading tasks...",
       "refresh": "Refresh",
       "filter": {
         "allPriorities": "All Priorities",
-        "allProjects": "All Projects"
+        "allProjects": "All Projects",
+        "allStates": "All States"
       },
       "emptyColumn": "No tasks",
       "column": {
@@ -431,7 +434,9 @@
       "summary": {
         "inProgress": "In Progress",
         "planned": "Planned",
-        "completed": "Completed"
+        "completed": "Completed",
+        "total": "Total",
+        "projects": "Projects"
       },
       "agentStatus": {
         "active": "Agent Active",
@@ -461,7 +466,11 @@
         "sending": "Sending...",
         "approvePlan": "Approve Plan",
         "rejectPlan": "Reject Plan",
-        "openChat": "Open Agent Chat"
+        "openChat": "Open Agent Chat",
+        "delegate": "Delegate to Agent",
+        "delegateInstructions": "Instructions for the agent (optional)",
+        "delegating": "Delegating...",
+        "delegateStart": "Start Agent"
       }
     },
     "detail": {
@@ -503,6 +512,21 @@
       "medium": "Medium",
       "low": "Low"
     },
+    "delegate": {
+      "agentPlanning": "Planning Agent",
+      "agentCoding": "Coding Agent",
+      "agentReview": "Review Agent",
+      "agentQA": "QA Agent"
+    },
+    "list": {
+      "priority": "Priority",
+      "id": "ID",
+      "titleCol": "Title",
+      "project": "Project",
+      "state": "State",
+      "agent": "Agent",
+      "actions": "Actions"
+    },
     "state": {
       "BACKLOG": "Backlog",
       "PLANNING": "Planning",
@@ -510,7 +534,10 @@
       "REVIEW": "Review",
       "QA": "QA",
       "DONE": "Done",
-      "CANCELLED": "Cancelled"
+      "CANCELLED": "Cancelled",
+      "PRIORITIZED": "Prioritized",
+      "PROPOSE_CODE": "Propose Code",
+      "MERGE": "Merge"
     }
   },
   "reviews": {
@@ -525,6 +552,15 @@
       "updated": "Updated",
       "allStatuses": "All Statuses",
       "noReviews": "No reviews found",
+      "refresh": "Refresh",
+      "searchPlaceholder": "Search by title, repo, or PR number...",
+      "allReviewers": "All Reviewers",
+      "comments": "Comments",
+      "stats": {
+        "total": "Total",
+        "linesChanged": "Lines Changed",
+        "unresolved": "Unresolved"
+      },
       "filter": {
         "allStatuses": "All Statuses",
         "pending": "Pending",
@@ -583,8 +619,40 @@
         "critical": "Critical",
         "major": "Major",
         "minor": "Minor",
-        "info": "Info"
-      }
+        "info": "Info",
+        "CRITICAL": "Critical",
+        "MAJOR": "Major",
+        "MINOR": "Minor",
+        "INFO": "Info"
+      },
+      "requestChanges": "Request Changes",
+      "requestChangesPlaceholder": "Describe the changes you'd like...",
+      "resolve": "Resolve",
+      "reReview": "Re-Review",
+      "qaTab": "QA",
+      "qaReport": "QA Report",
+      "qaVerdict": "Verdict",
+      "qaSummary": "Summary",
+      "noQAReport": "No QA report available",
+      "qaGatePassed": "QA Gate Passed",
+      "qaGateFailed": "QA Gate Failed",
+      "lineCoverage": "Line Coverage",
+      "branchCoverage": "Branch Coverage",
+      "testsPassed": "Tests Passed",
+      "testsFailed": "Tests Failed",
+      "testsSkipped": "Tests Skipped",
+      "gate": {
+        "label": "Review Gate",
+        "met": "Policy Met",
+        "unmet": "Policy Not Met",
+        "humanApprovals": "Human Approvals",
+        "aiApproval": "AI Approval",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "orchestrationResult": "Orchestration Result",
+      "reviewsCreated": "reviews created",
+      "pendingHuman": "pending human reviews"
     },
     "status": {
       "PENDING": "Pending",
@@ -599,6 +667,42 @@
     }
   },
   "projects": {
+    "title": "Projects",
+    "subtitle": "Manage your projects, sync tasks, and monitor workflows",
+    "viewGrid": "Grid",
+    "viewList": "List",
+    "configure": "Configure",
+    "refresh": "Refresh",
+    "loading": "Loading projects...",
+    "empty": "No projects configured yet",
+    "addFirst": "Add Project",
+    "searchPlaceholder": "Search projects...",
+    "summary": {
+      "projects": "Projects",
+      "totalTasks": "Total Tasks",
+      "activeTasks": "Active",
+      "configured": "Configured"
+    },
+    "card": {
+      "tasksLabel": "tasks",
+      "activeLabel": "active",
+      "tasks": "tasks",
+      "active": "active",
+      "totalTasks": "Total",
+      "activeTasks": "Active",
+      "mappingsConfigured": "Mapped",
+      "mappingsNotConfigured": "Not Mapped",
+      "sync": "Sync",
+      "syncing": "Syncing..."
+    },
+    "table": {
+      "name": "Name",
+      "key": "Key",
+      "tasks": "Tasks",
+      "active": "Active",
+      "mappings": "Mappings",
+      "actions": "Actions"
+    },
     "list": {
       "heading": "Projects",
       "subheading": "Manage your repositories and projects",
@@ -609,12 +713,6 @@
       "importHint": "Projects are imported from ticket providers. Configure providers in Settings to import projects.",
       "goToSettings": "Go to Settings",
       "emptyState": "No projects yet. Configure ticket providers in Settings to import projects."
-    },
-    "card": {
-      "tasksLabel": "tasks",
-      "activeLabel": "active",
-      "tasks": "tasks",
-      "active": "active"
     },
     "detail": {
       "backLink": "Back to Projects",

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { ApiService, PageResponse } from './api.service';
-import { Task, TaskFilter, TaskState, TaskSyncRequest, TaskSyncResult } from '../models/task.model';
+import { Task, TaskDetail, TaskFilter, TaskState, TaskSyncRequest, TaskSyncResult, DelegateTaskRequest } from '../models/task.model';
 import { ApiResponse } from '../auth/auth.models';
 
 @Injectable({ providedIn: 'root' })
@@ -44,5 +44,15 @@ export class TaskService extends ApiService {
     return this.post<ApiResponse<TaskSyncResult>>('/tasks/sync', request).pipe(
       map((response) => response.data),
     );
+  }
+
+  getTaskDetail(taskId: string): Observable<TaskDetail> {
+    return this.http.get<ApiResponse<TaskDetail>>(`${this.baseUrl}/tasks/${taskId}/detail`)
+      .pipe(map(r => r.data));
+  }
+
+  delegateToAgent(taskId: string, request: DelegateTaskRequest): Observable<void> {
+    return this.http.post<ApiResponse<void>>(`${this.baseUrl}/tasks/${taskId}/delegate`, request)
+      .pipe(map(r => r.data));
   }
 }

@@ -40,6 +40,9 @@ public class Project {
     @Column(nullable = false)
     private String name;
 
+    @Column(columnDefinition = "text")
+    private String description;
+
     @Column(name = "connection_id")
     private UUID connectionId;
 

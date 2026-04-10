@@ -926,6 +926,16 @@ main() {
     # GPU setup
     setup_ollama_gpu "$no_gpu"
 
+    # Detect Docker socket GID for rootless workspace container access
+    if [ -S /var/run/docker.sock ]; then
+        DOCKER_GID=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || stat -f '%g' /var/run/docker.sock 2>/dev/null || echo "0")
+        export DOCKER_GID
+        log_info "Docker socket GID: ${DOCKER_GID}"
+    else
+        export DOCKER_GID=0
+        log_warn "Docker socket not found; workspace container creation may fail"
+    fi
+
     # Start infrastructure (including test LDAP)
     start_infrastructure
 

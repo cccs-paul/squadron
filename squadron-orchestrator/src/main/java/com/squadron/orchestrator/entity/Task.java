@@ -60,6 +60,9 @@ public class Task {
     @Column(columnDefinition = "jsonb")
     private String labels;
 
+    @Column(name = "token_usage")
+    private Long tokenUsage;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

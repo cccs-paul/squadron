@@ -14,6 +14,11 @@ instructions for developing, building, and running the application.
 - **kubectl** (optional, for Kubernetes deployments)
 - **Helm 3.x** (optional, for Kubernetes deployments)
 
+## Important
+
+Do not use too many subagents. This leads to overwhelming the computer you are running on and taking too many resources (RAM swap).
+Enable yolo mode.
+
 ## Getting Started
 
 ### 1. Clone the Repository

@@ -1,13 +1,21 @@
 <div class="task-board">
   <!-- Header -->
   <div class="task-board__header">
-    <div>
+    <div class="task-board__header-left">
       <h1 class="task-board__title">{{ 'tasks.board.title' | translate }}</h1>
       <p class="task-board__subtitle">{{ 'tasks.board.subtitle' | translate }}</p>
     </div>
-    <div class="task-board__actions">
+    <div class="task-board__header-right">
+      <div class="task-board__view-toggle">
+        <button class="task-board__view-btn" [class.active]="viewMode() === 'board'" (click)="setViewMode('board')">
+          {{ 'tasks.board.viewBoard' | translate }}
+        </button>
+        <button class="task-board__view-btn" [class.active]="viewMode() === 'list'" (click)="setViewMode('list')">
+          {{ 'tasks.board.viewList' | translate }}
+        </button>
+      </div>
       @if (syncableProjects().length > 0) {
-        <button class="sq-btn sq-btn--primary sq-btn--sm" (click)="toggleSyncPanel()">
+        <button class="sq-btn sq-btn--secondary sq-btn--sm" (click)="toggleSyncPanel()">
           {{ 'tasks.board.sync.button' | translate }}
         </button>
       }
@@ -26,38 +34,39 @@
       </div>
       <p class="task-board__sync-description">{{ 'tasks.board.sync.description' | translate }}</p>
       <div class="task-board__sync-form">
-        <select
-          class="sq-select"
-          [ngModel]="selectedSyncProjectId()"
-          (ngModelChange)="selectedSyncProjectId.set($event)"
-        >
+        <select class="sq-select" [ngModel]="selectedSyncProjectId()" (ngModelChange)="selectedSyncProjectId.set($event)">
           <option value="">{{ 'tasks.board.sync.selectProject' | translate }}</option>
           @for (project of syncableProjects(); track project.id) {
             <option [value]="project.id">{{ project.name }}</option>
           }
         </select>
-        <button
-          class="sq-btn sq-btn--primary sq-btn--sm"
-          [disabled]="!selectedSyncProjectId() || syncing()"
-          (click)="syncTasks()"
-        >
-          @if (syncing()) {
-            {{ 'tasks.board.sync.syncing' | translate }}
-          } @else {
-            {{ 'tasks.board.sync.start' | translate }}
-          }
+        <button class="sq-btn sq-btn--primary sq-btn--sm" [disabled]="!selectedSyncProjectId() || syncing()" (click)="syncTasks()">
+          @if (syncing()) { {{ 'tasks.board.sync.syncing' | translate }} }
+          @else { {{ 'tasks.board.sync.start' | translate }} }
         </button>
       </div>
       @if (syncResult()) {
         <div class="task-board__sync-result">
-          <p class="task-board__sync-result-summary">
-            {{ 'tasks.board.sync.resultCreated' | translate }}: <strong>{{ syncResult()!.created }}</strong>,
-            {{ 'tasks.board.sync.resultUpdated' | translate }}: <strong>{{ syncResult()!.updated }}</strong>,
-            {{ 'tasks.board.sync.resultUnchanged' | translate }}: <strong>{{ syncResult()!.unchanged }}</strong>
+          <div class="task-board__sync-result-grid">
+            <div class="task-board__sync-stat task-board__sync-stat--created">
+              <span class="task-board__sync-stat-value">{{ syncResult()!.created }}</span>
+              <span class="task-board__sync-stat-label">{{ 'tasks.board.sync.resultCreated' | translate }}</span>
+            </div>
+            <div class="task-board__sync-stat task-board__sync-stat--updated">
+              <span class="task-board__sync-stat-value">{{ syncResult()!.updated }}</span>
+              <span class="task-board__sync-stat-label">{{ 'tasks.board.sync.resultUpdated' | translate }}</span>
+            </div>
+            <div class="task-board__sync-stat task-board__sync-stat--unchanged">
+              <span class="task-board__sync-stat-value">{{ syncResult()!.unchanged }}</span>
+              <span class="task-board__sync-stat-label">{{ 'tasks.board.sync.resultUnchanged' | translate }}</span>
+            </div>
             @if (syncResult()!.failed > 0) {
-              , {{ 'tasks.board.sync.resultFailed' | translate }}: <strong>{{ syncResult()!.failed }}</strong>
+              <div class="task-board__sync-stat task-board__sync-stat--failed">
+                <span class="task-board__sync-stat-value">{{ syncResult()!.failed }}</span>
+                <span class="task-board__sync-stat-label">{{ 'tasks.board.sync.resultFailed' | translate }}</span>
+              </div>
             }
-          </p>
+          </div>
           @if (syncResult()!.errors.length > 0) {
             <ul class="task-board__sync-errors">
               @for (error of syncResult()!.errors; track error) {
@@ -77,29 +86,38 @@
 
   <!-- Summary bar -->
   <div class="task-board__summary">
-    <div class="task-board__summary-item task-board__summary-item--in-progress">
-      <span class="task-board__summary-dot" style="background: #06B6D4"></span>
-      {{ 'tasks.board.summary.inProgress' | translate }}: <strong>{{ totalInProgress() }}</strong>
+    <div class="task-board__summary-item">
+      <span class="task-board__summary-number">{{ totalTasks() }}</span>
+      <span class="task-board__summary-label">{{ 'tasks.board.summary.total' | translate }}</span>
     </div>
-    <div class="task-board__summary-item task-board__summary-item--planned">
+    <div class="task-board__summary-divider"></div>
+    <div class="task-board__summary-item">
       <span class="task-board__summary-dot" style="background: #818CF8"></span>
-      {{ 'tasks.board.summary.planned' | translate }}: <strong>{{ totalPlanned() }}</strong>
+      <span class="task-board__summary-number task-board__summary-number--sm">{{ totalPlanned() }}</span>
+      <span class="task-board__summary-label">{{ 'tasks.board.summary.planned' | translate }}</span>
     </div>
-    <div class="task-board__summary-item task-board__summary-item--completed">
+    <div class="task-board__summary-item">
+      <span class="task-board__summary-dot" style="background: #06B6D4"></span>
+      <span class="task-board__summary-number task-board__summary-number--sm">{{ totalInProgress() }}</span>
+      <span class="task-board__summary-label">{{ 'tasks.board.summary.inProgress' | translate }}</span>
+    </div>
+    <div class="task-board__summary-item">
       <span class="task-board__summary-dot" style="background: #10B981"></span>
-      {{ 'tasks.board.summary.completed' | translate }}: <strong>{{ totalCompleted() }}</strong>
+      <span class="task-board__summary-number task-board__summary-number--sm">{{ totalCompleted() }}</span>
+      <span class="task-board__summary-label">{{ 'tasks.board.summary.completed' | translate }}</span>
     </div>
+    @if (projectSummaries().length > 0) {
+      <div class="task-board__summary-divider"></div>
+      <div class="task-board__summary-item">
+        <span class="task-board__summary-number task-board__summary-number--sm">{{ projectSummaries().length }}</span>
+        <span class="task-board__summary-label">{{ 'tasks.board.summary.projects' | translate }}</span>
+      </div>
+    }
   </div>
 
   <!-- Filters -->
   <div class="task-board__filters">
-    <input
-      type="text"
-      class="sq-input task-board__search"
-      [placeholder]="'tasks.board.searchPlaceholder' | translate"
-      [ngModel]="searchQuery()"
-      (ngModelChange)="searchQuery.set($event)"
-    />
+    <input type="text" class="sq-input task-board__search" [placeholder]="'tasks.board.searchPlaceholder' | translate" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
     <select class="sq-select" [ngModel]="filterPriority()" (ngModelChange)="filterPriority.set($event)">
       <option value="">{{ 'tasks.board.filter.allPriorities' | translate }}</option>
       <option value="CRITICAL">{{ 'tasks.priority.critical' | translate }}</option>
@@ -115,51 +133,45 @@
         }
       </select>
     }
+    <select class="sq-select" [ngModel]="filterState()" (ngModelChange)="filterState.set($event)">
+      <option value="">{{ 'tasks.board.filter.allStates' | translate }}</option>
+      @for (state of allStates; track state) {
+        <option [value]="state">{{ 'tasks.state.' + state | translate }}</option>
+      }
+    </select>
   </div>
 
-  <!-- Board columns -->
+  <!-- Board view -->
   @if (loading()) {
     <div class="task-board__loading">
+      <div class="task-board__spinner"></div>
       <p>{{ 'tasks.board.loading' | translate }}</p>
     </div>
-  } @else {
+  } @else if (viewMode() === 'board') {
     <div class="board">
       @for (column of filteredColumns(); track column.id) {
         <div class="board__column">
-          <div class="board__column-header">
+          <div class="board__column-header" [style.border-top-color]="column.color">
             <div class="board__column-title">
               <span class="board__column-dot" [style.background]="column.color"></span>
               {{ column.label | translate }}
               <span class="board__column-count">{{ column.tasks.length }}</span>
             </div>
           </div>
-          <div
-            class="board__column-body"
-            cdkDropList
-            [id]="'drop-list-' + column.id"
-            [cdkDropListData]="column.tasks"
-            [cdkDropListConnectedTo]="connectedDropLists()"
-            (cdkDropListDropped)="drop($event, column)"
-          >
+          <div class="board__column-body" cdkDropList [id]="'drop-list-' + column.id" [cdkDropListData]="column.tasks" [cdkDropListConnectedTo]="connectedDropLists()" (cdkDropListDropped)="drop($event, column)">
             @for (task of column.tasks; track task.id) {
               <div cdkDrag [cdkDragData]="task" class="board__task-wrapper">
-                <!-- Task card -->
                 <div class="board__task-card" (click)="openTask(task)">
                   <div class="board__task-top-row">
-                    <span class="sq-badge" [class]="'sq-badge--' + priorityBadgeClass(task.priority)">
-                      {{ task.priority }}
-                    </span>
+                    <span class="sq-badge" [class]="'sq-badge--' + priorityBadgeClass(task.priority)">{{ task.priority }}</span>
                     @if (task.externalId) {
                       <span class="board__task-external-id">{{ task.externalId }}</span>
                     }
                     @if (task.projectName) {
                       <span class="board__task-project-label">{{ task.projectName }}</span>
                     }
-                    <!-- Agent status indicator -->
                     @if (task.agentStatus) {
-                      <span class="board__agent-status" [attr.data-status]="task.agentStatus">
-                        {{ getAgentStatusLabel(task) }}
-                      </span>
+                      <span class="board__agent-status" [attr.data-status]="task.agentStatus">{{ getAgentStatusLabel(task) }}</span>
                     }
                   </div>
                   <h4 class="board__task-title">{{ task.title }}</h4>
@@ -167,8 +179,8 @@
                     <p class="board__task-desc">{{ task.description | slice:0:100 }}</p>
                   }
                   <div class="board__task-meta">
-                    <span class="board__task-state-badge">{{ getStateBadge(task) }}</span>
-                    @if (task.labels.length > 0) {
+                    <span class="board__task-state-badge" [style.border-left-color]="stateColor(task.state)">{{ getStateBadge(task) }}</span>
+                    @if (task.labels && task.labels.length > 0) {
                       <div class="board__task-labels">
                         @for (label of task.labels.slice(0, 3); track label) {
                           <span class="board__task-label">{{ label }}</span>
@@ -178,83 +190,113 @@
                   </div>
                 </div>
 
-                <!-- Action toggle button -->
-                @if (column.id === 'in-progress') {
-                  <button
-                    class="board__action-toggle"
-                    (click)="toggleTaskActions(task.id); $event.stopPropagation()"
-                  >
-                    &#8943;
-                  </button>
-                }
+                <!-- Action toggle -->
+                <button class="board__action-toggle" (click)="toggleTaskActions(task.id); $event.stopPropagation()">&#8943;</button>
 
                 <!-- Expanded action panel -->
                 @if (expandedTaskId() === task.id) {
                   <div class="board__action-panel" (click)="$event.stopPropagation()">
-                    <!-- Open agent chat -->
                     <button class="sq-btn sq-btn--ghost sq-btn--sm board__action-btn" (click)="openAgentChat(task)">
                       {{ 'tasks.board.actions.openChat' | translate }}
                     </button>
 
-                    <!-- Plan approval (if waiting for input with active plan) -->
+                    <!-- Delegate to agent -->
+                    <button class="sq-btn sq-btn--secondary sq-btn--sm board__action-btn" (click)="toggleDelegatePanel(task.id)">
+                      {{ 'tasks.board.actions.delegate' | translate }}
+                    </button>
+
+                    @if (showDelegatePanel() === task.id) {
+                      <div class="board__delegate-panel">
+                        <select class="sq-select sq-select--sm" [ngModel]="delegateAgentType()" (ngModelChange)="delegateAgentType.set($event)">
+                          @for (at of agentTypes; track at.value) {
+                            <option [value]="at.value">{{ at.label | translate }}</option>
+                          }
+                        </select>
+                        <textarea class="sq-input sq-input--sm board__delegate-instructions" [placeholder]="'tasks.board.actions.delegateInstructions' | translate" [ngModel]="delegateInstructions()" (ngModelChange)="delegateInstructions.set($event)" rows="2"></textarea>
+                        <button class="sq-btn sq-btn--primary sq-btn--sm" [disabled]="delegating()" (click)="delegateTask(task)">
+                          @if (delegating()) { {{ 'tasks.board.actions.delegating' | translate }} }
+                          @else { {{ 'tasks.board.actions.delegateStart' | translate }} }
+                        </button>
+                      </div>
+                    }
+
+                    <!-- Plan approval -->
                     @if (task.agentStatus === 'WAITING_INPUT' && hasActivePlan(task)) {
                       <div class="board__plan-actions">
-                        <button class="sq-btn sq-btn--primary sq-btn--sm" (click)="approvePlan(task)">
-                          {{ 'tasks.board.actions.approvePlan' | translate }}
-                        </button>
-                        <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="rejectPlan(task)">
-                          {{ 'tasks.board.actions.rejectPlan' | translate }}
-                        </button>
+                        <button class="sq-btn sq-btn--primary sq-btn--sm" (click)="approvePlan(task)">{{ 'tasks.board.actions.approvePlan' | translate }}</button>
+                        <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="rejectPlan(task)">{{ 'tasks.board.actions.rejectPlan' | translate }}</button>
                       </div>
                     }
 
                     <!-- Quick prompt -->
                     @if (task.agentSessionId) {
                       <div class="board__prompt-row">
-                        <input
-                          type="text"
-                          class="sq-input sq-input--sm board__prompt-input"
-                          [placeholder]="'tasks.board.actions.promptPlaceholder' | translate"
-                          [value]="promptText()[task.id] || ''"
-                          (input)="updatePromptText(task.id, $any($event.target).value)"
-                          (keyup.enter)="sendPrompt(task)"
-                        />
-                        <button
-                          class="sq-btn sq-btn--primary sq-btn--sm"
-                          [disabled]="sendingPromptTaskId() === task.id"
-                          (click)="sendPrompt(task)"
-                        >
-                          @if (sendingPromptTaskId() === task.id) {
-                            {{ 'tasks.board.actions.sending' | translate }}
-                          } @else {
-                            {{ 'tasks.board.actions.prompt' | translate }}
-                          }
+                        <input type="text" class="sq-input sq-input--sm board__prompt-input" [placeholder]="'tasks.board.actions.promptPlaceholder' | translate" [value]="promptText()[task.id] || ''" (input)="updatePromptText(task.id, $any($event.target).value)" (keyup.enter)="sendPrompt(task)" />
+                        <button class="sq-btn sq-btn--primary sq-btn--sm" [disabled]="sendingPromptTaskId() === task.id" (click)="sendPrompt(task)">
+                          @if (sendingPromptTaskId() === task.id) { {{ 'tasks.board.actions.sending' | translate }} }
+                          @else { {{ 'tasks.board.actions.prompt' | translate }} }
                         </button>
                       </div>
                     }
 
                     <!-- Cancel -->
-                    <button
-                      class="sq-btn sq-btn--danger sq-btn--sm board__action-btn"
-                      [disabled]="cancellingTaskId() === task.id"
-                      (click)="cancelTask(task)"
-                    >
-                      @if (cancellingTaskId() === task.id) {
-                        {{ 'tasks.board.actions.cancelling' | translate }}
-                      } @else {
-                        {{ 'tasks.board.actions.cancel' | translate }}
-                      }
+                    <button class="sq-btn sq-btn--danger sq-btn--sm board__action-btn" [disabled]="cancellingTaskId() === task.id" (click)="cancelTask(task)">
+                      @if (cancellingTaskId() === task.id) { {{ 'tasks.board.actions.cancelling' | translate }} }
+                      @else { {{ 'tasks.board.actions.cancel' | translate }} }
                     </button>
                   </div>
                 }
               </div>
             } @empty {
-              <div class="board__empty">
-                <p>{{ 'tasks.board.noTasks' | translate }}</p>
-              </div>
+              <div class="board__empty"><p>{{ 'tasks.board.noTasks' | translate }}</p></div>
             }
           </div>
         </div>
+      }
+    </div>
+  } @else {
+    <!-- List view -->
+    <div class="task-list">
+      <div class="task-list__header">
+        <span class="task-list__col task-list__col--priority">{{ 'tasks.list.priority' | translate }}</span>
+        <span class="task-list__col task-list__col--id">{{ 'tasks.list.id' | translate }}</span>
+        <span class="task-list__col task-list__col--title">{{ 'tasks.list.titleCol' | translate }}</span>
+        <span class="task-list__col task-list__col--project">{{ 'tasks.list.project' | translate }}</span>
+        <span class="task-list__col task-list__col--state">{{ 'tasks.list.state' | translate }}</span>
+        <span class="task-list__col task-list__col--agent">{{ 'tasks.list.agent' | translate }}</span>
+        <span class="task-list__col task-list__col--actions">{{ 'tasks.list.actions' | translate }}</span>
+      </div>
+      @for (task of allTasks(); track task.id) {
+        <div class="task-list__row" (click)="openTask(task)">
+          <span class="task-list__col task-list__col--priority">
+            <span class="sq-badge sq-badge--sm" [class]="'sq-badge--' + priorityBadgeClass(task.priority)">{{ task.priority }}</span>
+          </span>
+          <span class="task-list__col task-list__col--id">
+            <span class="task-list__external-id">{{ task.externalId || '-' }}</span>
+          </span>
+          <span class="task-list__col task-list__col--title">
+            <span class="task-list__title-text">{{ task.title }}</span>
+          </span>
+          <span class="task-list__col task-list__col--project">
+            @if (task.projectName) {
+              <span class="task-list__project-badge">{{ task.projectName }}</span>
+            }
+          </span>
+          <span class="task-list__col task-list__col--state">
+            <span class="task-list__state-badge" [style.border-left-color]="stateColor(task.state)">{{ getStateBadge(task) }}</span>
+          </span>
+          <span class="task-list__col task-list__col--agent">
+            @if (task.agentStatus) {
+              <span class="board__agent-status" [attr.data-status]="task.agentStatus">{{ getAgentStatusLabel(task) }}</span>
+            }
+          </span>
+          <span class="task-list__col task-list__col--actions" (click)="$event.stopPropagation()">
+            <button class="sq-btn sq-btn--ghost sq-btn--xs" (click)="openAgentChat(task)">{{ 'tasks.board.actions.openChat' | translate }}</button>
+            <button class="sq-btn sq-btn--ghost sq-btn--xs" (click)="toggleDelegatePanel(task.id)">{{ 'tasks.board.actions.delegate' | translate }}</button>
+          </span>
+        </div>
+      } @empty {
+        <div class="task-list__empty"><p>{{ 'tasks.board.noTasks' | translate }}</p></div>
       }
     </div>
   }

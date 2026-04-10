@@ -4,6 +4,9 @@ import com.squadron.common.exception.ResourceNotFoundException;
 import com.squadron.orchestrator.dto.CreateProjectRequest;
 import com.squadron.orchestrator.entity.Project;
 import com.squadron.orchestrator.repository.ProjectRepository;
+import com.squadron.orchestrator.repository.ProjectWorkflowMappingRepository;
+import com.squadron.orchestrator.repository.TaskRepository;
+import com.squadron.orchestrator.repository.TaskWorkflowRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,14 +18,24 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import com.squadron.orchestrator.dto.ProjectSummaryDto;
+import com.squadron.orchestrator.entity.ProjectWorkflowMapping;
+import com.squadron.orchestrator.entity.Task;
+import com.squadron.orchestrator.entity.TaskWorkflow;
+
+import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,11 +46,21 @@ class ProjectServiceTest {
     @Mock
     private ProjectRepository projectRepository;
 
+    @Mock
+    private TaskRepository taskRepository;
+
+    @Mock
+    private TaskWorkflowRepository taskWorkflowRepository;
+
+    @Mock
+    private ProjectWorkflowMappingRepository mappingRepository;
+
     private ProjectService projectService;
 
     @BeforeEach
     void setUp() {
-        projectService = new ProjectService(projectRepository);
+        projectService = new ProjectService(projectRepository, taskRepository,
+                taskWorkflowRepository, mappingRepository);
     }
 
     @Test
@@ -419,5 +442,114 @@ class ProjectServiceTest {
 
         assertEquals(0, result.getTotalElements());
         verify(projectRepository).findByTenantId(tenantId, pageable);
+    }
+
+    // --- Project summaries ---
+
+    @Test
+    void should_getProjectSummaries_when_projectsExist() {
+        UUID tenantId = UUID.randomUUID();
+
+        Project project1 = Project.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .name("Project Alpha")
+                .build();
+        Project project2 = Project.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .name("Project Beta")
+                .build();
+
+        when(projectRepository.findByTenantId(tenantId)).thenReturn(List.of(project1, project2));
+
+        // Project 1: 3 tasks
+        Task task1 = Task.builder().id(UUID.randomUUID()).projectId(project1.getId()).title("T1").build();
+        Task task2 = Task.builder().id(UUID.randomUUID()).projectId(project1.getId()).title("T2").build();
+        Task task3 = Task.builder().id(UUID.randomUUID()).projectId(project1.getId()).title("T3").build();
+        when(taskRepository.findByProjectId(project1.getId())).thenReturn(List.of(task1, task2, task3));
+
+        List<UUID> taskIds = List.of(task1.getId(), task2.getId(), task3.getId());
+        // task1 -> PLANNING, task2 -> REVIEW, task3 has no workflow (defaults to BACKLOG)
+        TaskWorkflow wf1 = TaskWorkflow.builder().taskId(task1.getId()).currentState("PLANNING")
+                .tenantId(tenantId).transitionAt(Instant.now()).transitionedBy(UUID.randomUUID()).build();
+        TaskWorkflow wf2 = TaskWorkflow.builder().taskId(task2.getId()).currentState("REVIEW")
+                .tenantId(tenantId).transitionAt(Instant.now()).transitionedBy(UUID.randomUUID()).build();
+        when(taskWorkflowRepository.findByTaskIdIn(taskIds)).thenReturn(List.of(wf1, wf2));
+
+        // 2 workflow mappings for project 1
+        ProjectWorkflowMapping mapping1 = ProjectWorkflowMapping.builder()
+                .id(UUID.randomUUID()).projectId(project1.getId()).tenantId(tenantId)
+                .internalState("PLANNING").externalStatus("In Progress").build();
+        ProjectWorkflowMapping mapping2 = ProjectWorkflowMapping.builder()
+                .id(UUID.randomUUID()).projectId(project1.getId()).tenantId(tenantId)
+                .internalState("REVIEW").externalStatus("Code Review").build();
+        when(mappingRepository.findByProjectId(project1.getId())).thenReturn(List.of(mapping1, mapping2));
+
+        // Project 2: no tasks, no workflows, no mappings
+        when(taskRepository.findByProjectId(project2.getId())).thenReturn(Collections.emptyList());
+        when(mappingRepository.findByProjectId(project2.getId())).thenReturn(Collections.emptyList());
+
+        List<ProjectSummaryDto> result = projectService.getProjectSummaries(tenantId);
+
+        assertEquals(2, result.size());
+
+        // Summary 1 — Project Alpha
+        ProjectSummaryDto summary1 = result.get(0);
+        assertEquals("Project Alpha", summary1.getName());
+        assertEquals(3, summary1.getTotalTasks());
+        assertEquals(2, summary1.getActiveTasks()); // PLANNING + REVIEW are active; BACKLOG is not
+        assertNotNull(summary1.getTaskCountsByState());
+        assertTrue(summary1.getTaskCountsByState().containsKey("PLANNING"));
+        assertTrue(summary1.isWorkflowMappingsConfigured());
+        assertEquals(2, summary1.getWorkflowMappingCount());
+
+        // Summary 2 — Project Beta
+        ProjectSummaryDto summary2 = result.get(1);
+        assertEquals(0, summary2.getTotalTasks());
+        assertEquals(0, summary2.getActiveTasks());
+        assertFalse(summary2.isWorkflowMappingsConfigured());
+    }
+
+    @Test
+    void should_getProjectSummaries_when_noProjects() {
+        UUID tenantId = UUID.randomUUID();
+        when(projectRepository.findByTenantId(tenantId)).thenReturn(Collections.emptyList());
+
+        List<ProjectSummaryDto> result = projectService.getProjectSummaries(tenantId);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void should_getProjectSummaries_when_allTasksAreDone() {
+        UUID tenantId = UUID.randomUUID();
+
+        Project project = Project.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .name("Done Project")
+                .build();
+        when(projectRepository.findByTenantId(tenantId)).thenReturn(List.of(project));
+
+        Task task1 = Task.builder().id(UUID.randomUUID()).projectId(project.getId()).title("T1").build();
+        Task task2 = Task.builder().id(UUID.randomUUID()).projectId(project.getId()).title("T2").build();
+        when(taskRepository.findByProjectId(project.getId())).thenReturn(List.of(task1, task2));
+
+        List<UUID> taskIds = List.of(task1.getId(), task2.getId());
+        TaskWorkflow wf1 = TaskWorkflow.builder().taskId(task1.getId()).currentState("DONE")
+                .tenantId(tenantId).transitionAt(Instant.now()).transitionedBy(UUID.randomUUID()).build();
+        TaskWorkflow wf2 = TaskWorkflow.builder().taskId(task2.getId()).currentState("DONE")
+                .tenantId(tenantId).transitionAt(Instant.now()).transitionedBy(UUID.randomUUID()).build();
+        when(taskWorkflowRepository.findByTaskIdIn(taskIds)).thenReturn(List.of(wf1, wf2));
+
+        when(mappingRepository.findByProjectId(project.getId())).thenReturn(Collections.emptyList());
+
+        List<ProjectSummaryDto> result = projectService.getProjectSummaries(tenantId);
+
+        assertEquals(1, result.size());
+        ProjectSummaryDto summary = result.get(0);
+        assertEquals(2, summary.getTotalTasks());
+        assertEquals(0, summary.getActiveTasks());
     }
 }

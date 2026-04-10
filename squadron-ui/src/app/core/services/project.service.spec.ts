@@ -111,4 +111,46 @@ describe('ProjectService', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush(null);
   });
+
+  it('should_getProjectSummaries_when_calledWithTenantId', () => {
+    const mockSummaries = [
+      {
+        id: 'p1',
+        tenantId: 't1',
+        name: 'Project Alpha',
+        totalTasks: 10,
+        activeTasks: 3,
+        taskCountsByState: { PLANNING: 2, REVIEW: 1 },
+        workflowMappingsConfigured: true,
+        workflowMappingCount: 5,
+      },
+    ];
+
+    service.getProjectSummaries('t1').subscribe((summaries) => {
+      expect(summaries.length).toBe(1);
+      expect(summaries[0].name).toBe('Project Alpha');
+      expect(summaries[0].totalTasks).toBe(10);
+      expect(summaries[0].workflowMappingsConfigured).toBeTrue();
+    });
+
+    const req = httpTesting.expectOne(`${apiUrl}/projects/tenant/t1/summary`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ success: true, data: mockSummaries, message: 'OK', timestamp: '' });
+  });
+
+  it('should_getProjectsByTenant_when_calledWithTenantId', () => {
+    const mockProjects = [
+      { id: 'p1', name: 'Project 1' },
+      { id: 'p2', name: 'Project 2' },
+    ];
+
+    service.getProjectsByTenant('t1').subscribe((projects) => {
+      expect(projects.length).toBe(2);
+      expect(projects[0].name).toBe('Project 1');
+    });
+
+    const req = httpTesting.expectOne(`${apiUrl}/projects/tenant/t1`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ success: true, data: mockProjects, message: 'OK', timestamp: '' });
+  });
 });
