@@ -1361,6 +1361,26 @@ describe('ProjectConfigComponent', () => {
     expect(component.generatedPublicKey()).toBeTruthy();
     component.dismissGeneratedKey();
     expect(component.generatedPublicKey()).toBeNull();
+    expect(component.copiedKey()).toBeFalse();
+  });
+
+  it('should_copyGeneratedKey_toClipboard', async () => {
+    fixture.detectChanges();
+    component.generateDeployKey('pc-2');
+    expect(component.generatedPublicKey()).toBeTruthy();
+
+    spyOn(navigator.clipboard, 'writeText').and.returnValue(Promise.resolve());
+    component.copyGeneratedKey();
+    await fixture.whenStable();
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('ssh-ed25519 AAAAC...');
+    expect(component.copiedKey()).toBeTrue();
+  });
+
+  it('should_notCopy_when_noGeneratedKey', () => {
+    fixture.detectChanges();
+    spyOn(navigator.clipboard, 'writeText');
+    component.copyGeneratedKey();
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
   });
 
   it('should_returnKeyUsageLabel', () => {

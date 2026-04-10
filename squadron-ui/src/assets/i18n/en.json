@@ -956,6 +956,8 @@
       "generateDeployKey": "Generate Deploy Key",
       "generatedKeyLabel": "Generated Public Key",
       "generatedKeyHint": "Copy this public key to your Git remote as a deploy key.",
+      "copyKey": "Copy",
+      "copied": "Copied!",
       "dismissKey": "Dismiss",
       "errors": {
         "saveFailed": "Failed to save SSH key. Please verify the key pair.",

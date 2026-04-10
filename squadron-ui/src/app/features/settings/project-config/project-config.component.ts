@@ -167,6 +167,7 @@ export class ProjectConfigComponent implements OnInit {
   sshKeyForm: SshKeyForm = this.newSshKeyForm();
   generatingDeployKey = signal(false);
   generatedPublicKey = signal<string | null>(null);
+  copiedKey = signal(false);
 
   // Review Bot Configs
   reviewBotConfigs = signal<ReviewBotConfig[]>([]);
@@ -797,6 +798,16 @@ export class ProjectConfigComponent implements OnInit {
 
   dismissGeneratedKey(): void {
     this.generatedPublicKey.set(null);
+    this.copiedKey.set(false);
+  }
+
+  copyGeneratedKey(): void {
+    const key = this.generatedPublicKey();
+    if (!key) return;
+    navigator.clipboard.writeText(key).then(() => {
+      this.copiedKey.set(true);
+      setTimeout(() => this.copiedKey.set(false), 3000);
+    });
   }
 
   getKeyUsageLabel(keyUsage?: string): string {

@@ -473,12 +473,21 @@ $bg: var(--sq-bg, #f9fafb);
   border-radius: 8px;
 
   &__label { font-size: .8125rem; font-weight: 600; color: var(--sq-success, #059669); margin: 0 0 .375rem; }
+  &__key-wrapper {
+    position: relative; display: flex; align-items: flex-start; gap: .5rem;
+    margin: .375rem 0;
+  }
   &__key {
-    display: block; padding: .5rem; margin: .375rem 0;
+    display: block; flex: 1; padding: .5rem;
     background: $s; border: 1px solid $b; border-radius: 6px;
     font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: .75rem; color: $t; word-break: break-all;
     user-select: all;
+  }
+  &__copy-btn {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: .25rem;
+    white-space: nowrap; font-size: .75rem;
+    svg { vertical-align: middle; }
   }
   &__hint { font-size: .75rem; color: $t2; margin: .25rem 0 .5rem; }
 }
