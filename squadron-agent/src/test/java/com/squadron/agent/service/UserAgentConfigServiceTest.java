@@ -529,6 +529,18 @@ class UserAgentConfigServiceTest {
                 UserAgentConfigService.generateDescription(null, "gpt-4o", "PLATFORM"));
     }
 
+    @Test
+    void should_generateGoogleDescription_when_gemma4Model() {
+        assertEquals("Gemma 4 via Google",
+                UserAgentConfigService.generateDescription("google", "gemma-4", "PLATFORM"));
+    }
+
+    @Test
+    void should_generateLocalDescription_when_gemma4OnOllama() {
+        assertEquals("Gemma 4 (local)",
+                UserAgentConfigService.generateDescription("ollama", "gemma4", "SELF_HOSTED"));
+    }
+
     // ============================================================
     // Helpers
     // ============================================================

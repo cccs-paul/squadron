@@ -1,4 +1,5 @@
 import { Component, input, output } from '@angular/core';
+import { TranslateModule } from '@ngx-translate/core';
 import { Task, TaskPriority } from '../../../core/models/task.model';
 import { AvatarComponent } from '../../../shared/components/avatar/avatar.component';
 import { TruncatePipe } from '../../../shared/pipes/truncate.pipe';
@@ -6,12 +7,12 @@ import { TruncatePipe } from '../../../shared/pipes/truncate.pipe';
 @Component({
   selector: 'sq-task-card',
   standalone: true,
-  imports: [AvatarComponent, TruncatePipe],
+  imports: [AvatarComponent, TruncatePipe, TranslateModule],
   template: `
     <div class="task-card" (click)="cardClick.emit(task())" [class.task-card--dragging]="false">
       <div class="task-card__header">
         <span class="sq-badge" [class]="'sq-badge--' + priorityClass(task().priority)">
-          {{ task().priority }}
+          {{ task().priority ? ('tasks.priority.' + task().priority.toLowerCase() | translate) : '' }}
         </span>
         @if (task().externalId) {
           <span class="task-card__external-id">{{ task().externalId }}</span>

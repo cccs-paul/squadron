@@ -28,7 +28,7 @@
         </button>
       }
       <span class="connection-indicator" [class]="'connection-indicator--' + connectionState()">
-        {{ 'agentChat.connection.' + connectionState() | translate }}
+        {{ connectionState() ? ('agentChat.connection.' + connectionState() | translate) : '' }}
       </span>
     </div>
   </div>

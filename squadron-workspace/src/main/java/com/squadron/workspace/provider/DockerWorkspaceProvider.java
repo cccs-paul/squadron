@@ -32,6 +32,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -47,13 +48,18 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
     private static final long WORKSPACE_GROUP_ID = 1000L;
     private static final String WORKSPACE_USER = "squadron";
 
+    /** Default base image with git pre-installed (built from deploy/docker/Dockerfile.workspace-base). */
+    static final String DEFAULT_BASE_IMAGE = "squadron/workspace-base:latest";
+
     private final DockerClient dockerClient;
     private final String networkName;
+    private final String defaultBaseImage;
 
     @Autowired
     public DockerWorkspaceProvider(
             @Value("${squadron.workspace.docker.host:unix:///var/run/docker.sock}") String dockerHost,
-            @Value("${squadron.workspace.docker.network:}") String networkName) {
+            @Value("${squadron.workspace.docker.network:}") String networkName,
+            @Value("${squadron.workspace.docker.base-image:}") String baseImage) {
         DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost(dockerHost)
                 .build();
@@ -62,6 +68,7 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
                 .build();
         this.dockerClient = DockerClientImpl.getInstance(config, httpClient);
         this.networkName = networkName != null && !networkName.isBlank() ? networkName : null;
+        this.defaultBaseImage = baseImage != null && !baseImage.isBlank() ? baseImage : DEFAULT_BASE_IMAGE;
     }
 
     // Visible for testing
@@ -69,6 +76,7 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
     private DockerWorkspaceProvider(DockerClient dockerClient) {
         this.dockerClient = dockerClient;
         this.networkName = null;
+        this.defaultBaseImage = DEFAULT_BASE_IMAGE;
     }
 
     // Visible for testing -- with network
@@ -76,6 +84,7 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
     private DockerWorkspaceProvider(DockerClient dockerClient, String networkName) {
         this.dockerClient = dockerClient;
         this.networkName = networkName != null && !networkName.isBlank() ? networkName : null;
+        this.defaultBaseImage = DEFAULT_BASE_IMAGE;
     }
 
     @Override
@@ -85,7 +94,7 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
 
     @Override
     public String createContainer(WorkspaceSpec spec) {
-        String image = spec.getBaseImage() != null ? spec.getBaseImage() : "ubuntu:22.04";
+        String image = spec.getBaseImage() != null ? spec.getBaseImage() : defaultBaseImage;
 
         try {
             HostConfig hostConfig = HostConfig.newHostConfig();
@@ -136,12 +145,18 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
                     .withHostConfig(hostConfig)
                     .withUser(WORKSPACE_USER_ID + ":" + WORKSPACE_GROUP_ID)
                     .withWorkingDir("/home/" + WORKSPACE_USER)
-                    .withCmd("sleep", "infinity")
-                    .withLabels(Map.of(
-                            "squadron.task-id", spec.getTaskId().toString(),
-                            "squadron.tenant-id", spec.getTenantId().toString(),
-                            "squadron.app", "squadron-workspace"
-                    ));
+                    .withCmd("sleep", "infinity");
+
+            // Build labels map -- only add task-id and tenant-id when non-null
+            Map<String, String> labels = new HashMap<>();
+            labels.put("squadron.app", "squadron-workspace");
+            if (spec.getTaskId() != null) {
+                labels.put("squadron.task-id", spec.getTaskId().toString());
+            }
+            if (spec.getTenantId() != null) {
+                labels.put("squadron.tenant-id", spec.getTenantId().toString());
+            }
+            createCmd.withLabels(labels);
 
             CreateContainerResponse container = createCmd.exec();
 
@@ -164,10 +179,35 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
      * Initialize the workspace container: ensure git is installed and /home/squadron
      * is owned by the workspace user. This runs as root via exec since the container
      * process itself runs as UID 1000.
+     *
+     * <p>When using the squadron/workspace-base image, git is already pre-installed
+     * and the user already exists, so this is a no-op. For custom images without git,
+     * installation is attempted but will fail silently on read-only root filesystems.
      */
     private void initializeWorkspaceUser(String containerId) {
-        // For images where git isn't pre-installed, install it.
-        // We use exec with user=root for this one-time setup.
+        // Check if git is already available (workspace-base image has it pre-installed)
+        try {
+            ExecCreateCmdResponse checkGit = dockerClient.execCreateCmd(containerId)
+                    .withAttachStdout(true)
+                    .withAttachStderr(true)
+                    .withCmd("which", "git")
+                    .exec();
+
+            ByteArrayOutputStream checkStdout = new ByteArrayOutputStream();
+            dockerClient.execStartCmd(checkGit.getId())
+                    .exec(new ExecStartResultCallback(checkStdout, new ByteArrayOutputStream()))
+                    .awaitCompletion(10, TimeUnit.SECONDS);
+
+            Long checkExitCode = dockerClient.inspectExecCmd(checkGit.getId()).exec().getExitCodeLong();
+            if (checkExitCode != null && checkExitCode == 0) {
+                log.debug("Git already installed in container {}", containerId);
+                return;
+            }
+        } catch (Exception e) {
+            log.debug("Git availability check failed, attempting install: {}", e.getMessage());
+        }
+
+        // Git not found — attempt installation (will fail on read-only rootfs, which is expected)
         try {
             ExecCreateCmdResponse installGit = dockerClient.execCreateCmd(containerId)
                     .withAttachStdout(true)

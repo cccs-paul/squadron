@@ -3,6 +3,7 @@ package com.squadron.agent.controller;
 import com.squadron.agent.dto.AgentProgressDto;
 import com.squadron.agent.dto.ChatRequest;
 import com.squadron.agent.dto.ChatResponse;
+import com.squadron.agent.dto.ConversationSummaryDto;
 import com.squadron.agent.dto.StreamChunk;
 import com.squadron.agent.entity.Conversation;
 import com.squadron.agent.entity.ConversationMessage;
@@ -86,6 +87,18 @@ public class AgentChatController {
     public ResponseEntity<ApiResponse<List<Conversation>>> getConversationsByTask(@PathVariable UUID taskId) {
         List<Conversation> conversations = conversationService.getConversationsByTask(taskId);
         return ResponseEntity.ok(ApiResponse.success(conversations));
+    }
+
+    /**
+     * Returns lightweight conversation summaries for a task (includes message counts).
+     * Used by the task detail agent panel to show conversation history.
+     */
+    @GetMapping("/task/{taskId}/summaries")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
+    public ResponseEntity<ApiResponse<List<ConversationSummaryDto>>> getConversationSummaries(
+            @PathVariable UUID taskId) {
+        List<ConversationSummaryDto> summaries = conversationService.getConversationSummaries(taskId);
+        return ResponseEntity.ok(ApiResponse.success(summaries));
     }
 
     /**

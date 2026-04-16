@@ -423,10 +423,13 @@
       "emptyColumn": "No tasks",
       "column": {
         "backlog": "Backlog",
+        "prioritized": "Prioritized",
         "planning": "Planning",
+        "proposeCode": "Propose Code",
         "inProgress": "In Progress",
         "review": "Review",
         "qa": "QA",
+        "merge": "Merge",
         "done": "Done",
         "planned": "Planned",
         "completed": "Completed"
@@ -504,6 +507,27 @@
       },
       "meta": {
         "updated": "Updated"
+      },
+      "agent": {
+        "title": "Agent Activity",
+        "assignedAgent": "Assigned Agent",
+        "noAgent": "No agent assigned",
+        "changeAgent": "Change",
+        "conversations": "Conversations",
+        "noConversations": "No conversations yet",
+        "openChat": "Open Chat",
+        "viewConversation": "View",
+        "status": {
+          "ACTIVE": "Running",
+          "COMPLETED": "Completed",
+          "FAILED": "Failed",
+          "WAITING_INPUT": "Awaiting Input"
+        },
+        "messages": "messages",
+        "tokens": "tokens",
+        "liveProgress": "Live Progress",
+        "noActiveSession": "No active agent session",
+        "steps": "steps"
       }
     },
     "priority": {
@@ -625,6 +649,18 @@
         "MINOR": "Minor",
         "INFO": "Info"
       },
+      "category": {
+        "SECURITY": "Security",
+        "PERFORMANCE": "Performance",
+        "MAINTAINABILITY": "Maintainability",
+        "RELIABILITY": "Reliability",
+        "STYLE": "Style",
+        "BUG": "Bug",
+        "BEST_PRACTICE": "Best Practice",
+        "DOCUMENTATION": "Documentation",
+        "TESTING": "Testing",
+        "OTHER": "Other"
+      },
       "requestChanges": "Request Changes",
       "requestChangesPlaceholder": "Describe the changes you'd like...",
       "resolve": "Resolve",
@@ -743,7 +779,11 @@
     "connection": {
       "CONNECTED": "Connected",
       "CONNECTING": "Connecting...",
-      "DISCONNECTED": "Disconnected"
+      "DISCONNECTED": "Disconnected",
+      "connected": "Connected",
+      "connecting": "Connecting...",
+      "disconnected": "Disconnected",
+      "error": "Error"
     },
     "meta": {
       "statusLabel": "Status:",

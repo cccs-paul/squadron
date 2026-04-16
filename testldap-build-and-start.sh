@@ -293,6 +293,17 @@ build_docker_images() {
     local skipped=0
     local total_services=${#BACKEND_SERVICES[@]}
 
+    # Build the workspace-base image first (used by workspace containers at runtime)
+    log_info "Building workspace-base image (git pre-installed for workspace containers)..."
+    if docker build -t "squadron/workspace-base:latest" \
+        -f "${COMPOSE_DIR}/Dockerfile.workspace-base" \
+        "${COMPOSE_DIR}" 2>&1 | tail -5; then
+        log_success "  squadron/workspace-base:latest"
+    else
+        log_error "Failed to build workspace-base image"
+        exit 1
+    fi
+
     # Build backend service images
     for service in "${BACKEND_SERVICES[@]}"; do
         local module="${service#squadron-}"  # Remove prefix
@@ -378,14 +389,14 @@ wait_for_healthy() {
                 return 1
                 ;;
             "")
-                # Container not running at all
-                if [ $waited -ge 15 ]; then
+                # Container not running at all (may be restarting)
+                if [ $waited -ge 60 ]; then
                     log_error "${service} container is not running after ${waited}s."
                     run_compose logs --tail=15 "$service" || true
                     return 1
                 fi
                 ;;
-            none|starting)
+            none|starting|restarting)
                 # Still starting or no healthcheck, keep waiting
                 if [ $((waited % 30)) -eq 0 ] && [ $waited -gt 0 ]; then
                     log_info "    ${service}: still ${status}... (${waited}s / ${max_wait}s)"

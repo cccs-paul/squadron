@@ -252,6 +252,7 @@ public class UserAgentConfigService {
             case "o3" -> "o3";
             case "o4-mini" -> "o4-mini";
             case "gemini-2.5-pro" -> "Gemini 2.5 Pro";
+            case "gemma-4", "gemma4" -> "Gemma 4";
             case "command-a-03-2025" -> "Command A";
             case "llama3.3" -> "Llama 3.3";
             case "deepseek-coder-v2" -> "DeepSeek Coder v2";

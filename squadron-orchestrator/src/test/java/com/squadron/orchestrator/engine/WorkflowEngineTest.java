@@ -91,8 +91,10 @@ class WorkflowEngineTest {
         transitions.add(Map.of("from", "PRIORITIZED", "to", "BACKLOG"));
         transitions.add(Map.of("from", "PLANNING", "to", "PROPOSE_CODE"));
         transitions.add(Map.of("from", "PLANNING", "to", "PRIORITIZED"));
-        transitions.add(Map.of("from", "PROPOSE_CODE", "to", "REVIEW"));
+        transitions.add(Map.of("from", "PROPOSE_CODE", "to", "IN_PROGRESS"));
         transitions.add(Map.of("from", "PROPOSE_CODE", "to", "PLANNING"));
+        transitions.add(Map.of("from", "IN_PROGRESS", "to", "REVIEW"));
+        transitions.add(Map.of("from", "IN_PROGRESS", "to", "PROPOSE_CODE"));
         transitions.add(Map.of("from", "REVIEW", "to", "QA"));
         transitions.add(Map.of("from", "REVIEW", "to", "PROPOSE_CODE"));
         transitions.add(Map.of("from", "QA", "to", "MERGE"));
@@ -500,7 +502,7 @@ class WorkflowEngineTest {
 
         WorkflowDefinition definition = createDefaultDefinition(tenantId);
 
-        String[] stateSequence = {"PRIORITIZED", "PLANNING", "PROPOSE_CODE", "REVIEW", "QA", "MERGE", "DONE"};
+        String[] stateSequence = {"PRIORITIZED", "PLANNING", "PROPOSE_CODE", "IN_PROGRESS", "REVIEW", "QA", "MERGE", "DONE"};
         String currentState = "BACKLOG";
 
         for (String targetState : stateSequence) {
@@ -572,6 +574,7 @@ class WorkflowEngineTest {
                 "PRIORITIZED", 2,
                 "PLANNING", 2,
                 "PROPOSE_CODE", 2,
+                "IN_PROGRESS", 2,
                 "REVIEW", 2,
                 "QA", 2,
                 "MERGE", 2,

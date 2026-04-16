@@ -1,0 +1,31 @@
+# Squadron Workspace Base Image
+# Pre-installs git and creates the squadron user so that workspace containers
+# can operate with a read-only root filesystem (no apt-get/apk at runtime).
+FROM ubuntu:22.04
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install git, openssh-client (for SSH-based git access), and ca-certificates
+RUN apt-get update -qq \
+    && apt-get install -y --no-install-recommends \
+        git \
+        openssh-client \
+        ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create the squadron user (UID/GID 1000) matching DockerWorkspaceProvider
+RUN groupadd -g 1000 squadron \
+    && useradd -u 1000 -g 1000 -m -s /bin/bash squadron
+
+# Create the workspace directory
+RUN mkdir -p /workspace && chown squadron:squadron /workspace
+
+# Default working directory
+WORKDIR /home/squadron
+
+# Run as squadron user by default
+USER squadron
+
+CMD ["sleep", "infinity"]

@@ -96,3 +96,20 @@ export interface AgentTypeSummary {
   completedCount: number;
   totalTokens: number;
 }
+
+/**
+ * Lightweight conversation summary for the task detail agent panel.
+ * Mirrors com.squadron.agent.dto.ConversationSummaryDto.
+ */
+export interface ConversationSummary {
+  id: string;
+  taskId: string;
+  agentType: string;
+  status: string;
+  provider?: string;
+  model?: string;
+  totalTokens: number;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}

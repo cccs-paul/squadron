@@ -147,12 +147,12 @@ class WorkflowEndToEndTest {
         TaskWorkflow workflow = getWorkflow(task.getId());
         assertThat(workflow.getCurrentState()).isEqualTo("BACKLOG");
 
-        // Act: transition through every state
+        // Act: transition through every state (including IN_PROGRESS between PROPOSE_CODE and REVIEW)
         String[] transitions = {
-                "PRIORITIZED", "PLANNING", "PROPOSE_CODE", "REVIEW", "QA", "MERGE", "DONE"
+                "PRIORITIZED", "PLANNING", "PROPOSE_CODE", "IN_PROGRESS", "REVIEW", "QA", "MERGE", "DONE"
         };
         String[] expectedFromStates = {
-                "BACKLOG", "PRIORITIZED", "PLANNING", "PROPOSE_CODE", "REVIEW", "QA", "MERGE"
+                "BACKLOG", "PRIORITIZED", "PLANNING", "PROPOSE_CODE", "IN_PROGRESS", "REVIEW", "QA", "MERGE"
         };
 
         for (int i = 0; i < transitions.length; i++) {
@@ -179,12 +179,12 @@ class WorkflowEndToEndTest {
         assertThat(workflow.getCurrentState()).isEqualTo("DONE");
         assertThat(workflow.getPreviousState()).isEqualTo("MERGE");
 
-        // Assert: state history has all transitions recorded (init + 7 transitions)
+        // Assert: state history has all transitions recorded (init + 8 transitions)
         List<TaskStateHistory> history = taskService.getTaskHistory(task.getId());
-        assertThat(history).hasSizeGreaterThanOrEqualTo(8); // 1 init + 7 transitions
+        assertThat(history).hasSizeGreaterThanOrEqualTo(9); // 1 init + 8 transitions
 
         // Assert: NATS events were published for each transition
-        assertThat(capturedEvents).hasSizeGreaterThanOrEqualTo(7);
+        assertThat(capturedEvents).hasSizeGreaterThanOrEqualTo(8);
 
         // Verify events contain correct state transitions
         for (int i = 0; i < transitions.length; i++) {
@@ -300,10 +300,11 @@ class WorkflowEndToEndTest {
     void should_rejectInvalidTransition_fromDone() {
         Task task = createTask("Done Task");
 
-        // Move to DONE
+        // Move to DONE (through IN_PROGRESS between PROPOSE_CODE and REVIEW)
         transition(task.getId(), "PRIORITIZED", "r");
         transition(task.getId(), "PLANNING", "r");
         transition(task.getId(), "PROPOSE_CODE", "r");
+        transition(task.getId(), "IN_PROGRESS", "r");
         transition(task.getId(), "REVIEW", "r");
         transition(task.getId(), "QA", "r");
         transition(task.getId(), "MERGE", "r");
@@ -325,6 +326,7 @@ class WorkflowEndToEndTest {
         transition(task.getId(), "PRIORITIZED", "r");
         transition(task.getId(), "PLANNING", "r");
         transition(task.getId(), "PROPOSE_CODE", "r");
+        transition(task.getId(), "IN_PROGRESS", "r");
         transition(task.getId(), "REVIEW", "r");
 
         // Backward: REVIEW -> PROPOSE_CODE
@@ -408,8 +410,13 @@ class WorkflowEndToEndTest {
         available = taskService.getAvailableTransitions(task.getId());
         assertThat(available).containsExactlyInAnyOrder("PROPOSE_CODE", "PRIORITIZED");
 
-        // Move to DONE: no transitions available
+        // Move to PROPOSE_CODE and verify its transitions include IN_PROGRESS
         transition(task.getId(), "PROPOSE_CODE", "r");
+        available = taskService.getAvailableTransitions(task.getId());
+        assertThat(available).containsExactlyInAnyOrder("IN_PROGRESS", "PLANNING");
+
+        // Move through IN_PROGRESS to DONE
+        transition(task.getId(), "IN_PROGRESS", "r");
         transition(task.getId(), "REVIEW", "r");
         transition(task.getId(), "QA", "r");
         transition(task.getId(), "MERGE", "r");

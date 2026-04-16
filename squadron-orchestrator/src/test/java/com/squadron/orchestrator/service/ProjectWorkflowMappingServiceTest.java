@@ -188,11 +188,12 @@ class ProjectWorkflowMappingServiceTest {
         List<String> states = service.getAvailableInternalStates();
 
         assertNotNull(states);
-        assertEquals(8, states.size());
+        assertEquals(9, states.size());
         assertTrue(states.contains("BACKLOG"));
         assertTrue(states.contains("PRIORITIZED"));
         assertTrue(states.contains("PLANNING"));
         assertTrue(states.contains("PROPOSE_CODE"));
+        assertTrue(states.contains("IN_PROGRESS"));
         assertTrue(states.contains("REVIEW"));
         assertTrue(states.contains("QA"));
         assertTrue(states.contains("MERGE"));
@@ -210,6 +211,7 @@ class ProjectWorkflowMappingServiceTest {
                 WorkflowMappingDto.builder().internalState("PRIORITIZED").externalStatus("Prioritized").build(),
                 WorkflowMappingDto.builder().internalState("PLANNING").externalStatus("Planning").build(),
                 WorkflowMappingDto.builder().internalState("PROPOSE_CODE").externalStatus("In Progress").build(),
+                WorkflowMappingDto.builder().internalState("IN_PROGRESS").externalStatus("Working").build(),
                 WorkflowMappingDto.builder().internalState("REVIEW").externalStatus("In Review").build(),
                 WorkflowMappingDto.builder().internalState("QA").externalStatus("Testing").build(),
                 WorkflowMappingDto.builder().internalState("MERGE").externalStatus("Ready to Merge").build(),
@@ -218,6 +220,6 @@ class ProjectWorkflowMappingServiceTest {
 
         List<WorkflowMappingDto> result = service.saveMappings(projectId, allStates);
 
-        assertEquals(8, result.size());
+        assertEquals(9, result.size());
     }
 }

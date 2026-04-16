@@ -5,6 +5,7 @@ import com.squadron.agent.config.SecurityConfig;
 import com.squadron.agent.dto.AgentProgressDto;
 import com.squadron.agent.dto.ChatRequest;
 import com.squadron.agent.dto.ChatResponse;
+import com.squadron.agent.dto.ConversationSummaryDto;
 import com.squadron.agent.dto.StreamChunk;
 import com.squadron.agent.entity.Conversation;
 import com.squadron.agent.entity.ConversationMessage;
@@ -28,6 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import reactor.core.publisher.Flux;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -481,5 +483,97 @@ class AgentChatControllerTest {
     void should_return401_when_interruptingUnauthenticated() throws Exception {
         mockMvc.perform(post("/api/agents/chat/sessions/{conversationId}/interrupt", UUID.randomUUID()))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // --- Tests for GET /task/{taskId}/summaries ---
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_getConversationSummaries_when_taskHasConversations() throws Exception {
+        UUID taskId = UUID.randomUUID();
+        Instant now = Instant.now();
+
+        List<ConversationSummaryDto> summaries = List.of(
+                ConversationSummaryDto.builder()
+                        .id(UUID.randomUUID())
+                        .taskId(taskId)
+                        .agentType("PLANNING")
+                        .status("COMPLETED")
+                        .provider("openai")
+                        .model("gpt-4")
+                        .totalTokens(500L)
+                        .messageCount(5L)
+                        .createdAt(now.minusSeconds(60))
+                        .updatedAt(now.minusSeconds(30))
+                        .build(),
+                ConversationSummaryDto.builder()
+                        .id(UUID.randomUUID())
+                        .taskId(taskId)
+                        .agentType("CODING")
+                        .status("ACTIVE")
+                        .provider("anthropic")
+                        .model("claude-3")
+                        .totalTokens(1200L)
+                        .messageCount(12L)
+                        .createdAt(now.minusSeconds(30))
+                        .updatedAt(now)
+                        .build()
+        );
+
+        when(conversationService.getConversationSummaries(taskId)).thenReturn(summaries);
+
+        mockMvc.perform(get("/api/agents/chat/task/{taskId}/summaries", taskId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].agentType").value("PLANNING"))
+                .andExpect(jsonPath("$.data[0].status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data[0].provider").value("openai"))
+                .andExpect(jsonPath("$.data[0].model").value("gpt-4"))
+                .andExpect(jsonPath("$.data[0].totalTokens").value(500))
+                .andExpect(jsonPath("$.data[0].messageCount").value(5))
+                .andExpect(jsonPath("$.data[1].agentType").value("CODING"))
+                .andExpect(jsonPath("$.data[1].status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data[1].provider").value("anthropic"))
+                .andExpect(jsonPath("$.data[1].model").value("claude-3"))
+                .andExpect(jsonPath("$.data[1].totalTokens").value(1200))
+                .andExpect(jsonPath("$.data[1].messageCount").value(12));
+
+        verify(conversationService).getConversationSummaries(taskId);
+    }
+
+    @Test
+    @WithMockUser(roles = {"viewer"})
+    void should_getConversationSummaries_when_viewerRole() throws Exception {
+        UUID taskId = UUID.randomUUID();
+
+        when(conversationService.getConversationSummaries(taskId)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/agents/chat/task/{taskId}/summaries", taskId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(conversationService).getConversationSummaries(taskId);
+    }
+
+    @Test
+    void should_return401_when_gettingSummariesUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/agents/chat/task/{taskId}/summaries", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_getConversationSummaries_when_emptyList() throws Exception {
+        UUID taskId = UUID.randomUUID();
+
+        when(conversationService.getConversationSummaries(taskId)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/agents/chat/task/{taskId}/summaries", taskId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(0));
+
+        verify(conversationService).getConversationSummaries(taskId);
     }
 }

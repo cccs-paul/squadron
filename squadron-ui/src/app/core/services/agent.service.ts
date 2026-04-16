@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { StreamChunk, ChatRequest, AgentProgress, AgentInterruptRequest } from '../models/agent.model';
+import { StreamChunk, ChatRequest, AgentProgress, AgentInterruptRequest, ConversationSummary } from '../models/agent.model';
 import type { WebSocketService } from './websocket.service';
 
 export interface AgentMessage {
@@ -105,5 +105,13 @@ export class AgentService extends ApiService {
    */
   sendInterruptMessage(request: AgentInterruptRequest, wsService: WebSocketService): void {
     wsService.publish('/app/interrupt', request);
+  }
+
+  /**
+   * Get lightweight conversation summaries for a task.
+   * REST endpoint: GET /api/agents/chat/task/{taskId}/summaries
+   */
+  getConversationSummaries(taskId: string): Observable<ConversationSummary[]> {
+    return this.get<ConversationSummary[]>(`/agents/chat/task/${taskId}/summaries`);
   }
 }

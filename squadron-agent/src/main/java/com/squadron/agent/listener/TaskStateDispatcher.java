@@ -40,7 +40,7 @@ import java.util.Set;
  *   <li>{@code QA} — triggers the QA agent via {@link QAAgentService}</li>
  *   <li>{@code MERGE} — triggers the merge automation via {@link MergeService}</li>
  * </ul>
- * All other states (BACKLOG, PRIORITIZED, DONE) are acknowledged but not dispatched.
+ * All other states (BACKLOG, PRIORITIZED, IN_PROGRESS, DONE) are acknowledged but not dispatched.
  */
 @Component
 public class TaskStateDispatcher {

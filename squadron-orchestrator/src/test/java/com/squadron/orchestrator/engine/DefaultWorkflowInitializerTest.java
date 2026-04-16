@@ -120,7 +120,7 @@ class DefaultWorkflowInitializerTest {
         long transitionCount = transitionsJson.chars()
                 .filter(ch -> ch == '{')
                 .count();
-        // Should have 13 transitions as defined in the initializer
-        assertEquals(13, transitionCount);
+        // Should have 15 transitions as defined in the initializer (added IN_PROGRESS transitions)
+        assertEquals(15, transitionCount);
     }
 }

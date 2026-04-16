@@ -44,6 +44,7 @@ x-service-defaults: &service-defaults
 
 networks:
   squadron-net:
+    name: squadron-net
     driver: bridge
 
 volumes:
@@ -143,7 +144,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.5
     container_name: squadron-keycloak
-    restart: "no"
+    restart: on-failure
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
@@ -404,6 +405,7 @@ services:
       SQUADRON_WORKSPACE_DOCKER_HOST: unix:///var/run/docker.sock
       SQUADRON_PLATFORM_URL: http://squadron-platform:8084
       SQUADRON_WORKSPACE_DOCKER_NETWORK: squadron-net
+      SQUADRON_WORKSPACE_BASE_IMAGE: squadron/workspace-base:latest
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw
     group_add:

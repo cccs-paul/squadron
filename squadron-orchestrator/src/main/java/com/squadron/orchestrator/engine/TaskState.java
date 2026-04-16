@@ -5,6 +5,7 @@ public enum TaskState {
     PRIORITIZED,
     PLANNING,
     PROPOSE_CODE,
+    IN_PROGRESS,
     REVIEW,
     QA,
     MERGE,

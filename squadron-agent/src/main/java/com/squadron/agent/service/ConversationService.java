@@ -1,5 +1,6 @@
 package com.squadron.agent.service;
 
+import com.squadron.agent.dto.ConversationSummaryDto;
 import com.squadron.agent.entity.Conversation;
 import com.squadron.agent.entity.ConversationMessage;
 import com.squadron.agent.repository.ConversationMessageRepository;
@@ -93,6 +94,40 @@ public class ConversationService {
     @Transactional(readOnly = true)
     public List<Conversation> getConversationsByTask(UUID taskId) {
         return conversationRepository.findByTaskId(taskId);
+    }
+
+    /**
+     * Returns lightweight conversation summaries for a task (with message counts).
+     */
+    @Transactional(readOnly = true)
+    public List<ConversationSummaryDto> getConversationSummaries(UUID taskId) {
+        List<Conversation> conversations = conversationRepository.findByTaskId(taskId);
+        return conversations.stream()
+                .map(c -> ConversationSummaryDto.builder()
+                        .id(c.getId())
+                        .taskId(c.getTaskId())
+                        .agentType(c.getAgentType())
+                        .status(c.getStatus())
+                        .provider(c.getProvider())
+                        .model(c.getModel())
+                        .totalTokens(c.getTotalTokens())
+                        .messageCount(messageRepository.countByConversationId(c.getId()))
+                        .createdAt(c.getCreatedAt())
+                        .updatedAt(c.getUpdatedAt())
+                        .build())
+                .toList();
+    }
+
+    /**
+     * Returns the most recent active conversation for a task,
+     * or null if none exists.
+     */
+    @Transactional(readOnly = true)
+    public Conversation getActiveConversationForTask(UUID taskId) {
+        return conversationRepository.findByTaskId(taskId).stream()
+                .filter(c -> "ACTIVE".equals(c.getStatus()))
+                .reduce((first, second) -> second) // last one = most recent
+                .orElse(null);
     }
 
     /**

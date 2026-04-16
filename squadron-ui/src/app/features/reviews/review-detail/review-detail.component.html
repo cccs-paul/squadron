@@ -17,8 +17,8 @@
         <h1>PR #{{ r.pullRequestNumber }} - {{ r.taskTitle }}</h1>
         <div class="title-meta">
           <span class="repo-name">{{ r.repositoryName }}</span>
-          <span class="sq-badge" [class]="'sq-badge--' + statusClass(r.status)">{{ 'reviews.status.' + r.status | translate }}</span>
-          <span class="sq-badge sq-badge--neutral">{{ 'reviews.reviewerType.' + r.reviewerType | translate }}</span>
+          <span class="sq-badge" [class]="'sq-badge--' + statusClass(r.status)">{{ r.status ? ('reviews.status.' + r.status | translate) : '' }}</span>
+          <span class="sq-badge sq-badge--neutral">{{ r.reviewerType ? ('reviews.reviewerType.' + r.reviewerType | translate) : '' }}</span>
         </div>
       </div>
       <div class="action-buttons">
@@ -116,8 +116,8 @@
                   @if (comment.lineNumber) { <span class="line-num">:{{ comment.lineNumber }}</span> }
                 </div>
                 <div class="comment__badges">
-                  <span class="sq-badge" [class]="'sq-badge--' + severityClass(comment.severity)">{{ 'reviews.detail.severity.' + comment.severity | translate }}</span>
-                  <span class="sq-badge sq-badge--neutral">{{ comment.category }}</span>
+                  <span class="sq-badge" [class]="'sq-badge--' + severityClass(comment.severity)">{{ comment.severity ? ('reviews.detail.severity.' + comment.severity | translate) : '' }}</span>
+                  <span class="sq-badge sq-badge--neutral">{{ comment.category ? ('reviews.detail.category.' + comment.category | translate) : '' }}</span>
                   @if (comment.resolved) {
                     <span class="sq-badge sq-badge--success">{{ 'reviews.detail.resolved' | translate }}</span>
                   } @else {
@@ -130,7 +130,7 @@
               </div>
               <p class="comment__body">{{ comment.body }}</p>
               <div class="comment__footer">
-                <span>{{ comment.authorName }} ({{ comment.authorType }})</span>
+                <span>{{ comment.authorName }} ({{ comment.authorType ? ('reviews.reviewerType.' + comment.authorType | translate) : '' }})</span>
                 <span>{{ comment.createdAt | timeAgo }}</span>
               </div>
             </div>

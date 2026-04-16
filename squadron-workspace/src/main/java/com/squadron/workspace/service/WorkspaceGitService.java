@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -232,9 +231,12 @@ public class WorkspaceGitService {
     }
 
     /**
-     * Tests git access by performing a shallow clone in a temporary container.
-     * The container is created without persisting a Workspace entity and is
-     * destroyed after the test completes (success or failure).
+     * Tests git access by running {@code git ls-remote} inside a temporary
+     * container created via the {@link WorkspaceProvider}. The container is
+     * always destroyed after the test completes (success or failure).
+     *
+     * <p>Uses the workspace-base image which has git pre-installed, so no
+     * runtime package installation is needed (works with read-only rootfs).
      *
      * @param cloneUrl      the git clone URL (HTTPS or SSH)
      * @param accessToken   OAuth2 access token for HTTPS auth (may be null)
@@ -248,78 +250,85 @@ public class WorkspaceGitService {
         String containerId = null;
 
         try {
-            // 1. Create a temporary container using the workspace provider
+            // 1. Create an ephemeral container for the test (workspace-base has git pre-installed)
             WorkspaceSpec spec = WorkspaceSpec.builder()
-                    .tenantId(UUID.randomUUID())
-                    .taskId(UUID.randomUUID())
-                    .userId(UUID.randomUUID())
-                    .repoUrl(cloneUrl)
-                    .branch(branch)
-                    .baseImage("alpine:latest")
-                    .resourceLimits(Map.of("memory", "64Mi"))
-                    .providerType(workspaceProvider.getProviderType())
                     .build();
-
             containerId = workspaceProvider.createContainer(spec);
-            log.info("Created temporary container {} for git access test", containerId);
+            log.info("Created ephemeral container {} for git access test", containerId);
 
-            // 2. Ensure git is installed in the container
+            // 2. Ensure git is installed
             ensureGitInstalled(containerId);
 
-            // 3. Set up SSH key if provided and URL is SSH
-            boolean usingSsh = false;
-            if (sshPrivateKey != null && !sshPrivateKey.isBlank() && isSshUrl(cloneUrl)) {
+            // 3. Determine auth mode
+            boolean usingSsh = isSshUrl(cloneUrl);
+
+            // 4. Set up SSH key if needed
+            if (usingSsh && sshPrivateKey != null && !sshPrivateKey.isBlank()) {
                 setupSshKey(containerId, sshPrivateKey);
-                usingSsh = true;
             }
 
             try {
-                // 4. Build clone URL (inject token if HTTPS)
+                // 5. Build the effective URL (inject token for HTTPS)
                 String effectiveUrl = cloneUrl;
                 if (!usingSsh && accessToken != null && !accessToken.isBlank()) {
                     effectiveUrl = injectTokenIntoUrl(cloneUrl, accessToken);
                 }
 
-                // 5. Perform a shallow clone
-                String[] cloneCmd;
+                // 6. Build git ls-remote command
+                String[] lsRemoteCmd;
                 if (branch != null && !branch.isBlank()) {
-                    cloneCmd = new String[]{"git", "clone", "--depth", "1", "--single-branch",
-                            "--branch", branch, effectiveUrl, "/tmp/test-clone"};
+                    lsRemoteCmd = new String[]{"git", "ls-remote", "--heads", "--exit-code", effectiveUrl, "refs/heads/" + branch};
                 } else {
-                    cloneCmd = new String[]{"git", "clone", "--depth", "1", "--single-branch",
-                            effectiveUrl, "/tmp/test-clone"};
+                    lsRemoteCmd = new String[]{"git", "ls-remote", "--heads", "--exit-code", effectiveUrl};
                 }
 
+                // 7. Execute git ls-remote inside the container
+                log.info("Testing git access for URL: {}", cloneUrl);
                 ExecResult result;
-                if (usingSsh) {
-                    result = execWithSshCommand(containerId, cloneCmd);
+                if (usingSsh && sshPrivateKey != null && !sshPrivateKey.isBlank()) {
+                    result = execWithSshCommand(containerId, lsRemoteCmd);
                 } else {
-                    result = workspaceProvider.exec(containerId, cloneCmd);
+                    result = workspaceProvider.exec(containerId, lsRemoteCmd);
                 }
 
-                // 6. Check exit code
                 long durationMs = System.currentTimeMillis() - startTime;
+
                 if (result.getExitCode() == 0) {
+                    // Detect branch from ls-remote output
+                    String detectedBranch = branch;
+                    if (detectedBranch == null || detectedBranch.isBlank()) {
+                        String output = result.getStdout() != null ? result.getStdout().trim() : "";
+                        if (!output.isEmpty()) {
+                            String[] parts = output.split("\\s+");
+                            if (parts.length >= 2) {
+                                detectedBranch = parts[1].replace("refs/heads/", "");
+                            }
+                        }
+                    }
                     log.info("Git access test succeeded for URL: {}", cloneUrl);
                     return TestGitAccessResult.builder()
                             .success(true)
                             .message("Git repository is accessible")
-                            .branch(branch)
+                            .branch(detectedBranch)
                             .durationMs(durationMs)
                             .build();
                 } else {
-                    String errorMessage = sanitizeOutput(result.getStderr());
+                    String errorMessage = sanitizeOutput(
+                            result.getStderr() != null ? result.getStderr().trim() : "");
+                    if (errorMessage.isEmpty()) {
+                        errorMessage = "git ls-remote exited with code " + result.getExitCode();
+                    }
                     log.warn("Git access test failed for URL: {} - {}", cloneUrl, errorMessage);
                     return TestGitAccessResult.builder()
                             .success(false)
-                            .message("Git clone failed: " + errorMessage)
+                            .message("Git access failed: " + errorMessage)
                             .branch(branch)
                             .durationMs(durationMs)
                             .build();
                 }
             } finally {
-                // Clean up SSH key before container destruction
-                if (usingSsh) {
+                // Clean up SSH key from the container if it was set up
+                if (usingSsh && sshPrivateKey != null && !sshPrivateKey.isBlank()) {
                     cleanupSshKey(containerId);
                 }
             }
@@ -332,13 +341,13 @@ public class WorkspaceGitService {
                     .durationMs(durationMs)
                     .build();
         } finally {
-            // 7. Clean up: destroy the temporary container
+            // Always destroy the ephemeral container
             if (containerId != null) {
                 try {
                     workspaceProvider.destroyContainer(containerId);
-                    log.info("Destroyed temporary container {} after git access test", containerId);
+                    log.debug("Destroyed ephemeral container {}", containerId);
                 } catch (Exception e) {
-                    log.warn("Failed to destroy temporary container {}: {}", containerId, e.getMessage());
+                    log.warn("Failed to destroy ephemeral container {}: {}", containerId, e.getMessage());
                 }
             }
         }
@@ -349,12 +358,24 @@ public class WorkspaceGitService {
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
     }
 
+    /**
+     * Ensures git is available in the container. With the workspace-base image,
+     * git is pre-installed and this is a no-op. For custom images, attempts to
+     * install git via apt-get (will fail silently on read-only root filesystems).
+     */
     private void ensureGitInstalled(String containerId) {
         ExecResult check = workspaceProvider.exec(containerId, new String[]{"which", "git"});
-        if (check.getExitCode() != 0) {
-            log.info("Git not found, installing...");
-            workspaceProvider.exec(containerId,
-                    new String[]{"sh", "-c", "apt-get update -qq && apt-get install -y -qq git > /dev/null 2>&1"});
+        if (check.getExitCode() == 0) {
+            log.debug("Git is available in container {}", containerId);
+            return;
+        }
+        log.info("Git not found in container {}, attempting install...", containerId);
+        ExecResult install = workspaceProvider.exec(containerId,
+                new String[]{"sh", "-c", "apt-get update -qq && apt-get install -y -qq git > /dev/null 2>&1"});
+        if (install.getExitCode() != 0) {
+            log.warn("Failed to install git in container {} (exit code {}). "
+                    + "Use the squadron/workspace-base image which has git pre-installed.",
+                    containerId, install.getExitCode());
         }
     }
 

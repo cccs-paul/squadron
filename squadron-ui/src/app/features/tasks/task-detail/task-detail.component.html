@@ -18,9 +18,9 @@
         <h1 class="task-detail__title">{{ t.title }}</h1>
 
         <div class="task-detail__meta">
-          <span class="sq-badge" [class]="'sq-badge--' + priorityClass(t.priority)">{{ 'tasks.priority.' + t.priority.toLowerCase() | translate }}</span>
+          <span class="sq-badge" [class]="'sq-badge--' + priorityClass(t.priority)">{{ t.priority ? ('tasks.priority.' + t.priority.toLowerCase() | translate) : '' }}</span>
           <span class="state-badge" [style.color]="stateColor(t.state)" [style.background]="stateColor(t.state) + '20'">
-            {{ 'tasks.state.' + t.state | translate }}
+            {{ t.state ? ('tasks.state.' + t.state | translate) : '' }}
           </span>
           <span class="task-detail__date">Updated {{ t.updatedAt | timeAgo }}</span>
         </div>
@@ -39,12 +39,84 @@
             <div class="transition-buttons">
               @for (state of getAvailableTransitions(); track state) {
                 <button class="sq-btn sq-btn--secondary" (click)="transitionTo(state)">
-                  {{ 'tasks.state.' + state | translate }}
+                  {{ state ? ('tasks.state.' + state | translate) : '' }}
                 </button>
               }
             </div>
           </div>
         }
+
+        <!-- Agent Activity Panel -->
+        <div class="task-detail__agent-panel">
+          <div class="agent-panel__header">
+            <h3>{{ 'tasks.detail.agent.title' | translate }}</h3>
+            <button class="sq-btn sq-btn--primary sq-btn--sm" (click)="openAgentChat()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              {{ 'tasks.detail.agent.openChat' | translate }}
+            </button>
+          </div>
+
+          <!-- Live Progress -->
+          @if (agentProgress(); as p) {
+            <div class="agent-panel__progress">
+              <div class="progress-header">
+                <span class="progress-label">{{ 'tasks.detail.agent.liveProgress' | translate }}</span>
+                <span class="progress-agent-type">{{ p.agentType }}</span>
+              </div>
+              <div class="progress-step">{{ p.currentStep }}</div>
+              <div class="progress-bar">
+                <div class="progress-bar__fill" [style.width]="(progressPercent() * 100) + '%'"></div>
+              </div>
+              <div class="progress-count">{{ p.completedSteps }}/{{ p.totalSteps }} {{ 'tasks.detail.agent.steps' | translate }}</div>
+            </div>
+          } @else if (agentSession()) {
+            <div class="agent-panel__session">
+              <span class="session-status" [class]="'session-status--' + agentSession()!.status.toLowerCase()">
+                {{ 'tasks.detail.agent.status.' + agentSession()!.status | translate }}
+              </span>
+              <span class="session-tokens">{{ agentSession()!.totalTokens | number }} {{ 'tasks.detail.agent.tokens' | translate }}</span>
+            </div>
+          } @else {
+            <div class="agent-panel__empty">
+              {{ 'tasks.detail.agent.noActiveSession' | translate }}
+            </div>
+          }
+
+          <!-- Conversation History -->
+          <div class="agent-panel__conversations">
+            <h4>{{ 'tasks.detail.agent.conversations' | translate }}</h4>
+            @if (conversationSummaries().length > 0) {
+              <div class="conversation-list">
+                @for (conv of conversationSummaries(); track conv.id) {
+                  <div class="conversation-item">
+                    <div class="conversation-item__info">
+                      <span class="conversation-item__type">{{ conv.agentType }}</span>
+                      <span class="conversation-item__status" [class]="conversationStatusClass(conv.status)">
+                        {{ 'tasks.detail.agent.status.' + conv.status | translate }}
+                      </span>
+                    </div>
+                    <div class="conversation-item__meta">
+                      <span>{{ conv.messageCount }} {{ 'tasks.detail.agent.messages' | translate }}</span>
+                      <span class="separator">&middot;</span>
+                      <span>{{ conv.totalTokens | number }} {{ 'tasks.detail.agent.tokens' | translate }}</span>
+                      <span class="separator">&middot;</span>
+                      <span>{{ conv.updatedAt | timeAgo }}</span>
+                    </div>
+                    @if (conv.provider || conv.model) {
+                      <div class="conversation-item__model">
+                        {{ conv.model }}@if (conv.provider) { via {{ conv.provider }}}
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="no-conversations">{{ 'tasks.detail.agent.noConversations' | translate }}</div>
+            }
+          </div>
+        </div>
 
         @if (t.pullRequestUrl) {
           <div class="task-detail__section">
@@ -85,7 +157,7 @@
 
         <div class="sidebar-section">
           <h4>{{ 'tasks.detail.tokenUsage' | translate }}</h4>
-          <span class="token-value">{{ t.tokenUsage | number }} {{ 'tasks.detail.tokens' | translate }}</span>
+          <span class="token-value">{{ 'tasks.detail.tokens' | translate:{ count: t.tokenUsage | number } }}</span>
         </div>
 
         <div class="sidebar-section">

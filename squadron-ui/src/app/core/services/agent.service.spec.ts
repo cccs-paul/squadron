@@ -5,7 +5,7 @@ import { AgentService, AgentSession, AgentMessage } from './agent.service';
 import { WebSocketService } from './websocket.service';
 import { environment } from '../../../environments/environment';
 import { Subject } from 'rxjs';
-import { StreamChunk, AgentProgress } from '../models/agent.model';
+import { StreamChunk, AgentProgress, ConversationSummary } from '../models/agent.model';
 
 describe('AgentService', () => {
   let service: AgentService;
@@ -268,5 +268,53 @@ describe('AgentService', () => {
     expect(received).toBeDefined();
     expect(received!.type).toBe('interrupted');
     expect(received!.content).toBe('Cancelled by user');
+  });
+
+  it('should_getConversationSummaries_when_calledWithTaskId', () => {
+    const mockSummaries: ConversationSummary[] = [
+      {
+        id: 'conv-1',
+        taskId: 'task-1',
+        agentType: 'PLANNING',
+        status: 'COMPLETED',
+        provider: 'github-copilot',
+        model: 'claude-sonnet-4',
+        totalTokens: 1500,
+        messageCount: 8,
+        createdAt: '2026-04-01T10:00:00Z',
+        updatedAt: '2026-04-01T10:05:00Z',
+      },
+      {
+        id: 'conv-2',
+        taskId: 'task-1',
+        agentType: 'CODING',
+        status: 'ACTIVE',
+        totalTokens: 5000,
+        messageCount: 15,
+        createdAt: '2026-04-01T11:00:00Z',
+        updatedAt: '2026-04-01T11:30:00Z',
+      },
+    ];
+
+    service.getConversationSummaries('task-1').subscribe((summaries) => {
+      expect(summaries).toEqual(mockSummaries);
+      expect(summaries.length).toBe(2);
+      expect(summaries[0].agentType).toBe('PLANNING');
+      expect(summaries[1].status).toBe('ACTIVE');
+    });
+
+    const req = httpTesting.expectOne(`${apiUrl}/agents/chat/task/task-1/summaries`);
+    expect(req.request.method).toBe('GET');
+    req.flush(mockSummaries);
+  });
+
+  it('should_getConversationSummaries_when_emptyList', () => {
+    service.getConversationSummaries('task-empty').subscribe((summaries) => {
+      expect(summaries).toEqual([]);
+    });
+
+    const req = httpTesting.expectOne(`${apiUrl}/agents/chat/task/task-empty/summaries`);
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
   });
 });

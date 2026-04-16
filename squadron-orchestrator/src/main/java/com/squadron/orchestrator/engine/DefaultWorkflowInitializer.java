@@ -55,8 +55,10 @@ public class DefaultWorkflowInitializer implements ApplicationRunner {
         transitions.add(Map.of("from", "PRIORITIZED", "to", "BACKLOG"));
         transitions.add(Map.of("from", "PLANNING", "to", "PROPOSE_CODE"));
         transitions.add(Map.of("from", "PLANNING", "to", "PRIORITIZED"));
-        transitions.add(Map.of("from", "PROPOSE_CODE", "to", "REVIEW"));
+        transitions.add(Map.of("from", "PROPOSE_CODE", "to", "IN_PROGRESS"));
         transitions.add(Map.of("from", "PROPOSE_CODE", "to", "PLANNING"));
+        transitions.add(Map.of("from", "IN_PROGRESS", "to", "REVIEW"));
+        transitions.add(Map.of("from", "IN_PROGRESS", "to", "PROPOSE_CODE"));
         transitions.add(Map.of("from", "REVIEW", "to", "QA"));
         transitions.add(Map.of("from", "REVIEW", "to", "PROPOSE_CODE"));
         transitions.add(Map.of("from", "QA", "to", "MERGE"));

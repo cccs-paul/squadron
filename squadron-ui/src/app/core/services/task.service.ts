@@ -29,15 +29,17 @@ export class TaskService extends ApiService {
   }
 
   transitionTask(id: string, toState: TaskState): Observable<Task> {
-    return this.post<Task>(`/tasks/${id}/transition`, { toState });
+    return this.post<Task>(`/tasks/${id}/transition`, { targetState: toState });
   }
 
   getTasksByState(): Observable<Record<TaskState, Task[]>> {
-    return this.get<Record<TaskState, Task[]>>('/tasks/by-state');
+    return this.http.get<ApiResponse<Record<TaskState, Task[]>>>(`${this.baseUrl}/tasks/by-state`)
+      .pipe(map(r => r.data));
   }
 
   getTaskStats(): Observable<{ total: number; byState: Record<TaskState, number>; byPriority: Record<string, number> }> {
-    return this.get('/tasks/stats');
+    return this.http.get<ApiResponse<{ total: number; byState: Record<TaskState, number>; byPriority: Record<string, number> }>>(`${this.baseUrl}/tasks/stats`)
+      .pipe(map(r => r.data));
   }
 
   syncTasks(request: TaskSyncRequest): Observable<TaskSyncResult> {

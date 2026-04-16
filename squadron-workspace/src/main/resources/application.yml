@@ -40,6 +40,7 @@ squadron:
     docker:
       host: ${DOCKER_HOST:unix:///var/run/docker.sock}
       network: ${SQUADRON_WORKSPACE_DOCKER_NETWORK:}
+      base-image: ${SQUADRON_WORKSPACE_BASE_IMAGE:squadron/workspace-base:latest}
 
 management:
   endpoints:

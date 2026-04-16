@@ -49,14 +49,14 @@
     <select class="sq-select" [ngModel]="filterStatus()" (ngModelChange)="onFilterStatusChange($event)">
       <option value="">{{ 'reviews.list.allStatuses' | translate }}</option>
       @for (s of allStatuses; track s) {
-        <option [value]="s">{{ 'reviews.status.' + s | translate }}</option>
+        <option [value]="s">{{ s ? ('reviews.status.' + s | translate) : '' }}</option>
       }
     </select>
 
     <select class="sq-select" [ngModel]="filterReviewerType()" (ngModelChange)="filterReviewerType.set($event)">
       <option value="">{{ 'reviews.list.allReviewers' | translate }}</option>
       @for (rt of allReviewerTypes; track rt) {
-        <option [value]="rt">{{ 'reviews.reviewerType.' + rt | translate }}</option>
+        <option [value]="rt">{{ rt ? ('reviews.reviewerType.' + rt | translate) : '' }}</option>
       }
     </select>
   </div>
@@ -97,14 +97,14 @@
               </div>
             </td>
             <td><span class="task-title">{{ review.taskTitle }}</span></td>
-            <td><span class="sq-badge" [class]="'sq-badge--' + statusClass(review.status)">{{ 'reviews.status.' + review.status | translate }}</span></td>
+            <td><span class="sq-badge" [class]="'sq-badge--' + statusClass(review.status)">{{ review.status ? ('reviews.status.' + review.status | translate) : '' }}</span></td>
             <td>
               <span class="changes">
                 <span class="changes--add">+{{ review.linesAdded }}</span>
                 <span class="changes--remove">-{{ review.linesRemoved }}</span>
               </span>
             </td>
-            <td><span class="sq-badge sq-badge--neutral">{{ 'reviews.reviewerType.' + review.reviewerType | translate }}</span></td>
+            <td><span class="sq-badge sq-badge--neutral">{{ review.reviewerType ? ('reviews.reviewerType.' + review.reviewerType | translate) : '' }}</span></td>
             <td>
               @if (unresolvedCount(review) > 0) {
                 <span class="unresolved-badge">{{ unresolvedCount(review) }}</span>

@@ -136,7 +136,7 @@
     <select class="sq-select" [ngModel]="filterState()" (ngModelChange)="filterState.set($event)">
       <option value="">{{ 'tasks.board.filter.allStates' | translate }}</option>
       @for (state of allStates; track state) {
-        <option [value]="state">{{ 'tasks.state.' + state | translate }}</option>
+        <option [value]="state">{{ state ? ('tasks.state.' + state | translate) : '' }}</option>
       }
     </select>
   </div>
@@ -149,7 +149,7 @@
     </div>
   } @else if (viewMode() === 'board') {
     <div class="board">
-      @for (column of filteredColumns(); track column.id) {
+      @for (column of filteredColumns(); track column.id; let colIndex = $index) {
         <div class="board__column">
           <div class="board__column-header" [style.border-top-color]="column.color">
             <div class="board__column-title">
@@ -158,12 +158,12 @@
               <span class="board__column-count">{{ column.tasks.length }}</span>
             </div>
           </div>
-          <div class="board__column-body" cdkDropList [id]="'drop-list-' + column.id" [cdkDropListData]="column.tasks" [cdkDropListConnectedTo]="connectedDropLists()" (cdkDropListDropped)="drop($event, column)">
+          <div class="board__column-body" cdkDropList [id]="'drop-list-' + column.id" [cdkDropListData]="column.tasks" [cdkDropListConnectedTo]="getConnectedLists(colIndex)" (cdkDropListDropped)="drop($event, column)">
             @for (task of column.tasks; track task.id) {
               <div cdkDrag [cdkDragData]="task" class="board__task-wrapper">
                 <div class="board__task-card" (click)="openTask(task)">
                   <div class="board__task-top-row">
-                    <span class="sq-badge" [class]="'sq-badge--' + priorityBadgeClass(task.priority)">{{ task.priority }}</span>
+                    <span class="sq-badge" [class]="'sq-badge--' + priorityBadgeClass(task.priority)">{{ task.priority ? ('tasks.priority.' + task.priority.toLowerCase() | translate) : '' }}</span>
                     @if (task.externalId) {
                       <span class="board__task-external-id">{{ task.externalId }}</span>
                     }
@@ -269,7 +269,7 @@
       @for (task of allTasks(); track task.id) {
         <div class="task-list__row" (click)="openTask(task)">
           <span class="task-list__col task-list__col--priority">
-            <span class="sq-badge sq-badge--sm" [class]="'sq-badge--' + priorityBadgeClass(task.priority)">{{ task.priority }}</span>
+            <span class="sq-badge sq-badge--sm" [class]="'sq-badge--' + priorityBadgeClass(task.priority)">{{ task.priority ? ('tasks.priority.' + task.priority.toLowerCase() | translate) : '' }}</span>
           </span>
           <span class="task-list__col task-list__col--id">
             <span class="task-list__external-id">{{ task.externalId || '-' }}</span>

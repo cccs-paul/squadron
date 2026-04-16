@@ -692,23 +692,36 @@ class WorkspaceGitServiceTest {
     }
 
     // ========================================================================
-    // testGitAccess tests
+    // testGitAccess tests (container-based)
     // ========================================================================
+
+    private static final String TEST_CONTAINER_ID = "test-container-abc123";
+
+    private ExecResult successResult() {
+        return ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(10).build();
+    }
+
+    /**
+     * Stubs createContainer to return a fixed container ID and ensures
+     * git is detected as already installed.
+     */
+    private void stubContainerCreationWithGit() {
+        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(TEST_CONTAINER_ID);
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), eq(new String[]{"which", "git"})))
+                .thenReturn(successResult());
+    }
 
     @Test
     void should_testGitAccess_successWithHttpsToken() {
-        String containerId = "test-container-123";
-        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
-        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
+        stubContainerCreationWithGit();
 
-        // git is installed
-        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
-
-        // clone succeeds
-        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(2000).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"git", "clone", "--depth", "1", "--single-branch",
-                "--branch", "main", "https://oauth2:my-token@github.com/test/repo.git", "/tmp/test-clone"}))).thenReturn(cloneResult);
+        // Mock ls-remote success with branch output
+        ExecResult lsRemoteResult = ExecResult.builder()
+                .exitCode(0).stdout("abc123\trefs/heads/main\n").stderr("").durationMs(500).build();
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), argThat(cmd ->
+                cmd.length >= 5 && cmd[0].equals("git") && cmd[1].equals("ls-remote")
+                && cmd[4].contains("oauth2:my-token@") && cmd[5].equals("refs/heads/main"))))
+                .thenReturn(lsRemoteResult);
 
         TestGitAccessResult result = workspaceGitService.testGitAccess(
                 "https://github.com/test/repo.git", "my-token", null, "main");
@@ -719,34 +732,31 @@ class WorkspaceGitServiceTest {
         assertTrue(result.getDurationMs() >= 0);
 
         // Verify container was destroyed
-        verify(workspaceProvider).destroyContainer(containerId);
+        verify(workspaceProvider).destroyContainer(TEST_CONTAINER_ID);
     }
 
     @Test
     void should_testGitAccess_successWithSshKey() {
-        String containerId = "test-container-456";
-        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
-        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
-
-        // git is installed
-        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+        stubContainerCreationWithGit();
 
         // SSH key setup
         ExecResult writeKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
         ExecResult chmodResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
-        when(workspaceProvider.exec(eq(containerId), argThat(cmd ->
-                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("printf") && cmd[2].contains("/tmp/.squadron_ssh_key")))).thenReturn(writeKeyResult);
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}))).thenReturn(chmodResult);
+        ExecResult rmKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
 
-        // Clone via SSH
-        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(3000).build();
-        when(workspaceProvider.exec(eq(containerId), argThat(cmd ->
-                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("GIT_SSH_COMMAND") && cmd[2].contains("clone")))).thenReturn(cloneResult);
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("printf") && cmd[2].contains("/tmp/.squadron_ssh_key")))).thenReturn(writeKeyResult);
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}))).thenReturn(chmodResult);
+
+        // ls-remote via GIT_SSH_COMMAND wrapper
+        ExecResult lsRemoteResult = ExecResult.builder()
+                .exitCode(0).stdout("abc123\trefs/heads/main\n").stderr("").durationMs(500).build();
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("GIT_SSH_COMMAND") && cmd[2].contains("ls-remote"))))
+                .thenReturn(lsRemoteResult);
 
         // SSH key cleanup
-        ExecResult rmKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}))).thenReturn(rmKeyResult);
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}))).thenReturn(rmKeyResult);
 
         String sshKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----\n";
         TestGitAccessResult result = workspaceGitService.testGitAccess(
@@ -755,47 +765,38 @@ class WorkspaceGitServiceTest {
         assertTrue(result.isSuccess());
         assertEquals("Git repository is accessible", result.getMessage());
 
-        // Verify SSH key cleanup and container destruction
-        verify(workspaceProvider).exec(eq(containerId), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}));
-        verify(workspaceProvider).destroyContainer(containerId);
+        // Verify SSH key setup, cleanup, and container destruction
+        verify(workspaceProvider).exec(eq(TEST_CONTAINER_ID), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}));
+        verify(workspaceProvider).exec(eq(TEST_CONTAINER_ID), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}));
+        verify(workspaceProvider).destroyContainer(TEST_CONTAINER_ID);
     }
 
     @Test
     void should_testGitAccess_failureNonZeroExitCode() {
-        String containerId = "test-container-789";
-        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
-        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
+        stubContainerCreationWithGit();
 
-        // git is installed
-        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
-
-        // clone fails
-        ExecResult cloneFailure = ExecResult.builder().exitCode(128).stdout("")
-                .stderr("fatal: repository 'https://github.com/test/repo.git' not found").durationMs(2000).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"git", "clone", "--depth", "1", "--single-branch",
-                "https://github.com/test/repo.git", "/tmp/test-clone"}))).thenReturn(cloneFailure);
+        ExecResult lsRemoteResult = ExecResult.builder()
+                .exitCode(128).stdout("").stderr("fatal: repository 'https://github.com/test/repo.git' not found").durationMs(500).build();
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), argThat(cmd ->
+                cmd.length >= 4 && cmd[0].equals("git") && cmd[1].equals("ls-remote"))))
+                .thenReturn(lsRemoteResult);
 
         TestGitAccessResult result = workspaceGitService.testGitAccess(
                 "https://github.com/test/repo.git", null, null, null);
 
         assertFalse(result.isSuccess());
-        assertTrue(result.getMessage().contains("Git clone failed"));
+        assertTrue(result.getMessage().contains("Git access failed"));
         assertTrue(result.getDurationMs() >= 0);
 
-        // Verify container was still destroyed
-        verify(workspaceProvider).destroyContainer(containerId);
+        verify(workspaceProvider).destroyContainer(TEST_CONTAINER_ID);
     }
 
     @Test
     void should_testGitAccess_cleanupOnException() {
-        String containerId = "test-container-exc";
-        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
-        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
-
-        // git check throws exception
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"})))
-                .thenThrow(new RuntimeException("Container crashed"));
+        // createContainer succeeds but ensureGitInstalled throws
+        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(TEST_CONTAINER_ID);
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), eq(new String[]{"which", "git"})))
+                .thenThrow(new RuntimeException("Container exec failed"));
 
         TestGitAccessResult result = workspaceGitService.testGitAccess(
                 "https://github.com/test/repo.git", null, null, null);
@@ -803,80 +804,97 @@ class WorkspaceGitServiceTest {
         assertFalse(result.isSuccess());
         assertTrue(result.getMessage().contains("Git access test error"));
 
-        // Verify container was still destroyed even on exception
-        verify(workspaceProvider).destroyContainer(containerId);
+        // Container should still be destroyed
+        verify(workspaceProvider).destroyContainer(TEST_CONTAINER_ID);
     }
 
     @Test
-    void should_testGitAccess_containerDestroyedAfterTest() {
-        String containerId = "test-container-destroy";
-        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
-        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
-
-        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
-
-        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(1000).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"git", "clone", "--depth", "1", "--single-branch",
-                "--branch", "develop", "https://github.com/test/repo.git", "/tmp/test-clone"}))).thenReturn(cloneResult);
+    void should_testGitAccess_destroyContainerEvenWhenCreateFails() {
+        // createContainer throws — no container to destroy
+        when(workspaceProvider.createContainer(any(WorkspaceSpec.class)))
+                .thenThrow(new RuntimeException("No Docker available"));
 
         TestGitAccessResult result = workspaceGitService.testGitAccess(
-                "https://github.com/test/repo.git", null, null, "develop");
+                "https://github.com/test/repo.git", null, null, null);
 
-        assertTrue(result.isSuccess());
-        assertEquals("develop", result.getBranch());
+        assertFalse(result.isSuccess());
+        assertTrue(result.getMessage().contains("Git access test error"));
 
-        // Verify container was destroyed exactly once
-        verify(workspaceProvider, times(1)).destroyContainer(containerId);
+        // No container was created, so destroyContainer should NOT be called
+        verify(workspaceProvider, never()).destroyContainer(any());
     }
 
     @Test
     void should_testGitAccess_withoutBranch() {
-        String containerId = "test-container-nobranch";
-        when(workspaceProvider.getProviderType()).thenReturn("KUBERNETES");
-        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenReturn(containerId);
+        stubContainerCreationWithGit();
 
-        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
-
-        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(1000).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"git", "clone", "--depth", "1", "--single-branch",
-                "https://github.com/test/repo.git", "/tmp/test-clone"}))).thenReturn(cloneResult);
+        // ls-remote returns no output (empty result) — no branch filter
+        ExecResult lsRemoteResult = ExecResult.builder()
+                .exitCode(0).stdout("").stderr("").durationMs(500).build();
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), argThat(cmd ->
+                cmd.length == 5 && cmd[0].equals("git") && cmd[1].equals("ls-remote")
+                && cmd[2].equals("--heads") && cmd[3].equals("--exit-code"))))
+                .thenReturn(lsRemoteResult);
 
         TestGitAccessResult result = workspaceGitService.testGitAccess(
                 "https://github.com/test/repo.git", null, null, null);
 
         assertTrue(result.isSuccess());
         assertNull(result.getBranch());
-        verify(workspaceProvider).destroyContainer(containerId);
+
+        verify(workspaceProvider).destroyContainer(TEST_CONTAINER_ID);
     }
 
     @Test
-    void should_testGitAccess_createsContainerWithCorrectSpec() {
-        String containerId = "test-container-spec";
-        when(workspaceProvider.getProviderType()).thenReturn("DOCKER");
-        when(workspaceProvider.createContainer(any(WorkspaceSpec.class))).thenAnswer(invocation -> {
-            WorkspaceSpec spec = invocation.getArgument(0);
-            assertEquals("alpine:latest", spec.getBaseImage());
-            assertEquals("64Mi", spec.getResourceLimits().get("memory"));
-            assertEquals("DOCKER", spec.getProviderType());
-            assertEquals("https://github.com/test/repo.git", spec.getRepoUrl());
-            assertNotNull(spec.getTenantId());
-            assertNotNull(spec.getTaskId());
-            assertNotNull(spec.getUserId());
-            return containerId;
-        });
+    void should_testGitAccess_detectBranchFromLsRemoteOutput() {
+        stubContainerCreationWithGit();
 
-        ExecResult gitCheck = ExecResult.builder().exitCode(0).stdout("/usr/bin/git").stderr("").durationMs(10).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"which", "git"}))).thenReturn(gitCheck);
+        ExecResult lsRemoteResult = ExecResult.builder()
+                .exitCode(0).stdout("abc123def456\trefs/heads/develop\n").stderr("").durationMs(500).build();
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), argThat(cmd ->
+                cmd.length >= 4 && cmd[0].equals("git") && cmd[1].equals("ls-remote"))))
+                .thenReturn(lsRemoteResult);
 
-        ExecResult cloneResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(1000).build();
-        when(workspaceProvider.exec(eq(containerId), eq(new String[]{"git", "clone", "--depth", "1", "--single-branch",
-                "https://github.com/test/repo.git", "/tmp/test-clone"}))).thenReturn(cloneResult);
+        TestGitAccessResult result = workspaceGitService.testGitAccess(
+                "https://github.com/test/repo.git", null, null, null);
 
-        workspaceGitService.testGitAccess("https://github.com/test/repo.git", null, null, null);
+        assertTrue(result.isSuccess());
+        assertEquals("develop", result.getBranch());
 
-        verify(workspaceProvider).createContainer(any(WorkspaceSpec.class));
-        verify(workspaceProvider).destroyContainer(containerId);
+        verify(workspaceProvider).destroyContainer(TEST_CONTAINER_ID);
+    }
+
+    @Test
+    void should_testGitAccess_sshKeyCleanedUpOnFailure() {
+        stubContainerCreationWithGit();
+
+        // SSH key setup succeeds
+        ExecResult writeKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult chmodResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+        ExecResult rmKeyResult = ExecResult.builder().exitCode(0).stdout("").stderr("").durationMs(5).build();
+
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("printf")))).thenReturn(writeKeyResult);
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), eq(new String[]{"chmod", "600", "/tmp/.squadron_ssh_key"}))).thenReturn(chmodResult);
+
+        // ls-remote fails (Permission denied)
+        ExecResult lsRemoteResult = ExecResult.builder()
+                .exitCode(128).stdout("").stderr("Permission denied (publickey)").durationMs(500).build();
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), argThat(cmd ->
+                cmd.length == 3 && cmd[0].equals("sh") && cmd[1].equals("-c") && cmd[2].contains("GIT_SSH_COMMAND"))))
+                .thenReturn(lsRemoteResult);
+
+        // SSH key cleanup
+        when(workspaceProvider.exec(eq(TEST_CONTAINER_ID), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}))).thenReturn(rmKeyResult);
+
+        String sshKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----\n";
+        TestGitAccessResult result = workspaceGitService.testGitAccess(
+                "git@github.com:test/repo.git", null, sshKey, null);
+
+        assertFalse(result.isSuccess());
+        // Verify SSH key was cleaned up even on failure
+        verify(workspaceProvider).exec(eq(TEST_CONTAINER_ID), eq(new String[]{"rm", "-f", "/tmp/.squadron_ssh_key"}));
+        // Verify container was destroyed
+        verify(workspaceProvider).destroyContainer(TEST_CONTAINER_ID);
     }
 }

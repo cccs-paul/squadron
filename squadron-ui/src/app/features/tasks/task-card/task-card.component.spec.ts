@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { TaskCardComponent } from './task-card.component';
 import { Task, TaskState, TaskPriority } from '../../../core/models/task.model';
 
@@ -24,7 +25,7 @@ describe('TaskCardComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [TaskCardComponent],
+      imports: [TaskCardComponent, TranslateModule.forRoot()],
     }).compileComponents();
 
     fixture = TestBed.createComponent(TaskCardComponent);

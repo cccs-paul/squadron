@@ -9,8 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class TaskStateTest {
 
     @Test
-    void should_haveEightStates() {
-        assertEquals(8, TaskState.values().length);
+    void should_haveNineStates() {
+        assertEquals(9, TaskState.values().length);
     }
 
     @Test
@@ -35,6 +35,12 @@ class TaskStateTest {
     void should_containProposeCodeState() {
         assertNotNull(TaskState.PROPOSE_CODE);
         assertEquals("PROPOSE_CODE", TaskState.PROPOSE_CODE.name());
+    }
+
+    @Test
+    void should_containInProgressState() {
+        assertNotNull(TaskState.IN_PROGRESS);
+        assertEquals("IN_PROGRESS", TaskState.IN_PROGRESS.name());
     }
 
     @Test
@@ -67,6 +73,7 @@ class TaskStateTest {
         assertEquals(TaskState.PRIORITIZED, TaskState.valueOf("PRIORITIZED"));
         assertEquals(TaskState.PLANNING, TaskState.valueOf("PLANNING"));
         assertEquals(TaskState.PROPOSE_CODE, TaskState.valueOf("PROPOSE_CODE"));
+        assertEquals(TaskState.IN_PROGRESS, TaskState.valueOf("IN_PROGRESS"));
         assertEquals(TaskState.REVIEW, TaskState.valueOf("REVIEW"));
         assertEquals(TaskState.QA, TaskState.valueOf("QA"));
         assertEquals(TaskState.MERGE, TaskState.valueOf("MERGE"));
@@ -84,9 +91,10 @@ class TaskStateTest {
         assertEquals(1, TaskState.PRIORITIZED.ordinal());
         assertEquals(2, TaskState.PLANNING.ordinal());
         assertEquals(3, TaskState.PROPOSE_CODE.ordinal());
-        assertEquals(4, TaskState.REVIEW.ordinal());
-        assertEquals(5, TaskState.QA.ordinal());
-        assertEquals(6, TaskState.MERGE.ordinal());
-        assertEquals(7, TaskState.DONE.ordinal());
+        assertEquals(4, TaskState.IN_PROGRESS.ordinal());
+        assertEquals(5, TaskState.REVIEW.ordinal());
+        assertEquals(6, TaskState.QA.ordinal());
+        assertEquals(7, TaskState.MERGE.ordinal());
+        assertEquals(8, TaskState.DONE.ordinal());
     }
 }

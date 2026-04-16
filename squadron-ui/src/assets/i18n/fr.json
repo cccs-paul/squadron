@@ -423,10 +423,13 @@
       "emptyColumn": "Aucune tâche",
       "column": {
         "backlog": "File d'attente",
+        "prioritized": "Priorisé",
         "planning": "Planification",
+        "proposeCode": "Proposition de code",
         "inProgress": "En cours",
         "review": "Revue",
         "qa": "AQ",
+        "merge": "Fusion",
         "done": "Terminé",
         "planned": "Planifié",
         "completed": "Terminé"
@@ -504,6 +507,27 @@
       },
       "meta": {
         "updated": "Mis à jour"
+      },
+      "agent": {
+        "title": "Activité de l'agent",
+        "assignedAgent": "Agent assigné",
+        "noAgent": "Aucun agent assigné",
+        "changeAgent": "Changer",
+        "conversations": "Conversations",
+        "noConversations": "Aucune conversation",
+        "openChat": "Ouvrir le chat",
+        "viewConversation": "Voir",
+        "status": {
+          "ACTIVE": "En cours",
+          "COMPLETED": "Terminé",
+          "FAILED": "Échoué",
+          "WAITING_INPUT": "En attente"
+        },
+        "messages": "messages",
+        "tokens": "jetons",
+        "liveProgress": "Progression en direct",
+        "noActiveSession": "Aucune session agent active",
+        "steps": "étapes"
       }
     },
     "priority": {
@@ -625,6 +649,18 @@
         "MINOR": "Mineur",
         "INFO": "Info"
       },
+      "category": {
+        "SECURITY": "Sécurité",
+        "PERFORMANCE": "Performance",
+        "MAINTAINABILITY": "Maintenabilité",
+        "RELIABILITY": "Fiabilité",
+        "STYLE": "Style",
+        "BUG": "Bogue",
+        "BEST_PRACTICE": "Bonne pratique",
+        "DOCUMENTATION": "Documentation",
+        "TESTING": "Test",
+        "OTHER": "Autre"
+      },
       "requestChanges": "Demander des modifications",
       "requestChangesPlaceholder": "Décrivez les modifications souhaitées...",
       "resolve": "Résoudre",
@@ -743,7 +779,11 @@
     "connection": {
       "CONNECTED": "Connecté",
       "CONNECTING": "Connexion...",
-      "DISCONNECTED": "Déconnecté"
+      "DISCONNECTED": "Déconnecté",
+      "connected": "Connecté",
+      "connecting": "Connexion...",
+      "disconnected": "Déconnecté",
+      "error": "Erreur"
     },
     "meta": {
       "statusLabel": "Statut :",

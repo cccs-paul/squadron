@@ -89,6 +89,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     hostingType: 'PLATFORM',
     models: [
       { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+      { id: 'gemma-4', label: 'Gemma 4' },
     ],
   },
   {
@@ -108,6 +109,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
       { id: 'deepseek-coder-v2', label: 'DeepSeek Coder v2' },
       { id: 'codestral', label: 'Codestral' },
       { id: 'qwen2.5-coder', label: 'Qwen 2.5 Coder' },
+      { id: 'gemma4', label: 'Gemma 4' },
     ],
   },
 ];

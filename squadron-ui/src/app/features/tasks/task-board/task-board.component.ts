@@ -137,21 +137,42 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     }));
   });
 
-  connectedDropLists = computed(() => this.columns().map(col => `drop-list-${col.id}`));
+  /** Connected drop lists: restrict drag-drop to adjacent columns only */
+  connectedDropLists = computed(() => {
+    const cols = this.columns();
+    return cols.map((col, idx) => {
+      const connected: string[] = [];
+      if (idx > 0) connected.push(`drop-list-${cols[idx - 1].id}`);
+      if (idx < cols.length - 1) connected.push(`drop-list-${cols[idx + 1].id}`);
+      return connected;
+    });
+  });
+
+  /** Get connected drop list IDs for a specific column index */
+  getConnectedLists(colIndex: number): string[] {
+    return this.connectedDropLists()[colIndex] ?? [];
+  }
 
   /** Total task counts for the summary bar */
-  totalInProgress = computed(() => {
-    const col = this.filteredColumns().find(c => c.id === 'in-progress');
-    return col ? col.tasks.length : 0;
-  });
-  totalPlanned = computed(() => {
-    const col = this.filteredColumns().find(c => c.id === 'planned');
-    return col ? col.tasks.length : 0;
-  });
-  totalCompleted = computed(() => {
-    const col = this.filteredColumns().find(c => c.id === 'completed');
-    return col ? col.tasks.length : 0;
-  });
+  private static readonly PLANNED_STATES = new Set([TaskState.BACKLOG, TaskState.PRIORITIZED, TaskState.PLANNING]);
+  private static readonly IN_PROGRESS_STATES = new Set([TaskState.PROPOSE_CODE, TaskState.IN_PROGRESS, TaskState.REVIEW, TaskState.QA, TaskState.MERGE]);
+  private static readonly COMPLETED_STATES = new Set([TaskState.DONE]);
+
+  totalPlanned = computed(() =>
+    this.filteredColumns()
+      .filter(c => TaskBoardComponent.PLANNED_STATES.has(c.states[0]))
+      .reduce((sum, c) => sum + c.tasks.length, 0),
+  );
+  totalInProgress = computed(() =>
+    this.filteredColumns()
+      .filter(c => TaskBoardComponent.IN_PROGRESS_STATES.has(c.states[0]))
+      .reduce((sum, c) => sum + c.tasks.length, 0),
+  );
+  totalCompleted = computed(() =>
+    this.filteredColumns()
+      .filter(c => TaskBoardComponent.COMPLETED_STATES.has(c.states[0]))
+      .reduce((sum, c) => sum + c.tasks.length, 0),
+  );
   totalTasks = computed(() => this.totalInProgress() + this.totalPlanned() + this.totalCompleted());
 
   ngOnInit(): void {
@@ -204,63 +225,48 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Column definitions for the 9-column board — one column per TaskState. */
+  private static readonly COLUMN_DEFS: { id: string; state: TaskState; label: string; color: string; icon: string }[] = [
+    { id: 'backlog',      state: TaskState.BACKLOG,       label: 'tasks.board.column.backlog',      color: '#94A3B8', icon: 'inbox' },
+    { id: 'prioritized',  state: TaskState.PRIORITIZED,   label: 'tasks.board.column.prioritized',  color: '#A78BFA', icon: 'star' },
+    { id: 'planning',     state: TaskState.PLANNING,      label: 'tasks.board.column.planning',     color: '#818CF8', icon: 'calendar' },
+    { id: 'propose-code', state: TaskState.PROPOSE_CODE,  label: 'tasks.board.column.proposeCode',  color: '#38BDF8', icon: 'code' },
+    { id: 'in-progress',  state: TaskState.IN_PROGRESS,   label: 'tasks.board.column.inProgress',   color: '#06B6D4', icon: 'play' },
+    { id: 'review',       state: TaskState.REVIEW,        label: 'tasks.board.column.review',       color: '#F59E0B', icon: 'review' },
+    { id: 'qa',           state: TaskState.QA,            label: 'tasks.board.column.qa',            color: '#8B5CF6', icon: 'qa' },
+    { id: 'merge',        state: TaskState.MERGE,         label: 'tasks.board.column.merge',         color: '#22C55E', icon: 'merge' },
+    { id: 'done',         state: TaskState.DONE,          label: 'tasks.board.column.done',          color: '#10B981', icon: 'check' },
+  ];
+
   private buildColumns(tasksByState: Record<string, Task[]>, pMap: Record<string, Project>): void {
     const enrichTask = (task: Task): BoardTask => ({
       ...task,
       projectName: pMap[task.projectId]?.name,
     });
 
-    const inProgressTasks = [
-      ...(tasksByState[TaskState.PROPOSE_CODE] ?? []),
-      ...(tasksByState[TaskState.IN_PROGRESS] ?? []),
-      ...(tasksByState[TaskState.REVIEW] ?? []),
-      ...(tasksByState[TaskState.QA] ?? []),
-      ...(tasksByState[TaskState.MERGE] ?? []),
-    ].map(enrichTask);
-
-    const plannedTasks = [
-      ...(tasksByState[TaskState.BACKLOG] ?? []),
-      ...(tasksByState[TaskState.PRIORITIZED] ?? []),
-      ...(tasksByState[TaskState.PLANNING] ?? []),
-    ].map(enrichTask);
-
-    const completedTasks = [
-      ...(tasksByState[TaskState.DONE] ?? []),
-    ].map(enrichTask);
-
-    this.columns.set([
-      {
-        id: 'planned',
-        label: 'tasks.board.column.planned',
-        color: '#818CF8',
-        icon: 'calendar',
-        states: [TaskState.BACKLOG, TaskState.PRIORITIZED, TaskState.PLANNING],
-        tasks: plannedTasks,
-      },
-      {
-        id: 'in-progress',
-        label: 'tasks.board.column.inProgress',
-        color: '#06B6D4',
-        icon: 'play',
-        states: [TaskState.PROPOSE_CODE, TaskState.IN_PROGRESS, TaskState.REVIEW, TaskState.QA, TaskState.MERGE],
-        tasks: inProgressTasks,
-      },
-      {
-        id: 'completed',
-        label: 'tasks.board.column.completed',
-        color: '#10B981',
-        icon: 'check',
-        states: [TaskState.DONE],
-        tasks: completedTasks,
-      },
-    ]);
+    this.columns.set(
+      TaskBoardComponent.COLUMN_DEFS.map(def => ({
+        id: def.id,
+        label: def.label,
+        color: def.color,
+        icon: def.icon,
+        states: [def.state],
+        tasks: (tasksByState[def.state] ?? []).map(enrichTask),
+      })),
+    );
   }
 
-  private loadAgentSessions(): void {
-    const inProgressCol = this.columns().find(c => c.id === 'in-progress');
-    if (!inProgressCol) return;
+  /** States whose tasks may have active agent sessions */
+  private static readonly AGENT_SESSION_STATES = new Set([
+    TaskState.PROPOSE_CODE, TaskState.IN_PROGRESS, TaskState.REVIEW, TaskState.QA, TaskState.MERGE,
+  ]);
 
-    inProgressCol.tasks.forEach(task => {
+  private loadAgentSessions(): void {
+    const activeTasks = this.columns()
+      .filter(c => TaskBoardComponent.AGENT_SESSION_STATES.has(c.states[0]))
+      .flatMap(c => c.tasks);
+
+    activeTasks.forEach(task => {
       const sub = this.agentService.getSession(task.id).subscribe({
         next: (session) => {
           const sessions = { ...this.agentSessions() };
@@ -317,6 +323,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   }
 
   getStateBadge(task: BoardTask): string {
+    if (!task.state) return '';
     return this.translate.instant(`tasks.state.${task.state}`);
   }
 
@@ -403,7 +410,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   private transitionToBacklog(task: BoardTask): void {
     this.taskService.transitionTask(task.id, TaskState.BACKLOG).subscribe({
       next: () => {
-        this.moveTaskToColumn(task, 'planned');
+        this.moveTaskToColumn(task, 'backlog');
         this.cancellingTaskId.set(null);
         this.cleanupWorkspace(task.id);
       },
@@ -582,6 +589,10 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
 
       const targetState = targetColumn.states[0];
       this.taskService.transitionTask(task.id, targetState).subscribe({
+        next: () => {
+          // Update the task's state to reflect the new column
+          task.state = targetState;
+        },
         error: () => {
           transferArrayItem(
             event.container.data,

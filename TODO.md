@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
-**Last updated:** 2026-04-09
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phases 9-18 complete. Phase 18: Reviews UI Revamp — review-list revamped with stats bar, search/filter/sort, reviewer type filter; review-detail revamped with review gate indicator, QA tab (verdict/coverage/tests), request changes form, resolve comments, re-review orchestration trigger; review.service extended with 9 new methods (gate, QA, orchestration); 32 new translation keys in en.json/fr.json; review-list spec rewritten (42 tests), review-detail spec rewritten (56 tests), review.service spec extended (28 tests). Phase 17: Tasks/Projects UI revamp, backend API enhancements, WebSocket test fix. **4,215 backend tests passing (0 failures, 0 errors). Angular build passing.** field mismatch fixed (BUG 15). All 939 Angular tests and 348 orchestrator tests passing. All containers healthy. (410 Gone) to POST /search/jql, cursor-based pagination with nextPageToken for projects with >50 issues, baseUrl normalization at adapter and storage layers (prevents silent failures from missing https:// scheme), Task.teamId JPA annotation fixed to nullable=true matching V3 migration, tenant DELETE endpoint added, gateway team-service route added, GitLab CE grafana config fix. All backend tests passing.ation test failures). All 926 Angular tests passing (2 pre-existing ProjectService failures). Docker deployment: all 20 containers healthy. Phase 16: Live Testing Bug Fixes Round 3 — authType dropdown sends i18n key instead of backend value (added value field to AUTH_TYPE_OPTIONS, updated form bindings), NotificationService path mismatches (wrong URLs and HTTP methods for getNotifications, markAsRead, markAllAsRead). All 932 Angular tests passing.
+**Last updated:** 2026-04-15
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-22). Phases 9-21 complete. Phase 21: (1) Docker workspace fix — pre-built `squadron/workspace-base:latest` image with git pre-installed, eliminates `apt-get install git` failures on read-only rootfs. (2) TaskState alignment — added `IN_PROGRESS` to backend enum (now 9 states matching frontend). (3) Agent interaction workflow — backend ConversationSummaryDto + endpoint, frontend task-detail agent panel with live progress, conversation history, and "Open Chat" navigation. **All backend tests passing (0 failures, 0 errors). 1,137 Angular tests passing. Angular build passing.**
 
 ---
 
@@ -48,7 +48,7 @@
 ### squadron-orchestrator (39 src / 36 test)
 - [x] Custom PostgreSQL state machine (WorkflowEngine)
 - [x] Task/Project/Workflow CRUD
-- [x] State transitions with validation
+- [x] State transitions with validation (9 states: BACKLOG, PRIORITIZED, PLANNING, PROPOSE_CODE, IN_PROGRESS, REVIEW, QA, MERGE, DONE)
 - [x] TaskSyncService
 - [x] DefaultWorkflowInitializer
 - [x] PlatformServiceClient (Feign)
@@ -56,13 +56,13 @@
 - [x] Project workflow mappings (entity, repository, service, controller endpoints)
 - [x] `branchNamingTemplate` field on `Project` entity and `CreateProjectRequest` DTO
 - [x] Flyway migrations (V1, V2, V3, V4)
-- [x] All 328 tests passing
+- [x] All 401 tests passing
 
-### squadron-agent (90 src / 91 test)
+### squadron-agent (91 src / 92 test)
 - [x] Agent providers (OpenAI-compatible, Ollama)
 - [x] Tool system (ToolRegistry, ToolExecutionEngine, built-in tools)
 - [x] Services (Agent, Planning, Coding, Review, QA, Merge, Coverage)
-- [x] Conversation management
+- [x] Conversation management (ConversationSummaryDto, getConversationSummaries, getActiveConversationForTask)
 - [x] Squadron config management
 - [x] Token usage tracking
 - [x] WebSocket controller
@@ -76,16 +76,18 @@
 - [x] Feign clients (OrchestratorClient, GitServiceClient, ReviewServiceClient, WorkspaceServiceClient)
 - [x] Resilient Feign wrappers (circuit breaker + retry for all 4 Feign clients)
 - [x] Flyway migrations (V1, V2, V3, V4)
-- [x] All tests passing (932 tests)
+- [x] All tests passing (967 tests)
 
-### squadron-workspace (19 src / 18 test)
+### squadron-workspace (20 src / 19 test)
 - [x] Workspace providers (Kubernetes, Docker)
 - [x] WorkspaceService with lifecycle management
 - [x] WorkspaceGitService (HTTPS + SSH support with GIT_SSH_COMMAND)
+- [x] WorkspaceGitService.testGitAccess() — container-based `git ls-remote` using `workspaceProvider.createContainer()` + `exec()` + `destroyContainer()`
 - [x] WorkspaceCleanupScheduler
 - [x] PlatformServiceClient (Feign) + ResilientPlatformServiceClient (circuit breaker + retry)
+- [x] DockerWorkspaceProvider defaults to `squadron/workspace-base:latest` image (git pre-installed)
 - [x] Flyway migration (V1)
-- [x] All 191 tests passing
+- [x] All 229 tests passing
 
 ### squadron-platform (36 src / 36 test)
 - [x] Adapter pattern with registry
@@ -138,15 +140,16 @@
 - [x] Flyway migrations (V1, V2)
 - [x] All tests passing
 
-### squadron-ui (Angular 21) — 926 tests passing
+### squadron-ui (Angular 21) — 1,137 tests passing
 - [x] 33 components (dashboard, tasks, projects, reviews, agent-chat, squadron-config, user-tokens, etc.)
 - [x] 25 services (including agent-dashboard, user-squadron, user-token, ssh-key, platform services)
-- [x] 15 models (including agent dashboard, squadron config, user-token, RemoteProject, SshKey interfaces)
+- [x] 15 models (including agent dashboard, squadron config, user-token, RemoteProject, SshKey, ConversationSummary interfaces)
 - [x] Auth infrastructure (guard, interceptor with token refresh on 401, OIDC)
 - [x] Shared components (header, sidebar, avatar, notification-bell)
 - [x] Admin console (users, teams, security groups, permissions, etc.)
 - [x] Project config rewritten as 4-step setup wizard: Ticket Providers → Git Remotes + SSH Keys → Projects → Branch & Workflow
 - [x] Agent-focused dashboard redesign (active/idle agents, active work, timeline, type breakdown)
+- [x] Task detail agent panel (live progress, conversation history, agent session status, "Open Chat" navigation)
 - [x] Ticket provider integration UI (connection linking, remote status fetch, status-aware mappings)
 - [x] User agent squadron configuration UI (agent cards, add/edit/remove/reset, inline template)
 - [x] Agent squadron overhaul UI: hosting type badges (Cloud/Local/Custom), provider+model cascading dropdowns, PROVIDER_CATALOG with 6 providers, auto-description generation, base URL/API key fields for self-hosted/custom
@@ -1083,6 +1086,124 @@
 - [x] Angular build passing (production configuration)
 - [x] `mvn clean verify` — all 4,215 backend tests passing (0 failures, 0 errors)
 
+### Phase 19: Translation Fixes, Git Access Rewrite, Gemma 4 Support
+
+#### Translation Fixes (6 issues fixed)
+- [x] **task-board.component.html** — Raw `task.priority` enum (e.g., "CRITICAL") displayed in board view (line 166) and list view (line 272) → Changed to `{{ 'tasks.priority.' + task.priority.toLowerCase() | translate }}`
+- [x] **task-card.component.ts** — Raw `task().priority` enum displayed without translation, `TranslateModule` missing from imports → Added `TranslateModule` to component imports, applied translate pipe
+- [x] **task-detail.component.html** — `tasks.detail.tokens` key displayed without interpolation param → Changed to `{{ 'tasks.detail.tokens' | translate:{ count: t.tokenUsage | number } }}`
+- [x] **review-detail.component.html** — Raw `comment.category` value (e.g., "SECURITY") → Changed to `{{ 'reviews.detail.category.' + comment.category | translate }}`
+- [x] **review-detail.component.html** — Raw `comment.authorType` value (e.g., "AI") → Changed to `{{ 'reviews.reviewerType.' + comment.authorType | translate }}`
+- [x] **en.json + fr.json** — Added 9 `reviews.detail.category.*` translation keys (SECURITY, PERFORMANCE, MAINTAINABILITY, RELIABILITY, STYLE, BUG, BEST_PRACTICE, DOCUMENTATION, OTHER)
+
+#### Git Access Test Rewrite (ProcessBuilder → Container-based)
+- [x] **Root cause:** Previous session replaced container-based `testGitAccess()` with `ProcessBuilder`-based `git ls-remote` running directly on JVM host. This fails because `git` is not installed in the workspace service's JVM container (`Cannot run program "git": Exec failed, error: 2 (No such file or directory)`).
+- [x] **Fix:** Reverted to container-based approach using `workspaceProvider.createContainer()` to spin up ephemeral ubuntu:22.04 container, `ensureGitInstalled()`, run `git ls-remote` inside it via `workspaceProvider.exec()`, then `workspaceProvider.destroyContainer()` in `finally` block.
+- [x] HTTPS support: token injected into URL via `injectTokenIntoUrl()` before passing to `exec()`
+- [x] SSH support: uses existing `setupSshKey(containerId, sshPrivateKey)` to write key inside container, `execWithSshCommand()` for GIT_SSH_COMMAND wrapping, `cleanupSshKey(containerId)` in inner `finally` block
+- [x] Branch detection from `ls-remote` output (parsed from `ExecResult.getStdout()`)
+- [x] Container always destroyed in outer `finally` block (even on error)
+- [x] Removed obsolete `createProcessBuilder()` and `writeTemporarySshKey()` methods
+- [x] Removed unused imports (`List`, `Map`, `Path`, `Files`, `ProcessBuilder`, `BufferedReader`, `InputStreamReader`, `PosixFilePermission`, `Set`, `ArrayList`, `TimeUnit`)
+- [x] **WorkspaceGitServiceTest** — 8 old ProcessBuilder/spy-based tests replaced with 8 new container-based mock tests using `workspaceProvider` mock directly (no spy needed)
+- [x] New test: `should_testGitAccess_destroyContainerEvenWhenCreateFails` — verifies no `destroyContainer()` call when `createContainer()` throws
+
+#### Gemma 4 Model Support
+- [x] **squadron-config.model.ts** — Added Gemma 4 to Google provider (`gemma-4` / "Gemma 4") and Ollama provider (`gemma4` / "Gemma 4") in `PROVIDER_CATALOG`
+- [x] **UserAgentConfigService.java** — Added `case "gemma-4", "gemma4" -> "Gemma 4"` to `humanizeModel()` switch
+- [x] **UserAgentConfigServiceTest** — 2 new tests for Gemma 4 description generation (Google platform + Ollama local)
+
+#### Pre-existing Test Fixes
+- [x] **task-board.component.spec.ts** — Fixed `delegateToAgent.and.returnValue(of({} as Task))` → `of(void 0)` (method returns `Observable<void>`, not `Observable<Task>`) — 3 occurrences
+- [x] **task-board.component.spec.ts** — Added default `agentServiceSpy.getSession` mock return value (was undefined, caused `TypeError` in `loadAgentSessions()`)
+- [x] **task-card.component.spec.ts** — Added `TranslateModule.forRoot()` to test imports
+
+#### Build & Test Verification
+- [x] `mvn verify` — all 11 modules BUILD SUCCESS, 4,218 tests passing (0 failures, 0 errors)
+- [x] All 1,123 Angular tests passing (0 failures)
+
+#### Task Display Bug Fix (Tasks not showing after sync)
+- [x] **Root cause:** `TaskService.getTasksByState()` and `getTaskStats()` in `task.service.ts` called `this.get<T>(url)` which returns the raw HTTP response body. The backend wraps responses in `ApiResponse<T>` (`{ success, data, message, timestamp }`), so the service returned the wrapper object instead of the inner `data`. When `buildColumns()` accessed `tasksByState['BACKLOG']`, it got `undefined` because the top-level keys are `success`, `data`, `timestamp` — all columns defaulted to `[]`.
+- [x] **Fix:** Both methods now use `this.http.get<ApiResponse<T>>(url).pipe(map(r => r.data))` to unwrap the `ApiResponse.data` field
+- [x] **Tests:** Updated `should_getTasksByState_when_called` and `should_getTaskStats_when_called` in `task.service.spec.ts` to flush `ApiResponse`-wrapped payloads
+
+### Phase 20: Runtime Bug Fixes (Translation Keys "undefined" + Git Access NPE)
+
+#### BUG: "Test Git Access" NPE — DockerWorkspaceProvider null-safe labels
+- [x] **Root cause:** `WorkspaceGitService.testGitAccess()` creates a `WorkspaceSpec` with only `baseImage("ubuntu:22.04")` — `taskId` and `tenantId` are null. `DockerWorkspaceProvider.createContainer()` called `spec.getTaskId().toString()` and `spec.getTenantId().toString()` to build Docker container labels, causing NPE. The exception was caught by the generic catch block and wrapped as `RuntimeException("Failed to create Docker workspace")`.
+- [x] **Fix:** Made label construction in `DockerWorkspaceProvider.createContainer()` null-safe using a `HashMap` — only adds `squadron.task-id` and `squadron.tenant-id` labels when values are non-null. The `squadron.app` label is always set.
+- [x] **Files:** `DockerWorkspaceProvider.java` (lines 140-151, added `import java.util.HashMap`), `DockerWorkspaceProviderTest.java` (new test)
+- [x] **Test:** `should_createContainer_withNullTaskIdAndTenantId()` verifies no NPE and correct label map (only `squadron.app`, no task-id/tenant-id)
+- [x] All 21 DockerWorkspaceProviderTest tests passing
+
+#### BUG: Translation keys showing "undefined" — 17 locations fixed
+- [x] **Root cause 1 — Agent Chat connection state case mismatch:** `agent-chat.component.html` uses `connectionState()` which returns lowercase values (`connected`, `connecting`, `disconnected`, `error`) but translation keys in en.json were UPPERCASE only (`agentChat.connection.CONNECTED`, etc.)
+- [x] **Fix 1:** Added lowercase key aliases (`connected`, `connecting`, `disconnected`) alongside existing uppercase keys, plus new `error` key in both en.json and fr.json
+- [x] **Root cause 2 — `.priority.toLowerCase()` on null:** 4 template locations called `.toLowerCase()` on `task.priority` which can be `undefined` from API responses
+- [x] **Fix 2:** Added null guards: `task.priority ? ('tasks.priority.' + task.priority.toLowerCase() | translate) : ''` in task-detail, task-board (board + list views), and task-card templates
+- [x] **Root cause 3 — Missing `TESTING` category translation:** `ReviewCategory` enum includes `TESTING` but `reviews.detail.category.TESTING` was not in i18n files
+- [x] **Fix 3:** Added `reviews.detail.category.TESTING` to en.json ("Testing") and fr.json ("Test")
+- [x] **Root cause 4 — `tasks.state.undefined`:** Task state can be undefined/null from API responses
+- [x] **Fix 4:** Added null guard on state display in task-detail and task-board templates
+- [x] **Root cause 5 — Review fields undefined:** `review.status`, `review.reviewerType`, `comment.authorType`, `comment.severity`, `comment.category` can all be undefined
+- [x] **Fix 5:** Added null guards on all review-related dynamic translation keys in review-detail and review-list templates
+- [x] **Root cause 6 — Agent chat connectionState undefined:** `connectionState()` can return undefined before initialization
+- [x] **Fix 6:** Added null guard wrapping the entire connection status display
+- [x] **Files modified:** `task-detail.component.html`, `task-board.component.html`, `task-board.component.ts` (`getStateBadge()`), `task-card.component.ts`, `review-detail.component.html`, `review-list.component.html`, `agent-chat.component.html`, `en.json`, `fr.json`
+
+#### Build & Test Verification
+- [x] `mvn clean test` — all backend modules BUILD SUCCESS, 0 failures, 0 errors (435 test classes)
+- [x] All 1,123 Angular tests passing (0 failures)
+- [x] Angular build passing (production configuration)
+
+### Phase 21: Docker Workspace Fix, TaskState Alignment & Agent Panel
+
+#### Goal 1: Docker Workspace Fix ("Failed to create Docker workspace")
+- [x] **Root cause:** Read-only rootfs in Docker workspace containers blocks `apt-get install git` at runtime. `initializeWorkspaceUser()` and `ensureGitInstalled()` fail silently, then `testGitAccess()` fails.
+- [x] **Fix:** Created `deploy/docker/Dockerfile.workspace-base` — Ubuntu 22.04 base with git, openssh-client, ca-certificates pre-installed, squadron user (UID/GID 1000), /workspace directory
+- [x] `DockerWorkspaceProvider.java` — Added `DEFAULT_BASE_IMAGE = "squadron/workspace-base:latest"`, `defaultBaseImage` config field, all 3 constructors updated, `createContainer()` uses `defaultBaseImage`
+- [x] `initializeWorkspaceUser()` — checks `which git` first; if git found, skips package install entirely
+- [x] `WorkspaceGitService.testGitAccess()` — no longer hardcodes `ubuntu:22.04`; uses provider's configured default
+- [x] `ensureGitInstalled()` — improved logging, warns on failure instead of silently failing
+- [x] `application.yml` — Added `squadron.workspace.docker.base-image` config
+- [x] `docker-compose.yml` — Added `SQUADRON_WORKSPACE_BASE_IMAGE` env var
+- [x] `testldap-build-and-start.sh` — Added workspace-base image build step before service images
+- [x] Tests: All 229 workspace tests passing
+
+#### Goal 2: TaskState Alignment (Backend 8→9 states to match Frontend)
+- [x] **Change:** Added `IN_PROGRESS` to backend `TaskState` enum between `PROPOSE_CODE` and `REVIEW`
+- [x] `TaskState.java` — Now 9 values: BACKLOG, PRIORITIZED, PLANNING, PROPOSE_CODE, IN_PROGRESS, REVIEW, QA, MERGE, DONE
+- [x] `WorkflowEngine.java` — Default transitions updated (15 transitions): PROPOSE_CODE → IN_PROGRESS, IN_PROGRESS → REVIEW
+- [x] `DefaultWorkflowInitializer.java` — Same transition updates
+- [x] `TaskStateDispatcher.java` — Updated comments (IN_PROGRESS is NOT agent-dispatched)
+- [x] Tests updated: TaskStateTest (count 8→9), WorkflowEngineTest (transitions), DefaultWorkflowInitializerTest (13→15), ProjectWorkflowMappingServiceTest (8→9 states), WorkflowEndToEndTest (lifecycle routes through IN_PROGRESS)
+- [x] All 401 orchestrator tests passing
+
+#### Goal 3: Agent Interaction Workflow — Task Detail Agent Panel
+- [x] **Backend (squadron-agent):**
+  - `ConversationSummaryDto.java` — New DTO (id, taskId, agentType, status, provider, model, totalTokens, messageCount, createdAt, updatedAt)
+  - `ConversationService.java` — Added `getConversationSummaries(UUID taskId)` and `getActiveConversationForTask(UUID taskId)`
+  - `AgentChatController.java` — Added `GET /api/agents/chat/task/{taskId}/summaries` endpoint
+  - Tests: ConversationSummaryDtoTest (7), ConversationServiceTest (+6), AgentChatControllerTest (+4)
+  - All 967 agent tests passing
+- [x] **Frontend (squadron-ui):**
+  - `agent.model.ts` — Added `ConversationSummary` interface
+  - `agent.service.ts` — Added `getConversationSummaries(taskId)` method
+  - `agent.service.spec.ts` — Added 2 tests for getConversationSummaries
+  - `task-detail.component.ts` — Rewritten with agent panel: injects AgentService, UserSquadronService, WebSocketService, Router; loads conversation summaries, agent session, squadron agents; has live progress subscription; provides openAgentChat(), toggleAgentSelector(), conversationStatusClass()
+  - `task-detail.component.html` — Rewritten with agent activity panel: live progress bar OR session status, conversation history list with agent type/status/messages/tokens/model info, "Open Chat" button
+  - `task-detail.component.scss` — Rewritten with agent panel styles (progress bar, session status, conversation list, status indicators)
+  - `task-detail.component.spec.ts` — Rewritten with 22 tests (8 original + 14 new for agent panel features)
+  - `en.json` + `fr.json` — Added `tasks.detail.agent.*` i18n keys (15 keys)
+  - Template fix: `@else if (agentSession(); as session)` → `@else if (agentSession())` (Angular `as` only allowed on primary `@if`)
+  - Test fix: Removed `{ provide: Router, useValue: routerSpy }` — used `TestBed.inject(Router)` + `spyOn(router, 'navigate')` to avoid RouterLink constructor error
+  - All 1,137 Angular tests passing
+
+#### Build & Test Verification (Phase 21)
+- [x] `mvn clean test` — all backend modules BUILD SUCCESS, 0 failures, 0 errors
+- [x] All 1,137 Angular tests passing (0 failures)
+- [x] Angular build passing (production configuration)
+
 ---
 
 ## Quick Reference
@@ -1091,14 +1212,14 @@
 |--------|:-------:|:-----:|--------|
 | squadron-common | 72 | 70 | Complete (606 tests) |
 | squadron-gateway | 11 | 10 | Complete (133 tests) |
-| squadron-identity | 43 | 43 | Complete (245 tests) |
-| squadron-orchestrator | 39 | 39 | Complete (461 tests) |
-| squadron-agent | 98 | 97 | Complete (948 tests) |
-| squadron-workspace | 20 | 19 | Complete (106 tests) |
-| squadron-platform | 48 | 46 | Complete (400 tests) |
-| squadron-git | 37 | 38 | Complete (550 tests) |
-| squadron-review | 33 | 33 | Complete (227 tests) |
-| squadron-config | 12 | 12 | Complete (371 tests) |
+| squadron-identity | 43 | 43 | Complete (461 tests) |
+| squadron-orchestrator | 39 | 39 | Complete (401 tests) |
+| squadron-agent | 99 | 99 | Complete (967 tests) |
+| squadron-workspace | 20 | 19 | Complete (229 tests) |
+| squadron-platform | 48 | 46 | Complete (550 tests) |
+| squadron-git | 37 | 38 | Complete (371 tests) |
+| squadron-review | 33 | 33 | Complete (245 tests) |
+| squadron-config | 12 | 12 | Complete (106 tests) |
 | squadron-notification | 25 | 26 | Complete (168 tests) |
-| **TOTAL** | **437** | **432** | **4,215 tests passing** |
-| squadron-ui | 34 components | 61 specs | Complete |
+| **TOTAL** | **439** | **435** | **4,237 tests passing** |
+| squadron-ui | 34 components | 62 specs | Complete (1,137 tests) |

@@ -120,7 +120,7 @@ describe('TaskService', () => {
 
     const req = httpTesting.expectOne(`${apiUrl}/tasks/task1/transition`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ toState: 'IN_PROGRESS' });
+    expect(req.request.body).toEqual({ targetState: 'IN_PROGRESS' });
     req.flush({ id: 'task1', state: 'IN_PROGRESS' });
   });
 
@@ -133,7 +133,7 @@ describe('TaskService', () => {
 
     const req = httpTesting.expectOne(`${apiUrl}/tasks/by-state`);
     expect(req.request.method).toBe('GET');
-    req.flush(mockData);
+    req.flush({ success: true, data: mockData, message: 'OK', timestamp: '' });
   });
 
   it('should_getTaskStats_when_called', () => {
@@ -145,7 +145,7 @@ describe('TaskService', () => {
 
     const req = httpTesting.expectOne(`${apiUrl}/tasks/stats`);
     expect(req.request.method).toBe('GET');
-    req.flush(mockStats);
+    req.flush({ success: true, data: mockStats, message: 'OK', timestamp: '' });
   });
 
   it('should_notIncludeOptionalFilterParams_when_filterFieldsUndefined', () => {
