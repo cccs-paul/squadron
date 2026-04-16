@@ -25,6 +25,41 @@
     </div>
   </div>
 
+  <!-- Project Selector (no "All Projects" — one project at a time) -->
+  @if (projects().length > 0) {
+    <div class="task-board__project-selector">
+      @for (project of projects(); track project.id) {
+        <button class="task-board__project-tab"
+          [class.task-board__project-tab--active]="selectedProjectId() === project.id"
+          (click)="selectProject(project.id)">
+          {{ project.name }}
+          @if (project.taskCount > 0) {
+            <span class="task-board__project-tab-count">{{ project.taskCount }}</span>
+          }
+        </button>
+      }
+    </div>
+  }
+
+  <!-- Status Mapping Banner (when a project is selected with workflow mappings) -->
+  @if (selectedProject() && workflowMappings().length > 0) {
+    <div class="task-board__mapping-banner">
+      <span class="task-board__mapping-banner-icon">&#9881;</span>
+      <span class="task-board__mapping-banner-text">
+        {{ 'tasks.board.mappingBanner' | translate:{ project: selectedProject()!.name, count: workflowMappings().length } }}
+      </span>
+      <div class="task-board__mapping-pills">
+        @for (mapping of workflowMappings(); track mapping.internalState) {
+          <span class="task-board__mapping-pill" [style.border-left-color]="stateColor(mapping.internalState)">
+            <span class="task-board__mapping-pill-internal">{{ 'tasks.state.' + mapping.internalState | translate }}</span>
+            <span class="task-board__mapping-pill-arrow">&#8594;</span>
+            <span class="task-board__mapping-pill-external">{{ mapping.externalStatus }}</span>
+          </span>
+        }
+      </div>
+    </div>
+  }
+
   <!-- Sync panel -->
   @if (showSyncPanel()) {
     <div class="task-board__sync-panel">
@@ -106,13 +141,6 @@
       <span class="task-board__summary-number task-board__summary-number--sm">{{ totalCompleted() }}</span>
       <span class="task-board__summary-label">{{ 'tasks.board.summary.completed' | translate }}</span>
     </div>
-    @if (projectSummaries().length > 0) {
-      <div class="task-board__summary-divider"></div>
-      <div class="task-board__summary-item">
-        <span class="task-board__summary-number task-board__summary-number--sm">{{ projectSummaries().length }}</span>
-        <span class="task-board__summary-label">{{ 'tasks.board.summary.projects' | translate }}</span>
-      </div>
-    }
   </div>
 
   <!-- Filters -->
@@ -125,14 +153,6 @@
       <option value="MEDIUM">{{ 'tasks.priority.medium' | translate }}</option>
       <option value="LOW">{{ 'tasks.priority.low' | translate }}</option>
     </select>
-    @if (projects().length > 0) {
-      <select class="sq-select" [ngModel]="filterProject()" (ngModelChange)="filterProject.set($event)">
-        <option value="">{{ 'tasks.board.filter.allProjects' | translate }}</option>
-        @for (project of projects(); track project.id) {
-          <option [value]="project.id">{{ project.name }}</option>
-        }
-      </select>
-    }
     <select class="sq-select" [ngModel]="filterState()" (ngModelChange)="filterState.set($event)">
       <option value="">{{ 'tasks.board.filter.allStates' | translate }}</option>
       @for (state of allStates; track state) {
@@ -157,6 +177,12 @@
               {{ column.label | translate }}
               <span class="board__column-count">{{ column.tasks.length }}</span>
             </div>
+            @if (column.externalStatus) {
+              <div class="board__column-external">
+                <span class="board__column-external-arrow">&#8594;</span>
+                <span class="board__column-external-status">{{ column.externalStatus }}</span>
+              </div>
+            }
           </div>
           <div class="board__column-body" cdkDropList [id]="'drop-list-' + column.id" [cdkDropListData]="column.tasks" [cdkDropListConnectedTo]="getConnectedLists(colIndex)" (cdkDropListDropped)="drop($event, column)">
             @for (task of column.tasks; track task.id) {
@@ -166,9 +192,6 @@
                     <span class="sq-badge" [class]="'sq-badge--' + priorityBadgeClass(task.priority)">{{ task.priority ? ('tasks.priority.' + task.priority.toLowerCase() | translate) : '' }}</span>
                     @if (task.externalId) {
                       <span class="board__task-external-id">{{ task.externalId }}</span>
-                    }
-                    @if (task.projectName) {
-                      <span class="board__task-project-label">{{ task.projectName }}</span>
                     }
                     @if (task.agentStatus) {
                       <span class="board__agent-status" [attr.data-status]="task.agentStatus">{{ getAgentStatusLabel(task) }}</span>
@@ -180,6 +203,9 @@
                   }
                   <div class="board__task-meta">
                     <span class="board__task-state-badge" [style.border-left-color]="stateColor(task.state)">{{ getStateBadge(task) }}</span>
+                    @if (task.mappedExternalStatus) {
+                      <span class="board__task-external-badge">{{ task.mappedExternalStatus }}</span>
+                    }
                     @if (task.labels && task.labels.length > 0) {
                       <div class="board__task-labels">
                         @for (label of task.labels.slice(0, 3); track label) {
@@ -188,7 +214,85 @@
                       </div>
                     }
                   </div>
+
+                  <!-- Agent task history badge -->
+                  <div class="board__task-history-row">
+                    <button class="board__task-history-badge" (click)="toggleHistoryPanel(task.id, $event)"
+                      [class.board__task-history-badge--active]="expandedHistoryTaskId() === task.id"
+                      [class.board__task-history-badge--has-tasks]="(task.conversationCount ?? 0) > 0">
+                      <span class="board__task-history-count">{{ task.conversationCount ?? 0 }}</span>
+                      <span class="board__task-history-label">{{ 'tasks.board.history.agentTasks' | translate }}</span>
+                    </button>
+                  </div>
                 </div>
+
+                <!-- Expanded agent history panel -->
+                @if (expandedHistoryTaskId() === task.id) {
+                  <div class="history" (click)="$event.stopPropagation()">
+                    <div class="history__header">
+                      <h5 class="history__title">{{ 'tasks.board.history.title' | translate }}</h5>
+                      <button class="history__close" (click)="toggleHistoryPanel(task.id, $event)">&#10005;</button>
+                    </div>
+
+                    @if ((task.conversations ?? []).length > 0) {
+                      <div class="history__conversations">
+                        @for (conv of task.conversations ?? []; track conv.id) {
+                          <div class="history__conv">
+                            <div class="history__conv-header">
+                              <span class="history__conv-type">{{ conv.agentType }}</span>
+                              <span class="history__conv-status" [class]="getConversationStatusClass(conv.status)">
+                                {{ 'tasks.detail.agent.status.' + conv.status | translate }}
+                              </span>
+                            </div>
+                            <div class="history__conv-meta">
+                              <span>{{ conv.messageCount }} {{ 'tasks.board.history.messages' | translate }}</span>
+                              <span class="history__conv-sep">&middot;</span>
+                              <span>{{ conv.totalTokens }} {{ 'tasks.board.history.tokens' | translate }}</span>
+                              <span class="history__conv-sep">&middot;</span>
+                              <span>{{ conv.updatedAt | date:'short' }}</span>
+                            </div>
+                            @if (conv.provider || conv.model) {
+                              <div class="history__conv-model">
+                                {{ conv.model }}@if (conv.provider) { via {{ conv.provider }}}
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <div class="history__empty">
+                        {{ 'tasks.board.history.noTasks' | translate }}
+                      </div>
+                    }
+
+                    <!-- Full message log (Q&A, system actions) -->
+                    @if (loadingMessages() === task.id) {
+                      <div class="history__loading">{{ 'tasks.board.history.loadingMessages' | translate }}</div>
+                    } @else if ((taskMessages()[task.id] ?? []).length > 0) {
+                      <div class="history__messages">
+                        <h6 class="history__messages-title">{{ 'tasks.board.history.messageLog' | translate }}</h6>
+                        @for (msg of taskMessages()[task.id] ?? []; track msg.id) {
+                          <div class="history__msg" [class]="getMessageRoleClass(msg.role)">
+                            <div class="history__msg-header">
+                              <span class="history__msg-role">{{ getMessageRoleLabel(msg.role) }}</span>
+                              <span class="history__msg-time">{{ msg.createdAt | date:'short' }}</span>
+                            </div>
+                            <div class="history__msg-content">{{ msg.content | slice:0:500 }}</div>
+                            @if (msg.tokenUsage) {
+                              <span class="history__msg-tokens">{{ msg.tokenUsage }} {{ 'tasks.board.history.tokens' | translate }}</span>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+
+                    <div class="history__footer">
+                      <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="openAgentChat(task)">
+                        {{ 'tasks.board.history.openFullChat' | translate }}
+                      </button>
+                    </div>
+                  </div>
+                }
 
                 <!-- Action toggle -->
                 <button class="board__action-toggle" (click)="toggleTaskActions(task.id); $event.stopPropagation()">&#8943;</button>
@@ -261,8 +365,11 @@
         <span class="task-list__col task-list__col--priority">{{ 'tasks.list.priority' | translate }}</span>
         <span class="task-list__col task-list__col--id">{{ 'tasks.list.id' | translate }}</span>
         <span class="task-list__col task-list__col--title">{{ 'tasks.list.titleCol' | translate }}</span>
-        <span class="task-list__col task-list__col--project">{{ 'tasks.list.project' | translate }}</span>
         <span class="task-list__col task-list__col--state">{{ 'tasks.list.state' | translate }}</span>
+        @if (selectedProject() && workflowMappings().length > 0) {
+          <span class="task-list__col task-list__col--external">{{ 'tasks.list.externalStatus' | translate }}</span>
+        }
+        <span class="task-list__col task-list__col--history">{{ 'tasks.board.history.agentTasks' | translate }}</span>
         <span class="task-list__col task-list__col--agent">{{ 'tasks.list.agent' | translate }}</span>
         <span class="task-list__col task-list__col--actions">{{ 'tasks.list.actions' | translate }}</span>
       </div>
@@ -277,13 +384,20 @@
           <span class="task-list__col task-list__col--title">
             <span class="task-list__title-text">{{ task.title }}</span>
           </span>
-          <span class="task-list__col task-list__col--project">
-            @if (task.projectName) {
-              <span class="task-list__project-badge">{{ task.projectName }}</span>
-            }
-          </span>
           <span class="task-list__col task-list__col--state">
             <span class="task-list__state-badge" [style.border-left-color]="stateColor(task.state)">{{ getStateBadge(task) }}</span>
+          </span>
+          @if (selectedProject() && workflowMappings().length > 0) {
+            <span class="task-list__col task-list__col--external">
+              @if (task.mappedExternalStatus) {
+                <span class="task-list__external-badge">{{ task.mappedExternalStatus }}</span>
+              }
+            </span>
+          }
+          <span class="task-list__col task-list__col--history">
+            <span class="task-list__history-count" [class.task-list__history-count--has-tasks]="(task.conversationCount ?? 0) > 0">
+              {{ task.conversationCount ?? 0 }}
+            </span>
           </span>
           <span class="task-list__col task-list__col--agent">
             @if (task.agentStatus) {
@@ -298,6 +412,56 @@
       } @empty {
         <div class="task-list__empty"><p>{{ 'tasks.board.noTasks' | translate }}</p></div>
       }
+    </div>
+  }
+
+  <!-- Drop Modal (shown after drag-drop to a new column) -->
+  @if (dropModal(); as modal) {
+    <div class="agent-modal-overlay" (click)="dismissDropModal()">
+      <div class="agent-modal" (click)="$event.stopPropagation()">
+        <div class="agent-modal__header">
+          <h3 class="agent-modal__title">{{ 'tasks.board.dropModal.title' | translate }}</h3>
+          <button class="agent-modal__close" (click)="dismissDropModal()">&#10005;</button>
+        </div>
+        <div class="agent-modal__body">
+          <p class="agent-modal__task-name">{{ modal.task.title }}</p>
+          <div class="agent-modal__transition">
+            <span class="agent-modal__state" [style.color]="stateColor(modal.fromState)">{{ 'tasks.state.' + modal.fromState | translate }}</span>
+            <span class="agent-modal__arrow">&#8594;</span>
+            <span class="agent-modal__state" [style.color]="stateColor(modal.toState)">{{ 'tasks.state.' + modal.toState | translate }}</span>
+          </div>
+          <p class="agent-modal__description">
+            {{ 'tasks.board.dropModal.description' | translate:{ state: ('tasks.state.' + modal.toState | translate) } }}
+          </p>
+
+          <div class="agent-modal__field">
+            <label class="agent-modal__label">{{ 'tasks.board.dropModal.agentLabel' | translate }}</label>
+            <select class="sq-select" [ngModel]="modal.suggestedAgent" (ngModelChange)="updateDropModalAgent($event)">
+              @for (at of agentTypes; track at.value) {
+                <option [value]="at.value">{{ at.label | translate }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="agent-modal__field">
+            <label class="agent-modal__label">{{ 'tasks.board.dropModal.instructionsLabel' | translate }}</label>
+            <textarea class="sq-input agent-modal__textarea"
+              [placeholder]="'tasks.board.dropModal.instructionsPlaceholder' | translate"
+              [ngModel]="modal.instructions"
+              (ngModelChange)="updateDropModalInstructions($event)"
+              rows="3"></textarea>
+          </div>
+        </div>
+        <div class="agent-modal__footer">
+          <button class="sq-btn sq-btn--ghost" (click)="dismissDropModal()">
+            {{ 'tasks.board.dropModal.skipAgent' | translate }}
+          </button>
+          <button class="sq-btn sq-btn--primary" [disabled]="dropModalDelegating()" (click)="acceptDropModal()">
+            @if (dropModalDelegating()) { {{ 'tasks.board.dropModal.delegating' | translate }} }
+            @else { {{ 'tasks.board.dropModal.delegate' | translate }} }
+          </button>
+        </div>
+      </div>
     </div>
   }
 </div>

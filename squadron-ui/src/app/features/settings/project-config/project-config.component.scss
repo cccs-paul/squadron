@@ -517,3 +517,91 @@ $bg: var(--sq-bg, #f9fafb);
   &__icon { font-size: 1rem; font-weight: 700; }
   &__detail { font-size: .75rem; opacity: .8; }
 }
+
+.git-access-tracker {
+  margin-top: .5rem;
+  border: 1px solid var(--sq-border-light, #e2e8f0);
+  border-radius: 8px;
+  overflow: hidden;
+
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: .375rem;
+    width: 100%;
+    padding: .5rem .75rem;
+    background: var(--sq-surface, #f8fafc);
+    border: none;
+    cursor: pointer;
+    font-size: .75rem;
+    font-weight: 600;
+    color: var(--sq-text-secondary, #64748b);
+    text-transform: uppercase;
+    letter-spacing: .03em;
+
+    &:hover { background: var(--sq-bg, #f1f5f9); }
+  }
+
+  &__toggle-icon {
+    font-size: .625rem;
+    transition: transform 150ms ease;
+    &--open { transform: rotate(90deg); }
+  }
+
+  &__steps {
+    padding: .5rem .75rem .625rem;
+    display: flex;
+    flex-direction: column;
+    gap: .375rem;
+  }
+
+  &__step {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .75rem;
+    color: var(--sq-text-secondary, #64748b);
+    padding: .25rem 0;
+
+    &[data-status="done"] { color: var(--sq-success, #059669); }
+    &[data-status="running"] { color: var(--sq-primary, #6366f1); }
+    &[data-status="error"] { color: var(--sq-danger, #dc2626); }
+    &[data-status="pending"] { opacity: .5; }
+  }
+
+  &__step-icon {
+    width: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__check { color: var(--sq-success, #059669); font-weight: 700; }
+  &__error { color: var(--sq-danger, #dc2626); font-weight: 700; }
+
+  &__step-label { font-weight: 500; }
+
+  &__step-detail {
+    font-size: .6875rem;
+    color: var(--sq-text-tertiary, #94a3b8);
+    font-family: var(--sq-font-mono, monospace);
+  }
+
+  &__step-duration {
+    margin-left: auto;
+    font-size: .625rem;
+    color: var(--sq-text-tertiary, #94a3b8);
+    font-family: var(--sq-font-mono, monospace);
+  }
+}
+
+.spinner--xs {
+  display: inline-block;
+  width: .75rem;
+  height: .75rem;
+  border: 2px solid var(--sq-border-light, #e2e8f0);
+  border-top-color: var(--sq-primary, #6366f1);
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}

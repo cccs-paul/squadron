@@ -474,6 +474,18 @@
         "delegateInstructions": "Instructions for the agent (optional)",
         "delegating": "Delegating...",
         "delegateStart": "Start Agent"
+      },
+      "allProjects": "All Projects",
+      "mappingBanner": "{{project}} has {{count}} workflow mapping(s) configured",
+      "agentSuggestion": {
+        "title": "Delegate to Agent",
+        "description": "This task is moving to {{state}}. Would you like to assign an AI agent to handle it?",
+        "agentLabel": "Agent Type",
+        "instructionsLabel": "Instructions",
+        "instructionsPlaceholder": "Optional instructions for the agent...",
+        "skip": "Skip",
+        "delegate": "Delegate",
+        "delegating": "Delegating..."
       }
     },
     "detail": {
@@ -549,7 +561,8 @@
       "project": "Project",
       "state": "State",
       "agent": "Agent",
-      "actions": "Actions"
+      "actions": "Actions",
+      "externalStatus": "External Status"
     },
     "state": {
       "BACKLOG": "Backlog",
@@ -1155,6 +1168,21 @@
         "testSuccess": "Git access verified!",
         "testFailed": "Git access failed",
         "branchDetected": "Branch: {{branch}}"
+      },
+      "gitAccessSteps": {
+        "title": "Detailed Progress",
+        "resolvingCredentials": "Resolving credentials",
+        "provisioningContainer": "Provisioning ephemeral container",
+        "configuringSshKey": "Configuring SSH key",
+        "configuringHttpsToken": "Configuring HTTPS token",
+        "runningGitLsRemote": "Running git ls-remote",
+        "cleaningUp": "Cleaning up container",
+        "sshKeyResolved": "SSH key found",
+        "connectionResolved": "Connection credentials available",
+        "noCredentials": "No credentials (anonymous)",
+        "sshConfigured": "SSH key injected",
+        "httpsConfigured": "HTTPS token configured",
+        "containerDestroyed": "Ephemeral container destroyed"
       },
       "ticketProviderConnection": {
         "title": "Ticket Provider",

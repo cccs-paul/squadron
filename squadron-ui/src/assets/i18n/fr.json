@@ -474,6 +474,18 @@
         "delegateInstructions": "Instructions pour l'agent (facultatif)",
         "delegating": "Délégation...",
         "delegateStart": "Démarrer l'agent"
+      },
+      "allProjects": "Tous les projets",
+      "mappingBanner": "{{project}} a {{count}} correspondance(s) de workflow configurée(s)",
+      "agentSuggestion": {
+        "title": "Déléguer à un agent",
+        "description": "Cette tâche passe à {{state}}. Souhaitez-vous assigner un agent IA pour la traiter ?",
+        "agentLabel": "Type d'agent",
+        "instructionsLabel": "Instructions",
+        "instructionsPlaceholder": "Instructions facultatives pour l'agent...",
+        "skip": "Ignorer",
+        "delegate": "Déléguer",
+        "delegating": "Délégation..."
       }
     },
     "detail": {
@@ -549,7 +561,8 @@
       "project": "Projet",
       "state": "État",
       "agent": "Agent",
-      "actions": "Actions"
+      "actions": "Actions",
+      "externalStatus": "Statut externe"
     },
     "state": {
       "BACKLOG": "File d'attente",
@@ -1155,6 +1168,21 @@
         "testSuccess": "Accès Git vérifié !",
         "testFailed": "Échec de l'accès Git",
         "branchDetected": "Branche : {{branch}}"
+      },
+      "gitAccessSteps": {
+        "title": "Progression détaillée",
+        "resolvingCredentials": "Résolution des identifiants",
+        "provisioningContainer": "Provisionnement du conteneur éphémère",
+        "configuringSshKey": "Configuration de la clé SSH",
+        "configuringHttpsToken": "Configuration du jeton HTTPS",
+        "runningGitLsRemote": "Exécution de git ls-remote",
+        "cleaningUp": "Nettoyage du conteneur",
+        "sshKeyResolved": "Clé SSH trouvée",
+        "connectionResolved": "Identifiants de connexion disponibles",
+        "noCredentials": "Aucun identifiant (anonyme)",
+        "sshConfigured": "Clé SSH injectée",
+        "httpsConfigured": "Jeton HTTPS configuré",
+        "containerDestroyed": "Conteneur éphémère détruit"
       },
       "ticketProviderConnection": {
         "title": "Fournisseur de tickets",

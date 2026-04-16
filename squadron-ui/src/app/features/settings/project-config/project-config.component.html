@@ -1066,6 +1066,38 @@
                             </div>
                           }
                         }
+                        <!-- Step-by-step progress tracker -->
+                        @if (gitAccessSteps(); as tracker) {
+                          @if (tracker.projectId === ps.project.id) {
+                            <div class="git-access-tracker">
+                              <button class="git-access-tracker__toggle" (click)="toggleGitAccessSteps()">
+                                <span class="git-access-tracker__toggle-icon" [class.git-access-tracker__toggle-icon--open]="gitAccessStepsExpanded()">&#9656;</span>
+                                {{ 'projectConfig.branchWorkflow.gitAccessSteps.title' | translate }}
+                              </button>
+                              @if (gitAccessStepsExpanded()) {
+                                <div class="git-access-tracker__steps">
+                                  @for (step of tracker.steps; track step.label) {
+                                    <div class="git-access-tracker__step" [attr.data-status]="step.status">
+                                      <span class="git-access-tracker__step-icon">
+                                        @if (step.status === 'pending') { &#9675; }
+                                        @else if (step.status === 'running') { <span class="spinner spinner--xs"></span> }
+                                        @else if (step.status === 'done') { <span class="git-access-tracker__check">&#10003;</span> }
+                                        @else if (step.status === 'error') { <span class="git-access-tracker__error">&#10007;</span> }
+                                      </span>
+                                      <span class="git-access-tracker__step-label">{{ step.label }}</span>
+                                      @if (step.detail) {
+                                        <span class="git-access-tracker__step-detail">{{ step.detail }}</span>
+                                      }
+                                      @if (step.completedAt && step.startedAt) {
+                                        <span class="git-access-tracker__step-duration">{{ step.completedAt - step.startedAt }}ms</span>
+                                      }
+                                    </div>
+                                  }
+                                </div>
+                              }
+                            </div>
+                          }
+                        }
                       </div>
 
                       <!-- Ticket Provider Connection -->

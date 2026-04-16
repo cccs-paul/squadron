@@ -10,7 +10,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
 import { TaskState, TaskPriority, Task, TaskSyncResult } from '../../../core/models/task.model';
-import { Project } from '../../../core/models/project.model';
+import { Project, WorkflowMapping } from '../../../core/models/project.model';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { TranslateModule } from '@ngx-translate/core';
 
@@ -79,7 +79,7 @@ describe('TaskBoardComponent', () => {
 
   beforeEach(async () => {
     taskServiceSpy = jasmine.createSpyObj('TaskService', ['getTasksByState', 'transitionTask', 'syncTasks', 'delegateToAgent']);
-    projectServiceSpy = jasmine.createSpyObj('ProjectService', ['getProjectsByTenant', 'getProjectSummaries']);
+    projectServiceSpy = jasmine.createSpyObj('ProjectService', ['getProjectsByTenant', 'getProjectSummaries', 'getWorkflowMappings']);
     agentServiceSpy = jasmine.createSpyObj('AgentService', [
       'getSession', 'sendMessage', 'interruptAgent', 'approvePlan', 'rejectPlan',
     ]);
@@ -96,6 +96,7 @@ describe('TaskBoardComponent', () => {
     taskServiceSpy.getTasksByState.and.returnValue(of(makeApiData()));
     projectServiceSpy.getProjectsByTenant.and.returnValue(of([]));
     projectServiceSpy.getProjectSummaries.and.returnValue(of([]));
+    projectServiceSpy.getWorkflowMappings.and.returnValue(of([]));
     agentServiceSpy.getSession.and.returnValue(of({ id: '', taskId: '', agentType: '', status: 'IDLE', messages: [], createdAt: '' } as any));
 
     await TestBed.configureTestingModule({
@@ -289,7 +290,7 @@ describe('TaskBoardComponent', () => {
 
   it('should initialize filter fields as empty', () => {
     expect(component.filterPriority()).toBe('');
-    expect(component.filterProject()).toBe('');
+    expect(component.selectedProjectId()).toBe('');
     expect(component.searchQuery()).toBe('');
   });
 
@@ -316,7 +317,7 @@ describe('TaskBoardComponent', () => {
     expect(backlog.tasks[0].priority).toBe(TaskPriority.HIGH);
   });
 
-  it('should filter by project', () => {
+  it('should filter by project via selectProject', () => {
     const apiData = makeApiData({
       [TaskState.IN_PROGRESS]: [
         makeTask({ id: '1', projectId: 'p1' }),
@@ -324,10 +325,14 @@ describe('TaskBoardComponent', () => {
       ],
     });
     taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'Alpha' }),
+      makeProject({ id: 'p2', name: 'Beta' }),
+    ]));
     fixture.detectChanges();
 
-    component.filterProject.set('p1');
-    const inProgress = component.filteredColumns().find(c => c.id === 'in-progress')!;
+    component.selectProject('p1');
+    const inProgress = component.columns().find(c => c.id === 'in-progress')!;
     expect(inProgress.tasks.length).toBe(1);
     expect(inProgress.tasks[0].projectId).toBe('p1');
   });
@@ -1339,5 +1344,231 @@ describe('TaskBoardComponent', () => {
     component.toggleTaskActions('task-2');
     expect(component.expandedTaskId()).toBe('task-2');
     expect(component.showDelegatePanel()).toBeNull();
+  });
+
+  // --- Project selector ---
+
+  it('should default selectedProjectId to empty string', () => {
+    fixture.detectChanges();
+    expect(component.selectedProjectId()).toBe('');
+  });
+
+  it('should set selectedProjectId on selectProject', () => {
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'Alpha' }),
+    ]));
+    fixture.detectChanges();
+
+    component.selectProject('p1');
+    expect(component.selectedProjectId()).toBe('p1');
+  });
+
+  it('should reset workflowMappings when selecting all projects', () => {
+    fixture.detectChanges();
+    component.workflowMappings.set([{ internalState: 'IN_PROGRESS' as any, externalStatus: 'In Dev' }] as any);
+    component.selectProject('');
+    expect(component.workflowMappings()).toEqual([]);
+  });
+
+  it('should load workflow mappings on selectProject', () => {
+    const mappings = [
+      { internalState: 'IN_PROGRESS', externalStatus: 'In Dev' },
+    ];
+    projectServiceSpy.getWorkflowMappings.and.returnValue(of(mappings as any));
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'Alpha' }),
+    ]));
+    fixture.detectChanges();
+
+    component.selectProject('p1');
+    expect(projectServiceSpy.getWorkflowMappings).toHaveBeenCalledWith('p1');
+    expect(component.workflowMappings()).toEqual(mappings as any);
+  });
+
+  it('should compute selectedProject from projectMap', () => {
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'Alpha' }),
+      makeProject({ id: 'p2', name: 'Beta' }),
+    ]));
+    fixture.detectChanges();
+
+    expect(component.selectedProject()).toBeNull();
+
+    component.selectProject('p1');
+    expect(component.selectedProject()!.name).toBe('Alpha');
+  });
+
+  it('should show all tasks when no project selected and filter to project when selected', () => {
+    const apiData = makeApiData({
+      [TaskState.BACKLOG]: [
+        makeTask({ id: '1', state: TaskState.BACKLOG, projectId: 'p1' }),
+        makeTask({ id: '2', state: TaskState.BACKLOG, projectId: 'p2' }),
+      ],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'Alpha' }),
+      makeProject({ id: 'p2', name: 'Beta' }),
+    ]));
+    fixture.detectChanges();
+
+    // All projects: both tasks visible
+    const backlogAll = component.columns().find(c => c.id === 'backlog')!;
+    expect(backlogAll.tasks.length).toBe(2);
+
+    // Select p1: only p1 tasks
+    component.selectProject('p1');
+    const backlogP1 = component.columns().find(c => c.id === 'backlog')!;
+    expect(backlogP1.tasks.length).toBe(1);
+    expect(backlogP1.tasks[0].projectId).toBe('p1');
+  });
+
+  // --- Workflow mappings on columns ---
+
+  it('should set externalStatus on columns from workflow mappings', () => {
+    const mappings = [
+      { internalState: 'IN_PROGRESS', externalStatus: 'In Dev' },
+      { internalState: 'REVIEW', externalStatus: 'Code Review' },
+    ];
+    projectServiceSpy.getWorkflowMappings.and.returnValue(of(mappings as any));
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'Alpha' }),
+    ]));
+    fixture.detectChanges();
+
+    component.selectProject('p1');
+    const inProgress = component.columns().find(c => c.id === 'in-progress')!;
+    expect(inProgress.externalStatus).toBe('In Dev');
+    const review = component.columns().find(c => c.id === 'review')!;
+    expect(review.externalStatus).toBe('Code Review');
+    const backlog = component.columns().find(c => c.id === 'backlog')!;
+    expect(backlog.externalStatus).toBeUndefined();
+  });
+
+  it('should set mappedExternalStatus on tasks from workflow mappings', () => {
+    const apiData = makeApiData({
+      [TaskState.IN_PROGRESS]: [makeTask({ id: '1', state: TaskState.IN_PROGRESS, projectId: 'p1' })],
+    });
+    const mappings = [
+      { internalState: 'IN_PROGRESS', externalStatus: 'In Dev' },
+    ];
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    projectServiceSpy.getWorkflowMappings.and.returnValue(of(mappings as any));
+    projectServiceSpy.getProjectsByTenant.and.returnValue(of([
+      makeProject({ id: 'p1', name: 'Alpha' }),
+    ]));
+    fixture.detectChanges();
+
+    component.selectProject('p1');
+    const inProgress = component.columns().find(c => c.id === 'in-progress')!;
+    expect((inProgress.tasks[0] as BoardTask).mappedExternalStatus).toBe('In Dev');
+  });
+
+  // --- Agent suggestion modal ---
+
+  it('should return correct suggested agent for each state', () => {
+    expect(component.getSuggestedAgentForState(TaskState.PLANNING)).toBe('PLANNING');
+    expect(component.getSuggestedAgentForState(TaskState.PROPOSE_CODE)).toBe('CODING');
+    expect(component.getSuggestedAgentForState(TaskState.IN_PROGRESS)).toBe('CODING');
+    expect(component.getSuggestedAgentForState(TaskState.REVIEW)).toBe('REVIEW');
+    expect(component.getSuggestedAgentForState(TaskState.QA)).toBe('QA');
+    expect(component.getSuggestedAgentForState(TaskState.MERGE)).toBe('CODING');
+  });
+
+  it('should return PLANNING as default agent for unmapped states', () => {
+    expect(component.getSuggestedAgentForState(TaskState.BACKLOG)).toBe('PLANNING');
+    expect(component.getSuggestedAgentForState(TaskState.DONE)).toBe('PLANNING');
+  });
+
+  it('should dismiss agent suggestion', () => {
+    component.agentSuggestion.set({
+      task: makeTask() as BoardTask,
+      fromState: TaskState.BACKLOG,
+      toState: TaskState.PLANNING,
+      suggestedAgent: 'PLANNING',
+      instructions: '',
+    });
+    component.dismissAgentSuggestion();
+    expect(component.agentSuggestion()).toBeNull();
+  });
+
+  it('should update suggestion instructions', () => {
+    component.agentSuggestion.set({
+      task: makeTask() as BoardTask,
+      fromState: TaskState.BACKLOG,
+      toState: TaskState.PLANNING,
+      suggestedAgent: 'PLANNING',
+      instructions: '',
+    });
+    component.updateSuggestionInstructions('Do X and Y');
+    expect(component.agentSuggestion()!.instructions).toBe('Do X and Y');
+  });
+
+  it('should update suggestion agent type', () => {
+    component.agentSuggestion.set({
+      task: makeTask() as BoardTask,
+      fromState: TaskState.BACKLOG,
+      toState: TaskState.PLANNING,
+      suggestedAgent: 'PLANNING',
+      instructions: '',
+    });
+    component.updateSuggestionAgent('CODING');
+    expect(component.agentSuggestion()!.suggestedAgent).toBe('CODING');
+  });
+
+  it('should accept agent suggestion and delegate task', () => {
+    taskServiceSpy.delegateToAgent.and.returnValue(of(void 0));
+    taskServiceSpy.getTasksByState.and.returnValue(of(makeApiData()));
+    fixture.detectChanges();
+
+    component.agentSuggestion.set({
+      task: makeTask({ id: 'task-1' }) as BoardTask,
+      fromState: TaskState.BACKLOG,
+      toState: TaskState.PLANNING,
+      suggestedAgent: 'PLANNING',
+      instructions: 'Plan carefully',
+    });
+    component.acceptAgentSuggestion();
+
+    expect(taskServiceSpy.delegateToAgent).toHaveBeenCalledWith('task-1', jasmine.objectContaining({
+      agentType: 'PLANNING',
+      instructions: 'Plan carefully',
+      targetState: TaskState.PLANNING,
+    }));
+    expect(component.agentSuggestion()).toBeNull();
+    expect(component.agentSuggestionDelegating()).toBeFalse();
+  });
+
+  it('should reset agentSuggestionDelegating on delegation error', () => {
+    taskServiceSpy.delegateToAgent.and.returnValue(throwError(() => new Error('fail')));
+    fixture.detectChanges();
+
+    component.agentSuggestion.set({
+      task: makeTask({ id: 'task-1' }) as BoardTask,
+      fromState: TaskState.BACKLOG,
+      toState: TaskState.PLANNING,
+      suggestedAgent: 'PLANNING',
+      instructions: '',
+    });
+    component.acceptAgentSuggestion();
+
+    expect(component.agentSuggestionDelegating()).toBeFalse();
+    // Modal should stay open on error
+    expect(component.agentSuggestion()).not.toBeNull();
+  });
+
+  it('should not delegate when agentSuggestion is null', () => {
+    fixture.detectChanges();
+    component.agentSuggestion.set(null);
+    component.acceptAgentSuggestion();
+    expect(taskServiceSpy.delegateToAgent).not.toHaveBeenCalled();
+  });
+
+  // --- COLUMN_DEFS is accessible ---
+
+  it('should expose COLUMN_DEFS as static readonly with 9 entries', () => {
+    expect(TaskBoardComponent.COLUMN_DEFS.length).toBe(9);
+    expect(TaskBoardComponent.COLUMN_DEFS[0].id).toBe('backlog');
+    expect(TaskBoardComponent.COLUMN_DEFS[8].id).toBe('done');
   });
 });

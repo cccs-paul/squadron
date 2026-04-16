@@ -54,6 +54,14 @@ interface ProjectEditForm {
   connectionId: string;
 }
 
+export interface GitAccessStep {
+  label: string;
+  status: 'pending' | 'running' | 'done' | 'error';
+  detail?: string;
+  startedAt?: number;
+  completedAt?: number;
+}
+
 interface ProjectMappingState {
   project: Project;
   expanded: boolean;
@@ -203,6 +211,9 @@ export class ProjectConfigComponent implements OnInit {
   // Step 4: Branch & Workflow (uses projectStates)
   testingGitAccessProjectId = signal<string | null>(null);
   testGitAccessResult = signal<{ projectId: string; result: TestGitAccessResult } | null>(null);
+  /** Step-by-step progress tracker for git access test */
+  gitAccessSteps = signal<{ projectId: string; steps: GitAccessStep[] } | null>(null);
+  gitAccessStepsExpanded = signal(false);
 
   readonly ticketPlatformTypes = TICKET_PLATFORM_TYPES;
   readonly gitPlatformTypes = GIT_PLATFORM_TYPES;
@@ -1305,6 +1316,21 @@ export class ProjectConfigComponent implements OnInit {
 
     this.testingGitAccessProjectId.set(project.id);
     this.testGitAccessResult.set(null);
+    this.gitAccessStepsExpanded.set(false);
+
+    // Initialize progress steps
+    const isSsh = project.cloneUrl.startsWith('git@') || project.cloneUrl.startsWith('ssh://');
+    const steps: GitAccessStep[] = [
+      { label: this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.resolvingCredentials'), status: 'running', startedAt: Date.now() },
+      { label: this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.provisioningContainer'), status: 'pending' },
+      { label: isSsh
+          ? this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.configuringSshKey')
+          : this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.configuringHttpsToken'),
+        status: 'pending' },
+      { label: this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.runningGitLsRemote'), status: 'pending' },
+      { label: this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.cleaningUp'), status: 'pending' },
+    ];
+    this.gitAccessSteps.set({ projectId: project.id, steps: [...steps] });
 
     // Resolve credentials from the git connection
     const gitConn = project.gitConnectionId
@@ -1316,9 +1342,7 @@ export class ProjectConfigComponent implements OnInit {
       ? this.sshKeys().find((k) => k.connectionId === project.gitConnectionId)
       : null;
 
-    // Build request — the backend needs either accessToken or sshKeyId
-    // Since we don't store the raw token client-side (it's encrypted in the connection),
-    // we pass the sshKeyId if available, otherwise we rely on the connection's stored credentials
+    // Build request
     const request: { cloneUrl: string; accessToken?: string; sshKeyId?: string; branch?: string } = {
       cloneUrl: project.cloneUrl,
       branch: project.defaultBranch || 'main',
@@ -1328,22 +1352,75 @@ export class ProjectConfigComponent implements OnInit {
       request.sshKeyId = sshKey.id;
     }
 
+    // Mark step 1 done, step 2 running
+    this.advanceGitAccessStep(project.id, steps, 0, 'done',
+      sshKey ? this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.sshKeyResolved') : gitConn ? this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.connectionResolved') : this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.noCredentials'));
+
+    // Simulate step 2 (container provisioning) start — actual provisioning happens server-side
+    this.advanceGitAccessStep(project.id, steps, 1, 'running');
+
+    // After a brief delay to show container step, advance to step 3
+    setTimeout(() => {
+      this.advanceGitAccessStep(project.id, steps, 1, 'done', 'squadron/workspace-base:latest');
+      this.advanceGitAccessStep(project.id, steps, 2, 'done',
+        isSsh ? this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.sshConfigured') : this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.httpsConfigured'));
+      this.advanceGitAccessStep(project.id, steps, 3, 'running');
+    }, 400);
+
     this.workspaceService.testGitAccess(request).subscribe({
       next: (result) => {
+        // Mark git ls-remote done
+        this.advanceGitAccessStep(project.id, steps, 3, 'done',
+          result.branch ? `refs/heads/${result.branch}` : undefined);
+        // Mark cleanup done
+        this.advanceGitAccessStep(project.id, steps, 4, 'done',
+          this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.containerDestroyed'));
+
         this.testingGitAccessProjectId.set(null);
         this.testGitAccessResult.set({ projectId: project.id, result });
-        setTimeout(() => this.testGitAccessResult.set(null), 10000);
+        setTimeout(() => {
+          this.testGitAccessResult.set(null);
+          this.gitAccessSteps.set(null);
+        }, 15000);
       },
       error: (err: any) => {
+        // Mark the current running step as error
+        const currentRunning = steps.findIndex(s => s.status === 'running');
+        if (currentRunning >= 0) {
+          this.advanceGitAccessStep(project.id, steps, currentRunning, 'error',
+            err?.error?.message || err?.message || this.translate.instant('projectConfig.branchWorkflow.gitConfig.testFailed'));
+        }
+        // Mark cleanup as done even on failure
+        if (steps[4].status === 'pending') {
+          this.advanceGitAccessStep(project.id, steps, 4, 'done',
+            this.translate.instant('projectConfig.branchWorkflow.gitAccessSteps.containerDestroyed'));
+        }
+
         this.testingGitAccessProjectId.set(null);
         const message = err?.error?.message || err?.message || this.translate.instant('projectConfig.branchWorkflow.gitConfig.testFailed');
         this.testGitAccessResult.set({
           projectId: project.id,
           result: { success: false, message, durationMs: 0 },
         });
-        setTimeout(() => this.testGitAccessResult.set(null), 10000);
+        setTimeout(() => {
+          this.testGitAccessResult.set(null);
+          this.gitAccessSteps.set(null);
+        }, 15000);
       },
     });
+  }
+
+  toggleGitAccessSteps(): void {
+    this.gitAccessStepsExpanded.set(!this.gitAccessStepsExpanded());
+  }
+
+  private advanceGitAccessStep(projectId: string, steps: GitAccessStep[], index: number, status: 'running' | 'done' | 'error', detail?: string): void {
+    const step = steps[index];
+    step.status = status;
+    if (detail) step.detail = detail;
+    if (status === 'running' && !step.startedAt) step.startedAt = Date.now();
+    if (status === 'done' || status === 'error') step.completedAt = Date.now();
+    this.gitAccessSteps.set({ projectId, steps: [...steps] });
   }
 
   getGitConnectionName(gitConnectionId: string | undefined): string | null {

@@ -1139,11 +1139,14 @@ describe('ProjectConfigComponent', () => {
       sshKeyId: 'sk-1',
     }));
 
+    // Flush the 400ms setTimeout for container provisioning steps
+    tick(400);
+
     expect(component.testingGitAccessProjectId()).toBeNull();
     expect(component.testGitAccessResult()).toBeTruthy();
     expect(component.testGitAccessResult()!.result.success).toBeTrue();
 
-    tick(10000);
+    tick(15000);
     expect(component.testGitAccessResult()).toBeNull();
   }));
 
@@ -1153,12 +1156,15 @@ describe('ProjectConfigComponent', () => {
     component.updateCloneUrl(0, 'https://github.com/org/repo.git');
     component.testGitAccess(0);
 
+    // Flush the 400ms setTimeout for container provisioning steps
+    tick(400);
+
     expect(component.testingGitAccessProjectId()).toBeNull();
     expect(component.testGitAccessResult()).toBeTruthy();
     expect(component.testGitAccessResult()!.result.success).toBeFalse();
     expect(component.testGitAccessResult()!.result.message).toBe('Auth failed');
 
-    tick(10000);
+    tick(15000);
     expect(component.testGitAccessResult()).toBeNull();
   }));
 

@@ -1,17 +1,18 @@
 import { Component, inject, OnInit, signal, computed, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { SlicePipe } from '@angular/common';
+import { SlicePipe, DatePipe } from '@angular/common';
 import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { forkJoin, Subscription, of, catchError } from 'rxjs';
 import { TaskService } from '../../../core/services/task.service';
 import { ProjectService } from '../../../core/services/project.service';
-import { AgentService, AgentSession } from '../../../core/services/agent.service';
+import { AgentService, AgentSession, AgentMessage } from '../../../core/services/agent.service';
 import { WorkspaceService } from '../../../core/services/workspace.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Task, TaskState, TaskPriority, TaskSyncRequest, TaskSyncResult, DelegateTaskRequest } from '../../../core/models/task.model';
-import { Project, ProjectSummary } from '../../../core/models/project.model';
+import { Project, ProjectSummary, WorkflowMapping } from '../../../core/models/project.model';
+import { ConversationSummary } from '../../../core/models/agent.model';
 
 /** Enriched task with resolved project name and agent session info. */
 export interface BoardTask extends Task {
@@ -20,6 +21,10 @@ export interface BoardTask extends Task {
   agentSessionId?: string;
   agentType?: string;
   mappedExternalStatus?: string;
+  /** Number of agent conversations associated with this task */
+  conversationCount?: number;
+  /** Conversation summaries for this task */
+  conversations?: ConversationSummary[];
 }
 
 export interface BoardColumn {
@@ -29,6 +34,8 @@ export interface BoardColumn {
   icon: string;
   states: TaskState[];
   tasks: BoardTask[];
+  /** When viewing a specific project, the external status mapped to this internal state */
+  externalStatus?: string;
 }
 
 /** Agent types available for delegation */
@@ -39,10 +46,20 @@ export const AGENT_TYPES = [
   { value: 'QA', label: 'tasks.delegate.agentQA', icon: 'qa' },
 ];
 
+/** Maps a TaskState to the recommended agent type for that state */
+const STATE_AGENT_MAP: Record<string, string> = {
+  [TaskState.PLANNING]: 'PLANNING',
+  [TaskState.PROPOSE_CODE]: 'CODING',
+  [TaskState.IN_PROGRESS]: 'CODING',
+  [TaskState.REVIEW]: 'REVIEW',
+  [TaskState.QA]: 'QA',
+  [TaskState.MERGE]: 'CODING',
+};
+
 @Component({
   selector: 'sq-task-board',
   standalone: true,
-  imports: [FormsModule, SlicePipe, CdkDropList, CdkDrag, TranslateModule],
+  imports: [FormsModule, SlicePipe, DatePipe, CdkDropList, CdkDrag, TranslateModule],
   templateUrl: './task-board.component.html',
   styleUrl: './task-board.component.scss',
 })
@@ -64,6 +81,9 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   searchQuery = signal('');
   viewMode = signal<'board' | 'list'>('board');
 
+  /** Currently selected project ID — always a real project ID (no "all projects") */
+  selectedProjectId = signal('');
+
   /** All projects indexed by id for quick lookup */
   projectMap = signal<Record<string, Project>>({});
   /** List of distinct projects for filter dropdown */
@@ -72,9 +92,21 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   projectSummaries = signal<ProjectSummary[]>([]);
   /** Active agent sessions indexed by taskId */
   agentSessions = signal<Record<string, AgentSession>>({});
+  /** Conversation summaries indexed by taskId */
+  taskConversations = signal<Record<string, ConversationSummary[]>>({});
+  /** Workflow mappings for the currently selected project */
+  workflowMappings = signal<WorkflowMapping[]>([]);
+  /** Raw tasks by state from the API */
+  private rawTasksByState = signal<Record<string, Task[]>>({});
 
   /** Task currently showing the action panel */
   expandedTaskId = signal<string | null>(null);
+  /** Task currently showing the full agent history panel */
+  expandedHistoryTaskId = signal<string | null>(null);
+  /** Full messages loaded for a task's agent session */
+  taskMessages = signal<Record<string, AgentMessage[]>>({});
+  /** Loading state for message fetching */
+  loadingMessages = signal<string | null>(null);
   /** Quick-prompt input text per task */
   promptText = signal<Record<string, string>>({});
   /** Cancelling state per task */
@@ -87,6 +119,16 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   delegateAgentType = signal('PLANNING');
   delegateInstructions = signal('');
   delegating = signal(false);
+
+  /** Drag-drop modal: shown after dropping a task to a new column */
+  dropModal = signal<{
+    task: BoardTask;
+    fromState: TaskState;
+    toState: TaskState;
+    suggestedAgent: string;
+    instructions: string;
+  } | null>(null);
+  dropModalDelegating = signal(false);
 
   /** Sync panel state */
   showSyncPanel = signal(false);
@@ -109,14 +151,19 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     return this.filteredColumns().reduce((acc, col) => [...acc, ...col.tasks], [] as BoardTask[]);
   });
 
+  /** The currently selected project object */
+  selectedProject = computed(() => {
+    const id = this.selectedProjectId();
+    return id ? this.projectMap()[id] : null;
+  });
+
   filteredColumns = computed(() => {
     const cols = this.columns();
     const search = this.searchQuery().toLowerCase().trim();
     const priority = this.filterPriority();
-    const projectId = this.filterProject();
     const state = this.filterState();
 
-    if (!search && !priority && !projectId && !state) {
+    if (!search && !priority && !state) {
       return cols;
     }
 
@@ -130,21 +177,19 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
           task.labels?.some(l => l.toLowerCase().includes(search)) ||
           (task.projectName?.toLowerCase().includes(search));
         const matchesPriority = !priority || task.priority === priority;
-        const matchesProject = !projectId || task.projectId === projectId;
         const matchesState = !state || task.state === state;
-        return matchesSearch && matchesPriority && matchesProject && matchesState;
+        return matchesSearch && matchesPriority && matchesState;
       }),
     }));
   });
 
-  /** Connected drop lists: restrict drag-drop to adjacent columns only */
+  /** Connected drop lists: allow drop to any column (not restricted to adjacent) */
   connectedDropLists = computed(() => {
     const cols = this.columns();
     return cols.map((col, idx) => {
-      const connected: string[] = [];
-      if (idx > 0) connected.push(`drop-list-${cols[idx - 1].id}`);
-      if (idx < cols.length - 1) connected.push(`drop-list-${cols[idx + 1].id}`);
-      return connected;
+      return cols
+        .filter((_, i) => i !== idx)
+        .map(c => `drop-list-${c.id}`);
     });
   });
 
@@ -210,23 +255,51 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         this.projectMap.set(pMap);
         this.projects.set(projectList);
         this.projectSummaries.set(summaries);
+        this.rawTasksByState.set(tasksByState);
+
+        // Auto-select first project if none selected (no "All Projects")
+        if (!this.selectedProjectId() && projectList.length > 0) {
+          this.selectedProjectId.set(projectList[0].id);
+          this.loadProjectMappings(projectList[0].id);
+        } else if (this.selectedProjectId()) {
+          // Reload mappings for current selection
+          this.loadProjectMappings(this.selectedProjectId());
+        }
 
         // Build columns
-        this.buildColumns(tasksByState, pMap);
+        this.rebuildColumns();
         this.loading.set(false);
 
-        // Load agent sessions for active tasks
+        // Load agent sessions and conversation history for tasks
         this.loadAgentSessions();
+        this.loadConversationCounts();
       },
       error: () => {
-        this.buildColumns({} as any, {});
+        this.rawTasksByState.set({});
+        this.rebuildColumns();
         this.loading.set(false);
       },
     });
   }
 
+  /** Switch to a specific project view */
+  selectProject(projectId: string): void {
+    if (!projectId) return; // No "all projects" allowed
+    this.selectedProjectId.set(projectId);
+    this.loadProjectMappings(projectId);
+  }
+
+  private loadProjectMappings(projectId: string): void {
+    this.projectService.getWorkflowMappings(projectId).pipe(
+      catchError(() => of([] as WorkflowMapping[])),
+    ).subscribe(mappings => {
+      this.workflowMappings.set(mappings);
+      this.rebuildColumns();
+    });
+  }
+
   /** Column definitions for the 9-column board — one column per TaskState. */
-  private static readonly COLUMN_DEFS: { id: string; state: TaskState; label: string; color: string; icon: string }[] = [
+  static readonly COLUMN_DEFS: { id: string; state: TaskState; label: string; color: string; icon: string }[] = [
     { id: 'backlog',      state: TaskState.BACKLOG,       label: 'tasks.board.column.backlog',      color: '#94A3B8', icon: 'inbox' },
     { id: 'prioritized',  state: TaskState.PRIORITIZED,   label: 'tasks.board.column.prioritized',  color: '#A78BFA', icon: 'star' },
     { id: 'planning',     state: TaskState.PLANNING,      label: 'tasks.board.column.planning',     color: '#818CF8', icon: 'calendar' },
@@ -238,22 +311,50 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     { id: 'done',         state: TaskState.DONE,          label: 'tasks.board.column.done',          color: '#10B981', icon: 'check' },
   ];
 
-  private buildColumns(tasksByState: Record<string, Task[]>, pMap: Record<string, Project>): void {
-    const enrichTask = (task: Task): BoardTask => ({
-      ...task,
-      projectName: pMap[task.projectId]?.name,
-    });
+  /** Rebuild columns based on current project selection and raw data */
+  private rebuildColumns(): void {
+    const tasksByState = this.rawTasksByState();
+    const pMap = this.projectMap();
+    const selectedId = this.selectedProjectId();
+    const mappings = this.workflowMappings();
+    const convos = this.taskConversations();
 
-    this.columns.set(
-      TaskBoardComponent.COLUMN_DEFS.map(def => ({
+    const enrichTask = (task: Task): BoardTask => {
+      const bt: BoardTask = {
+        ...task,
+        projectName: pMap[task.projectId]?.name,
+        conversationCount: convos[task.id]?.length ?? 0,
+        conversations: convos[task.id] ?? [],
+      };
+      // Resolve external status from workflow mappings
+      const mapping = mappings.find(m => m.internalState === task.state);
+      if (mapping) {
+        bt.mappedExternalStatus = mapping.externalStatus;
+      }
+      return bt;
+    };
+
+    // Always filter tasks to selected project
+    const filterByProject = (tasks: Task[]): Task[] => {
+      if (!selectedId) return tasks;
+      return tasks.filter(t => t.projectId === selectedId);
+    };
+
+    const cols = TaskBoardComponent.COLUMN_DEFS.map(def => {
+      const allTasks = filterByProject(tasksByState[def.state] ?? []);
+      const mapping = mappings.find(m => m.internalState === def.state);
+      return {
         id: def.id,
         label: def.label,
         color: def.color,
         icon: def.icon,
         states: [def.state],
-        tasks: (tasksByState[def.state] ?? []).map(enrichTask),
-      })),
-    );
+        tasks: allTasks.map(enrichTask),
+        externalStatus: mapping?.externalStatus,
+      } as BoardColumn;
+    });
+
+    this.columns.set(cols);
   }
 
   /** States whose tasks may have active agent sessions */
@@ -278,6 +379,36 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
       });
       this.subscriptions.push(sub);
     });
+  }
+
+  /** Load conversation summaries for all tasks to show history count */
+  private loadConversationCounts(): void {
+    const allTaskIds = this.columns().flatMap(c => c.tasks.map(t => t.id));
+    allTaskIds.forEach(taskId => {
+      const sub = this.agentService.getConversationSummaries(taskId).pipe(
+        catchError(() => of([] as ConversationSummary[])),
+      ).subscribe(summaries => {
+        const convos = { ...this.taskConversations() };
+        convos[taskId] = summaries;
+        this.taskConversations.set(convos);
+        // Update the task in columns
+        this.updateTaskConversations(taskId, summaries);
+      });
+      this.subscriptions.push(sub);
+    });
+  }
+
+  private updateTaskConversations(taskId: string, summaries: ConversationSummary[]): void {
+    const cols = this.columns().map(col => ({
+      ...col,
+      tasks: col.tasks.map(t => {
+        if (t.id === taskId) {
+          return { ...t, conversationCount: summaries.length, conversations: summaries };
+        }
+        return t;
+      }),
+    }));
+    this.columns.set(cols);
   }
 
   private updateTaskAgentStatus(taskId: string, session: AgentSession): void {
@@ -322,6 +453,34 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Toggle the agent history panel for a task */
+  toggleHistoryPanel(taskId: string, event: Event): void {
+    event.stopPropagation();
+    if (this.expandedHistoryTaskId() === taskId) {
+      this.expandedHistoryTaskId.set(null);
+    } else {
+      this.expandedHistoryTaskId.set(taskId);
+      // Load full messages if we have an agent session
+      this.loadTaskMessages(taskId);
+    }
+  }
+
+  /** Load full messages for a task's agent session */
+  private loadTaskMessages(taskId: string): void {
+    const session = this.agentSessions()[taskId];
+    if (session) {
+      this.loadingMessages.set(taskId);
+      this.agentService.getMessages(session.id).pipe(
+        catchError(() => of([] as AgentMessage[])),
+      ).subscribe(messages => {
+        const msgs = { ...this.taskMessages() };
+        msgs[taskId] = messages;
+        this.taskMessages.set(msgs);
+        this.loadingMessages.set(null);
+      });
+    }
+  }
+
   getStateBadge(task: BoardTask): string {
     if (!task.state) return '';
     return this.translate.instant(`tasks.state.${task.state}`);
@@ -358,6 +517,42 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Get recommended agent for a target state */
+  getSuggestedAgentForState(state: TaskState): string {
+    return STATE_AGENT_MAP[state] ?? 'PLANNING';
+  }
+
+  /** Check if a state has a recommended agent */
+  hasAgentForState(state: TaskState): boolean {
+    return state in STATE_AGENT_MAP;
+  }
+
+  /** Readable agent label */
+  getAgentLabel(agentType: string): string {
+    const at = AGENT_TYPES.find(a => a.value === agentType);
+    return at ? this.translate.instant(at.label) : agentType;
+  }
+
+  /** Get message role display label */
+  getMessageRoleLabel(role: string): string {
+    switch (role) {
+      case 'USER': return this.translate.instant('tasks.board.history.roleUser');
+      case 'AGENT': return this.translate.instant('tasks.board.history.roleAgent');
+      case 'SYSTEM': return this.translate.instant('tasks.board.history.roleSystem');
+      default: return role;
+    }
+  }
+
+  /** Get CSS class for a message role */
+  getMessageRoleClass(role: string): string {
+    return `history__msg--${role.toLowerCase()}`;
+  }
+
+  /** Get CSS class for a conversation status */
+  getConversationStatusClass(status: string): string {
+    return `history__conv-status--${status.toLowerCase()}`;
+  }
+
   // --- Delegate to agent ---
 
   toggleDelegatePanel(taskId: string): void {
@@ -383,7 +578,6 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         this.delegating.set(false);
         this.showDelegatePanel.set(null);
         this.expandedTaskId.set(null);
-        // Reload to show updated state
         this.loadData();
       },
       error: () => {
@@ -580,6 +774,10 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
     } else {
       const task = event.previousContainer.data[event.previousIndex];
+      const fromState = task.state;
+      const targetState = targetColumn.states[0];
+
+      // Move the card visually
       transferArrayItem(
         event.previousContainer.data,
         event.container.data,
@@ -587,11 +785,20 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         event.currentIndex,
       );
 
-      const targetState = targetColumn.states[0];
+      // Perform the transition
       this.taskService.transitionTask(task.id, targetState).subscribe({
         next: () => {
-          // Update the task's state to reflect the new column
           task.state = targetState;
+
+          // Always show the drop modal for cross-column moves
+          const suggestedAgent = STATE_AGENT_MAP[targetState] ?? 'PLANNING';
+          this.dropModal.set({
+            task: { ...task },
+            fromState,
+            toState: targetState,
+            suggestedAgent,
+            instructions: '',
+          });
         },
         error: () => {
           transferArrayItem(
@@ -603,6 +810,49 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         },
       });
     }
+  }
+
+  // --- Drop modal (agent delegation after drag-drop) ---
+
+  dismissDropModal(): void {
+    this.dropModal.set(null);
+  }
+
+  updateDropModalInstructions(value: string): void {
+    const s = this.dropModal();
+    if (s) {
+      this.dropModal.set({ ...s, instructions: value });
+    }
+  }
+
+  updateDropModalAgent(value: string): void {
+    const s = this.dropModal();
+    if (s) {
+      this.dropModal.set({ ...s, suggestedAgent: value });
+    }
+  }
+
+  acceptDropModal(): void {
+    const s = this.dropModal();
+    if (!s) return;
+
+    const request: DelegateTaskRequest = {
+      agentType: s.suggestedAgent,
+      instructions: s.instructions || undefined,
+      targetState: s.toState,
+    };
+
+    this.dropModalDelegating.set(true);
+    this.taskService.delegateToAgent(s.task.id, request).subscribe({
+      next: () => {
+        this.dropModalDelegating.set(false);
+        this.dropModal.set(null);
+        this.loadData();
+      },
+      error: () => {
+        this.dropModalDelegating.set(false);
+      },
+    });
   }
 
   // --- View mode toggle ---
