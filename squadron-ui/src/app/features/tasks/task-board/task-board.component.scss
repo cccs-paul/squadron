@@ -668,6 +668,246 @@
   border: 1px solid rgba(99, 102, 241, 0.12);
 }
 
+// Agent task history badge (on board cards)
+.board__task-history-row {
+  display: flex;
+  margin-top: 8px;
+}
+
+.board__task-history-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sq-text-tertiary);
+  background: var(--sq-bg);
+  border: 1px solid var(--sq-border);
+  border-radius: var(--sq-radius-full);
+  cursor: pointer;
+  transition: all 150ms ease;
+
+  &:hover { background: var(--sq-surface); color: var(--sq-text-secondary); }
+  &--active { background: var(--sq-primary-bg, rgba(99, 102, 241, 0.1)); color: var(--sq-primary); border-color: rgba(99, 102, 241, 0.25); }
+  &--has-tasks { color: var(--sq-primary); font-weight: 600; }
+}
+
+.board__task-history-count {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.board__task-history-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+// Inline agent history panel
+.history {
+  margin-top: 8px;
+  background: var(--sq-bg);
+  border: 1px solid var(--sq-border-light);
+  border-radius: var(--sq-radius);
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--sq-border-light);
+  }
+
+  &__title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--sq-text);
+    margin: 0;
+  }
+
+  &__close {
+    background: none;
+    border: none;
+    font-size: 14px;
+    color: var(--sq-text-tertiary);
+    cursor: pointer;
+    padding: 2px;
+    line-height: 1;
+    &:hover { color: var(--sq-text); }
+  }
+
+  &__conversations {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__conv {
+    padding: 8px;
+    background: var(--sq-surface);
+    border: 1px solid var(--sq-border-light);
+    border-radius: var(--sq-radius-sm);
+  }
+
+  &__conv-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  &__conv-type {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--sq-text);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  &__conv-status {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: var(--sq-radius-full);
+
+    &--active { color: #059669; background: rgba(5, 150, 105, 0.1); }
+    &--completed { color: #6366F1; background: rgba(99, 102, 241, 0.1); }
+    &--failed { color: #DC2626; background: rgba(220, 38, 38, 0.1); }
+    &--waiting_input { color: #D97706; background: rgba(217, 119, 6, 0.1); }
+  }
+
+  &__conv-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--sq-text-tertiary);
+  }
+
+  &__conv-sep { color: var(--sq-text-tertiary); }
+
+  &__conv-model {
+    font-size: 10px;
+    color: var(--sq-text-tertiary);
+    font-style: italic;
+    margin-top: 2px;
+  }
+
+  &__empty {
+    padding: 16px 10px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--sq-text-tertiary);
+  }
+
+  &__loading {
+    padding: 12px 10px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--sq-text-tertiary);
+  }
+
+  &__messages {
+    padding: 8px;
+    border-top: 1px solid var(--sq-border-light);
+  }
+
+  &__messages-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--sq-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 6px;
+  }
+
+  &__msg {
+    padding: 6px 8px;
+    border-radius: var(--sq-radius-sm);
+    margin-bottom: 4px;
+
+    &--user { background: rgba(99, 102, 241, 0.04); border-left: 2px solid #6366F1; }
+    &--agent { background: rgba(16, 185, 129, 0.04); border-left: 2px solid #10B981; }
+    &--system { background: rgba(148, 163, 184, 0.06); border-left: 2px solid #94A3B8; }
+  }
+
+  &__msg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+
+  &__msg-role {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--sq-text-secondary);
+  }
+
+  &__msg-time {
+    font-size: 10px;
+    color: var(--sq-text-tertiary);
+  }
+
+  &__msg-content {
+    font-size: 12px;
+    color: var(--sq-text);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  &__msg-tokens {
+    display: inline-block;
+    font-size: 10px;
+    color: var(--sq-text-tertiary);
+    margin-top: 2px;
+  }
+
+  &__footer {
+    padding: 6px 10px;
+    border-top: 1px solid var(--sq-border-light);
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+// List view history column
+.task-list__col--history { width: 80px; flex-shrink: 0; }
+
+.task-list__history-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sq-text-tertiary);
+
+  &--has-tasks { color: var(--sq-primary); font-weight: 700; }
+}
+
+// Drop modal transition visualization
+.agent-modal__transition {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.agent-modal__state {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.agent-modal__arrow {
+  font-size: 16px;
+  color: var(--sq-text-tertiary);
+}
+
 // Agent suggestion modal
 .agent-modal-overlay {
   position: fixed;

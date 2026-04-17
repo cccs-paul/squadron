@@ -82,6 +82,7 @@ describe('TaskBoardComponent', () => {
     projectServiceSpy = jasmine.createSpyObj('ProjectService', ['getProjectsByTenant', 'getProjectSummaries', 'getWorkflowMappings']);
     agentServiceSpy = jasmine.createSpyObj('AgentService', [
       'getSession', 'sendMessage', 'interruptAgent', 'approvePlan', 'rejectPlan',
+      'getConversationSummaries', 'getMessages',
     ]);
     workspaceServiceSpy = jasmine.createSpyObj('WorkspaceService', [
       'getWorkspaceByTask', 'destroyWorkspace',
@@ -98,6 +99,8 @@ describe('TaskBoardComponent', () => {
     projectServiceSpy.getProjectSummaries.and.returnValue(of([]));
     projectServiceSpy.getWorkflowMappings.and.returnValue(of([]));
     agentServiceSpy.getSession.and.returnValue(of({ id: '', taskId: '', agentType: '', status: 'IDLE', messages: [], createdAt: '' } as any));
+    agentServiceSpy.getConversationSummaries.and.returnValue(of([]));
+    agentServiceSpy.getMessages.and.returnValue(of([]));
 
     await TestBed.configureTestingModule({
       imports: [TaskBoardComponent, TranslateModule.forRoot()],
@@ -423,29 +426,37 @@ describe('TaskBoardComponent', () => {
 
   // --- Connected drop lists (adjacency) ---
 
-  it('should compute connectedDropLists as string[][] with adjacent column IDs', () => {
+  it('should compute connectedDropLists with all other column IDs (not just adjacent)', () => {
     fixture.detectChanges();
     const lists = component.connectedDropLists();
     expect(lists.length).toBe(9);
-    // Each entry is a string[] of adjacent column drop-list IDs
+    // Each entry is a string[] of ALL other column drop-list IDs
     expect(Array.isArray(lists[0])).toBeTrue();
 
-    // First column (backlog) connects only to next (prioritized)
-    expect(lists[0]).toEqual(['drop-list-prioritized']);
-    // Second column (prioritized) connects to prev + next
-    expect(lists[1]).toEqual(['drop-list-backlog', 'drop-list-planning']);
-    // Middle column (in-progress, index 4) connects to prev + next
-    expect(lists[4]).toEqual(['drop-list-propose-code', 'drop-list-review']);
-    // Last column (done) connects only to prev (merge)
-    expect(lists[8]).toEqual(['drop-list-merge']);
+    // First column (backlog) connects to all 8 other columns
+    expect(lists[0].length).toBe(8);
+    expect(lists[0]).not.toContain('drop-list-backlog');
+    expect(lists[0]).toContain('drop-list-prioritized');
+    expect(lists[0]).toContain('drop-list-done');
+    // Middle column (in-progress, index 4) connects to all 8 other columns
+    expect(lists[4].length).toBe(8);
+    expect(lists[4]).not.toContain('drop-list-in-progress');
+    expect(lists[4]).toContain('drop-list-backlog');
+    expect(lists[4]).toContain('drop-list-done');
+    // Last column (done) connects to all 8 other columns
+    expect(lists[8].length).toBe(8);
+    expect(lists[8]).not.toContain('drop-list-done');
+    expect(lists[8]).toContain('drop-list-backlog');
   });
 
   it('should return correct connected lists via getConnectedLists helper', () => {
     fixture.detectChanges();
-    // First column
-    expect(component.getConnectedLists(0)).toEqual(['drop-list-prioritized']);
-    // Last column
-    expect(component.getConnectedLists(8)).toEqual(['drop-list-merge']);
+    // First column connects to 8 other columns
+    expect(component.getConnectedLists(0).length).toBe(8);
+    expect(component.getConnectedLists(0)).toContain('drop-list-prioritized');
+    // Last column connects to 8 other columns
+    expect(component.getConnectedLists(8).length).toBe(8);
+    expect(component.getConnectedLists(8)).toContain('drop-list-merge');
     // Out of bounds returns empty
     expect(component.getConnectedLists(99)).toEqual([]);
   });
@@ -1363,11 +1374,14 @@ describe('TaskBoardComponent', () => {
     expect(component.selectedProjectId()).toBe('p1');
   });
 
-  it('should reset workflowMappings when selecting all projects', () => {
+  it('should ignore selectProject with empty string (no all-projects)', () => {
     fixture.detectChanges();
+    component.selectedProjectId.set('p1');
     component.workflowMappings.set([{ internalState: 'IN_PROGRESS' as any, externalStatus: 'In Dev' }] as any);
     component.selectProject('');
-    expect(component.workflowMappings()).toEqual([]);
+    // Should remain unchanged - selectProject('') is a no-op
+    expect(component.selectedProjectId()).toBe('p1');
+    expect(component.workflowMappings().length).toBe(1);
   });
 
   it('should load workflow mappings on selectProject', () => {
@@ -1392,13 +1406,14 @@ describe('TaskBoardComponent', () => {
     ]));
     fixture.detectChanges();
 
-    expect(component.selectedProject()).toBeNull();
-
-    component.selectProject('p1');
+    // Auto-selects first project
     expect(component.selectedProject()!.name).toBe('Alpha');
+
+    component.selectProject('p2');
+    expect(component.selectedProject()!.name).toBe('Beta');
   });
 
-  it('should show all tasks when no project selected and filter to project when selected', () => {
+  it('should auto-select first project on load and filter tasks to that project', () => {
     const apiData = makeApiData({
       [TaskState.BACKLOG]: [
         makeTask({ id: '1', state: TaskState.BACKLOG, projectId: 'p1' }),
@@ -1412,15 +1427,17 @@ describe('TaskBoardComponent', () => {
     ]));
     fixture.detectChanges();
 
-    // All projects: both tasks visible
-    const backlogAll = component.columns().find(c => c.id === 'backlog')!;
-    expect(backlogAll.tasks.length).toBe(2);
-
-    // Select p1: only p1 tasks
-    component.selectProject('p1');
+    // Auto-selects first project (p1), so only p1 tasks visible
+    expect(component.selectedProjectId()).toBe('p1');
     const backlogP1 = component.columns().find(c => c.id === 'backlog')!;
     expect(backlogP1.tasks.length).toBe(1);
     expect(backlogP1.tasks[0].projectId).toBe('p1');
+
+    // Select p2: only p2 tasks
+    component.selectProject('p2');
+    const backlogP2 = component.columns().find(c => c.id === 'backlog')!;
+    expect(backlogP2.tasks.length).toBe(1);
+    expect(backlogP2.tasks[0].projectId).toBe('p2');
   });
 
   // --- Workflow mappings on columns ---
@@ -1480,88 +1497,173 @@ describe('TaskBoardComponent', () => {
     expect(component.getSuggestedAgentForState(TaskState.DONE)).toBe('PLANNING');
   });
 
-  it('should dismiss agent suggestion', () => {
-    component.agentSuggestion.set({
+  it('should dismiss drop modal', () => {
+    component.dropModal.set({
       task: makeTask() as BoardTask,
       fromState: TaskState.BACKLOG,
       toState: TaskState.PLANNING,
       suggestedAgent: 'PLANNING',
       instructions: '',
     });
-    component.dismissAgentSuggestion();
-    expect(component.agentSuggestion()).toBeNull();
+    component.dismissDropModal();
+    expect(component.dropModal()).toBeNull();
   });
 
-  it('should update suggestion instructions', () => {
-    component.agentSuggestion.set({
+  it('should update drop modal instructions', () => {
+    component.dropModal.set({
       task: makeTask() as BoardTask,
       fromState: TaskState.BACKLOG,
       toState: TaskState.PLANNING,
       suggestedAgent: 'PLANNING',
       instructions: '',
     });
-    component.updateSuggestionInstructions('Do X and Y');
-    expect(component.agentSuggestion()!.instructions).toBe('Do X and Y');
+    component.updateDropModalInstructions('Do X and Y');
+    expect(component.dropModal()!.instructions).toBe('Do X and Y');
   });
 
-  it('should update suggestion agent type', () => {
-    component.agentSuggestion.set({
+  it('should update drop modal agent type', () => {
+    component.dropModal.set({
       task: makeTask() as BoardTask,
       fromState: TaskState.BACKLOG,
       toState: TaskState.PLANNING,
       suggestedAgent: 'PLANNING',
       instructions: '',
     });
-    component.updateSuggestionAgent('CODING');
-    expect(component.agentSuggestion()!.suggestedAgent).toBe('CODING');
+    component.updateDropModalAgent('CODING');
+    expect(component.dropModal()!.suggestedAgent).toBe('CODING');
   });
 
-  it('should accept agent suggestion and delegate task', () => {
+  it('should accept drop modal and delegate task', () => {
     taskServiceSpy.delegateToAgent.and.returnValue(of(void 0));
     taskServiceSpy.getTasksByState.and.returnValue(of(makeApiData()));
     fixture.detectChanges();
 
-    component.agentSuggestion.set({
+    component.dropModal.set({
       task: makeTask({ id: 'task-1' }) as BoardTask,
       fromState: TaskState.BACKLOG,
       toState: TaskState.PLANNING,
       suggestedAgent: 'PLANNING',
       instructions: 'Plan carefully',
     });
-    component.acceptAgentSuggestion();
+    component.acceptDropModal();
 
     expect(taskServiceSpy.delegateToAgent).toHaveBeenCalledWith('task-1', jasmine.objectContaining({
       agentType: 'PLANNING',
       instructions: 'Plan carefully',
       targetState: TaskState.PLANNING,
     }));
-    expect(component.agentSuggestion()).toBeNull();
-    expect(component.agentSuggestionDelegating()).toBeFalse();
+    expect(component.dropModal()).toBeNull();
+    expect(component.dropModalDelegating()).toBeFalse();
   });
 
-  it('should reset agentSuggestionDelegating on delegation error', () => {
+  it('should reset dropModalDelegating on delegation error', () => {
     taskServiceSpy.delegateToAgent.and.returnValue(throwError(() => new Error('fail')));
     fixture.detectChanges();
 
-    component.agentSuggestion.set({
+    component.dropModal.set({
       task: makeTask({ id: 'task-1' }) as BoardTask,
       fromState: TaskState.BACKLOG,
       toState: TaskState.PLANNING,
       suggestedAgent: 'PLANNING',
       instructions: '',
     });
-    component.acceptAgentSuggestion();
+    component.acceptDropModal();
 
-    expect(component.agentSuggestionDelegating()).toBeFalse();
+    expect(component.dropModalDelegating()).toBeFalse();
     // Modal should stay open on error
-    expect(component.agentSuggestion()).not.toBeNull();
+    expect(component.dropModal()).not.toBeNull();
   });
 
-  it('should not delegate when agentSuggestion is null', () => {
+  it('should not delegate when dropModal is null', () => {
     fixture.detectChanges();
-    component.agentSuggestion.set(null);
-    component.acceptAgentSuggestion();
+    component.dropModal.set(null);
+    component.acceptDropModal();
     expect(taskServiceSpy.delegateToAgent).not.toHaveBeenCalled();
+  });
+
+  // --- History panel and conversation counts ---
+
+  it('should toggle expandedHistoryTaskId', () => {
+    fixture.detectChanges();
+    expect(component.expandedHistoryTaskId()).toBeNull();
+
+    const event = new Event('click');
+    component.toggleHistoryPanel('task-1', event);
+    expect(component.expandedHistoryTaskId()).toBe('task-1');
+
+    component.toggleHistoryPanel('task-1', event);
+    expect(component.expandedHistoryTaskId()).toBeNull();
+  });
+
+  it('should return correct message role label', () => {
+    fixture.detectChanges();
+    // TranslateModule.forRoot() returns the key itself
+    expect(component.getMessageRoleLabel('USER')).toBe('tasks.board.history.roleUser');
+    expect(component.getMessageRoleLabel('AGENT')).toBe('tasks.board.history.roleAgent');
+    expect(component.getMessageRoleLabel('SYSTEM')).toBe('tasks.board.history.roleSystem');
+    expect(component.getMessageRoleLabel('UNKNOWN')).toBe('UNKNOWN');
+  });
+
+  it('should return correct message role CSS class', () => {
+    expect(component.getMessageRoleClass('USER')).toBe('history__msg--user');
+    expect(component.getMessageRoleClass('AGENT')).toBe('history__msg--agent');
+    expect(component.getMessageRoleClass('SYSTEM')).toBe('history__msg--system');
+  });
+
+  it('should return correct conversation status CSS class', () => {
+    expect(component.getConversationStatusClass('ACTIVE')).toBe('history__conv-status--active');
+    expect(component.getConversationStatusClass('COMPLETED')).toBe('history__conv-status--completed');
+    expect(component.getConversationStatusClass('FAILED')).toBe('history__conv-status--failed');
+    expect(component.getConversationStatusClass('WAITING_INPUT')).toBe('history__conv-status--waiting_input');
+  });
+
+  it('should report hasAgentForState correctly', () => {
+    expect(component.hasAgentForState(TaskState.PLANNING)).toBeTrue();
+    expect(component.hasAgentForState(TaskState.PROPOSE_CODE)).toBeTrue();
+    expect(component.hasAgentForState(TaskState.IN_PROGRESS)).toBeTrue();
+    expect(component.hasAgentForState(TaskState.REVIEW)).toBeTrue();
+    expect(component.hasAgentForState(TaskState.QA)).toBeTrue();
+    expect(component.hasAgentForState(TaskState.MERGE)).toBeTrue();
+    expect(component.hasAgentForState(TaskState.BACKLOG)).toBeFalse();
+    expect(component.hasAgentForState(TaskState.DONE)).toBeFalse();
+    expect(component.hasAgentForState(TaskState.PRIORITIZED)).toBeFalse();
+  });
+
+  // --- Drop modal sets on cross-column drag-drop ---
+
+  it('should set dropModal on successful cross-column drop', () => {
+    const apiData = makeApiData({
+      [TaskState.BACKLOG]: [makeTask({ id: '1', state: TaskState.BACKLOG, title: 'Task A' })],
+      [TaskState.DONE]: [],
+    });
+    taskServiceSpy.getTasksByState.and.returnValue(of(apiData));
+    fixture.detectChanges();
+
+    const backlogCol = component.columns().find(c => c.id === 'backlog')!;
+    const doneCol = component.columns().find(c => c.id === 'done')!;
+    const sourceData = [...backlogCol.tasks];
+    const targetData = [...doneCol.tasks];
+    const sourceContainer = { data: sourceData } as any;
+    const targetContainer = { data: targetData } as any;
+
+    taskServiceSpy.transitionTask.and.returnValue(of({} as Task));
+
+    const event: Partial<CdkDragDrop<BoardTask[]>> = {
+      previousContainer: sourceContainer,
+      container: targetContainer,
+      previousIndex: 0,
+      currentIndex: 0,
+      item: {} as any,
+      isPointerOverContainer: true,
+      distance: { x: 0, y: 0 },
+      dropPoint: { x: 0, y: 0 },
+      event: {} as any,
+    };
+
+    component.drop(event as CdkDragDrop<BoardTask[]>, doneCol);
+    expect(component.dropModal()).not.toBeNull();
+    expect(component.dropModal()!.fromState).toBe(TaskState.BACKLOG);
+    expect(component.dropModal()!.toState).toBe(TaskState.DONE);
   });
 
   // --- COLUMN_DEFS is accessible ---

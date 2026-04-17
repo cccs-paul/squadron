@@ -475,15 +475,27 @@
         "delegating": "Délégation...",
         "delegateStart": "Démarrer l'agent"
       },
-      "allProjects": "Tous les projets",
       "mappingBanner": "{{project}} a {{count}} correspondance(s) de workflow configurée(s)",
-      "agentSuggestion": {
-        "title": "Déléguer à un agent",
+      "history": {
+        "agentTasks": "Tâches d'agent",
+        "title": "Historique de l'agent",
+        "messages": "messages",
+        "tokens": "jetons",
+        "noTasks": "Aucune tâche d'agent",
+        "loadingMessages": "Chargement des messages...",
+        "messageLog": "Journal des messages",
+        "openFullChat": "Ouvrir le chat complet",
+        "roleUser": "Utilisateur",
+        "roleAgent": "Agent",
+        "roleSystem": "Système"
+      },
+      "dropModal": {
+        "title": "État de la tâche modifié",
         "description": "Cette tâche passe à {{state}}. Souhaitez-vous assigner un agent IA pour la traiter ?",
         "agentLabel": "Type d'agent",
         "instructionsLabel": "Instructions",
         "instructionsPlaceholder": "Instructions facultatives pour l'agent...",
-        "skip": "Ignorer",
+        "skipAgent": "Ignorer",
         "delegate": "Déléguer",
         "delegating": "Délégation..."
       }
