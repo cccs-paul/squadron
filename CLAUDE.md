@@ -13,23 +13,28 @@ configurable AI agent squadrons.
    exactly where you left off. Re-read the TODO list and continue with the next
    incomplete task.
 
-2. **Use as many subagents as needed.** Launch parallel Task agents aggressively to
-   maximize throughput. Premium tokens are authorized -- use them freely.
+2. **Limit parallel subagents.** Launch at most 2-3 Task agents in parallel to avoid
+   overwhelming the computer. Premium tokens are authorized -- use them freely.
 
-3. **DO NOT STOP until you are done.** Complete all tasks in the TODO list. If a task
+3. **Keep a running tally of progress.** Use the TODO list (both in-context and
+   `TODO.md`) to track exactly what you are doing at all times. The user may
+   interrupt you at any point. After an interruption or compaction, re-read the
+   TODO list and resume as close to where you left off as possible.
+
+4. **DO NOT STOP until you are done.** Complete all tasks in the TODO list. If a task
    fails, fix it and continue. Never leave the project in a broken state.
 
-4. **Always verify your work compiles.** Run `mvn compile -q` after making changes to
+5. **Always verify your work compiles.** Run `mvn compile -q` after making changes to
    catch errors early. Run `mvn verify -q` when completing a module.
 
-5. **Always add tests.** Every class you write must have corresponding unit tests.
+6. **Always add tests.** Every class you write must have corresponding unit tests.
    Services, controllers, and engine classes need integration tests. Run
    `mvn test -q` to verify all tests pass before moving on.
 
-6. **All tests must pass.** Never leave the project with failing tests. If a test
+7. **All tests must pass.** Never leave the project with failing tests. If a test
    fails, fix it before continuing. Run `mvn verify -q` to confirm.
 
-7. **Create pull requests when code is ready.** After implementing a feature or
+8. **Create pull requests when code is ready.** After implementing a feature or
    completing a module, create a pull request on the appropriate Git platform.
    Squadron supports GitHub, GitLab, and Bitbucket -- use whichever platform the
    repository is hosted on.
