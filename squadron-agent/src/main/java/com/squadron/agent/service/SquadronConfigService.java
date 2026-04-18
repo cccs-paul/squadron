@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -125,8 +126,7 @@ public class SquadronConfigService {
 
     @Transactional(readOnly = true)
     public SquadronConfig getConfig(UUID id) {
-        return configRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("SquadronConfig", id));
+        return TenantScopedLookup.findByIdScoped(id, configRepository::findById, configRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("SquadronConfig", id));
     }
 
     @Transactional(readOnly = true)

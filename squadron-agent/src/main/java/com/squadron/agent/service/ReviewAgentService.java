@@ -1,20 +1,12 @@
 package com.squadron.agent.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.agent.dto.AgentConfigDto;
-import com.squadron.agent.entity.Conversation;
-import com.squadron.agent.provider.AgentProvider;
-import com.squadron.agent.provider.AgentProviderRegistry;
-import com.squadron.agent.provider.ChatMessage;
-import com.squadron.agent.tool.ToolCall;
-import com.squadron.agent.tool.ToolDefinition;
-import com.squadron.agent.tool.ToolExecutionContext;
-import com.squadron.agent.tool.ToolExecutionEngine;
-import com.squadron.agent.tool.ToolParameter;
-import com.squadron.agent.tool.ToolRegistry;
-import com.squadron.agent.tool.ToolResult;
 import com.squadron.agent.dto.WorkspaceInfo;
+import com.squadron.agent.entity.Conversation;
+import com.squadron.agent.provider.AgentProviderRegistry;
+import com.squadron.agent.tool.ToolExecutionEngine;
+import com.squadron.agent.tool.ToolRegistry;
 import com.squadron.agent.tool.builtin.ReviewClient;
 import com.squadron.agent.tool.builtin.ReviewClient.ReviewCommentRequest;
 import com.squadron.agent.tool.builtin.ReviewBotClient;
@@ -31,11 +23,9 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Orchestrates the review agent's agentic tool-calling loop.
@@ -58,15 +48,19 @@ public class ReviewAgentService {
     private static final Logger log = LoggerFactory.getLogger(ReviewAgentService.class);
     static final int MAX_ITERATIONS = 10;
 
-    /** Regex to match: <tool_call name="tool_name">JSON_BODY</tool_call> */
-    static final Pattern TOOL_CALL_PATTERN = Pattern.compile(
-            "<tool_call\\s+name=\"([^\"]+)\">(.*?)</tool_call>",
-            Pattern.DOTALL);
+    private static final String NUDGE_MESSAGE =
+            "Please finalize your review. If you need to inspect more files, "
+                    + "use the available tools. When your review is complete, include [DONE] "
+                    + "in your response along with your structured findings using the format:\n\n"
+                    + "**Severity:** CRITICAL|MAJOR|MINOR|SUGGESTION\n"
+                    + "**Location:** file.java:42\n"
+                    + "**Category:** bug|security|performance|style|design\n"
+                    + "**Issue:** Description of the issue\n"
+                    + "**Suggestion:** How to fix it";
 
     private final ConversationService conversationService;
     private final SquadronConfigService configService;
     private final AgentProviderRegistry providerRegistry;
-    private final SystemPromptBuilder promptBuilder;
     private final ToolRegistry toolRegistry;
     private final ToolExecutionEngine toolExecutionEngine;
     private final NatsEventPublisher natsEventPublisher;
@@ -93,7 +87,6 @@ public class ReviewAgentService {
         this.conversationService = conversationService;
         this.configService = configService;
         this.providerRegistry = providerRegistry;
-        this.promptBuilder = promptBuilder;
         this.toolRegistry = toolRegistry;
         this.toolExecutionEngine = toolExecutionEngine;
         this.natsEventPublisher = natsEventPublisher;
@@ -157,9 +150,11 @@ public class ReviewAgentService {
                     + "a thorough code review with specific findings.\n\nDiff:\n```\n"
                     + diffContent + "\n```";
 
-            AgentLoopResult result = runReviewLoop(
-                    conversation.getId(), tenantId, userId, config,
-                    systemPrompt, initialMessage, taskId);
+            AgentLoopResult result = AgentLoopSupport.runAgentLoop(
+                    conversation.getId(), tenantId, config,
+                    systemPrompt, initialMessage, taskId, null,
+                    MAX_ITERATIONS, NUDGE_MESSAGE, false,
+                    conversationService, providerRegistry, toolExecutionEngine, objectMapper);
 
             // 8. Parse the review findings from the final response
             List<ReviewCommentRequest> comments = parseReviewFindings(result.getSummary());
@@ -174,8 +169,8 @@ public class ReviewAgentService {
             postReviewBotComments(event, taskId, tenantId, reviewStatus, comments, result.getSummary());
 
             // 12. Publish completion event
-            publishReviewCompletedEvent(tenantId, taskId, conversation.getId(),
-                    true, result.getSummary());
+            AgentLoopSupport.publishCompletedEvent(tenantId, taskId, conversation.getId(),
+                    "REVIEW", true, result.getSummary(), natsEventPublisher);
 
             log.info("AI review {} for task {} with status {} ({} comments, {} iterations)",
                     result.isSuccess() ? "completed" : "finished", taskId, reviewStatus,
@@ -183,8 +178,8 @@ public class ReviewAgentService {
 
         } catch (Exception e) {
             log.error("AI review failed for task {}", taskId, e);
-            publishReviewCompletedEvent(tenantId, taskId, null, false,
-                    "Error: " + e.getMessage());
+            AgentLoopSupport.publishCompletedEvent(tenantId, taskId, null,
+                    "REVIEW", false, "Error: " + e.getMessage(), natsEventPublisher);
         }
     }
 
@@ -213,89 +208,10 @@ public class ReviewAgentService {
     }
 
     /**
-     * Runs the agentic tool-calling loop for the review agent. The LLM responds
-     * with text or tool calls. Tool calls are parsed, executed, and results fed back.
-     * Loop continues until the LLM signals completion or max iterations are reached.
-     */
-    AgentLoopResult runReviewLoop(UUID conversationId, UUID tenantId, UUID userId,
-                                   AgentConfigDto config, String systemPrompt,
-                                   String initialMessage, UUID taskId) {
-        AgentProvider provider = providerRegistry.getProvider(
-                config.getProvider() != null ? config.getProvider() : "openai-compatible");
-
-        List<ChatMessage> history = new ArrayList<>();
-        String currentMessage = initialMessage;
-        int iterations = 0;
-
-        while (iterations < MAX_ITERATIONS) {
-            iterations++;
-
-            // Save user/system message
-            conversationService.addMessage(conversationId,
-                    iterations == 1 ? "USER" : "SYSTEM", currentMessage, null);
-
-            // Call LLM
-            String response;
-            try {
-                response = provider.chat(systemPrompt, history, currentMessage, config);
-            } catch (Exception e) {
-                log.error("LLM call failed at iteration {}", iterations, e);
-                return new AgentLoopResult(false, iterations,
-                        "LLM call failed: " + e.getMessage());
-            }
-
-            // Save assistant response
-            conversationService.addMessage(conversationId, "ASSISTANT", response,
-                    response.length() / 4);
-
-            // Add to history
-            history.add(ChatMessage.builder().role("USER").content(currentMessage).build());
-            history.add(ChatMessage.builder().role("ASSISTANT").content(response).build());
-
-            // Parse tool calls from response
-            List<ToolCall> toolCalls = parseToolCalls(response);
-
-            if (toolCalls.isEmpty()) {
-                // No tool calls — agent is done (or just conversing)
-                if (isCompletionSignal(response)) {
-                    return new AgentLoopResult(true, iterations, extractSummary(response));
-                }
-                // Ask the agent to continue or finalize
-                currentMessage = "Please finalize your review. If you need to inspect more files, "
-                        + "use the available tools. When your review is complete, include [DONE] "
-                        + "in your response along with your structured findings using the format:\n\n"
-                        + "**Severity:** CRITICAL|MAJOR|MINOR|SUGGESTION\n"
-                        + "**Location:** file.java:42\n"
-                        + "**Category:** bug|security|performance|style|design\n"
-                        + "**Issue:** Description of the issue\n"
-                        + "**Suggestion:** How to fix it";
-                continue;
-            }
-
-            // Execute tool calls
-            ToolExecutionContext baseContext = ToolExecutionContext.builder()
-                    .taskId(taskId)
-                    .tenantId(tenantId)
-                    .build();
-
-            List<ToolResult> results = toolExecutionEngine.executeTools(toolCalls, baseContext);
-
-            // Format tool results as the next message
-            currentMessage = formatToolResults(results);
-        }
-
-        return new AgentLoopResult(false, iterations, "Max iterations reached");
-    }
-
-    /**
      * Builds a review system prompt that includes tool definitions and
      * instructions for performing a structured code review.
-     *
-     * @param diffContent the code diff to review
-     * @param tools       available tool definitions
-     * @return the assembled system prompt
      */
-    String buildReviewPromptWithTools(String diffContent, List<ToolDefinition> tools) {
+    String buildReviewPromptWithTools(String diffContent, List<com.squadron.agent.tool.ToolDefinition> tools) {
         StringBuilder sb = new StringBuilder();
         sb.append("""
                 You are an expert code reviewer for the Squadron platform.
@@ -308,20 +224,7 @@ public class ReviewAgentService {
                 
                 """);
 
-        for (ToolDefinition tool : tools) {
-            sb.append("### ").append(tool.getName()).append("\n");
-            sb.append(tool.getDescription()).append("\n");
-            if (tool.getParameters() != null && !tool.getParameters().isEmpty()) {
-                sb.append("Parameters:\n");
-                for (ToolParameter param : tool.getParameters()) {
-                    sb.append("  - `").append(param.getName()).append("` (")
-                            .append(param.getType()).append(")")
-                            .append(param.isRequired() ? " **required**" : " optional")
-                            .append(": ").append(param.getDescription()).append("\n");
-                }
-            }
-            sb.append("\n");
-        }
+        sb.append(AgentLoopSupport.renderToolDefinitions(tools));
 
         sb.append("""
                 ## Review Guidelines
@@ -414,9 +317,6 @@ public class ReviewAgentService {
      * Determines the overall review status based on the severity of findings.
      * Returns "APPROVED" if there are no CRITICAL or MAJOR findings,
      * "CHANGES_REQUESTED" otherwise.
-     *
-     * @param comments the parsed review comments
-     * @return "APPROVED" or "CHANGES_REQUESTED"
      */
     String determineReviewStatus(List<ReviewCommentRequest> comments) {
         if (comments == null || comments.isEmpty()) {
@@ -431,117 +331,8 @@ public class ReviewAgentService {
     }
 
     /**
-     * Parses tool calls from the LLM response text. The LLM is instructed to use
-     * the format: {@code <tool_call name="tool_name">{"param": "value"}</tool_call>}
-     */
-    List<ToolCall> parseToolCalls(String response) {
-        if (response == null || response.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        List<ToolCall> toolCalls = new ArrayList<>();
-        Matcher matcher = TOOL_CALL_PATTERN.matcher(response);
-
-        while (matcher.find()) {
-            String toolName = matcher.group(1);
-            String jsonBody = matcher.group(2).trim();
-
-            try {
-                Map<String, Object> arguments = objectMapper.readValue(
-                        jsonBody, new TypeReference<>() {});
-                toolCalls.add(ToolCall.builder()
-                        .id(UUID.randomUUID().toString())
-                        .toolName(toolName)
-                        .arguments(arguments)
-                        .build());
-            } catch (Exception e) {
-                log.warn("Failed to parse tool call arguments for tool '{}': {}",
-                        toolName, e.getMessage());
-            }
-        }
-
-        return toolCalls;
-    }
-
-    /**
-     * Returns {@code true} if the response contains a completion signal.
-     */
-    boolean isCompletionSignal(String response) {
-        if (response == null) {
-            return false;
-        }
-        return response.contains("[DONE]") || response.contains("[COMPLETE]");
-    }
-
-    /**
-     * Extracts a summary from the completion response. Looks for text after
-     * the completion marker, falling back to the last paragraph.
-     */
-    String extractSummary(String response) {
-        if (response == null || response.isEmpty()) {
-            return "No summary provided";
-        }
-
-        // Try to extract text after [DONE] or [COMPLETE]
-        int doneIdx = response.indexOf("[DONE]");
-        if (doneIdx >= 0) {
-            String after = response.substring(doneIdx + "[DONE]".length()).trim();
-            if (!after.isEmpty()) {
-                return after.length() > 500 ? after.substring(0, 500) : after;
-            }
-        }
-
-        int completeIdx = response.indexOf("[COMPLETE]");
-        if (completeIdx >= 0) {
-            String after = response.substring(completeIdx + "[COMPLETE]".length()).trim();
-            if (!after.isEmpty()) {
-                return after.length() > 500 ? after.substring(0, 500) : after;
-            }
-        }
-
-        // Fall back to the response itself (truncated)
-        return response.length() > 500 ? response.substring(0, 500) : response;
-    }
-
-    /**
-     * Formats tool execution results into a human-readable string that will be
-     * sent back to the LLM as the next message in the conversation.
-     */
-    String formatToolResults(List<ToolResult> results) {
-        if (results == null || results.isEmpty()) {
-            return "No tool results.";
-        }
-
-        return results.stream()
-                .map(result -> {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("## Tool: ").append(result.getToolName()).append("\n");
-                    sb.append("Status: ").append(result.isSuccess() ? "SUCCESS" : "FAILED").append("\n");
-                    if (result.isSuccess() && result.getOutput() != null) {
-                        sb.append("Output:\n```\n").append(result.getOutput()).append("\n```\n");
-                    }
-                    if (!result.isSuccess() && result.getError() != null) {
-                        sb.append("Error: ").append(result.getError()).append("\n");
-                    }
-                    return sb.toString();
-                })
-                .collect(Collectors.joining("\n"));
-    }
-
-    /**
      * Posts review comments to the git platform as a bot user, if a review bot
      * is configured and enabled for the tenant's platform connection.
-     *
-     * <p>Steps:
-     * <ol>
-     *   <li>Extract the connectionId from the event's TaskContext</li>
-     *   <li>Look up the enabled bot config for (tenantId, connectionId)</li>
-     *   <li>If found, fetch the bot's access token</li>
-     *   <li>Find the PR record for this task</li>
-     *   <li>Format the review findings into a comment body</li>
-     *   <li>Post the comment to the git platform via GitClient</li>
-     *   <li>Optionally auto-assign the bot as a reviewer</li>
-     * </ol>
      */
     void postReviewBotComments(TaskStateChangedEvent event, UUID taskId, UUID tenantId,
                                 String reviewStatus, List<ReviewCommentRequest> comments,
@@ -626,33 +417,5 @@ public class ReviewAgentService {
         }
 
         return sb.toString();
-    }
-
-    /**
-     * Publishes an {@link AgentCompletedEvent} with agentType="REVIEW" to NATS.
-     */
-    void publishReviewCompletedEvent(UUID tenantId, UUID taskId, UUID conversationId,
-                                      boolean success, String summary) {
-        AgentCompletedEvent event = new AgentCompletedEvent();
-        event.setTenantId(tenantId);
-        event.setTaskId(taskId);
-        event.setConversationId(conversationId);
-        event.setAgentType("REVIEW");
-        event.setSuccess(success);
-        event.setSource("squadron-agent");
-
-        String subject = success
-                ? "squadron.agent.review.completed"
-                : "squadron.agent.review.failed";
-
-        natsEventPublisher.publishAsync(subject, event);
-
-        // Also publish to aggregated subject for notification service
-        natsEventPublisher.publishAsync("squadron.agents.completed", event);
-
-        log.info("Published review {} event for task {} (summary: {})",
-                success ? "completed" : "failed", taskId,
-                summary != null && summary.length() > 100
-                        ? summary.substring(0, 100) + "..." : summary);
     }
 }

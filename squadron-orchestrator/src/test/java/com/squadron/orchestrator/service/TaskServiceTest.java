@@ -554,7 +554,7 @@ class TaskServiceTest {
                 .tenantId(tenantId)
                 .name("Test Project")
                 .build();
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
+        when(projectRepository.findByIdAndTenantId(projectId, tenantId)).thenReturn(Optional.of(project));
 
         ProjectWorkflowMapping mapping = ProjectWorkflowMapping.builder()
                 .id(UUID.randomUUID())

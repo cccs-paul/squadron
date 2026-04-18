@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -83,7 +84,7 @@ public class PullRequestController {
     public ResponseEntity<ApiResponse<Void>> requestReviewers(
             @PathVariable UUID id,
             @RequestBody List<String> reviewers,
-            @RequestParam String accessToken) {
+            @RequestHeader(value = "X-Access-Token", required = false) String accessToken) {
         pullRequestService.requestReviewers(id, reviewers, accessToken);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
@@ -93,7 +94,7 @@ public class PullRequestController {
     public ResponseEntity<ApiResponse<Void>> addReviewComment(
             @PathVariable UUID id,
             @RequestBody String body,
-            @RequestParam String accessToken) {
+            @RequestHeader(value = "X-Access-Token", required = false) String accessToken) {
         pullRequestService.addReviewComment(id, body, accessToken);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
@@ -102,7 +103,7 @@ public class PullRequestController {
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
     public ResponseEntity<ApiResponse<DiffResult>> getDiff(
             @PathVariable UUID id,
-            @RequestParam String accessToken) {
+            @RequestHeader(value = "X-Access-Token", required = false) String accessToken) {
         DiffResult diff = pullRequestService.getDiff(id, accessToken);
         return ResponseEntity.ok(ApiResponse.success(diff));
     }

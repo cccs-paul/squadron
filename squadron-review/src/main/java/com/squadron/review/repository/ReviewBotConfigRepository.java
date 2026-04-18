@@ -16,4 +16,6 @@ public interface ReviewBotConfigRepository extends JpaRepository<ReviewBotConfig
     List<ReviewBotConfig> findByTenantId(UUID tenantId);
 
     Optional<ReviewBotConfig> findByTenantIdAndConnectionIdAndEnabledTrue(UUID tenantId, UUID connectionId);
+
+    Optional<ReviewBotConfig> findByIdAndTenantId(UUID id, UUID tenantId);
 }

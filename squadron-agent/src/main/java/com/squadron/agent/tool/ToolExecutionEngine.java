@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Engine that looks up tools from the {@link ToolRegistry} and executes them,
@@ -15,6 +17,14 @@ import java.util.List;
 public class ToolExecutionEngine {
 
     private static final Logger log = LoggerFactory.getLogger(ToolExecutionEngine.class);
+
+    static final Map<String, Set<String>> TOOL_ALLOWLISTS = Map.of(
+            "PLANNING", Set.of("file_read", "search", "list_files"),
+            "CODING", Set.of("file_read", "file_write", "shell_exec", "search", "list_files"),
+            "REVIEW", Set.of("file_read", "search", "list_files"),
+            "QA", Set.of("file_read", "shell_exec", "search", "list_files"),
+            "MERGE", Set.of("file_read", "shell_exec", "search", "list_files")
+    );
 
     private final ToolRegistry toolRegistry;
 
@@ -32,6 +42,20 @@ public class ToolExecutionEngine {
     public ToolResult executeTool(String toolName, ToolExecutionContext context) {
         long startTime = System.currentTimeMillis();
         try {
+            String agentType = context.getAgentType();
+            if (agentType != null) {
+                Set<String> allowed = TOOL_ALLOWLISTS.get(agentType);
+                if (allowed != null && !allowed.contains(toolName)) {
+                    log.warn("Tool '{}' not permitted for agent type '{}'", toolName, agentType);
+                    return ToolResult.builder()
+                            .toolName(toolName)
+                            .success(false)
+                            .output("Tool '" + toolName + "' is not permitted for " + agentType + " agents")
+                            .executionTimeMs(System.currentTimeMillis() - startTime)
+                            .build();
+                }
+            }
+
             AgentTool tool = toolRegistry.getTool(toolName);
             log.debug("Executing tool '{}' for task {}", toolName, context.getTaskId());
 
@@ -69,6 +93,7 @@ public class ToolExecutionEngine {
                     .taskId(baseContext.getTaskId())
                     .tenantId(baseContext.getTenantId())
                     .accessToken(baseContext.getAccessToken())
+                    .agentType(baseContext.getAgentType())
                     .parameters(call.getArguments())
                     .build();
 

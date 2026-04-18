@@ -16,4 +16,6 @@ public interface WorkflowDefinitionRepository extends JpaRepository<WorkflowDefi
     Optional<WorkflowDefinition> findByTenantIdAndTeamIdIsNullAndActiveTrue(UUID tenantId);
 
     List<WorkflowDefinition> findByTenantId(UUID tenantId);
+
+    Optional<WorkflowDefinition> findByIdAndTenantId(UUID id, UUID tenantId);
 }

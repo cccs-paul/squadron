@@ -97,4 +97,48 @@ class LdapAuthProviderTest {
         assertThrows(AuthenticationException.class, () ->
                 provider.authenticate("user", "pass", config));
     }
+
+    // --- ldapEscape tests ---
+
+    @Test
+    void should_escapeBackslash() {
+        assertEquals("user\\5cname", LdapAuthProvider.ldapEscape("user\\name"));
+    }
+
+    @Test
+    void should_escapeAsterisk() {
+        assertEquals("user\\2a", LdapAuthProvider.ldapEscape("user*"));
+    }
+
+    @Test
+    void should_escapeParentheses() {
+        assertEquals("\\28user\\29", LdapAuthProvider.ldapEscape("(user)"));
+    }
+
+    @Test
+    void should_escapeNullByte() {
+        assertEquals("user\\00name", LdapAuthProvider.ldapEscape("user\0name"));
+    }
+
+    @Test
+    void should_escapeSlash() {
+        assertEquals("user\\2fname", LdapAuthProvider.ldapEscape("user/name"));
+    }
+
+    @Test
+    void should_returnNullForNullInput() {
+        assertNull(LdapAuthProvider.ldapEscape(null));
+    }
+
+    @Test
+    void should_notEscapeNormalChars() {
+        assertEquals("normaluser", LdapAuthProvider.ldapEscape("normaluser"));
+    }
+
+    @Test
+    void should_escapeComplexInjectionAttempt() {
+        String malicious = "user)(|(uid=*))";
+        String escaped = LdapAuthProvider.ldapEscape(malicious);
+        assertEquals("user\\29\\28|\\28uid=\\2a\\29\\29", escaped);
+    }
 }

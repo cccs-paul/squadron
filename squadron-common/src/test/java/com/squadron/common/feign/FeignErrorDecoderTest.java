@@ -42,6 +42,28 @@ class FeignErrorDecoderTest {
     }
 
     @Test
+    void should_returnSecurityException_when_status401() {
+        Response response = buildResponse(401);
+
+        Exception ex = decoder.decode("SomeClient#authMethod()", response);
+
+        assertInstanceOf(SecurityException.class, ex);
+        assertTrue(ex.getMessage().contains("Unauthorized"));
+        assertTrue(ex.getMessage().contains("SomeClient#authMethod()"));
+    }
+
+    @Test
+    void should_returnSecurityException_when_status403() {
+        Response response = buildResponse(403);
+
+        Exception ex = decoder.decode("SomeClient#forbiddenMethod()", response);
+
+        assertInstanceOf(SecurityException.class, ex);
+        assertTrue(ex.getMessage().contains("Forbidden"));
+        assertTrue(ex.getMessage().contains("SomeClient#forbiddenMethod()"));
+    }
+
+    @Test
     void should_delegateToDefaultDecoder_when_otherStatus() {
         Response response = buildResponse(500);
 
@@ -50,6 +72,7 @@ class FeignErrorDecoderTest {
         assertNotNull(ex);
         assertFalse(ex instanceof ResourceNotFoundException);
         assertFalse(ex instanceof IllegalStateException);
+        assertFalse(ex instanceof SecurityException);
     }
 
     @Test
@@ -61,6 +84,7 @@ class FeignErrorDecoderTest {
         assertNotNull(ex);
         assertFalse(ex instanceof ResourceNotFoundException);
         assertFalse(ex instanceof IllegalStateException);
+        assertFalse(ex instanceof SecurityException);
     }
 
     @Test
@@ -72,6 +96,7 @@ class FeignErrorDecoderTest {
         assertNotNull(ex);
         assertFalse(ex instanceof ResourceNotFoundException);
         assertFalse(ex instanceof IllegalStateException);
+        assertFalse(ex instanceof SecurityException);
     }
 
     private Response buildResponse(int status) {

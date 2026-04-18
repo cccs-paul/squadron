@@ -22,18 +22,23 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/workspaces")
 public class WorkspaceController {
 
     private static final Logger log = LoggerFactory.getLogger(WorkspaceController.class);
+    private static final int MAX_COMMAND_LENGTH = 4096;
+    private static final Pattern SHELL_META_PATTERN = Pattern.compile("['\";$`|&(){}<>\\n\\r]");
+    private static final List<String> ALLOWED_PATH_PREFIXES = List.of("/workspace/", "/home/", "/tmp/");
 
     private final WorkspaceService workspaceService;
     private final WorkspaceGitService workspaceGitService;
@@ -81,6 +86,12 @@ public class WorkspaceController {
     public ResponseEntity<ApiResponse<ExecResult>> execInWorkspace(
             @PathVariable UUID id,
             @Valid @RequestBody ExecRequest request) {
+        // Validate total command length
+        int totalLength = request.getCommand().stream().mapToInt(String::length).sum();
+        if (totalLength > MAX_COMMAND_LENGTH) {
+            return ResponseEntity.badRequest().body(
+                    ApiResponse.error("Command exceeds maximum allowed length of " + MAX_COMMAND_LENGTH + " characters"));
+        }
         request.setWorkspaceId(id);
         ExecResult result = workspaceService.execInWorkspace(request);
         return ResponseEntity.ok(ApiResponse.success(result));
@@ -100,6 +111,10 @@ public class WorkspaceController {
             @PathVariable UUID id,
             @RequestParam String path,
             @RequestBody byte[] content) {
+        String pathError = validatePath(path);
+        if (pathError != null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(pathError));
+        }
         workspaceService.copyToWorkspace(id, content, path);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
@@ -109,6 +124,10 @@ public class WorkspaceController {
     public ResponseEntity<byte[]> copyFromWorkspace(
             @PathVariable UUID id,
             @RequestParam String path) {
+        String pathError = validatePath(path);
+        if (pathError != null) {
+            return ResponseEntity.badRequest().build();
+        }
         byte[] content = workspaceService.copyFromWorkspace(id, path);
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=" + extractFilename(path))
@@ -129,7 +148,7 @@ public class WorkspaceController {
     @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
     public ResponseEntity<ApiResponse<ExecResult>> cloneRepo(
             @PathVariable UUID id,
-            @RequestParam(required = false) String accessToken,
+            @RequestHeader(value = "X-Access-Token", required = false) String accessToken,
             @RequestParam(required = false) UUID sshKeyId) {
         String sshPrivateKey = resolveSshPrivateKey(sshKeyId);
         ExecResult result = workspaceGitService.cloneRepository(id, accessToken, sshPrivateKey);
@@ -162,7 +181,7 @@ public class WorkspaceController {
     public ResponseEntity<ApiResponse<ExecResult>> pushChanges(
             @PathVariable UUID id,
             @RequestParam(required = false) String branch,
-            @RequestParam(required = false) String accessToken,
+            @RequestHeader(value = "X-Access-Token", required = false) String accessToken,
             @RequestParam(required = false) UUID sshKeyId) {
         String sshPrivateKey = resolveSshPrivateKey(sshKeyId);
         ExecResult result = workspaceGitService.pushChanges(id, branch, accessToken, sshPrivateKey);
@@ -203,5 +222,24 @@ public class WorkspaceController {
     private String extractFilename(String path) {
         int lastSlash = path.lastIndexOf('/');
         return lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+    }
+
+    /**
+     * Validates a file path for copy operations. Returns an error message if invalid, null if valid.
+     */
+    private String validatePath(String path) {
+        if (path == null || path.isBlank()) {
+            return "Path must not be null or blank";
+        }
+        if (path.contains("..")) {
+            return "Path must not contain '..' (path traversal)";
+        }
+        if (SHELL_META_PATTERN.matcher(path).find()) {
+            return "Path contains illegal characters";
+        }
+        if (ALLOWED_PATH_PREFIXES.stream().noneMatch(path::startsWith)) {
+            return "Path must start with /workspace/, /home/, or /tmp/";
+        }
+        return null;
     }
 }

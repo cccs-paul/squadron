@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -70,8 +71,7 @@ public class UserTokenService {
                                                 String authorizationCode, String redirectUri) {
         log.info("Linking OAuth2 account for user {} on connection {}", userId, connectionId);
 
-        PlatformConnection connection = connectionRepository.findById(connectionId)
-                .orElseThrow(() -> new ResourceNotFoundException("PlatformConnection", connectionId));
+        PlatformConnection connection = TenantScopedLookup.findByIdScoped(connectionId, connectionRepository::findById, connectionRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PlatformConnection", connectionId));
 
         // Get OAuth2 token endpoint from connection credentials/metadata
         String tokenEndpoint = extractFromConfig(connection, "tokenEndpoint");
@@ -131,8 +131,7 @@ public class UserTokenService {
     public UserPlatformToken linkPatAccount(UUID userId, UUID connectionId, String accessToken) {
         log.info("Linking PAT account for user {} on connection {}", userId, connectionId);
 
-        connectionRepository.findById(connectionId)
-                .orElseThrow(() -> new ResourceNotFoundException("PlatformConnection", connectionId));
+        TenantScopedLookup.findByIdScoped(connectionId, connectionRepository::findById, connectionRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PlatformConnection", connectionId));
 
         UserPlatformToken token = tokenRepository.findByUserIdAndConnectionId(userId, connectionId)
                 .orElse(new UserPlatformToken());
@@ -218,8 +217,7 @@ public class UserTokenService {
     public OAuth2AuthorizeUrlResponse generateOAuth2AuthorizeUrl(UUID connectionId) {
         log.info("Generating OAuth2 authorize URL for connection {}", connectionId);
 
-        PlatformConnection connection = connectionRepository.findById(connectionId)
-                .orElseThrow(() -> new ResourceNotFoundException("PlatformConnection", connectionId));
+        PlatformConnection connection = TenantScopedLookup.findByIdScoped(connectionId, connectionRepository::findById, connectionRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PlatformConnection", connectionId));
 
         String clientId;
         String authorizeEndpoint;
@@ -342,8 +340,7 @@ public class UserTokenService {
 
         log.info("Refreshing OAuth2 token for user {} on connection {}", token.getUserId(), token.getConnectionId());
 
-        PlatformConnection connection = connectionRepository.findById(token.getConnectionId())
-                .orElseThrow(() -> new ResourceNotFoundException("PlatformConnection", token.getConnectionId()));
+        PlatformConnection connection = TenantScopedLookup.findByIdScoped(token.getConnectionId(), connectionRepository::findById, connectionRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PlatformConnection", token.getConnectionId()));
 
         String tokenEndpoint = extractFromConfig(connection, "tokenEndpoint");
         String clientId = extractFromConfig(connection, "clientId");

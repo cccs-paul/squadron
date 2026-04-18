@@ -26,4 +26,6 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
     List<Workspace> findStaleWorkspaces(@Param("threshold") Instant threshold);
 
     List<Workspace> findByStatus(String status);
+
+    Optional<Workspace> findByIdAndTenantId(UUID id, UUID tenantId);
 }

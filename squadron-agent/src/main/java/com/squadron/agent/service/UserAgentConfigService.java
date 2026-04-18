@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 /**
  * Service for managing a user's personal AI agent squadron.
@@ -106,8 +107,7 @@ public class UserAgentConfigService {
      * Updates an existing agent configuration.
      */
     public UserAgentConfig updateAgent(UUID tenantId, UUID userId, UUID agentId, UserAgentConfigDto dto) {
-        UserAgentConfig agent = repository.findById(agentId)
-                .orElseThrow(() -> new ResourceNotFoundException("UserAgentConfig", agentId));
+        UserAgentConfig agent = TenantScopedLookup.findByIdScoped(agentId, repository::findById, repository::findByIdAndTenantId, () -> new ResourceNotFoundException("UserAgentConfig", agentId));
 
         // Verify ownership
         if (!agent.getTenantId().equals(tenantId) || !agent.getUserId().equals(userId)) {
@@ -148,8 +148,7 @@ public class UserAgentConfigService {
      * Users must keep at least 1 agent.
      */
     public void removeAgent(UUID tenantId, UUID userId, UUID agentId) {
-        UserAgentConfig agent = repository.findById(agentId)
-                .orElseThrow(() -> new ResourceNotFoundException("UserAgentConfig", agentId));
+        UserAgentConfig agent = TenantScopedLookup.findByIdScoped(agentId, repository::findById, repository::findByIdAndTenantId, () -> new ResourceNotFoundException("UserAgentConfig", agentId));
 
         if (!agent.getTenantId().equals(tenantId) || !agent.getUserId().equals(userId)) {
             throw new ResourceNotFoundException("UserAgentConfig", agentId);

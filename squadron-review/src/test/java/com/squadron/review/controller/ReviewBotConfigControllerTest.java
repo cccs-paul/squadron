@@ -202,6 +202,17 @@ class ReviewBotConfigControllerTest {
     void should_getBotToken_when_exists() throws Exception {
         UUID configId = UUID.randomUUID();
 
+        ReviewBotConfigDto dto = ReviewBotConfigDto.builder()
+                .id(configId)
+                .tenantId(UUID.randomUUID())
+                .connectionId(UUID.randomUUID())
+                .botUsername("squadron-bot")
+                .enabled(true)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+
+        when(botConfigService.getBotConfig(configId)).thenReturn(dto);
         when(botConfigService.getDecryptedBotToken(configId)).thenReturn("decrypted-token-123");
 
         mockMvc.perform(get("/api/reviews/bot-config/{id}/token", configId))
@@ -210,6 +221,15 @@ class ReviewBotConfigControllerTest {
                 .andExpect(jsonPath("$.data").value("decrypted-token-123"));
 
         verify(botConfigService).getDecryptedBotToken(configId);
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_return403_when_nonAdminAccessesBotToken() throws Exception {
+        UUID configId = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/reviews/bot-config/{id}/token", configId))
+                .andExpect(status().isForbidden());
     }
 
     @Test

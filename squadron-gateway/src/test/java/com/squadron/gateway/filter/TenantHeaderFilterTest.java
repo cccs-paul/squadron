@@ -61,16 +61,27 @@ class TenantHeaderFilterTest {
     }
 
     @Test
-    void should_passThrough_when_noSecurityContext() {
+    void should_stripIdentityHeaders_when_noSecurityContext() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/api/test").build());
+                MockServerHttpRequest.get("/api/test")
+                        .header(SecurityConstants.HEADER_TENANT_ID, "spoofed-tenant")
+                        .header(SecurityConstants.HEADER_USER_ID, "spoofed-user")
+                        .header(SecurityConstants.HEADER_USER_ROLES, "admin")
+                        .build());
 
-        when(chain.filter(any(ServerWebExchange.class))).thenReturn(Mono.empty());
+        ArgumentCaptor<ServerWebExchange> exchangeCaptor = ArgumentCaptor.forClass(ServerWebExchange.class);
+        when(chain.filter(exchangeCaptor.capture())).thenReturn(Mono.empty());
 
         StepVerifier.create(tenantHeaderFilter.filter(exchange, chain))
                 .verifyComplete();
 
-        verify(chain).filter(exchange);
+        ServerWebExchange capturedExchange = exchangeCaptor.getValue();
+        HttpHeaders headers = capturedExchange.getRequest().getHeaders();
+
+        assertThat(headers.getFirst(SecurityConstants.HEADER_TENANT_ID)).isNull();
+        assertThat(headers.getFirst(SecurityConstants.HEADER_USER_ID)).isNull();
+        assertThat(headers.getFirst(SecurityConstants.HEADER_USER_ROLES)).isNull();
+        assertThat(headers.getFirst(SecurityConstants.HEADER_AUTH_PROVIDER)).isNull();
     }
 
     @Test

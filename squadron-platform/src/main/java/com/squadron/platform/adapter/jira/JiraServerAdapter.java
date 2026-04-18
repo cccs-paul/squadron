@@ -58,7 +58,7 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
     @Override
     public void configure(String baseUrl, Map<String, String> credentials) {
         this.baseUrl = normalizeBaseUrl(baseUrl);
-        this.accessToken = resolveToken(credentials);
+        this.accessToken = AdapterErrorHelper.resolveToken(credentials);
 
         // Jira Server supports PAT (Bearer) and Basic Auth (username:password)
         String authHeader;
@@ -85,7 +85,7 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
     @Override
     public List<PlatformTaskDto> fetchTasks(String projectKey, PlatformTaskFilter filter) {
         log.info("Fetching tasks from Jira Server for project {}", projectKey);
-        try {
+        return AdapterErrorHelper.wrapChecked(() -> {
             StringBuilder jql = new StringBuilder("project = " + projectKey);
             if (filter != null && filter.getStatus() != null && !filter.getStatus().isBlank()) {
                 jql.append(" AND status = \"").append(filter.getStatus()).append("\"");
@@ -122,20 +122,13 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
                 result.add(mapIssueToPlatformTask(issue));
             }
             return result;
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to fetch tasks from Jira Server for project {}: {}", projectKey, message, e);
-            throw new RuntimeException("Failed to fetch tasks from Jira Server: " + message, e);
-        }
+        }, "Jira Server", "fetch tasks", log);
     }
 
     @Override
     public PlatformTaskDto getTask(String externalId) {
         log.info("Getting task {} from Jira Server", externalId);
-        try {
+        return AdapterErrorHelper.wrapChecked(() -> {
             String uri = "/issue/" + externalId + "?fields=" + SEARCH_FIELDS;
 
             String responseBody = webClient.get()
@@ -151,20 +144,13 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
 
             Map<String, Object> issue = objectMapper.readValue(responseBody, new TypeReference<>() {});
             return mapIssueToPlatformTask(issue);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to get task {} from Jira Server: {}", externalId, message, e);
-            throw new RuntimeException("Failed to get task from Jira Server: " + message, e);
-        }
+        }, "Jira Server", "get task", log);
     }
 
     @Override
     public void updateTaskStatus(String externalId, String status, String comment) {
         log.info("Updating task {} status to {} on Jira Server", externalId, status);
-        try {
+        AdapterErrorHelper.wrapCheckedVoid(() -> {
             // Step 1: Get available transitions
             String transitionsUri = "/issue/" + externalId + "/transitions";
             String transitionsBody = webClient.get()
@@ -207,20 +193,13 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
             }
 
             log.info("Successfully updated task {} status to {}", externalId, status);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to update task {} status on Jira Server: {}", externalId, message, e);
-            throw new RuntimeException("Failed to update task status on Jira Server: " + message, e);
-        }
+        }, "Jira Server", "update task status", log);
     }
 
     @Override
     public void addComment(String externalId, String comment) {
         log.info("Adding comment to task {} on Jira Server", externalId);
-        try {
+        AdapterErrorHelper.wrapCheckedVoid(() -> {
             // Jira Server v2 uses plain text body
             Map<String, String> body = Map.of("body", comment);
 
@@ -233,20 +212,13 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
                     .block();
 
             log.info("Successfully added comment to task {}", externalId);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to add comment to task {} on Jira Server: {}", externalId, message, e);
-            throw new RuntimeException("Failed to add comment on Jira Server: " + message, e);
-        }
+        }, "Jira Server", "add comment", log);
     }
 
     @Override
     public List<String> getAvailableStatuses(String projectKey) {
         log.info("Getting available statuses for project {} from Jira Server", projectKey);
-        try {
+        return AdapterErrorHelper.wrapChecked(() -> {
             String uri = "/project/" + projectKey + "/statuses";
             String responseBody = webClient.get()
                     .uri(uri)
@@ -273,14 +245,7 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
                 }
             }
             return new ArrayList<>(statusNames);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to get available statuses for project {} from Jira Server: {}", projectKey, message, e);
-            throw new RuntimeException("Failed to get available statuses from Jira Server: " + message, e);
-        }
+        }, "Jira Server", "get available statuses", log);
     }
 
     @Override
@@ -309,7 +274,7 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
     @Override
     public List<PlatformProjectDto> getProjects() {
         log.info("Fetching projects from Jira Server");
-        try {
+        return AdapterErrorHelper.wrapChecked(() -> {
             String responseBody = webClient.get()
                     .uri("/project")
                     .retrieve()
@@ -348,14 +313,7 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
                         .build());
             }
             return result;
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to fetch projects from Jira Server: {}", message, e);
-            throw new RuntimeException("Failed to fetch projects from Jira Server: " + message, e);
-        }
+        }, "Jira Server", "get projects", log);
     }
 
     // --- Helper methods ---
@@ -457,16 +415,4 @@ public class JiraServerAdapter implements TicketingPlatformAdapter {
         return null;
     }
 
-    /**
-     * Extracts a single token value from the credentials map by checking known token field names.
-     */
-    private String resolveToken(Map<String, String> credentials) {
-        for (String key : List.of("accessToken", "pat", "apiKey", "apiToken")) {
-            String value = credentials.get(key);
-            if (value != null && !value.isEmpty()) {
-                return value;
-            }
-        }
-        return "";
-    }
 }

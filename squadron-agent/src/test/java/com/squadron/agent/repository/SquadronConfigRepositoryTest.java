@@ -55,9 +55,9 @@ class SquadronConfigRepositoryTest {
     }
 
     @Test
-    void should_haveFourCustomQueryMethods_when_interfaceInspected() {
+    void should_haveFiveCustomQueryMethods_when_interfaceInspected() {
         Method[] methods = SquadronConfigRepository.class.getDeclaredMethods();
-        assertEquals(4, methods.length);
+        assertEquals(5, methods.length);
     }
 
     @Test

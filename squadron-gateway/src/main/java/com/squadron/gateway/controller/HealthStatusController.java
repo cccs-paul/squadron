@@ -315,7 +315,6 @@ public class HealthStatusController {
     private Map<String, String> serviceEntry(String status, String url) {
         Map<String, String> entry = new LinkedHashMap<>();
         entry.put("status", status);
-        entry.put("url", url);
         return entry;
     }
 

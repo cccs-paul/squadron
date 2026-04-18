@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -31,8 +32,7 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public TeamDto getTeam(UUID id) {
-        Team team = teamRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Team", "id", id));
+        Team team = TenantScopedLookup.findByIdScoped(id, teamRepository::findById, teamRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Team", "id", id));
         return toDto(team);
     }
 
@@ -44,8 +44,7 @@ public class TeamService {
     }
 
     public TeamDto updateTeam(UUID id, TeamDto dto) {
-        Team team = teamRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Team", "id", id));
+        Team team = TenantScopedLookup.findByIdScoped(id, teamRepository::findById, teamRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Team", "id", id));
 
         if (dto.getName() != null) {
             team.setName(dto.getName());

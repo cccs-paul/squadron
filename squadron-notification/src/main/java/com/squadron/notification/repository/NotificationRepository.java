@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
@@ -22,4 +23,6 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     List<Notification> findByStatusAndRetryCountLessThanAndCreatedAtAfter(String status, int maxRetries, Instant after);
 
     List<Notification> findByStatusOrderByCreatedAtDesc(String status);
+
+    Optional<Notification> findByIdAndTenantId(UUID id, UUID tenantId);
 }

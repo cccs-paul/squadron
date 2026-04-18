@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -58,8 +59,7 @@ public class ProjectWorkflowMappingService {
      * @throws IllegalArgumentException  if an internal state value is invalid
      */
     public List<WorkflowMappingDto> saveMappings(UUID projectId, List<WorkflowMappingDto> mappings) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project", projectId));
+        Project project = TenantScopedLookup.findByIdScoped(projectId, projectRepository::findById, projectRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Project", projectId));
 
         // Validate internal states
         for (WorkflowMappingDto dto : mappings) {

@@ -92,6 +92,6 @@ class BranchStrategyRepositoryTest {
     void should_declareExactlyThreeCustomMethods() {
         // Count methods declared directly on this interface (excluding inherited ones)
         Method[] declaredMethods = BranchStrategyRepository.class.getDeclaredMethods();
-        assertEquals(3, declaredMethods.length);
+        assertEquals(4, declaredMethods.length);
     }
 }

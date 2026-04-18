@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, UUID> {
@@ -23,4 +24,6 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
     Page<Review> findByTenantId(UUID tenantId, Pageable pageable);
 
     Page<Review> findByTenantIdAndStatus(UUID tenantId, String status, Pageable pageable);
+
+    Optional<Review> findByIdAndTenantId(UUID id, UUID tenantId);
 }

@@ -16,4 +16,6 @@ public interface TaskPlanRepository extends JpaRepository<TaskPlan, UUID> {
     Optional<TaskPlan> findByTaskIdAndStatus(UUID taskId, String status);
 
     Optional<TaskPlan> findFirstByTaskIdOrderByVersionDesc(UUID taskId);
+
+    Optional<TaskPlan> findByIdAndTenantId(UUID id, UUID tenantId);
 }

@@ -163,6 +163,29 @@ public class LdapAuthProvider implements AuthProvider {
         return contextSource;
     }
 
+    /**
+     * Escapes LDAP special characters in a string to prevent LDAP injection.
+     * See RFC 4515 Section 3.
+     */
+    static String ldapEscape(String input) {
+        if (input == null) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder(input.length() + 10);
+        for (char c : input.toCharArray()) {
+            switch (c) {
+                case '\\': sb.append("\\5c"); break;
+                case '*':  sb.append("\\2a"); break;
+                case '(':  sb.append("\\28"); break;
+                case ')':  sb.append("\\29"); break;
+                case '\0': sb.append("\\00"); break;
+                case '/':  sb.append("\\2f"); break;
+                default:   sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
     private String findUserDn(LdapTemplate template, String userSearchBase, String userSearchFilter,
                                String username, String directoryType, String adDomain) {
         try {
@@ -170,11 +193,13 @@ public class LdapAuthProvider implements AuthProvider {
             if (DIRECTORY_TYPE_AD.equals(directoryType)) {
                 // Active Directory: search by sAMAccountName or userPrincipalName
                 String sanitizedUsername = username.contains("@") ? username.split("@")[0] : username;
+                sanitizedUsername = ldapEscape(sanitizedUsername);
+                String escapedDomain = ldapEscape(adDomain);
                 filter = String.format("(|(sAMAccountName=%s)(userPrincipalName=%s@%s))",
-                        sanitizedUsername, sanitizedUsername, adDomain);
+                        sanitizedUsername, sanitizedUsername, escapedDomain);
             } else {
                 // OpenLDAP: use configured filter
-                filter = userSearchFilter.replace("{0}", username);
+                filter = userSearchFilter.replace("{0}", ldapEscape(username));
             }
 
             List<String> results = template.search(
@@ -220,7 +245,7 @@ public class LdapAuthProvider implements AuthProvider {
     private Map<String, String> getUserAttributes(LdapTemplate template, String userSearchBase,
                                                     String userSearchFilter, String username) {
         try {
-            String filter = userSearchFilter.replace("{0}", username);
+            String filter = userSearchFilter.replace("{0}", ldapEscape(username));
             List<Map<String, String>> results = template.search(
                     userSearchBase,
                     filter,

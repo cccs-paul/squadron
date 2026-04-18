@@ -1,24 +1,33 @@
 package com.squadron.common.security;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.security.spec.KeySpec;
 import java.util.Base64;
 
 @Service
 public class TokenEncryptionService {
+    private static final Logger log = LoggerFactory.getLogger(TokenEncryptionService.class);
     private static final String ALGORITHM = "AES/GCM/NoPadding";
     private static final int GCM_IV_LENGTH = 12;
     private static final int GCM_TAG_LENGTH = 128;
+    // AES-GCM: 12-byte IV + at least 16-byte auth tag = 28 bytes minimum
+    private static final int MIN_ENCRYPTED_BYTES = GCM_IV_LENGTH + 16;
+    private static final String PBKDF2_SALT = "squadron-token-encryption";
+    private static final int PBKDF2_ITERATIONS = 10000;
 
     private final SecretKey secretKey;
 
@@ -28,7 +37,9 @@ public class TokenEncryptionService {
             byte[] keyBytes = deriveKeyBytes(encryptionKey);
             this.secretKey = new SecretKeySpec(keyBytes, "AES");
         } else {
-            // Generate a random key for development/testing - NOT for production
+            log.error("No encryption key configured (squadron.security.encryption-key). "
+                    + "Using ephemeral random key — encrypted data will NOT survive restarts. "
+                    + "This is NOT suitable for production!");
             byte[] keyBytes = new byte[32];
             new SecureRandom().nextBytes(keyBytes);
             this.secretKey = new SecretKeySpec(keyBytes, "AES");
@@ -43,7 +54,7 @@ public class TokenEncryptionService {
     /**
      * Derive a 32-byte AES-256 key from the provided encryption key string.
      * If the string is valid Base64 and decodes to exactly 16, 24, or 32 bytes,
-     * use it directly. Otherwise, SHA-256 hash the raw string to get a 32-byte key.
+     * use it directly. Otherwise, use PBKDF2WithHmacSHA256 to derive a 256-bit key.
      */
     private static byte[] deriveKeyBytes(String encryptionKey) {
         try {
@@ -52,11 +63,16 @@ public class TokenEncryptionService {
                 return decoded;
             }
         } catch (IllegalArgumentException ignored) {
-            // Not valid Base64; fall through to SHA-256 derivation
+            // Not valid Base64; fall through to PBKDF2 derivation
         }
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return digest.digest(encryptionKey.getBytes(StandardCharsets.UTF_8));
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            KeySpec spec = new PBEKeySpec(
+                    encryptionKey.toCharArray(),
+                    PBKDF2_SALT.getBytes(StandardCharsets.UTF_8),
+                    PBKDF2_ITERATIONS,
+                    256);
+            return factory.generateSecret(spec).getEncoded();
         } catch (Exception e) {
             throw new SecurityException("Failed to derive encryption key", e);
         }
@@ -115,7 +131,8 @@ public class TokenEncryptionService {
         if (text == null || text.isEmpty()) return false;
         try {
             byte[] decoded = Base64.getDecoder().decode(text);
-            return decoded.length > GCM_IV_LENGTH;
+            // Must have at least 12-byte IV + 16-byte GCM auth tag = 28 bytes
+            return decoded.length >= MIN_ENCRYPTED_BYTES;
         } catch (IllegalArgumentException e) {
             return false;
         }

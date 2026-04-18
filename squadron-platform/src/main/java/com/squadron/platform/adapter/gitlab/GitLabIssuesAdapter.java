@@ -53,7 +53,7 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
     @Override
     public void configure(String baseUrl, Map<String, String> credentials) {
         this.baseUrl = normalizeBaseUrl(baseUrl);
-        this.accessToken = resolveToken(credentials);
+        this.accessToken = AdapterErrorHelper.resolveToken(credentials);
         this.webClient = sslHelper.trustedBuilder()
                 .baseUrl(this.baseUrl + "/api/v4")
                 .defaultHeader("PRIVATE-TOKEN", this.accessToken)
@@ -66,7 +66,7 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
     @Override
     public List<PlatformTaskDto> fetchTasks(String projectKey, PlatformTaskFilter filter) {
         log.info("Fetching issues from GitLab for project {}", projectKey);
-        try {
+        return AdapterErrorHelper.wrapChecked(() -> {
             StringBuilder uri = new StringBuilder("/projects/" + projectKey + "/issues?");
 
             int maxResults = 50;
@@ -102,20 +102,13 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
                 tasks.add(mapIssueToDto(projectKey, issue));
             }
             return tasks;
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to fetch tasks from GitLab for project {}: {}", projectKey, message, e);
-            throw new RuntimeException("Failed to fetch tasks from GitLab: " + message, e);
-        }
+        }, "GitLab", "fetch tasks", log);
     }
 
     @Override
     public PlatformTaskDto getTask(String externalId) {
         log.info("Getting issue {} from GitLab", externalId);
-        try {
+        return AdapterErrorHelper.wrapChecked(() -> {
             String[] parts = parseExternalId(externalId);
             String projectId = parts[0];
             String issueIid = parts[1];
@@ -136,20 +129,13 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
             Map<String, Object> issue = objectMapper.readValue(
                     responseBody, new TypeReference<>() {});
             return mapIssueToDto(projectId, issue);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to get task {} from GitLab: {}", externalId, message, e);
-            throw new RuntimeException("Failed to get task from GitLab: " + message, e);
-        }
+        }, "GitLab", "get task", log);
     }
 
     @Override
     public void updateTaskStatus(String externalId, String status, String comment) {
         log.info("Updating issue {} status to {} on GitLab", externalId, status);
-        try {
+        AdapterErrorHelper.wrapCheckedVoid(() -> {
             String[] parts = parseExternalId(externalId);
             String projectId = parts[0];
             String issueIid = parts[1];
@@ -173,20 +159,13 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
             if (comment != null && !comment.isBlank()) {
                 addComment(externalId, comment);
             }
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to update task {} status on GitLab: {}", externalId, message, e);
-            throw new RuntimeException("Failed to update task status on GitLab: " + message, e);
-        }
+        }, "GitLab", "update task status", log);
     }
 
     @Override
     public void addComment(String externalId, String comment) {
         log.info("Adding comment to issue {} on GitLab", externalId);
-        try {
+        AdapterErrorHelper.wrapCheckedVoid(() -> {
             String[] parts = parseExternalId(externalId);
             String projectId = parts[0];
             String issueIid = parts[1];
@@ -199,14 +178,7 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to add comment to task {} on GitLab: {}", externalId, message, e);
-            throw new RuntimeException("Failed to add comment on GitLab: " + message, e);
-        }
+        }, "GitLab", "add comment", log);
     }
 
     @Override
@@ -241,7 +213,7 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
     @Override
     public List<PlatformProjectDto> getProjects() {
         log.info("Fetching projects from GitLab");
-        try {
+        return AdapterErrorHelper.wrapChecked(() -> {
             String responseBody = webClient.get()
                     .uri("/projects?membership=true&per_page=100&order_by=updated_at")
                     .retrieve()
@@ -274,14 +246,7 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
                         .build());
             }
             return result;
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to fetch projects from GitLab: {}", message, e);
-            throw new RuntimeException("Failed to fetch projects from GitLab: " + message, e);
-        }
+        }, "GitLab", "get projects", log);
     }
 
     /**
@@ -361,18 +326,5 @@ public class GitLabIssuesAdapter implements TicketingPlatformAdapter {
             }
         }
         return null;
-    }
-
-    /**
-     * Extracts a single token value from the credentials map by checking known token field names.
-     */
-    private String resolveToken(Map<String, String> credentials) {
-        for (String key : List.of("accessToken", "pat", "apiKey", "apiToken")) {
-            String value = credentials.get(key);
-            if (value != null && !value.isEmpty()) {
-                return value;
-            }
-        }
-        return "";
     }
 }

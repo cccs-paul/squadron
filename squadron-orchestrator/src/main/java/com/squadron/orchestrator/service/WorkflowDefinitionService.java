@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -42,8 +43,7 @@ public class WorkflowDefinitionService {
 
     @Transactional(readOnly = true)
     public WorkflowDefinition getById(UUID id) {
-        return workflowDefinitionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("WorkflowDefinition", id));
+        return TenantScopedLookup.findByIdScoped(id, workflowDefinitionRepository::findById, workflowDefinitionRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("WorkflowDefinition", id));
     }
 
     @Transactional(readOnly = true)

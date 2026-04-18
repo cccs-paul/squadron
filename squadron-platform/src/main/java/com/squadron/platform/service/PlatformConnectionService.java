@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -83,8 +84,7 @@ public class PlatformConnectionService {
 
     @Transactional(readOnly = true)
     public PlatformConnection getConnection(UUID id) {
-        return connectionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("PlatformConnection", id));
+        return TenantScopedLookup.findByIdScoped(id, connectionRepository::findById, connectionRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PlatformConnection", id));
     }
 
     @Transactional(readOnly = true)

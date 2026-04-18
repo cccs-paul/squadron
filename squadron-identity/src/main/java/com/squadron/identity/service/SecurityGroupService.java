@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.squadron.common.security.TenantScopedLookup;
 
 /**
  * Service for security group management including member management.
@@ -41,8 +42,7 @@ public class SecurityGroupService {
 
     @Transactional(readOnly = true)
     public SecurityGroupDto getGroup(UUID id) {
-        SecurityGroup group = securityGroupRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("SecurityGroup", "id", id));
+        SecurityGroup group = TenantScopedLookup.findByIdScoped(id, securityGroupRepository::findById, securityGroupRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("SecurityGroup", "id", id));
         return toDtoWithMembers(group);
     }
 
@@ -54,8 +54,7 @@ public class SecurityGroupService {
     }
 
     public SecurityGroupDto updateGroup(UUID id, String name, String description, String accessLevel) {
-        SecurityGroup group = securityGroupRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("SecurityGroup", "id", id));
+        SecurityGroup group = TenantScopedLookup.findByIdScoped(id, securityGroupRepository::findById, securityGroupRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("SecurityGroup", "id", id));
 
         if (name != null) {
             group.setName(name);

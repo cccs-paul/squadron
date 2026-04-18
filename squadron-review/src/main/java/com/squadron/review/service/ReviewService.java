@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -55,8 +56,7 @@ public class ReviewService {
     }
 
     public ReviewDto submitReview(SubmitReviewRequest request) {
-        Review review = reviewRepository.findById(request.getReviewId())
-                .orElseThrow(() -> new ResourceNotFoundException("Review", request.getReviewId()));
+        Review review = TenantScopedLookup.findByIdScoped(request.getReviewId(), reviewRepository::findById, reviewRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Review", request.getReviewId()));
 
         log.info("Submitting review {} with status {}", review.getId(), request.getStatus());
 
@@ -86,8 +86,7 @@ public class ReviewService {
 
     @Transactional(readOnly = true)
     public ReviewDto getReview(UUID id) {
-        Review review = reviewRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Review", id));
+        Review review = TenantScopedLookup.findByIdScoped(id, reviewRepository::findById, reviewRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Review", id));
         List<ReviewComment> comments = reviewCommentRepository.findByReviewId(id);
         return toDto(review, comments);
     }
@@ -118,8 +117,7 @@ public class ReviewService {
     }
 
     public void deleteReview(UUID id) {
-        Review review = reviewRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Review", id));
+        Review review = TenantScopedLookup.findByIdScoped(id, reviewRepository::findById, reviewRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Review", id));
         reviewRepository.delete(review);
         log.info("Deleted review {}", id);
     }

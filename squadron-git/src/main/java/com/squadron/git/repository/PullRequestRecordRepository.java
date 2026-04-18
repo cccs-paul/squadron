@@ -14,4 +14,6 @@ public interface PullRequestRecordRepository extends JpaRepository<PullRequestRe
     Optional<PullRequestRecord> findByTaskId(UUID taskId);
 
     List<PullRequestRecord> findByTenantIdAndStatus(UUID tenantId, String status);
+
+    Optional<PullRequestRecord> findByIdAndTenantId(UUID id, UUID tenantId);
 }

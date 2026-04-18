@@ -18,4 +18,6 @@ public interface SquadronConfigRepository extends JpaRepository<SquadronConfig, 
     Optional<SquadronConfig> findByTenantIdAndTeamIdIsNullAndUserIdIsNull(UUID tenantId);
 
     List<SquadronConfig> findByTenantId(UUID tenantId);
+
+    Optional<SquadronConfig> findByIdAndTenantId(UUID id, UUID tenantId);
 }

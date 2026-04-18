@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 /**
  * Manages git operations within workspace containers by executing git CLI commands
@@ -354,8 +355,7 @@ public class WorkspaceGitService {
     }
 
     private Workspace getWorkspace(UUID workspaceId) {
-        return workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
+        return TenantScopedLookup.findByIdScoped(workspaceId, workspaceRepository::findById, workspaceRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Workspace", workspaceId));
     }
 
     /**

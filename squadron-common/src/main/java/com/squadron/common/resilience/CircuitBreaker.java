@@ -12,6 +12,7 @@ import java.util.function.Supplier;
 /**
  * Simple circuit breaker implementation for inter-service calls.
  * States: CLOSED (normal), OPEN (failing), HALF_OPEN (testing).
+ * All state transitions use CAS for thread safety.
  */
 public class CircuitBreaker {
 
@@ -33,23 +34,14 @@ public class CircuitBreaker {
         this.resetTimeout = resetTimeout;
     }
 
-    /**
-     * Create a circuit breaker with default settings: 5 failures, 30s reset timeout.
-     */
     public static CircuitBreaker withDefaults(String name) {
         return new CircuitBreaker(name, 5, Duration.ofSeconds(30));
     }
 
-    /**
-     * Create a circuit breaker with custom settings.
-     */
     public static CircuitBreaker of(String name, int failureThreshold, Duration resetTimeout) {
         return new CircuitBreaker(name, failureThreshold, resetTimeout);
     }
 
-    /**
-     * Execute the operation through the circuit breaker.
-     */
     public <T> T execute(Supplier<T> operation) {
         State currentState = getEffectiveState();
 
@@ -68,9 +60,6 @@ public class CircuitBreaker {
         }
     }
 
-    /**
-     * Execute a void operation through the circuit breaker.
-     */
     public void executeVoid(Runnable operation) {
         execute(() -> {
             operation.run();
@@ -79,9 +68,8 @@ public class CircuitBreaker {
     }
 
     private void onSuccess() {
-        if (state.get() == State.HALF_OPEN) {
+        if (state.compareAndSet(State.HALF_OPEN, State.CLOSED)) {
             log.info("Circuit breaker '{}' transitioning from HALF_OPEN to CLOSED", name);
-            state.set(State.CLOSED);
             failureCount.set(0);
         }
         successCount.incrementAndGet();
@@ -90,21 +78,22 @@ public class CircuitBreaker {
     private void onFailure() {
         lastFailureTime = Instant.now();
         int failures = failureCount.incrementAndGet();
-        if (failures >= failureThreshold && state.get() == State.CLOSED) {
-            log.warn("Circuit breaker '{}' transitioning to OPEN after {} failures", name, failures);
-            state.set(State.OPEN);
+        if (failures >= failureThreshold) {
+            if (state.compareAndSet(State.CLOSED, State.OPEN)) {
+                log.warn("Circuit breaker '{}' transitioning to OPEN after {} failures", name, failures);
+            } else if (state.compareAndSet(State.HALF_OPEN, State.OPEN)) {
+                log.warn("Circuit breaker '{}' transitioning from HALF_OPEN to OPEN after failure", name);
+            }
         }
     }
 
-    /**
-     * Determine the effective state, considering timeout-based transition to HALF_OPEN.
-     */
     State getEffectiveState() {
         if (state.get() == State.OPEN) {
             if (Instant.now().isAfter(lastFailureTime.plus(resetTimeout))) {
-                log.info("Circuit breaker '{}' transitioning from OPEN to HALF_OPEN", name);
-                state.set(State.HALF_OPEN);
-                return State.HALF_OPEN;
+                if (state.compareAndSet(State.OPEN, State.HALF_OPEN)) {
+                    log.info("Circuit breaker '{}' transitioning from OPEN to HALF_OPEN", name);
+                }
+                return state.get();
             }
             return State.OPEN;
         }
@@ -134,9 +123,6 @@ public class CircuitBreaker {
         lastFailureTime = Instant.MIN;
     }
 
-    /**
-     * Exception thrown when the circuit breaker is open.
-     */
     public static class CircuitBreakerOpenException extends RuntimeException {
         public CircuitBreakerOpenException(String message) {
             super(message);

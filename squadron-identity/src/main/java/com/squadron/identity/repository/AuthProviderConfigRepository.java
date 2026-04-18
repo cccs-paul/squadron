@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
 
 @Repository
 public interface AuthProviderConfigRepository extends JpaRepository<AuthProviderConfig, UUID> {
@@ -17,4 +18,6 @@ public interface AuthProviderConfigRepository extends JpaRepository<AuthProvider
     List<AuthProviderConfig> findByTenantIdAndEnabled(UUID tenantId, boolean enabled);
 
     List<AuthProviderConfig> findByTenantIdAndEnabledOrderByPriorityAsc(UUID tenantId, boolean enabled);
+
+    Optional<AuthProviderConfig> findByIdAndTenantId(UUID id, UUID tenantId);
 }

@@ -2,6 +2,7 @@ package com.squadron.notification.channel;
 
 import com.squadron.notification.entity.Notification;
 import com.squadron.notification.entity.NotificationPreference;
+import com.squadron.notification.util.WebhookUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -36,6 +37,8 @@ public class TeamsNotificationChannel implements NotificationChannel {
         log.info("Sending Teams notification {} to webhook for user {}", notification.getId(), notification.getUserId());
 
         try {
+            WebhookUrlValidator.validateTeamsWebhookUrl(webhookUrl);
+
             Map<String, Object> payload = Map.of(
                     "@type", "MessageCard",
                     "@context", "http://schema.org/extensions",

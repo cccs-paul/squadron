@@ -317,7 +317,7 @@ class SshKeyControllerTest {
     // --- GET /api/platforms/ssh-keys/{id}/private-key (internal endpoint) ---
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = {"squadron-admin"})
     void should_getDecryptedPrivateKey_when_authenticated() throws Exception {
         UUID keyId = UUID.randomUUID();
         String decryptedKey = "-----BEGIN OPENSSH PRIVATE KEY-----\nactual-private-key\n-----END OPENSSH PRIVATE KEY-----";
@@ -336,5 +336,12 @@ class SshKeyControllerTest {
     void should_return401_when_getDecryptedPrivateKeyUnauthenticated() throws Exception {
         mockMvc.perform(get("/api/platforms/ssh-keys/{id}/private-key", UUID.randomUUID()))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_return403_when_nonAdminAccessesPrivateKey() throws Exception {
+        mockMvc.perform(get("/api/platforms/ssh-keys/{id}/private-key", UUID.randomUUID()))
+                .andExpect(status().isForbidden());
     }
 }

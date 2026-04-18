@@ -168,7 +168,7 @@ class PullRequestControllerTest {
         doNothing().when(pullRequestService).requestReviewers(eq(prId), eq(reviewers), eq("token"));
 
         mockMvc.perform(post("/api/git/pull-requests/{id}/reviewers", prId)
-                        .param("accessToken", "token")
+                        .header("X-Access-Token", "token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reviewers)))
                 .andExpect(status().isOk())
@@ -191,7 +191,7 @@ class PullRequestControllerTest {
         when(pullRequestService.getDiff(prId, "token")).thenReturn(diff);
 
         mockMvc.perform(get("/api/git/pull-requests/{id}/diff", prId)
-                        .param("accessToken", "token"))
+                        .header("X-Access-Token", "token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.totalAdditions").value(10))
@@ -276,7 +276,7 @@ class PullRequestControllerTest {
         doNothing().when(pullRequestService).addReviewComment(eq(prId), eq(commentBody), eq("bot-token"));
 
         mockMvc.perform(post("/api/git/pull-requests/{id}/review-comment", prId)
-                        .param("accessToken", "bot-token")
+                        .header("X-Access-Token", "bot-token")
                         .contentType(MediaType.TEXT_PLAIN)
                         .content(commentBody))
                 .andExpect(status().isOk())

@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Slf4j
 @Service
@@ -49,8 +50,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserDto getUser(UUID id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+        User user = TenantScopedLookup.findByIdScoped(id, userRepository::findById, userRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("User", "id", id));
         return toDto(user);
     }
 
@@ -78,8 +78,7 @@ public class UserService {
     }
 
     public UserDto updateUser(UUID id, UserDto dto) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+        User user = TenantScopedLookup.findByIdScoped(id, userRepository::findById, userRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("User", "id", id));
 
         if (dto.getEmail() != null) {
             user.setEmail(dto.getEmail());
@@ -138,14 +137,12 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getUserPreferences(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        User user = TenantScopedLookup.findByIdScoped(userId, userRepository::findById, userRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("User", "id", userId));
         return parseSettings(user.getSettings());
     }
 
     public Map<String, Object> updateUserPreferences(UUID userId, Map<String, Object> preferences) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        User user = TenantScopedLookup.findByIdScoped(userId, userRepository::findById, userRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("User", "id", userId));
 
         Map<String, Object> existingSettings = parseSettings(user.getSettings());
         existingSettings.putAll(preferences);

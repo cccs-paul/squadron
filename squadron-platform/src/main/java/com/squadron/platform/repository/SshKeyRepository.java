@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
 
 @Repository
 public interface SshKeyRepository extends JpaRepository<SshKey, UUID> {
@@ -19,4 +20,6 @@ public interface SshKeyRepository extends JpaRepository<SshKey, UUID> {
     boolean existsByTenantIdAndFingerprint(UUID tenantId, String fingerprint);
 
     List<SshKey> findByConnectionIdAndKeyUsage(UUID connectionId, String keyUsage);
+
+    Optional<SshKey> findByIdAndTenantId(UUID id, UUID tenantId);
 }

@@ -49,13 +49,14 @@ class ToolExecutionContextTest {
         UUID tenantId = UUID.randomUUID();
         Map<String, Object> params = Map.of("command", "ls -la");
 
-        ToolExecutionContext ctx = new ToolExecutionContext(workspaceId, taskId, tenantId, params, "token");
+        ToolExecutionContext ctx = new ToolExecutionContext(workspaceId, taskId, tenantId, params, "token", null);
 
         assertEquals(workspaceId, ctx.getWorkspaceId());
         assertEquals(taskId, ctx.getTaskId());
         assertEquals(tenantId, ctx.getTenantId());
         assertEquals(params, ctx.getParameters());
         assertEquals("token", ctx.getAccessToken());
+        assertNull(ctx.getAgentType());
     }
 
     @Test

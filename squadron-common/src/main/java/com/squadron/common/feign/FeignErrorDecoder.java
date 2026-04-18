@@ -10,6 +10,12 @@ public class FeignErrorDecoder implements ErrorDecoder {
 
     @Override
     public Exception decode(String methodKey, Response response) {
+        if (response.status() == 401) {
+            return new SecurityException("Unauthorized: " + methodKey);
+        }
+        if (response.status() == 403) {
+            return new SecurityException("Forbidden: " + methodKey);
+        }
         if (response.status() == 404) {
             return new ResourceNotFoundException("Resource not found: " + methodKey);
         }

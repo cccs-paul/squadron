@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 /**
  * Main authentication service that orchestrates the auth flow:
@@ -145,8 +146,7 @@ public class AuthService {
             }
 
             UUID userId = UUID.fromString(claims.getSubject());
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new AuthenticationException("User not found"));
+            User user = TenantScopedLookup.findByIdScoped(userId, userRepository::findById, userRepository::findByIdAndTenantId, () -> new AuthenticationException("User not found"));
 
             return buildTokenResponse(user);
 

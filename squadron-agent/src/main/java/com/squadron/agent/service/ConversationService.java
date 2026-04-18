@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -76,8 +77,7 @@ public class ConversationService {
      */
     @Transactional(readOnly = true)
     public Conversation getConversation(UUID id) {
-        return conversationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Conversation", id));
+        return TenantScopedLookup.findByIdScoped(id, conversationRepository::findById, conversationRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Conversation", id));
     }
 
     /**
@@ -134,8 +134,7 @@ public class ConversationService {
      * Closes a conversation by setting its status to COMPLETED.
      */
     public Conversation closeConversation(UUID id) {
-        Conversation conversation = conversationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Conversation", id));
+        Conversation conversation = TenantScopedLookup.findByIdScoped(id, conversationRepository::findById, conversationRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Conversation", id));
 
         conversation.setStatus("COMPLETED");
         log.info("Closed conversation {} (total tokens: {})", id, conversation.getTotalTokens());

@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -88,10 +89,12 @@ public class SshKeyController {
     }
 
     /**
-     * Internal endpoint for inter-service calls to retrieve decrypted private key.
-     * This should be secured to only allow service-to-service communication.
+     * Internal endpoint for inter-service calls (e.g., squadron-workspace via Feign)
+     * to retrieve the decrypted private key. Restricted to squadron-admin role only.
+     * The gateway sets appropriate headers for internal routes.
      */
     @GetMapping("/{id}/private-key")
+    @PreAuthorize("hasRole('squadron-admin')")
     @Operation(summary = "Get decrypted private key (internal use only)")
     public ResponseEntity<ApiResponse<String>> getDecryptedPrivateKey(@PathVariable UUID id) {
         String privateKey = sshKeyService.getDecryptedPrivateKey(id);

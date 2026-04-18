@@ -35,4 +35,6 @@ public interface UserAgentConfigRepository extends JpaRepository<UserAgentConfig
      * Delete all agents for a user (used during reset).
      */
     void deleteByTenantIdAndUserId(UUID tenantId, UUID userId);
+
+    Optional<UserAgentConfig> findByIdAndTenantId(UUID id, UUID tenantId);
 }

@@ -42,8 +42,8 @@ public class NatsEventPublisher {
                             event.getEventType(), subject, ack.getStream(), ack.getSeqno());
                     return;
                 } catch (Exception e) {
-                    log.debug("JetStream publish failed for subject {}, falling back to core NATS: {}",
-                            subject, e.getMessage());
+                    log.warn("JetStream publish failed for subject '{}' (eventType={}), falling back to core NATS: {}",
+                            subject, event.getEventType(), e.getMessage());
                 }
             }
 
@@ -61,12 +61,7 @@ public class NatsEventPublisher {
 
     /**
      * Publishes raw bytes to the given subject, using JetStream if available
-     * with fallback to core NATS. This is useful for publishing non-SquadronEvent
-     * payloads (e.g., audit events) while still benefiting from JetStream
-     * durable delivery.
-     *
-     * @param subject the NATS subject to publish to
-     * @param data    the raw byte payload
+     * with fallback to core NATS.
      */
     public void publishRaw(String subject, byte[] data) {
         if (jetStream != null) {
@@ -76,7 +71,7 @@ public class NatsEventPublisher {
                         subject, ack.getStream(), ack.getSeqno());
                 return;
             } catch (Exception e) {
-                log.debug("JetStream publish failed for subject {}, falling back to core NATS: {}",
+                log.warn("JetStream publish failed for subject '{}' (raw data), falling back to core NATS: {}",
                         subject, e.getMessage());
             }
         }

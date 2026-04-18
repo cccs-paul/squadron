@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.squadron.common.security.TenantScopedLookup;
 
 /**
  * Service for resource permission management.
@@ -130,7 +131,7 @@ public class PermissionService {
             allPermissions.addAll(groupPerms);
 
             // Also consider the security group's default access level
-            securityGroupRepository.findById(groupId).ifPresent(group -> {
+            securityGroupRepository.findByIdAndTenantId(groupId, tenantId).ifPresent(group -> {
                 // The group's default access level applies to resources where the group has explicit permissions
                 // We don't add it as a blanket permission
             });

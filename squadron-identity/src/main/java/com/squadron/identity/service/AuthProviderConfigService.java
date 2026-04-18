@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 /**
  * CRUD service for auth provider configurations.
@@ -35,8 +36,7 @@ public class AuthProviderConfigService {
 
     @Transactional(readOnly = true)
     public AuthProviderConfig getConfig(UUID id) {
-        return authProviderConfigRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("AuthProviderConfig", "id", id));
+        return TenantScopedLookup.findByIdScoped(id, authProviderConfigRepository::findById, authProviderConfigRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("AuthProviderConfig", "id", id));
     }
 
     @Transactional(readOnly = true)
@@ -46,8 +46,7 @@ public class AuthProviderConfigService {
 
     public AuthProviderConfig updateConfig(UUID id, String name, String providerType,
                                             String configJson, Boolean enabled, Integer priority) {
-        AuthProviderConfig config = authProviderConfigRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("AuthProviderConfig", "id", id));
+        AuthProviderConfig config = TenantScopedLookup.findByIdScoped(id, authProviderConfigRepository::findById, authProviderConfigRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("AuthProviderConfig", "id", id));
 
         if (name != null) {
             config.setName(name);

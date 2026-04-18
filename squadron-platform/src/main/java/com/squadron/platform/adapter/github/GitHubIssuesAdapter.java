@@ -53,7 +53,7 @@ public class GitHubIssuesAdapter implements TicketingPlatformAdapter {
     @Override
     public void configure(String baseUrl, Map<String, String> credentials) {
         this.baseUrl = baseUrl != null && !baseUrl.isBlank() ? normalizeBaseUrl(baseUrl) : DEFAULT_BASE_URL;
-        this.accessToken = resolveToken(credentials);
+        this.accessToken = AdapterErrorHelper.resolveToken(credentials);
         this.webClient = sslHelper.trustedBuilder()
                 .baseUrl(this.baseUrl)
                 .defaultHeader("Authorization", "Bearer " + this.accessToken)
@@ -66,7 +66,7 @@ public class GitHubIssuesAdapter implements TicketingPlatformAdapter {
     @Override
     public List<PlatformTaskDto> fetchTasks(String projectKey, PlatformTaskFilter filter) {
         log.info("Fetching issues from GitHub for repo {}", projectKey);
-        try {
+        return AdapterErrorHelper.wrapChecked(() -> {
             String state = "all";
             String assignee = null;
             int perPage = 50;
@@ -111,20 +111,13 @@ public class GitHubIssuesAdapter implements TicketingPlatformAdapter {
                 tasks.add(mapIssueToPlatformTask(projectKey, issue));
             }
             return tasks;
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to fetch tasks from GitHub for repo {}: {}", projectKey, message, e);
-            throw new RuntimeException("Failed to fetch tasks from GitHub: " + message, e);
-        }
+        }, "GitHub", "fetch tasks", log);
     }
 
     @Override
     public PlatformTaskDto getTask(String externalId) {
         log.info("Getting issue {} from GitHub", externalId);
-        try {
+        return AdapterErrorHelper.wrapChecked(() -> {
             String[] parts = parseExternalId(externalId);
             String owner = parts[0];
             String repo = parts[1];
@@ -144,20 +137,13 @@ public class GitHubIssuesAdapter implements TicketingPlatformAdapter {
             Map<String, Object> issue = objectMapper.readValue(
                     responseBody, new TypeReference<Map<String, Object>>() {});
             return mapIssueToPlatformTask(owner + "/" + repo, issue);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to get task {} from GitHub: {}", externalId, message, e);
-            throw new RuntimeException("Failed to get task from GitHub: " + message, e);
-        }
+        }, "GitHub", "get task", log);
     }
 
     @Override
     public void updateTaskStatus(String externalId, String status, String comment) {
         log.info("Updating issue {} status to {} on GitHub", externalId, status);
-        try {
+        AdapterErrorHelper.wrapCheckedVoid(() -> {
             String[] parts = parseExternalId(externalId);
             String owner = parts[0];
             String repo = parts[1];
@@ -175,20 +161,13 @@ public class GitHubIssuesAdapter implements TicketingPlatformAdapter {
             if (comment != null && !comment.isBlank()) {
                 addComment(externalId, comment);
             }
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to update task {} status on GitHub: {}", externalId, message, e);
-            throw new RuntimeException("Failed to update task status on GitHub: " + message, e);
-        }
+        }, "GitHub", "update task status", log);
     }
 
     @Override
     public void addComment(String externalId, String comment) {
         log.info("Adding comment to issue {} on GitHub", externalId);
-        try {
+        AdapterErrorHelper.wrapCheckedVoid(() -> {
             String[] parts = parseExternalId(externalId);
             String owner = parts[0];
             String repo = parts[1];
@@ -202,14 +181,7 @@ public class GitHubIssuesAdapter implements TicketingPlatformAdapter {
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to add comment to task {} on GitHub: {}", externalId, message, e);
-            throw new RuntimeException("Failed to add comment on GitHub: " + message, e);
-        }
+        }, "GitHub", "add comment", log);
     }
 
     @Override
@@ -246,7 +218,7 @@ public class GitHubIssuesAdapter implements TicketingPlatformAdapter {
     @SuppressWarnings("unchecked")
     public List<PlatformProjectDto> getProjects() {
         log.info("Fetching repositories from GitHub");
-        try {
+        return AdapterErrorHelper.wrapChecked(() -> {
             String responseBody = webClient.get()
                     .uri("/user/repos?per_page=100&sort=updated")
                     .retrieve()
@@ -283,14 +255,7 @@ public class GitHubIssuesAdapter implements TicketingPlatformAdapter {
                         .build());
             }
             return result;
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            String classified = AdapterErrorHelper.classifyError(e);
-            String message = classified != null ? classified : e.getMessage();
-            log.error("Failed to fetch projects from GitHub: {}", message, e);
-            throw new RuntimeException("Failed to fetch projects from GitHub: " + message, e);
-        }
+        }, "GitHub", "get projects", log);
     }
 
     /**
@@ -368,18 +333,5 @@ public class GitHubIssuesAdapter implements TicketingPlatformAdapter {
                 .createdAt(createdAt)
                 .updatedAt(updatedAt)
                 .build();
-    }
-
-    /**
-     * Extracts a single token value from the credentials map by checking known token field names.
-     */
-    private String resolveToken(Map<String, String> credentials) {
-        for (String key : List.of("accessToken", "pat", "apiKey", "apiToken")) {
-            String value = credentials.get(key);
-            if (value != null && !value.isEmpty()) {
-                return value;
-            }
-        }
-        return "";
     }
 }

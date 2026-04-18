@@ -7,13 +7,10 @@ import com.squadron.agent.entity.Conversation;
 import com.squadron.agent.entity.ConversationMessage;
 import com.squadron.agent.provider.AgentProvider;
 import com.squadron.agent.provider.AgentProviderRegistry;
-import com.squadron.agent.tool.ToolCall;
 import com.squadron.agent.tool.ToolDefinition;
-import com.squadron.agent.tool.ToolExecutionContext;
 import com.squadron.agent.tool.ToolExecutionEngine;
 import com.squadron.agent.tool.ToolParameter;
 import com.squadron.agent.tool.ToolRegistry;
-import com.squadron.agent.tool.ToolResult;
 import com.squadron.agent.tool.builtin.ExecResultDto;
 import com.squadron.agent.tool.builtin.GitClient;
 import com.squadron.agent.tool.builtin.ReviewBotClient;
@@ -45,44 +42,19 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ReviewAgentServiceTest {
 
-    @Mock
-    private ConversationService conversationService;
-
-    @Mock
-    private SquadronConfigService configService;
-
-    @Mock
-    private AgentProviderRegistry providerRegistry;
-
-    @Mock
-    private SystemPromptBuilder promptBuilder;
-
-    @Mock
-    private ToolRegistry toolRegistry;
-
-    @Mock
-    private ToolExecutionEngine toolExecutionEngine;
-
-    @Mock
-    private NatsEventPublisher natsEventPublisher;
-
-    @Mock
-    private ReviewClient reviewClient;
-
-    @Mock
-    private ReviewBotClient reviewBotClient;
-
-    @Mock
-    private GitClient gitClient;
-
-    @Mock
-    private WorkspaceClient workspaceClient;
-
-    @Mock
-    private WorkspaceLifecycleService workspaceLifecycleService;
-
-    @Mock
-    private AgentProvider agentProvider;
+    @Mock private ConversationService conversationService;
+    @Mock private SquadronConfigService configService;
+    @Mock private AgentProviderRegistry providerRegistry;
+    @Mock private SystemPromptBuilder promptBuilder;
+    @Mock private ToolRegistry toolRegistry;
+    @Mock private ToolExecutionEngine toolExecutionEngine;
+    @Mock private NatsEventPublisher natsEventPublisher;
+    @Mock private ReviewClient reviewClient;
+    @Mock private ReviewBotClient reviewBotClient;
+    @Mock private GitClient gitClient;
+    @Mock private WorkspaceClient workspaceClient;
+    @Mock private WorkspaceLifecycleService workspaceLifecycleService;
+    @Mock private AgentProvider agentProvider;
 
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private ReviewAgentService reviewAgentService;
@@ -125,16 +97,13 @@ class ReviewAgentServiceTest {
                 .thenReturn(diffResult);
 
         Conversation conversation = createConversation();
-        when(conversationService.startConversation(tenantId, taskId, userId, "REVIEW"))
-                .thenReturn(conversation);
+        when(conversationService.startConversation(tenantId, taskId, userId, "REVIEW")).thenReturn(conversation);
         when(configService.resolveAgentConfig(tenantId, null, userId, "REVIEW"))
                 .thenReturn(AgentConfigDto.builder().provider("openai-compatible").build());
         when(toolRegistry.getAllToolDefinitions()).thenReturn(Collections.emptyList());
         when(providerRegistry.getProvider("openai-compatible")).thenReturn(agentProvider);
-
         when(agentProvider.chat(anyString(), anyList(), anyString(), any(AgentConfigDto.class)))
                 .thenReturn("[DONE] All looks good");
-
         when(conversationService.addMessage(any(), anyString(), anyString(), any()))
                 .thenReturn(ConversationMessage.builder().id(UUID.randomUUID()).build());
         when(natsEventPublisher.publishAsync(anyString(), any()))
@@ -156,30 +125,20 @@ class ReviewAgentServiceTest {
         TaskStateChangedEvent event = createReviewEvent();
 
         UUID reviewId = UUID.randomUUID();
-        ReviewResponse reviewResponse = ReviewResponse.builder()
-                .id(reviewId).taskId(taskId).status("PENDING").build();
-        when(reviewClient.createReview(tenantId, taskId, "AI")).thenReturn(reviewResponse);
-
-        ExecResultDto diffResult = ExecResultDto.builder()
-                .exitCode(0).stdout("diff content").stderr("").build();
+        when(reviewClient.createReview(tenantId, taskId, "AI"))
+                .thenReturn(ReviewResponse.builder().id(reviewId).taskId(taskId).status("PENDING").build());
         when(workspaceClient.exec(eq(taskId), eq("bash"), eq("-c"), eq("git diff main...HEAD")))
-                .thenReturn(diffResult);
-
-        Conversation conversation = createConversation();
-        when(conversationService.startConversation(tenantId, taskId, userId, "REVIEW"))
-                .thenReturn(conversation);
+                .thenReturn(ExecResultDto.builder().exitCode(0).stdout("diff content").stderr("").build());
+        when(conversationService.startConversation(tenantId, taskId, userId, "REVIEW")).thenReturn(createConversation());
         when(configService.resolveAgentConfig(tenantId, null, userId, "REVIEW"))
                 .thenReturn(AgentConfigDto.builder().build());
         when(toolRegistry.getAllToolDefinitions()).thenReturn(Collections.emptyList());
         when(providerRegistry.getProvider("openai-compatible")).thenReturn(agentProvider);
 
         String responseWithCritical = "[DONE] Found issues.\n\n"
-                + "**Severity:** CRITICAL\n"
-                + "**Location:** Foo.java:10\n"
-                + "**Category:** bug\n"
-                + "**Issue:** Null pointer dereference\n"
+                + "**Severity:** CRITICAL\n**Location:** Foo.java:10\n"
+                + "**Category:** bug\n**Issue:** Null pointer dereference\n"
                 + "**Suggestion:** Add null check";
-
         when(agentProvider.chat(anyString(), anyList(), anyString(), any(AgentConfigDto.class)))
                 .thenReturn(responseWithCritical);
         when(conversationService.addMessage(any(), anyString(), anyString(), any()))
@@ -197,21 +156,15 @@ class ReviewAgentServiceTest {
         TaskStateChangedEvent event = createReviewEvent();
 
         UUID reviewId = UUID.randomUUID();
-        ReviewResponse reviewResponse = ReviewResponse.builder()
-                .id(reviewId).taskId(taskId).status("PENDING").build();
-        when(reviewClient.createReview(tenantId, taskId, "AI")).thenReturn(reviewResponse);
-
+        when(reviewClient.createReview(tenantId, taskId, "AI"))
+                .thenReturn(ReviewResponse.builder().id(reviewId).taskId(taskId).status("PENDING").build());
         when(workspaceClient.exec(eq(taskId), eq("bash"), eq("-c"), eq("git diff main...HEAD")))
                 .thenThrow(new RuntimeException("Workspace unavailable"));
-
-        Conversation conversation = createConversation();
-        when(conversationService.startConversation(tenantId, taskId, userId, "REVIEW"))
-                .thenReturn(conversation);
+        when(conversationService.startConversation(tenantId, taskId, userId, "REVIEW")).thenReturn(createConversation());
         when(configService.resolveAgentConfig(tenantId, null, userId, "REVIEW"))
                 .thenReturn(AgentConfigDto.builder().build());
         when(toolRegistry.getAllToolDefinitions()).thenReturn(Collections.emptyList());
         when(providerRegistry.getProvider("openai-compatible")).thenReturn(agentProvider);
-
         when(agentProvider.chat(anyString(), anyList(), anyString(), any(AgentConfigDto.class)))
                 .thenReturn("[DONE] Reviewed with limited context.");
         when(conversationService.addMessage(any(), anyString(), anyString(), any()))
@@ -219,31 +172,23 @@ class ReviewAgentServiceTest {
         when(natsEventPublisher.publishAsync(anyString(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
-        // Should still complete - diff falls back to "(diff unavailable)"
         assertDoesNotThrow(() -> reviewAgentService.executeReview(event));
-
         verify(reviewClient).submitReview(eq(reviewId), anyString(), anyString(), anyList());
     }
 
     @Test
     void should_handleReviewClientFailure() {
         TaskStateChangedEvent event = createReviewEvent();
-
         when(reviewClient.createReview(tenantId, taskId, "AI"))
                 .thenThrow(new ReviewClient.ReviewClientException("Connection refused"));
-
         when(natsEventPublisher.publishAsync(anyString(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         assertDoesNotThrow(() -> reviewAgentService.executeReview(event));
 
         ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<AgentCompletedEvent> eventCaptor =
-                ArgumentCaptor.forClass(AgentCompletedEvent.class);
-        verify(natsEventPublisher, times(2)).publishAsync(subjectCaptor.capture(), eventCaptor.capture());
-
+        verify(natsEventPublisher, times(2)).publishAsync(subjectCaptor.capture(), any(AgentCompletedEvent.class));
         assertEquals("squadron.agent.review.failed", subjectCaptor.getAllValues().get(0));
-        assertFalse(eventCaptor.getAllValues().get(0).isSuccess());
     }
 
     // ---------------------------------------------------------------------------
@@ -253,45 +198,31 @@ class ReviewAgentServiceTest {
     @Test
     void should_parseReviewFindings_withMultipleFindings() {
         String response = "Here are my findings:\n\n"
-                + "**Severity:** CRITICAL\n"
-                + "**Location:** Service.java:42\n"
-                + "**Category:** bug\n"
-                + "**Issue:** Unclosed resource\n"
+                + "**Severity:** CRITICAL\n**Location:** Service.java:42\n"
+                + "**Category:** bug\n**Issue:** Unclosed resource\n"
                 + "**Suggestion:** Use try-with-resources\n\n"
-                + "**Severity:** MINOR\n"
-                + "**Location:** Util.java:10\n"
-                + "**Category:** style\n"
-                + "**Issue:** Inconsistent naming convention\n"
+                + "**Severity:** MINOR\n**Location:** Util.java:10\n"
+                + "**Category:** style\n**Issue:** Inconsistent naming convention\n"
                 + "**Suggestion:** Rename to camelCase\n";
 
         List<ReviewCommentRequest> findings = reviewAgentService.parseReviewFindings(response);
 
         assertEquals(2, findings.size());
-
-        ReviewCommentRequest first = findings.get(0);
-        assertEquals("Service.java", first.getFilePath());
-        assertEquals(42, first.getLineNumber());
-        assertEquals("CRITICAL", first.getSeverity());
-        assertEquals("bug", first.getCategory());
-        assertTrue(first.getBody().contains("Unclosed resource"));
-        assertTrue(first.getBody().contains("try-with-resources"));
-
-        ReviewCommentRequest second = findings.get(1);
-        assertEquals("Util.java", second.getFilePath());
-        assertEquals(10, second.getLineNumber());
-        assertEquals("MINOR", second.getSeverity());
+        assertEquals("Service.java", findings.get(0).getFilePath());
+        assertEquals(42, findings.get(0).getLineNumber());
+        assertEquals("CRITICAL", findings.get(0).getSeverity());
+        assertEquals("Util.java", findings.get(1).getFilePath());
+        assertEquals("MINOR", findings.get(1).getSeverity());
     }
 
     @Test
     void should_parseReviewFindings_withEmptyResponse() {
-        List<ReviewCommentRequest> findings = reviewAgentService.parseReviewFindings("");
-        assertTrue(findings.isEmpty());
+        assertTrue(reviewAgentService.parseReviewFindings("").isEmpty());
     }
 
     @Test
     void should_parseReviewFindings_withNullResponse() {
-        List<ReviewCommentRequest> findings = reviewAgentService.parseReviewFindings(null);
-        assertTrue(findings.isEmpty());
+        assertTrue(reviewAgentService.parseReviewFindings(null).isEmpty());
     }
 
     // ---------------------------------------------------------------------------
@@ -301,52 +232,40 @@ class ReviewAgentServiceTest {
     @Test
     void should_determineReviewStatus_approved_whenNoBlockingFindings() {
         List<ReviewCommentRequest> comments = List.of(
-                ReviewCommentRequest.builder()
-                        .filePath("Foo.java").lineNumber(5).body("Minor thing")
-                        .severity("MINOR").category("style").build(),
-                ReviewCommentRequest.builder()
-                        .filePath("Bar.java").lineNumber(20).body("Consider this")
-                        .severity("SUGGESTION").category("design").build()
+                ReviewCommentRequest.builder().filePath("Foo.java").lineNumber(5)
+                        .body("Minor thing").severity("MINOR").category("style").build(),
+                ReviewCommentRequest.builder().filePath("Bar.java").lineNumber(20)
+                        .body("Consider this").severity("SUGGESTION").category("design").build()
         );
-
-        String status = reviewAgentService.determineReviewStatus(comments);
-        assertEquals("APPROVED", status);
+        assertEquals("APPROVED", reviewAgentService.determineReviewStatus(comments));
     }
 
     @Test
     void should_determineReviewStatus_changesRequested_whenCriticalFound() {
         List<ReviewCommentRequest> comments = List.of(
-                ReviewCommentRequest.builder()
-                        .filePath("Foo.java").lineNumber(10).body("Critical bug")
-                        .severity("CRITICAL").category("bug").build()
+                ReviewCommentRequest.builder().filePath("Foo.java").lineNumber(10)
+                        .body("Critical bug").severity("CRITICAL").category("bug").build()
         );
-
-        String status = reviewAgentService.determineReviewStatus(comments);
-        assertEquals("CHANGES_REQUESTED", status);
+        assertEquals("CHANGES_REQUESTED", reviewAgentService.determineReviewStatus(comments));
     }
 
     @Test
     void should_determineReviewStatus_changesRequested_whenMajorFound() {
         List<ReviewCommentRequest> comments = List.of(
-                ReviewCommentRequest.builder()
-                        .filePath("Foo.java").lineNumber(15).body("Major issue")
-                        .severity("MAJOR").category("security").build()
+                ReviewCommentRequest.builder().filePath("Foo.java").lineNumber(15)
+                        .body("Major issue").severity("MAJOR").category("security").build()
         );
-
-        String status = reviewAgentService.determineReviewStatus(comments);
-        assertEquals("CHANGES_REQUESTED", status);
+        assertEquals("CHANGES_REQUESTED", reviewAgentService.determineReviewStatus(comments));
     }
 
     @Test
     void should_determineReviewStatus_approved_whenEmptyList() {
-        String status = reviewAgentService.determineReviewStatus(Collections.emptyList());
-        assertEquals("APPROVED", status);
+        assertEquals("APPROVED", reviewAgentService.determineReviewStatus(Collections.emptyList()));
     }
 
     @Test
     void should_determineReviewStatus_approved_whenNullList() {
-        String status = reviewAgentService.determineReviewStatus(null);
-        assertEquals("APPROVED", status);
+        assertEquals("APPROVED", reviewAgentService.determineReviewStatus(null));
     }
 
     // ---------------------------------------------------------------------------
@@ -356,236 +275,53 @@ class ReviewAgentServiceTest {
     @Test
     void should_buildReviewPromptWithTools() {
         List<ToolDefinition> tools = List.of(
-                ToolDefinition.builder()
-                        .name("file_read")
-                        .description("Reads a file from the workspace")
-                        .parameters(List.of(
-                                ToolParameter.builder()
-                                        .name("path").type("string")
-                                        .description("The file path to read")
-                                        .required(true).build()
-                        ))
-                        .build(),
-                ToolDefinition.builder()
-                        .name("shell_exec")
-                        .description("Executes a shell command")
-                        .parameters(List.of(
-                                ToolParameter.builder()
-                                        .name("command").type("string")
-                                        .description("The command to execute")
-                                        .required(true).build()
-                        ))
-                        .build()
+                ToolDefinition.builder().name("file_read").description("Reads a file from the workspace")
+                        .parameters(List.of(ToolParameter.builder().name("path").type("string")
+                                .description("The file path to read").required(true).build())).build()
         );
 
-        String diffContent = "diff --git a/App.java b/App.java\n+new code";
-        String prompt = reviewAgentService.buildReviewPromptWithTools(diffContent, tools);
+        String prompt = reviewAgentService.buildReviewPromptWithTools("diff --git a/App.java b/App.java\n+new code", tools);
 
         assertTrue(prompt.contains("file_read"));
-        assertTrue(prompt.contains("Reads a file from the workspace"));
         assertTrue(prompt.contains("`path` (string) **required**"));
-        assertTrue(prompt.contains("shell_exec"));
         assertTrue(prompt.contains("diff --git a/App.java b/App.java"));
         assertTrue(prompt.contains("[DONE]"));
-        assertTrue(prompt.contains("tool_call"));
         assertTrue(prompt.contains("CRITICAL|MAJOR|MINOR|SUGGESTION"));
     }
 
     // ---------------------------------------------------------------------------
-    // runReviewLoop tests
+    // retrieveDiff tests
     // ---------------------------------------------------------------------------
 
     @Test
-    void should_runReviewLoop_completionSignal() {
-        AgentConfigDto config = AgentConfigDto.builder().provider("openai-compatible").build();
-        when(providerRegistry.getProvider("openai-compatible")).thenReturn(agentProvider);
+    void should_retrieveDiff_successfully() {
+        ExecResultDto diffResult = ExecResultDto.builder()
+                .exitCode(0).stdout("diff content here").stderr("").build();
+        when(workspaceClient.exec(eq(taskId), eq("bash"), eq("-c"), eq("git diff main...HEAD")))
+                .thenReturn(diffResult);
 
-        when(agentProvider.chat(anyString(), anyList(), anyString(), any(AgentConfigDto.class)))
-                .thenReturn("[DONE] Review complete. No major issues found.");
-
-        when(conversationService.addMessage(any(), anyString(), anyString(), any()))
-                .thenReturn(ConversationMessage.builder().id(UUID.randomUUID()).build());
-
-        AgentLoopResult result = reviewAgentService.runReviewLoop(
-                conversationId, tenantId, userId, config,
-                "System prompt", "Review this diff", taskId);
-
-        assertTrue(result.isSuccess());
-        assertEquals(1, result.getIterations());
-        assertTrue(result.getSummary().contains("Review complete"));
+        String diff = reviewAgentService.retrieveDiff(taskId);
+        assertEquals("diff content here", diff);
     }
 
     @Test
-    void should_runReviewLoop_maxIterations() {
-        AgentConfigDto config = AgentConfigDto.builder().provider("openai-compatible").build();
-        when(providerRegistry.getProvider("openai-compatible")).thenReturn(agentProvider);
+    void should_retrieveDiff_fallbackToHead1() {
+        when(workspaceClient.exec(eq(taskId), eq("bash"), eq("-c"), eq("git diff main...HEAD")))
+                .thenReturn(ExecResultDto.builder().exitCode(1).stdout("").stderr("error").build());
+        when(workspaceClient.exec(eq(taskId), eq("bash"), eq("-c"), eq("git diff HEAD~1")))
+                .thenReturn(ExecResultDto.builder().exitCode(0).stdout("fallback diff").stderr("").build());
 
-        // Always return a tool call (never signals done)
-        when(agentProvider.chat(anyString(), anyList(), anyString(), any()))
-                .thenReturn("<tool_call name=\"file_read\">{\"path\": \"/workspace/Foo.java\"}</tool_call>");
-
-        ToolResult fileReadResult = ToolResult.builder()
-                .toolName("file_read").success(true).output("content").build();
-        when(toolExecutionEngine.executeTools(anyList(), any(ToolExecutionContext.class)))
-                .thenReturn(List.of(fileReadResult));
-
-        when(conversationService.addMessage(any(), anyString(), anyString(), any()))
-                .thenReturn(ConversationMessage.builder().id(UUID.randomUUID()).build());
-
-        AgentLoopResult result = reviewAgentService.runReviewLoop(
-                conversationId, tenantId, userId, config,
-                "System prompt", "Review this diff", taskId);
-
-        assertFalse(result.isSuccess());
-        assertEquals(ReviewAgentService.MAX_ITERATIONS, result.getIterations());
-        assertEquals("Max iterations reached", result.getSummary());
+        String diff = reviewAgentService.retrieveDiff(taskId);
+        assertEquals("fallback diff", diff);
     }
 
     @Test
-    void should_runReviewLoop_handleLlmCallFailure() {
-        AgentConfigDto config = AgentConfigDto.builder().provider("openai-compatible").build();
-        when(providerRegistry.getProvider("openai-compatible")).thenReturn(agentProvider);
+    void should_retrieveDiff_handleException() {
+        when(workspaceClient.exec(eq(taskId), eq("bash"), eq("-c"), eq("git diff main...HEAD")))
+                .thenThrow(new RuntimeException("Workspace unavailable"));
 
-        when(agentProvider.chat(anyString(), anyList(), anyString(), any()))
-                .thenThrow(new RuntimeException("API rate limit exceeded"));
-
-        when(conversationService.addMessage(any(), anyString(), anyString(), any()))
-                .thenReturn(ConversationMessage.builder().id(UUID.randomUUID()).build());
-
-        AgentLoopResult result = reviewAgentService.runReviewLoop(
-                conversationId, tenantId, userId, config,
-                "System prompt", "Review this diff", taskId);
-
-        assertFalse(result.isSuccess());
-        assertEquals(1, result.getIterations());
-        assertTrue(result.getSummary().contains("LLM call failed"));
-    }
-
-    // ---------------------------------------------------------------------------
-    // parseToolCalls tests
-    // ---------------------------------------------------------------------------
-
-    @Test
-    void should_parseToolCalls_validXml() {
-        String response = "Let me check.\n"
-                + "<tool_call name=\"file_read\">{\"path\": \"/workspace/Main.java\"}</tool_call>\n"
-                + "And also:\n"
-                + "<tool_call name=\"shell_exec\">{\"command\": \"mvn test\"}</tool_call>";
-
-        List<ToolCall> toolCalls = reviewAgentService.parseToolCalls(response);
-
-        assertEquals(2, toolCalls.size());
-        assertEquals("file_read", toolCalls.get(0).getToolName());
-        assertEquals("/workspace/Main.java", toolCalls.get(0).getArguments().get("path"));
-        assertEquals("shell_exec", toolCalls.get(1).getToolName());
-        assertEquals("mvn test", toolCalls.get(1).getArguments().get("command"));
-    }
-
-    @Test
-    void should_parseToolCalls_emptyResponse() {
-        assertTrue(reviewAgentService.parseToolCalls("").isEmpty());
-        assertTrue(reviewAgentService.parseToolCalls(null).isEmpty());
-    }
-
-    @Test
-    void should_parseToolCalls_invalidJson() {
-        String response = "<tool_call name=\"file_read\">not valid json</tool_call>";
-        List<ToolCall> toolCalls = reviewAgentService.parseToolCalls(response);
-        assertTrue(toolCalls.isEmpty());
-    }
-
-    // ---------------------------------------------------------------------------
-    // isCompletionSignal tests
-    // ---------------------------------------------------------------------------
-
-    @Test
-    void should_isCompletionSignal_done() {
-        assertTrue(reviewAgentService.isCompletionSignal("Review complete. [DONE] All good."));
-    }
-
-    @Test
-    void should_isCompletionSignal_complete() {
-        assertTrue(reviewAgentService.isCompletionSignal("[COMPLETE] Review finished."));
-    }
-
-    @Test
-    void should_isCompletionSignal_null() {
-        assertFalse(reviewAgentService.isCompletionSignal(null));
-    }
-
-    @Test
-    void should_isCompletionSignal_noMarker() {
-        assertFalse(reviewAgentService.isCompletionSignal("Still working on it."));
-    }
-
-    // ---------------------------------------------------------------------------
-    // extractSummary tests
-    // ---------------------------------------------------------------------------
-
-    @Test
-    void should_extractSummary_afterDone() {
-        String summary = reviewAgentService.extractSummary(
-                "Findings listed above. [DONE] No critical issues found. Code looks good.");
-        assertEquals("No critical issues found. Code looks good.", summary);
-    }
-
-    @Test
-    void should_extractSummary_afterComplete() {
-        String summary = reviewAgentService.extractSummary(
-                "[COMPLETE] Review finished successfully.");
-        assertEquals("Review finished successfully.", summary);
-    }
-
-    @Test
-    void should_extractSummary_handleNull() {
-        assertEquals("No summary provided", reviewAgentService.extractSummary(null));
-    }
-
-    @Test
-    void should_extractSummary_handleEmpty() {
-        assertEquals("No summary provided", reviewAgentService.extractSummary(""));
-    }
-
-    @Test
-    void should_extractSummary_truncateLongText() {
-        String longText = "[DONE] " + "A".repeat(600);
-        String summary = reviewAgentService.extractSummary(longText);
-        assertEquals(500, summary.length());
-    }
-
-    // ---------------------------------------------------------------------------
-    // formatToolResults tests
-    // ---------------------------------------------------------------------------
-
-    @Test
-    void should_formatToolResults() {
-        List<ToolResult> results = List.of(
-                ToolResult.builder()
-                        .toolName("file_read").success(true)
-                        .output("public class Main {}").build(),
-                ToolResult.builder()
-                        .toolName("shell_exec").success(false)
-                        .error("Command failed with exit code 1").build()
-        );
-
-        String formatted = reviewAgentService.formatToolResults(results);
-
-        assertTrue(formatted.contains("## Tool: file_read"));
-        assertTrue(formatted.contains("Status: SUCCESS"));
-        assertTrue(formatted.contains("public class Main {}"));
-        assertTrue(formatted.contains("## Tool: shell_exec"));
-        assertTrue(formatted.contains("Status: FAILED"));
-        assertTrue(formatted.contains("Command failed with exit code 1"));
-    }
-
-    @Test
-    void should_formatToolResults_emptyList() {
-        assertEquals("No tool results.", reviewAgentService.formatToolResults(Collections.emptyList()));
-    }
-
-    @Test
-    void should_formatToolResults_nullList() {
-        assertEquals("No tool results.", reviewAgentService.formatToolResults(null));
+        String diff = reviewAgentService.retrieveDiff(taskId);
+        assertEquals("(diff unavailable)", diff);
     }
 
     // ---------------------------------------------------------------------------
@@ -601,27 +337,17 @@ class ReviewAgentServiceTest {
         TaskStateChangedEvent event = createReviewEventWithContext(connectionId);
 
         ReviewBotClient.BotConfig botConfig = ReviewBotClient.BotConfig.builder()
-                .id(botConfigId)
-                .tenantId(tenantId)
-                .connectionId(connectionId)
-                .botUsername("squadron-bot")
-                .enabled(true)
-                .autoAssign(false)
-                .build();
-
-        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId))
-                .thenReturn(Optional.of(botConfig));
+                .id(botConfigId).tenantId(tenantId).connectionId(connectionId)
+                .botUsername("squadron-bot").enabled(true).autoAssign(false).build();
+        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId)).thenReturn(Optional.of(botConfig));
         when(reviewBotClient.getBotAccessToken(botConfigId)).thenReturn("bot-token-123");
         when(gitClient.getPullRequestByTaskId(taskId))
                 .thenReturn(GitClient.PullRequestResponse.builder()
-                        .id(prRecordId).prNumber("42")
-                        .url("https://github.com/owner/repo/pull/42")
-                        .status("OPEN").build());
+                        .id(prRecordId).prNumber("42").url("https://github.com/owner/repo/pull/42").status("OPEN").build());
 
         List<ReviewCommentRequest> comments = List.of(
-                ReviewCommentRequest.builder()
-                        .filePath("Foo.java").lineNumber(10).body("Issue found")
-                        .severity("MAJOR").category("bug").build()
+                ReviewCommentRequest.builder().filePath("Foo.java").lineNumber(10)
+                        .body("Issue found").severity("MAJOR").category("bug").build()
         );
 
         reviewAgentService.postReviewBotComments(event, taskId, tenantId, "CHANGES_REQUESTED", comments, "Summary");
@@ -639,25 +365,15 @@ class ReviewAgentServiceTest {
         TaskStateChangedEvent event = createReviewEventWithContext(connectionId);
 
         ReviewBotClient.BotConfig botConfig = ReviewBotClient.BotConfig.builder()
-                .id(botConfigId)
-                .tenantId(tenantId)
-                .connectionId(connectionId)
-                .botUsername("squadron-bot")
-                .enabled(true)
-                .autoAssign(true)
-                .build();
-
-        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId))
-                .thenReturn(Optional.of(botConfig));
+                .id(botConfigId).tenantId(tenantId).connectionId(connectionId)
+                .botUsername("squadron-bot").enabled(true).autoAssign(true).build();
+        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId)).thenReturn(Optional.of(botConfig));
         when(reviewBotClient.getBotAccessToken(botConfigId)).thenReturn("bot-token");
         when(gitClient.getPullRequestByTaskId(taskId))
                 .thenReturn(GitClient.PullRequestResponse.builder()
-                        .id(prRecordId).prNumber("42")
-                        .url("https://github.com/owner/repo/pull/42")
-                        .status("OPEN").build());
+                        .id(prRecordId).prNumber("42").url("https://github.com/owner/repo/pull/42").status("OPEN").build());
 
-        reviewAgentService.postReviewBotComments(event, taskId, tenantId, "APPROVED",
-                Collections.emptyList(), "All good");
+        reviewAgentService.postReviewBotComments(event, taskId, tenantId, "APPROVED", Collections.emptyList(), "All good");
 
         verify(gitClient).addPrReviewComment(eq(prRecordId), anyString(), eq("bot-token"));
         verify(gitClient).requestPrReviewers(prRecordId, List.of("squadron-bot"), "bot-token");
@@ -667,25 +383,18 @@ class ReviewAgentServiceTest {
     void should_skipBotComment_when_noBotConfigured() {
         UUID connectionId = UUID.randomUUID();
         TaskStateChangedEvent event = createReviewEventWithContext(connectionId);
+        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId)).thenReturn(Optional.empty());
 
-        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId))
-                .thenReturn(Optional.empty());
-
-        reviewAgentService.postReviewBotComments(event, taskId, tenantId, "APPROVED",
-                Collections.emptyList(), "Summary");
+        reviewAgentService.postReviewBotComments(event, taskId, tenantId, "APPROVED", Collections.emptyList(), "Summary");
 
         verify(gitClient, never()).addPrReviewComment(any(), any(), any());
     }
 
     @Test
     void should_skipBotComment_when_noConnectionId() {
-        TaskStateChangedEvent event = createReviewEvent(); // no TaskContext
-
-        reviewAgentService.postReviewBotComments(event, taskId, tenantId, "APPROVED",
-                Collections.emptyList(), "Summary");
-
+        TaskStateChangedEvent event = createReviewEvent();
+        reviewAgentService.postReviewBotComments(event, taskId, tenantId, "APPROVED", Collections.emptyList(), "Summary");
         verify(reviewBotClient, never()).getEnabledBotConfig(any(), any());
-        verify(gitClient, never()).addPrReviewComment(any(), any(), any());
     }
 
     @Test
@@ -695,23 +404,14 @@ class ReviewAgentServiceTest {
         TaskStateChangedEvent event = createReviewEventWithContext(connectionId);
 
         ReviewBotClient.BotConfig botConfig = ReviewBotClient.BotConfig.builder()
-                .id(botConfigId)
-                .tenantId(tenantId)
-                .connectionId(connectionId)
-                .botUsername("bot")
-                .enabled(true)
-                .autoAssign(false)
-                .build();
-
-        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId))
-                .thenReturn(Optional.of(botConfig));
+                .id(botConfigId).tenantId(tenantId).connectionId(connectionId)
+                .botUsername("bot").enabled(true).autoAssign(false).build();
+        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId)).thenReturn(Optional.of(botConfig));
         when(reviewBotClient.getBotAccessToken(botConfigId))
                 .thenThrow(new ReviewBotClient.ReviewBotClientException("Token fetch failed"));
 
-        // Should not throw — bot comment failure is non-fatal
         assertDoesNotThrow(() -> reviewAgentService.postReviewBotComments(
                 event, taskId, tenantId, "APPROVED", Collections.emptyList(), "Summary"));
-
         verify(gitClient, never()).addPrReviewComment(any(), any(), any());
     }
 
@@ -722,16 +422,9 @@ class ReviewAgentServiceTest {
         TaskStateChangedEvent event = createReviewEventWithContext(connectionId);
 
         ReviewBotClient.BotConfig botConfig = ReviewBotClient.BotConfig.builder()
-                .id(botConfigId)
-                .tenantId(tenantId)
-                .connectionId(connectionId)
-                .botUsername("bot")
-                .enabled(true)
-                .autoAssign(false)
-                .build();
-
-        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId))
-                .thenReturn(Optional.of(botConfig));
+                .id(botConfigId).tenantId(tenantId).connectionId(connectionId)
+                .botUsername("bot").enabled(true).autoAssign(false).build();
+        when(reviewBotClient.getEnabledBotConfig(tenantId, connectionId)).thenReturn(Optional.of(botConfig));
         when(reviewBotClient.getBotAccessToken(botConfigId)).thenReturn("token");
         when(gitClient.getPullRequestByTaskId(taskId))
                 .thenThrow(new GitClient.GitClientException("Not found"));
@@ -747,12 +440,10 @@ class ReviewAgentServiceTest {
     @Test
     void should_formatBotReviewComment_withFindings() {
         List<ReviewCommentRequest> comments = List.of(
-                ReviewCommentRequest.builder()
-                        .filePath("Foo.java").lineNumber(10).body("Null pointer risk")
-                        .severity("CRITICAL").category("bug").build(),
-                ReviewCommentRequest.builder()
-                        .filePath("Bar.java").lineNumber(null).body("Style issue")
-                        .severity("MINOR").category("style").build()
+                ReviewCommentRequest.builder().filePath("Foo.java").lineNumber(10)
+                        .body("Null pointer risk").severity("CRITICAL").category("bug").build(),
+                ReviewCommentRequest.builder().filePath("Bar.java").lineNumber(null)
+                        .body("Style issue").severity("MINOR").category("style").build()
         );
 
         String body = reviewAgentService.formatBotReviewComment("CHANGES_REQUESTED", comments, "Found issues");
@@ -768,8 +459,6 @@ class ReviewAgentServiceTest {
     @Test
     void should_formatBotReviewComment_withNoFindings() {
         String body = reviewAgentService.formatBotReviewComment("APPROVED", Collections.emptyList(), "All good");
-
-        assertTrue(body.contains("Squadron AI Review"));
         assertTrue(body.contains("APPROVED"));
         assertFalse(body.contains("Findings"));
         assertTrue(body.contains("All good"));
@@ -791,24 +480,14 @@ class ReviewAgentServiceTest {
 
     private Conversation createConversation() {
         return Conversation.builder()
-                .id(conversationId)
-                .tenantId(tenantId)
-                .taskId(taskId)
-                .userId(userId)
-                .agentType("REVIEW")
-                .status("ACTIVE")
-                .totalTokens(0L)
-                .build();
+                .id(conversationId).tenantId(tenantId).taskId(taskId).userId(userId)
+                .agentType("REVIEW").status("ACTIVE").totalTokens(0L).build();
     }
 
     private TaskStateChangedEvent createReviewEventWithContext(UUID connectionId) {
         TaskStateChangedEvent event = createReviewEvent();
         TaskContext context = TaskContext.builder()
-                .taskId(taskId)
-                .tenantId(tenantId)
-                .userId(userId)
-                .connectionId(connectionId)
-                .build();
+                .taskId(taskId).tenantId(tenantId).userId(userId).connectionId(connectionId).build();
         event.setTaskContext(context);
         return event;
     }

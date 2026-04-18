@@ -13,4 +13,6 @@ public interface ReviewPolicyRepository extends JpaRepository<ReviewPolicy, UUID
     Optional<ReviewPolicy> findByTenantIdAndTeamId(UUID tenantId, UUID teamId);
 
     Optional<ReviewPolicy> findByTenantIdAndTeamIdIsNull(UUID tenantId);
+
+    Optional<ReviewPolicy> findByIdAndTenantId(UUID id, UUID tenantId);
 }

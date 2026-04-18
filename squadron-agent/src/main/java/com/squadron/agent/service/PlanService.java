@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -57,8 +58,7 @@ public class PlanService {
      * downstream services.
      */
     public TaskPlan approvePlan(UUID planId, UUID approvedBy) {
-        TaskPlan plan = planRepository.findById(planId)
-                .orElseThrow(() -> new ResourceNotFoundException("TaskPlan", planId));
+        TaskPlan plan = TenantScopedLookup.findByIdScoped(planId, planRepository::findById, planRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("TaskPlan", planId));
 
         plan.setStatus("APPROVED");
         plan.setApprovedBy(approvedBy);

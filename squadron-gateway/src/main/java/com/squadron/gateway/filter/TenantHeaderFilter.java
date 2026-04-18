@@ -24,7 +24,7 @@ public class TenantHeaderFilter implements GlobalFilter, Ordered {
         return ReactiveSecurityContextHolder.getContext()
                 .map(SecurityContext::getAuthentication)
                 .filter(auth -> auth != null && auth.getPrincipal() instanceof Jwt)
-                .flatMap(auth -> {
+                .map(auth -> {
                     Jwt jwt = (Jwt) auth.getPrincipal();
                     ServerHttpRequest.Builder requestBuilder = exchange.getRequest().mutate();
 
@@ -88,9 +88,21 @@ public class TenantHeaderFilter implements GlobalFilter, Ordered {
                         requestBuilder.header(SecurityConstants.HEADER_AUTH_PROVIDER, authProvider);
                     }
 
-                    return chain.filter(exchange.mutate().request(requestBuilder.build()).build());
+                    return exchange.mutate().request(requestBuilder.build()).build();
                 })
-                .switchIfEmpty(chain.filter(exchange));
+                .switchIfEmpty(Mono.defer(() -> {
+                    // Strip identity headers on unauthenticated paths to prevent spoofing
+                    ServerHttpRequest.Builder requestBuilder = exchange.getRequest().mutate();
+                    requestBuilder.headers(headers -> {
+                        headers.remove(SecurityConstants.HEADER_TENANT_ID);
+                        headers.remove(SecurityConstants.HEADER_USER_ID);
+                        headers.remove(SecurityConstants.HEADER_USER_EMAIL);
+                        headers.remove(SecurityConstants.HEADER_USER_ROLES);
+                        headers.remove(SecurityConstants.HEADER_AUTH_PROVIDER);
+                    });
+                    return Mono.just(exchange.mutate().request(requestBuilder.build()).build());
+                }))
+                .flatMap(mutatedExchange -> chain.filter(mutatedExchange));
     }
 
     @Override

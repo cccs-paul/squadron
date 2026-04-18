@@ -54,11 +54,11 @@ class TenantFilterTest {
             assertTrue(TenantContext.getRoles().contains("qa"));
             assertEquals("ldap", TenantContext.getAuthProvider());
             return null;
-        }).when(filterChain).doFilter(request, response);
+        }).when(filterChain).doFilter(any(), eq(response));
 
         filter.doFilterInternal(request, response, filterChain);
 
-        verify(filterChain).doFilter(request, response);
+        verify(filterChain).doFilter(any(), eq(response));
     }
 
     @Test
@@ -79,11 +79,11 @@ class TenantFilterTest {
         doAnswer(invocation -> {
             assertNull(TenantContext.getContext());
             return null;
-        }).when(filterChain).doFilter(request, response);
+        }).when(filterChain).doFilter(any(), eq(response));
 
         filter.doFilterInternal(request, response, filterChain);
 
-        verify(filterChain).doFilter(request, response);
+        verify(filterChain).doFilter(any(), eq(response));
     }
 
     @Test
@@ -93,11 +93,11 @@ class TenantFilterTest {
         doAnswer(invocation -> {
             assertNull(TenantContext.getContext());
             return null;
-        }).when(filterChain).doFilter(request, response);
+        }).when(filterChain).doFilter(any(), eq(response));
 
         filter.doFilterInternal(request, response, filterChain);
 
-        verify(filterChain).doFilter(request, response);
+        verify(filterChain).doFilter(any(), eq(response));
     }
 
     @Test
@@ -109,7 +109,7 @@ class TenantFilterTest {
             assertEquals(tenantId, TenantContext.getTenantId());
             assertNull(TenantContext.getUserId());
             return null;
-        }).when(filterChain).doFilter(request, response);
+        }).when(filterChain).doFilter(any(), eq(response));
 
         filter.doFilterInternal(request, response, filterChain);
     }
@@ -122,7 +122,7 @@ class TenantFilterTest {
         doAnswer(invocation -> {
             assertTrue(TenantContext.getRoles().isEmpty());
             return null;
-        }).when(filterChain).doFilter(request, response);
+        }).when(filterChain).doFilter(any(), eq(response));
 
         filter.doFilterInternal(request, response, filterChain);
     }
@@ -136,7 +136,7 @@ class TenantFilterTest {
         doAnswer(invocation -> {
             assertTrue(TenantContext.getRoles().isEmpty());
             return null;
-        }).when(filterChain).doFilter(request, response);
+        }).when(filterChain).doFilter(any(), eq(response));
 
         filter.doFilterInternal(request, response, filterChain);
     }
@@ -154,7 +154,7 @@ class TenantFilterTest {
             assertTrue(roles.contains("qa"));
             assertTrue(roles.contains("admin"));
             return null;
-        }).when(filterChain).doFilter(request, response);
+        }).when(filterChain).doFilter(any(), eq(response));
 
         filter.doFilterInternal(request, response, filterChain);
     }
@@ -164,9 +164,51 @@ class TenantFilterTest {
         UUID tenantId = UUID.randomUUID();
         request.addHeader(SecurityConstants.HEADER_TENANT_ID, tenantId.toString());
 
-        doThrow(new RuntimeException("filter error")).when(filterChain).doFilter(request, response);
+        doThrow(new RuntimeException("filter error")).when(filterChain).doFilter(any(), eq(response));
 
         assertThrows(RuntimeException.class, () -> filter.doFilterInternal(request, response, filterChain));
         assertNull(TenantContext.getContext());
+    }
+
+    @Test
+    void should_return400_when_tenantIdIsInvalidUuid() throws ServletException, IOException {
+        request.addHeader(SecurityConstants.HEADER_TENANT_ID, "not-a-uuid");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertEquals(400, response.getStatus());
+        verify(filterChain, never()).doFilter(any(), any());
+    }
+
+    @Test
+    void should_return400_when_userIdIsInvalidUuid() throws ServletException, IOException {
+        request.addHeader(SecurityConstants.HEADER_TENANT_ID, UUID.randomUUID().toString());
+        request.addHeader(SecurityConstants.HEADER_USER_ID, "not-a-uuid");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertEquals(400, response.getStatus());
+        verify(filterChain, never()).doFilter(any(), any());
+    }
+
+    @Test
+    void should_stripIdentityHeaders_when_noTenantId() throws ServletException, IOException {
+        request.addHeader(SecurityConstants.HEADER_TENANT_ID, "");
+        request.addHeader(SecurityConstants.HEADER_USER_ID, UUID.randomUUID().toString());
+        request.addHeader(SecurityConstants.HEADER_USER_ROLES, "admin");
+
+        doAnswer(invocation -> {
+            jakarta.servlet.http.HttpServletRequest wrappedReq =
+                    (jakarta.servlet.http.HttpServletRequest) invocation.getArgument(0);
+            // Identity headers should be stripped
+            assertNull(wrappedReq.getHeader(SecurityConstants.HEADER_TENANT_ID));
+            assertNull(wrappedReq.getHeader(SecurityConstants.HEADER_USER_ID));
+            assertNull(wrappedReq.getHeader(SecurityConstants.HEADER_USER_ROLES));
+            return null;
+        }).when(filterChain).doFilter(any(), eq(response));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain).doFilter(any(), eq(response));
     }
 }

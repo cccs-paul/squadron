@@ -16,4 +16,6 @@ public interface BranchStrategyRepository extends JpaRepository<BranchStrategy, 
     Optional<BranchStrategy> findByTenantIdAndProjectIdIsNull(UUID tenantId);
 
     List<BranchStrategy> findByTenantId(UUID tenantId);
+
+    Optional<BranchStrategy> findByIdAndTenantId(UUID id, UUID tenantId);
 }

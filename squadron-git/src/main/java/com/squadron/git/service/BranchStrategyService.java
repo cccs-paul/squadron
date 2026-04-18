@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 /**
  * Service for managing branch naming strategies per tenant/project.
@@ -56,8 +57,7 @@ public class BranchStrategyService {
      */
     @Transactional(readOnly = true)
     public BranchStrategyDto getStrategy(UUID id) {
-        BranchStrategy entity = branchStrategyRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("BranchStrategy", id));
+        BranchStrategy entity = TenantScopedLookup.findByIdScoped(id, branchStrategyRepository::findById, branchStrategyRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("BranchStrategy", id));
         return toDto(entity);
     }
 
@@ -104,8 +104,7 @@ public class BranchStrategyService {
      * Update an existing branch strategy.
      */
     public BranchStrategyDto updateStrategy(UUID id, CreateBranchStrategyRequest request) {
-        BranchStrategy entity = branchStrategyRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("BranchStrategy", id));
+        BranchStrategy entity = TenantScopedLookup.findByIdScoped(id, branchStrategyRepository::findById, branchStrategyRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("BranchStrategy", id));
 
         entity.setTenantId(request.getTenantId());
         entity.setProjectId(request.getProjectId());

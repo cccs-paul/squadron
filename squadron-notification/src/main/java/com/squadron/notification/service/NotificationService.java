@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Slf4j
 @Service
@@ -72,8 +73,7 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public NotificationDto getNotification(UUID id) {
-        Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new com.squadron.common.exception.ResourceNotFoundException(
+        Notification notification = TenantScopedLookup.findByIdScoped(id, notificationRepository::findById, notificationRepository::findByIdAndTenantId, () -> new com.squadron.common.exception.ResourceNotFoundException(
                         "Notification", id));
         return toDto(notification);
     }
@@ -100,8 +100,7 @@ public class NotificationService {
     }
 
     public NotificationDto markAsRead(UUID notificationId) {
-        Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new com.squadron.common.exception.ResourceNotFoundException(
+        Notification notification = TenantScopedLookup.findByIdScoped(notificationId, notificationRepository::findById, notificationRepository::findByIdAndTenantId, () -> new com.squadron.common.exception.ResourceNotFoundException(
                         "Notification", notificationId));
 
         notification.setStatus("READ");

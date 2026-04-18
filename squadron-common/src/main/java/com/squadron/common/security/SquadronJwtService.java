@@ -40,7 +40,9 @@ public class SquadronJwtService {
         if (rsaKeyJson != null && !rsaKeyJson.isBlank()) {
             this.rsaKey = RSAKey.parse(rsaKeyJson);
         } else {
-            // Generate ephemeral key for development - NOT for production
+            log.error("No RSA key configured (squadron.security.jwt.rsa-key-json). "
+                    + "Using ephemeral key — JWTs will NOT be verifiable after restart. "
+                    + "This is NOT suitable for production!");
             this.rsaKey = new RSAKeyGenerator(2048)
                     .keyID(UUID.randomUUID().toString())
                     .generate();
@@ -126,9 +128,12 @@ public class SquadronJwtService {
     public boolean isTokenExpired(String token) {
         try {
             SignedJWT signedJWT = SignedJWT.parse(token);
+            if (!signedJWT.verify(verifier)) {
+                return true; // Invalid signature, treat as expired/invalid
+            }
             JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
             return claims.getExpirationTime() != null && claims.getExpirationTime().before(new Date());
-        } catch (ParseException e) {
+        } catch (ParseException | JOSEException e) {
             return true;
         }
     }

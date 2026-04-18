@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
 
 @Repository
 public interface PlatformConnectionRepository extends JpaRepository<PlatformConnection, UUID> {
@@ -21,4 +22,6 @@ public interface PlatformConnectionRepository extends JpaRepository<PlatformConn
     List<PlatformConnection> findByPlatformTypeInAndStatus(List<String> platformTypes, String status);
 
     List<PlatformConnection> findByTenantIdAndPlatformCategory(UUID tenantId, String platformCategory);
+
+    Optional<PlatformConnection> findByIdAndTenantId(UUID id, UUID tenantId);
 }

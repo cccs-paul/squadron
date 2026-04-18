@@ -1,21 +1,14 @@
 package com.squadron.agent.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.agent.dto.AgentConfigDto;
 import com.squadron.agent.dto.QAReportDto;
 import com.squadron.agent.dto.WorkspaceInfo;
 import com.squadron.agent.entity.Conversation;
-import com.squadron.agent.provider.AgentProvider;
 import com.squadron.agent.provider.AgentProviderRegistry;
-import com.squadron.agent.provider.ChatMessage;
-import com.squadron.agent.tool.ToolCall;
 import com.squadron.agent.tool.ToolDefinition;
-import com.squadron.agent.tool.ToolExecutionContext;
 import com.squadron.agent.tool.ToolExecutionEngine;
-import com.squadron.agent.tool.ToolParameter;
 import com.squadron.agent.tool.ToolRegistry;
-import com.squadron.agent.tool.ToolResult;
 import com.squadron.common.config.NatsEventPublisher;
 import com.squadron.common.event.AgentCompletedEvent;
 import com.squadron.common.event.TaskStateChangedEvent;
@@ -24,14 +17,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Orchestrates the QA agent's agentic tool-calling loop.
@@ -52,15 +39,15 @@ public class QAAgentService {
     private static final Logger log = LoggerFactory.getLogger(QAAgentService.class);
     static final int MAX_ITERATIONS = 15;
 
-    /** Regex to match: <tool_call name="tool_name">JSON_BODY</tool_call> */
-    static final Pattern TOOL_CALL_PATTERN = Pattern.compile(
-            "<tool_call\\s+name=\"([^\"]+)\">(.*?)</tool_call>",
-            Pattern.DOTALL);
+    private static final String NUDGE_MESSAGE =
+            "Please continue the QA analysis. Use the available tools "
+                    + "to run tests, check coverage, and identify gaps. When you're done, "
+                    + "include [DONE] in your response along with your QA verdict "
+                    + "([QA_PASS], [QA_CONDITIONAL_PASS], or [QA_FAIL]).";
 
     private final ConversationService conversationService;
     private final SquadronConfigService configService;
     private final AgentProviderRegistry providerRegistry;
-    private final SystemPromptBuilder promptBuilder;
     private final ToolRegistry toolRegistry;
     private final ToolExecutionEngine toolExecutionEngine;
     private final NatsEventPublisher natsEventPublisher;
@@ -81,7 +68,6 @@ public class QAAgentService {
         this.conversationService = conversationService;
         this.configService = configService;
         this.providerRegistry = providerRegistry;
-        this.promptBuilder = promptBuilder;
         this.toolRegistry = toolRegistry;
         this.toolExecutionEngine = toolExecutionEngine;
         this.natsEventPublisher = natsEventPublisher;
@@ -137,9 +123,11 @@ public class QAAgentService {
                     + "read source files, and identify test gaps. If you find missing tests, "
                     + "generate them.\n\nTask: " + taskDescription;
 
-            AgentLoopResult result = runQALoop(
-                    conversation.getId(), tenantId, userId, config,
-                    systemPrompt, initialMessage, taskId);
+            AgentLoopResult result = AgentLoopSupport.runAgentLoop(
+                    conversation.getId(), tenantId, config,
+                    systemPrompt, initialMessage, taskId, null,
+                    MAX_ITERATIONS, NUDGE_MESSAGE, false,
+                    conversationService, providerRegistry, toolExecutionEngine, objectMapper);
 
             // 6. Parse QA verdict from the response
             String verdict = parseQAVerdict(result.getSummary());
@@ -156,98 +144,22 @@ public class QAAgentService {
             boolean success = !"FAIL".equals(verdict);
 
             // 8. Publish completion event
-            publishQACompletedEvent(tenantId, taskId, conversation.getId(),
-                    success, result.getSummary());
+            AgentLoopSupport.publishCompletedEvent(tenantId, taskId, conversation.getId(),
+                    "QA", success, result.getSummary(), natsEventPublisher);
 
             log.info("QA analysis {} for task {} with verdict {} after {} iterations",
                     success ? "completed" : "failed", taskId, verdict, result.getIterations());
 
         } catch (Exception e) {
             log.error("QA analysis failed for task {}", taskId, e);
-            publishQACompletedEvent(tenantId, taskId, null, false,
-                    "Error: " + e.getMessage());
+            AgentLoopSupport.publishCompletedEvent(tenantId, taskId, null,
+                    "QA", false, "Error: " + e.getMessage(), natsEventPublisher);
         }
-    }
-
-    /**
-     * Runs the QA agentic tool-calling loop. The LLM responds with text or tool calls.
-     * Tool calls are parsed from the response, executed, and results fed back.
-     * Loop continues until the LLM signals completion or max iterations are reached.
-     */
-    AgentLoopResult runQALoop(UUID conversationId, UUID tenantId, UUID userId,
-                              AgentConfigDto config, String systemPrompt,
-                              String initialMessage, UUID taskId) {
-        AgentProvider provider = providerRegistry.getProvider(
-                config.getProvider() != null ? config.getProvider() : "openai-compatible");
-
-        List<ChatMessage> history = new ArrayList<>();
-        String currentMessage = initialMessage;
-        int iterations = 0;
-
-        while (iterations < MAX_ITERATIONS) {
-            iterations++;
-
-            // Save user/system message
-            conversationService.addMessage(conversationId,
-                    iterations == 1 ? "USER" : "SYSTEM", currentMessage, null);
-
-            // Call LLM
-            String response;
-            try {
-                response = provider.chat(systemPrompt, history, currentMessage, config);
-            } catch (Exception e) {
-                log.error("LLM call failed at iteration {}", iterations, e);
-                return new AgentLoopResult(false, iterations,
-                        "LLM call failed: " + e.getMessage());
-            }
-
-            // Save assistant response
-            conversationService.addMessage(conversationId, "ASSISTANT", response,
-                    response.length() / 4);
-
-            // Add to history
-            history.add(ChatMessage.builder().role("USER").content(currentMessage).build());
-            history.add(ChatMessage.builder().role("ASSISTANT").content(response).build());
-
-            // Parse tool calls from response
-            List<ToolCall> toolCalls = parseToolCalls(response);
-
-            if (toolCalls.isEmpty()) {
-                // No tool calls — agent is done (or just conversing)
-                if (isCompletionSignal(response)) {
-                    return new AgentLoopResult(true, iterations, extractSummary(response));
-                }
-                // Ask the agent to continue or use tools
-                currentMessage = "Please continue the QA analysis. Use the available tools "
-                        + "to run tests, check coverage, and identify gaps. When you're done, "
-                        + "include [DONE] in your response along with your QA verdict "
-                        + "([QA_PASS], [QA_CONDITIONAL_PASS], or [QA_FAIL]).";
-                continue;
-            }
-
-            // Execute tool calls
-            ToolExecutionContext baseContext = ToolExecutionContext.builder()
-                    .taskId(taskId)
-                    .tenantId(tenantId)
-                    .build();
-
-            List<ToolResult> results = toolExecutionEngine.executeTools(toolCalls, baseContext);
-
-            // Format tool results as the next message
-            currentMessage = formatToolResults(results);
-        }
-
-        return new AgentLoopResult(false, iterations, "Max iterations reached");
     }
 
     /**
      * Builds a QA system prompt that includes tool definitions so the LLM
      * knows which tools are available and how to invoke them.
-     *
-     * @param taskDescription description of the task under test
-     * @param diffContent     optional diff content showing code changes (may be null)
-     * @param tools           available tool definitions
-     * @return the complete system prompt
      */
     String buildQAPromptWithTools(String taskDescription, String diffContent,
                                   List<ToolDefinition> tools) {
@@ -264,20 +176,7 @@ public class QAAgentService {
                 
                 """);
 
-        for (ToolDefinition tool : tools) {
-            sb.append("### ").append(tool.getName()).append("\n");
-            sb.append(tool.getDescription()).append("\n");
-            if (tool.getParameters() != null && !tool.getParameters().isEmpty()) {
-                sb.append("Parameters:\n");
-                for (ToolParameter param : tool.getParameters()) {
-                    sb.append("  - `").append(param.getName()).append("` (")
-                            .append(param.getType()).append(")")
-                            .append(param.isRequired() ? " **required**" : " optional")
-                            .append(": ").append(param.getDescription()).append("\n");
-                }
-            }
-            sb.append("\n");
-        }
+        sb.append(AgentLoopSupport.renderToolDefinitions(tools));
 
         sb.append("""
                 ## Task Under Test
@@ -337,9 +236,6 @@ public class QAAgentService {
      * Parses the QA verdict from the agent's response. Looks for explicit markers
      * like [QA_PASS], [QA_CONDITIONAL_PASS], [QA_FAIL], or free-text patterns.
      * Defaults to CONDITIONAL_PASS if the verdict cannot be determined.
-     *
-     * @param response the agent's response text
-     * @return one of "PASS", "CONDITIONAL_PASS", or "FAIL"
      */
     String parseQAVerdict(String response) {
         if (response == null || response.isEmpty()) {
@@ -378,131 +274,5 @@ public class QAAgentService {
 
         // Default to CONDITIONAL_PASS if unclear
         return "CONDITIONAL_PASS";
-    }
-
-    /**
-     * Publishes an {@link AgentCompletedEvent} with agentType="QA" to NATS.
-     */
-    void publishQACompletedEvent(UUID tenantId, UUID taskId, UUID conversationId,
-                                  boolean success, String summary) {
-        AgentCompletedEvent event = new AgentCompletedEvent();
-        event.setTenantId(tenantId);
-        event.setTaskId(taskId);
-        event.setConversationId(conversationId);
-        event.setAgentType("QA");
-        event.setSuccess(success);
-        event.setSource("squadron-agent");
-
-        String subject = success
-                ? "squadron.agent.qa.completed"
-                : "squadron.agent.qa.failed";
-
-        natsEventPublisher.publishAsync(subject, event);
-
-        // Also publish to aggregated subject for notification service
-        natsEventPublisher.publishAsync("squadron.agents.completed", event);
-
-        log.info("Published QA {} event for task {} (summary: {})",
-                success ? "completed" : "failed", taskId,
-                summary != null && summary.length() > 100
-                        ? summary.substring(0, 100) + "..." : summary);
-    }
-
-    /**
-     * Parses tool calls from the LLM response text. The LLM is instructed to use
-     * the format: {@code <tool_call name="tool_name">{"param": "value"}</tool_call>}
-     */
-    List<ToolCall> parseToolCalls(String response) {
-        if (response == null || response.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        List<ToolCall> toolCalls = new ArrayList<>();
-        Matcher matcher = TOOL_CALL_PATTERN.matcher(response);
-
-        while (matcher.find()) {
-            String toolName = matcher.group(1);
-            String jsonBody = matcher.group(2).trim();
-
-            try {
-                Map<String, Object> arguments = objectMapper.readValue(
-                        jsonBody, new TypeReference<>() {});
-                toolCalls.add(ToolCall.builder()
-                        .id(UUID.randomUUID().toString())
-                        .toolName(toolName)
-                        .arguments(arguments)
-                        .build());
-            } catch (Exception e) {
-                log.warn("Failed to parse tool call arguments for tool '{}': {}",
-                        toolName, e.getMessage());
-            }
-        }
-
-        return toolCalls;
-    }
-
-    /**
-     * Returns {@code true} if the response contains a completion signal.
-     */
-    boolean isCompletionSignal(String response) {
-        if (response == null) {
-            return false;
-        }
-        return response.contains("[DONE]") || response.contains("[COMPLETE]");
-    }
-
-    /**
-     * Extracts a summary from the completion response. Looks for text after
-     * the completion marker, falling back to the last paragraph.
-     */
-    String extractSummary(String response) {
-        if (response == null || response.isEmpty()) {
-            return "No summary provided";
-        }
-
-        // Try to extract text after [DONE] or [COMPLETE]
-        int doneIdx = response.indexOf("[DONE]");
-        if (doneIdx >= 0) {
-            String after = response.substring(doneIdx + "[DONE]".length()).trim();
-            if (!after.isEmpty()) {
-                return after.length() > 500 ? after.substring(0, 500) : after;
-            }
-        }
-
-        int completeIdx = response.indexOf("[COMPLETE]");
-        if (completeIdx >= 0) {
-            String after = response.substring(completeIdx + "[COMPLETE]".length()).trim();
-            if (!after.isEmpty()) {
-                return after.length() > 500 ? after.substring(0, 500) : after;
-            }
-        }
-
-        // Fall back to the response itself (truncated)
-        return response.length() > 500 ? response.substring(0, 500) : response;
-    }
-
-    /**
-     * Formats tool execution results into a human-readable string that will be
-     * sent back to the LLM as the next message in the conversation.
-     */
-    String formatToolResults(List<ToolResult> results) {
-        if (results == null || results.isEmpty()) {
-            return "No tool results.";
-        }
-
-        return results.stream()
-                .map(result -> {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("## Tool: ").append(result.getToolName()).append("\n");
-                    sb.append("Status: ").append(result.isSuccess() ? "SUCCESS" : "FAILED").append("\n");
-                    if (result.isSuccess() && result.getOutput() != null) {
-                        sb.append("Output:\n```\n").append(result.getOutput()).append("\n```\n");
-                    }
-                    if (!result.isSuccess() && result.getError() != null) {
-                        sb.append("Error: ").append(result.getError()).append("\n");
-                    }
-                    return sb.toString();
-                })
-                .collect(Collectors.joining("\n"));
     }
 }

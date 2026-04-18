@@ -197,4 +197,96 @@ class ToolExecutionEngineTest {
         assertTrue(result.getExecutionTimeMs() >= 0);
         assertEquals("slow_fail", result.getToolName());
     }
+
+    @Test
+    void should_rejectTool_when_notInAllowlist() {
+        ToolExecutionContext context = ToolExecutionContext.builder()
+                .workspaceId(UUID.randomUUID())
+                .taskId(UUID.randomUUID())
+                .tenantId(UUID.randomUUID())
+                .agentType("PLANNING")
+                .parameters(Map.of("command", "rm -rf /"))
+                .build();
+
+        ToolResult result = engine.executeTool("shell_exec", context);
+
+        assertFalse(result.isSuccess());
+        assertEquals("shell_exec", result.getToolName());
+        assertTrue(result.getOutput().contains("not permitted"));
+        assertTrue(result.getOutput().contains("PLANNING"));
+        verifyNoInteractions(toolRegistry);
+    }
+
+    @Test
+    void should_allowTool_when_inAllowlist() {
+        ToolExecutionContext context = ToolExecutionContext.builder()
+                .workspaceId(UUID.randomUUID())
+                .taskId(UUID.randomUUID())
+                .tenantId(UUID.randomUUID())
+                .agentType("CODING")
+                .parameters(Map.of("command", "mvn test"))
+                .build();
+
+        ToolResult expectedResult = ToolResult.builder()
+                .toolName("shell_exec")
+                .success(true)
+                .output("BUILD SUCCESS")
+                .build();
+
+        when(toolRegistry.getTool("shell_exec")).thenReturn(mockTool);
+        when(mockTool.execute(any(ToolExecutionContext.class))).thenReturn(expectedResult);
+
+        ToolResult result = engine.executeTool("shell_exec", context);
+
+        assertTrue(result.isSuccess());
+        assertEquals("BUILD SUCCESS", result.getOutput());
+    }
+
+    @Test
+    void should_allowAnyTool_when_noAgentType() {
+        // null agentType = no restriction (backward compatibility)
+        ToolExecutionContext context = ToolExecutionContext.builder()
+                .workspaceId(UUID.randomUUID())
+                .taskId(UUID.randomUUID())
+                .tenantId(UUID.randomUUID())
+                .parameters(Map.of("command", "ls"))
+                .build();
+
+        ToolResult expectedResult = ToolResult.builder()
+                .toolName("shell_exec")
+                .success(true)
+                .output("files")
+                .build();
+
+        when(toolRegistry.getTool("shell_exec")).thenReturn(mockTool);
+        when(mockTool.execute(any(ToolExecutionContext.class))).thenReturn(expectedResult);
+
+        ToolResult result = engine.executeTool("shell_exec", context);
+
+        assertTrue(result.isSuccess());
+    }
+
+    @Test
+    void should_allowAnyTool_when_unknownAgentType() {
+        ToolExecutionContext context = ToolExecutionContext.builder()
+                .workspaceId(UUID.randomUUID())
+                .taskId(UUID.randomUUID())
+                .tenantId(UUID.randomUUID())
+                .agentType("CUSTOM_AGENT")
+                .parameters(Map.of("command", "ls"))
+                .build();
+
+        ToolResult expectedResult = ToolResult.builder()
+                .toolName("shell_exec")
+                .success(true)
+                .output("files")
+                .build();
+
+        when(toolRegistry.getTool("shell_exec")).thenReturn(mockTool);
+        when(mockTool.execute(any(ToolExecutionContext.class))).thenReturn(expectedResult);
+
+        ToolResult result = engine.executeTool("shell_exec", context);
+
+        assertTrue(result.isSuccess());
+    }
 }

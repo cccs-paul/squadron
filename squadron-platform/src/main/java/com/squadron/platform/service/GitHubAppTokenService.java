@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.*;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 public class GitHubAppTokenService {
@@ -62,8 +63,7 @@ public class GitHubAppTokenService {
      * @throws IllegalStateException if the connection is not a GitHub App
      */
     public String getInstallationToken(UUID connectionId) {
-        PlatformConnection connection = connectionRepository.findById(connectionId)
-                .orElseThrow(() -> new IllegalStateException("Connection not found: " + connectionId));
+        PlatformConnection connection = TenantScopedLookup.findByIdScoped(connectionId, connectionRepository::findById, connectionRepository::findByIdAndTenantId, () -> new IllegalStateException("Connection not found: " + connectionId));
 
         if (!"GITHUB_APP".equalsIgnoreCase(connection.getAuthType())) {
             throw new IllegalStateException("Connection " + connectionId + " is not a GitHub App (authType=" + connection.getAuthType() + ")");

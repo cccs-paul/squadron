@@ -20,4 +20,6 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     Optional<Task> findByExternalId(String externalId);
 
     List<Task> findByAssigneeId(UUID assigneeId);
+
+    Optional<Task> findByIdAndTenantId(UUID id, UUID tenantId);
 }

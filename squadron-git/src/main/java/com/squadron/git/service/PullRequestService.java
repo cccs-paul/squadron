@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 /**
  * Service for managing pull requests / merge requests across Git platforms.
@@ -90,8 +91,7 @@ public class PullRequestService {
      * Merge a pull request.
      */
     public void mergePullRequest(MergeRequest request) {
-        PullRequestRecord record = pullRequestRecordRepository.findById(request.getPullRequestRecordId())
-                .orElseThrow(() -> new ResourceNotFoundException("PullRequestRecord", request.getPullRequestRecordId()));
+        PullRequestRecord record = TenantScopedLookup.findByIdScoped(request.getPullRequestRecordId(), pullRequestRecordRepository::findById, pullRequestRecordRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PullRequestRecord", request.getPullRequestRecordId()));
 
         log.info("Merging pull request {} on platform {}", record.getExternalPrId(), record.getPlatform());
 
@@ -119,8 +119,7 @@ public class PullRequestService {
      */
     @Transactional(readOnly = true)
     public PullRequestDto getPullRequest(UUID recordId) {
-        PullRequestRecord record = pullRequestRecordRepository.findById(recordId)
-                .orElseThrow(() -> new ResourceNotFoundException("PullRequestRecord", recordId));
+        PullRequestRecord record = TenantScopedLookup.findByIdScoped(recordId, pullRequestRecordRepository::findById, pullRequestRecordRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PullRequestRecord", recordId));
         return toDto(record);
     }
 
@@ -139,8 +138,7 @@ public class PullRequestService {
      */
     @Transactional(readOnly = true)
     public MergeabilityDto checkMergeability(UUID recordId) {
-        PullRequestRecord record = pullRequestRecordRepository.findById(recordId)
-                .orElseThrow(() -> new ResourceNotFoundException("PullRequestRecord", recordId));
+        PullRequestRecord record = TenantScopedLookup.findByIdScoped(recordId, pullRequestRecordRepository::findById, pullRequestRecordRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PullRequestRecord", recordId));
 
         String[] ownerRepo = parseOwnerRepo(record);
         GitPlatformAdapter adapter = adapterRegistry.getAdapter(record.getPlatform());
@@ -185,8 +183,7 @@ public class PullRequestService {
      * @param accessToken the access token to authenticate with the platform
      */
     public void addReviewComment(UUID recordId, String body, String accessToken) {
-        PullRequestRecord record = pullRequestRecordRepository.findById(recordId)
-                .orElseThrow(() -> new ResourceNotFoundException("PullRequestRecord", recordId));
+        PullRequestRecord record = TenantScopedLookup.findByIdScoped(recordId, pullRequestRecordRepository::findById, pullRequestRecordRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PullRequestRecord", recordId));
 
         String[] ownerRepo = parseOwnerRepo(record);
         GitPlatformAdapter adapter = adapterRegistry.getAdapter(record.getPlatform());
@@ -199,8 +196,7 @@ public class PullRequestService {
      * Request reviewers for a pull request.
      */
     public void requestReviewers(UUID recordId, List<String> reviewers, String accessToken) {
-        PullRequestRecord record = pullRequestRecordRepository.findById(recordId)
-                .orElseThrow(() -> new ResourceNotFoundException("PullRequestRecord", recordId));
+        PullRequestRecord record = TenantScopedLookup.findByIdScoped(recordId, pullRequestRecordRepository::findById, pullRequestRecordRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PullRequestRecord", recordId));
 
         String[] ownerRepo = parseOwnerRepo(record);
         GitPlatformAdapter adapter = adapterRegistry.getAdapter(record.getPlatform());
@@ -214,8 +210,7 @@ public class PullRequestService {
      */
     @Transactional(readOnly = true)
     public DiffResult getDiff(UUID recordId, String accessToken) {
-        PullRequestRecord record = pullRequestRecordRepository.findById(recordId)
-                .orElseThrow(() -> new ResourceNotFoundException("PullRequestRecord", recordId));
+        PullRequestRecord record = TenantScopedLookup.findByIdScoped(recordId, pullRequestRecordRepository::findById, pullRequestRecordRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PullRequestRecord", recordId));
 
         String[] ownerRepo = parseOwnerRepo(record);
         GitPlatformAdapter adapter = adapterRegistry.getAdapter(record.getPlatform());

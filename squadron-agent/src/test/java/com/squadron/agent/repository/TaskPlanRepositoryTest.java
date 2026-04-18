@@ -47,9 +47,9 @@ class TaskPlanRepositoryTest {
     }
 
     @Test
-    void should_haveThreeCustomQueryMethods_when_interfaceInspected() {
+    void should_haveFourCustomQueryMethods_when_interfaceInspected() {
         Method[] methods = TaskPlanRepository.class.getDeclaredMethods();
-        assertEquals(3, methods.length);
+        assertEquals(4, methods.length);
     }
 
     @Test

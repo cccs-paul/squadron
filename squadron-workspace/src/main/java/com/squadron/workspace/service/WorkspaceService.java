@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -105,8 +106,7 @@ public class WorkspaceService {
     }
 
     public void destroyWorkspace(UUID workspaceId) {
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
+        Workspace workspace = TenantScopedLookup.findByIdScoped(workspaceId, workspaceRepository::findById, workspaceRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Workspace", workspaceId));
 
         log.info("Destroying workspace {}", workspaceId);
 
@@ -128,8 +128,7 @@ public class WorkspaceService {
     }
 
     public ExecResult execInWorkspace(ExecRequest request) {
-        Workspace workspace = workspaceRepository.findById(request.getWorkspaceId())
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace", request.getWorkspaceId()));
+        Workspace workspace = TenantScopedLookup.findByIdScoped(request.getWorkspaceId(), workspaceRepository::findById, workspaceRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Workspace", request.getWorkspaceId()));
 
         if (!EXEC_ALLOWED_STATUSES.contains(workspace.getStatus())) {
             throw new InvalidStateTransitionException(workspace.getStatus(), "EXEC");
@@ -140,8 +139,7 @@ public class WorkspaceService {
     }
 
     public void copyToWorkspace(UUID workspaceId, byte[] content, String containerPath) {
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
+        Workspace workspace = TenantScopedLookup.findByIdScoped(workspaceId, workspaceRepository::findById, workspaceRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Workspace", workspaceId));
         if (!EXEC_ALLOWED_STATUSES.contains(workspace.getStatus())) {
             throw new InvalidStateTransitionException(workspace.getStatus(), "COPY");
         }
@@ -149,8 +147,7 @@ public class WorkspaceService {
     }
 
     public byte[] copyFromWorkspace(UUID workspaceId, String containerPath) {
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
+        Workspace workspace = TenantScopedLookup.findByIdScoped(workspaceId, workspaceRepository::findById, workspaceRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Workspace", workspaceId));
         if (!EXEC_ALLOWED_STATUSES.contains(workspace.getStatus())) {
             throw new InvalidStateTransitionException(workspace.getStatus(), "COPY");
         }
@@ -159,8 +156,7 @@ public class WorkspaceService {
 
     @Transactional(readOnly = true)
     public WorkspaceDto getWorkspace(UUID workspaceId) {
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
+        Workspace workspace = TenantScopedLookup.findByIdScoped(workspaceId, workspaceRepository::findById, workspaceRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Workspace", workspaceId));
         return toDto(workspace);
     }
 

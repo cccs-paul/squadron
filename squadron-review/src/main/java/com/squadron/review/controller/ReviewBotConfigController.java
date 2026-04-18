@@ -61,8 +61,13 @@ public class ReviewBotConfigController {
     }
 
     @GetMapping("/{id}/token")
-    @PreAuthorize("hasAnyRole('squadron-admin', 'team-lead', 'developer')")
+    @PreAuthorize("hasRole('squadron-admin')")
     public ResponseEntity<ApiResponse<String>> getBotToken(@PathVariable UUID id) {
+        ReviewBotConfigDto config = botConfigService.getBotConfig(id);
+        UUID callerTenantId = com.squadron.common.security.TenantContext.getTenantId();
+        if (callerTenantId != null && !callerTenantId.equals(config.getTenantId())) {
+            return ResponseEntity.status(403).body(ApiResponse.error("Tenant mismatch"));
+        }
         String token = botConfigService.getDecryptedBotToken(id);
         return ResponseEntity.ok(ApiResponse.success(token));
     }

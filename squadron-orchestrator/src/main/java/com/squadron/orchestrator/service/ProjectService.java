@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -67,8 +68,7 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public Project getProject(UUID id) {
-        return projectRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Project", id));
+        return TenantScopedLookup.findByIdScoped(id, projectRepository::findById, projectRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Project", id));
     }
 
     @Transactional(readOnly = true)

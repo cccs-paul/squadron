@@ -215,7 +215,7 @@ class PermissionServiceTest {
         when(securityGroupMemberRepository.findByMemberTypeAndMemberId("USER", userId)).thenReturn(List.of(
                 SecurityGroupMember.builder().groupId(sgroupId).memberType("USER").memberId(userId).build()
         ));
-        when(securityGroupRepository.findById(sgroupId)).thenReturn(Optional.empty());
+        when(securityGroupRepository.findByIdAndTenantId(sgroupId, tenantId)).thenReturn(Optional.empty());
 
         AccessLevel effective = permissionService.getEffectiveAccessLevel(userId, tenantId, "PROJECT", resourceId);
 

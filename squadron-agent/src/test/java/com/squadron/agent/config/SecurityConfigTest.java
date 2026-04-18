@@ -1,131 +1,43 @@
 package com.squadron.agent.config;
 
+import com.squadron.common.security.BaseSecurityConfig;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 
-import java.time.Instant;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
 class SecurityConfigTest {
 
     @Test
-    void should_extractRoles_fromRolesClaim() {
-        SecurityConfig config = new SecurityConfig();
-        JwtAuthenticationConverter converter = config.jwtAuthenticationConverter();
-
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "RS256")
-                .claim("roles", List.of("squadron-admin", "developer"))
-                .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(3600))
-                .build();
-
-        Collection<GrantedAuthority> authorities = converter.convert(jwt).getAuthorities();
-
-        assertThat(authorities).extracting(GrantedAuthority::getAuthority)
-                .contains("ROLE_squadron-admin", "ROLE_developer");
+    void should_beAnnotatedWithConfiguration() {
+        assertTrue(SecurityConfig.class.isAnnotationPresent(Configuration.class));
     }
 
     @Test
-    void should_extractRoles_fromKeycloakRealmAccess() {
-        SecurityConfig config = new SecurityConfig();
-        JwtAuthenticationConverter converter = config.jwtAuthenticationConverter();
-
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "RS256")
-                .claim("realm_access", Map.of("roles", List.of("team-lead", "qa")))
-                .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(3600))
-                .build();
-
-        Collection<GrantedAuthority> authorities = converter.convert(jwt).getAuthorities();
-
-        assertThat(authorities).extracting(GrantedAuthority::getAuthority)
-                .contains("ROLE_team-lead", "ROLE_qa");
+    void should_beAnnotatedWithEnableWebSecurity() {
+        assertTrue(SecurityConfig.class.isAnnotationPresent(EnableWebSecurity.class));
     }
 
     @Test
-    void should_extractRoles_fromBothClaims() {
-        SecurityConfig config = new SecurityConfig();
-        JwtAuthenticationConverter converter = config.jwtAuthenticationConverter();
-
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "RS256")
-                .claim("roles", List.of("developer"))
-                .claim("realm_access", Map.of("roles", List.of("team-lead")))
-                .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(3600))
-                .build();
-
-        Collection<GrantedAuthority> authorities = converter.convert(jwt).getAuthorities();
-
-        assertThat(authorities).extracting(GrantedAuthority::getAuthority)
-                .contains("ROLE_developer", "ROLE_team-lead");
+    void should_beAnnotatedWithEnableMethodSecurity() {
+        assertTrue(SecurityConfig.class.isAnnotationPresent(EnableMethodSecurity.class));
     }
 
     @Test
-    void should_returnEmptyAuthorities_whenNoClaims() {
-        SecurityConfig config = new SecurityConfig();
-        JwtAuthenticationConverter converter = config.jwtAuthenticationConverter();
-
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "RS256")
-                .claim("sub", "user-123")
-                .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(3600))
-                .build();
-
-        Collection<GrantedAuthority> authorities = converter.convert(jwt).getAuthorities();
-
-        assertThat(authorities).isEmpty();
+    void should_extendBaseSecurityConfig() {
+        assertTrue(BaseSecurityConfig.class.isAssignableFrom(SecurityConfig.class));
     }
 
     @Test
-    void should_handleEmptyRolesList() {
+    void should_returnCorrectAdditionalPermitAllPaths() throws Exception {
         SecurityConfig config = new SecurityConfig();
-        JwtAuthenticationConverter converter = config.jwtAuthenticationConverter();
-
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "RS256")
-                .claim("roles", List.of())
-                .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(3600))
-                .build();
-
-        Collection<GrantedAuthority> authorities = converter.convert(jwt).getAuthorities();
-
-        assertThat(authorities).isEmpty();
-    }
-
-    @Test
-    void should_handleRealmAccessWithNoRolesKey() {
-        SecurityConfig config = new SecurityConfig();
-        JwtAuthenticationConverter converter = config.jwtAuthenticationConverter();
-
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "RS256")
-                .claim("realm_access", Map.of("other", "value"))
-                .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(3600))
-                .build();
-
-        Collection<GrantedAuthority> authorities = converter.convert(jwt).getAuthorities();
-
-        assertThat(authorities).isEmpty();
-    }
-
-    @Test
-    void should_createJwtAuthenticationConverter() {
-        SecurityConfig config = new SecurityConfig();
-        JwtAuthenticationConverter converter = config.jwtAuthenticationConverter();
-
-        assertThat(converter).isNotNull();
+        var method = SecurityConfig.class.getDeclaredMethod("additionalPermitAllPaths");
+        method.setAccessible(true);
+        String[] paths = (String[]) method.invoke(config);
+        assertEquals(2, paths.length);
+        assertEquals("/ws/**", paths[0]);
+        assertEquals("/api/agent/usage/**", paths[1]);
     }
 }

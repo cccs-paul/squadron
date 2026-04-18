@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -88,8 +89,7 @@ public class TaskService {
 
     @Transactional(readOnly = true)
     public Task getTask(UUID id) {
-        return taskRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", id));
+        return TenantScopedLookup.findByIdScoped(id, taskRepository::findById, taskRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Task", id));
     }
 
     @Transactional(readOnly = true)
@@ -226,8 +226,7 @@ public class TaskService {
 
     @Transactional(readOnly = true)
     public TaskDetailDto getTaskDetail(UUID taskId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+        Task task = TenantScopedLookup.findByIdScoped(taskId, taskRepository::findById, taskRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Task", taskId));
 
         // Get workflow state
         TaskWorkflow workflow = taskWorkflowRepository.findByTaskId(taskId).orElse(null);
@@ -236,7 +235,7 @@ public class TaskService {
         String projectName = null;
         String mappedExternalStatus = null;
         if (task.getProjectId() != null) {
-            Project project = projectRepository.findById(task.getProjectId()).orElse(null);
+            Project project = projectRepository.findByIdAndTenantId(task.getProjectId(), task.getTenantId()).orElse(null);
             if (project != null) {
                 projectName = project.getName();
                 // Look up workflow mapping for current state
@@ -298,8 +297,7 @@ public class TaskService {
     }
 
     public void delegateToAgent(UUID taskId, DelegateTaskRequest request) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+        Task task = TenantScopedLookup.findByIdScoped(taskId, taskRepository::findById, taskRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("Task", taskId));
 
         // If a target state is specified, transition the task first
         if (request.getTargetState() != null && !request.getTargetState().isBlank()) {

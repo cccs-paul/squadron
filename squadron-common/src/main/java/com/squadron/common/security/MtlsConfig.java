@@ -4,6 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.ssl.SslBundle;
+import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
@@ -25,10 +28,8 @@ import java.security.cert.CertificateException;
  * <p>
  * This configuration is only active when {@code squadron.mtls.enabled=true}.
  * It creates an {@link SSLContext} from the configured key store and trust store,
- * then provides a {@link RestTemplate} bean that uses mTLS for all outbound requests.
- * <p>
- * The mTLS RestTemplate is registered as {@code mtlsRestTemplate} to avoid conflicting
- * with other RestTemplate beans in the application context.
+ * then provides a {@link RestTemplate} bean that uses mTLS via a per-client
+ * SSLContext (does NOT set the JVM-wide default).
  */
 @Configuration
 @ConditionalOnProperty(name = "squadron.mtls.enabled", havingValue = "true")
@@ -73,12 +74,15 @@ public class MtlsConfig {
 
     @Bean("mtlsRestTemplate")
     public RestTemplate mtlsRestTemplate(SSLContext mtlsSslContext) {
-        // Apply the mTLS SSLContext as the default for this RestTemplate
-        SSLContext.setDefault(mtlsSslContext);
+        // Use JDK HttpClient with the mTLS SSLContext (per-client, not JVM-wide default)
+        java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+                .sslContext(mtlsSslContext)
+                .build();
 
-        RestTemplate restTemplate = new RestTemplate();
+        org.springframework.http.client.JdkClientHttpRequestFactory requestFactory =
+                new org.springframework.http.client.JdkClientHttpRequestFactory(httpClient);
 
         log.info("mTLS RestTemplate created for inter-service communication");
-        return restTemplate;
+        return new RestTemplate(requestFactory);
     }
 }

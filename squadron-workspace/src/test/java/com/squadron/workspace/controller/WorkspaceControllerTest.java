@@ -261,7 +261,7 @@ class WorkspaceControllerTest {
         when(workspaceGitService.cloneRepository(eq(workspaceId), eq("my-token"), isNull())).thenReturn(execResult);
 
         mockMvc.perform(post("/api/workspaces/{id}/git/clone", workspaceId)
-                        .param("accessToken", "my-token"))
+                        .header("X-Access-Token", "my-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.exitCode").value(0));
@@ -319,7 +319,7 @@ class WorkspaceControllerTest {
 
         mockMvc.perform(post("/api/workspaces/{id}/git/push", workspaceId)
                         .param("branch", "main")
-                        .param("accessToken", "my-token"))
+                        .header("X-Access-Token", "my-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.exitCode").value(0));
@@ -457,7 +457,7 @@ class WorkspaceControllerTest {
                 .thenReturn(execResult);
 
         mockMvc.perform(post("/api/workspaces/{id}/git/clone", workspaceId)
-                        .param("accessToken", "my-token")
+                        .header("X-Access-Token", "my-token")
                         .param("sshKeyId", sshKeyId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -567,5 +567,60 @@ class WorkspaceControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.success").value(false))
                 .andExpect(jsonPath("$.data.message").value("Git clone failed: repository not found"));
+    }
+
+    // --- Path validation tests ---
+
+    @Test
+    void should_returnBadRequest_whenCopyToPathContainsTraversal() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        mockMvc.perform(post("/api/workspaces/{id}/copy-to", workspaceId)
+                        .param("path", "/tmp/../etc/passwd")
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .content("data".getBytes()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_returnBadRequest_whenCopyToPathHasShellMeta() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        mockMvc.perform(post("/api/workspaces/{id}/copy-to", workspaceId)
+                        .param("path", "/tmp/file;rm -rf /")
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .content("data".getBytes()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_returnBadRequest_whenCopyToPathNotAllowedPrefix() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        mockMvc.perform(post("/api/workspaces/{id}/copy-to", workspaceId)
+                        .param("path", "/etc/passwd")
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .content("data".getBytes()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_returnBadRequest_whenCopyFromPathInvalid() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        mockMvc.perform(get("/api/workspaces/{id}/copy-from", workspaceId)
+                        .param("path", "/etc/shadow"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_returnBadRequest_whenExecCommandTooLong() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        String longArg = "x".repeat(5000);
+        ExecRequest request = ExecRequest.builder()
+                .workspaceId(workspaceId)
+                .command(List.of("echo", longArg))
+                .build();
+
+        mockMvc.perform(post("/api/workspaces/{id}/exec", workspaceId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
     }
 }

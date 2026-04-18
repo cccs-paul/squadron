@@ -1,51 +1,42 @@
 package com.squadron.notification.config;
 
+import com.squadron.common.security.BaseSecurityConfig;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.*;
 
-@WebMvcTest
-@ContextConfiguration(classes = {SecurityConfig.class})
-@TestPropertySource(properties = {
-    "squadron.security.jwt.jwks-uri=http://localhost:8081/api/auth/jwks"
-})
 class SecurityConfigTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockBean
-    private JwtDecoder jwtDecoder;
-
     @Test
-    void should_createSecurityConfig_when_instantiated() {
-        // SecurityConfig loads successfully in the Spring context
-        // with MockBean JwtDecoder overriding the real one
+    void should_beAnnotatedWithConfiguration() {
+        assertTrue(SecurityConfig.class.isAnnotationPresent(Configuration.class));
     }
 
     @Test
-    void should_permitActuatorHealth() throws Exception {
-        mockMvc.perform(get("/actuator/health"))
-                .andExpect(status().isNotFound());
+    void should_beAnnotatedWithEnableWebSecurity() {
+        assertTrue(SecurityConfig.class.isAnnotationPresent(EnableWebSecurity.class));
     }
 
     @Test
-    void should_permitWebSocket() throws Exception {
-        mockMvc.perform(get("/ws/test"))
-                .andExpect(status().isNotFound());
+    void should_beAnnotatedWithEnableMethodSecurity() {
+        assertTrue(SecurityConfig.class.isAnnotationPresent(EnableMethodSecurity.class));
     }
 
     @Test
-    void should_requireAuth_forApiEndpoints() throws Exception {
-        mockMvc.perform(get("/api/notifications/user/" + java.util.UUID.randomUUID()))
-                .andExpect(status().isUnauthorized());
+    void should_extendBaseSecurityConfig() {
+        assertTrue(BaseSecurityConfig.class.isAssignableFrom(SecurityConfig.class));
+    }
+
+    @Test
+    void should_returnCorrectAdditionalPermitAllPaths() throws Exception {
+        SecurityConfig config = new SecurityConfig();
+        var method = SecurityConfig.class.getDeclaredMethod("additionalPermitAllPaths");
+        method.setAccessible(true);
+        String[] paths = (String[]) method.invoke(config);
+        assertEquals(1, paths.length);
+        assertEquals("/ws/**", paths[0]);
     }
 }

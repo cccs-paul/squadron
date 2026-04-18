@@ -1,51 +1,33 @@
 package com.squadron.git.config;
 
+import com.squadron.common.security.BaseSecurityConfig;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SecurityConfigTest {
 
-    private final SecurityConfig securityConfig = new SecurityConfig();
-
-    @Test
-    void should_createJwtAuthenticationConverter_bean() {
-        JwtAuthenticationConverter converter = securityConfig.jwtAuthenticationConverter();
-        assertNotNull(converter);
-    }
-
-    @Test
-    void should_haveSecurityFilterChainMethod() throws NoSuchMethodException {
-        assertNotNull(SecurityConfig.class.getMethod("securityFilterChain",
-                org.springframework.security.config.annotation.web.builders.HttpSecurity.class));
-    }
-
-    @Test
-    void should_haveJwtDecoderMethod() throws NoSuchMethodException {
-        assertNotNull(SecurityConfig.class.getMethod("jwtDecoder"));
-    }
-
-    @Test
-    void should_haveJwtAuthenticationConverterMethod() throws NoSuchMethodException {
-        assertNotNull(SecurityConfig.class.getMethod("jwtAuthenticationConverter"));
-    }
-
     @Test
     void should_beAnnotatedWithConfiguration() {
-        assertTrue(SecurityConfig.class.isAnnotationPresent(
-                org.springframework.context.annotation.Configuration.class));
+        assertTrue(SecurityConfig.class.isAnnotationPresent(Configuration.class));
     }
 
     @Test
     void should_beAnnotatedWithEnableWebSecurity() {
-        assertTrue(SecurityConfig.class.isAnnotationPresent(
-                org.springframework.security.config.annotation.web.configuration.EnableWebSecurity.class));
+        assertTrue(SecurityConfig.class.isAnnotationPresent(EnableWebSecurity.class));
     }
 
     @Test
     void should_beAnnotatedWithEnableMethodSecurity() {
-        assertTrue(SecurityConfig.class.isAnnotationPresent(
-                org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity.class));
+        assertTrue(SecurityConfig.class.isAnnotationPresent(EnableMethodSecurity.class));
+    }
+
+    @Test
+    void should_extendBaseSecurityConfig() {
+        assertTrue(BaseSecurityConfig.class.isAssignableFrom(SecurityConfig.class));
     }
 }

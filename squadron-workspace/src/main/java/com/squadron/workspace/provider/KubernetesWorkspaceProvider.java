@@ -173,8 +173,34 @@ public class KubernetesWorkspaceProvider implements WorkspaceProvider {
         }
     }
 
+    /**
+     * Validates a container path to prevent command injection and path traversal.
+     * Rejects paths that are null/blank, contain shell metacharacters, contain "..",
+     * or do not start with an allowed prefix.
+     */
+    static void validateContainerPath(String path) {
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException("Container path must not be null or blank");
+        }
+        if (path.contains("..")) {
+            throw new IllegalArgumentException("Container path must not contain '..' (path traversal)");
+        }
+        String shellMetaChars = "'\";$`|&(){}<>\n\r";
+        for (char c : shellMetaChars.toCharArray()) {
+            if (path.indexOf(c) >= 0) {
+                throw new IllegalArgumentException(
+                        "Container path contains illegal character: '" + (c == '\n' ? "\\n" : c == '\r' ? "\\r" : String.valueOf(c)) + "'");
+            }
+        }
+        if (!path.startsWith("/workspace/") && !path.startsWith("/home/") && !path.startsWith("/tmp/")) {
+            throw new IllegalArgumentException(
+                    "Container path must start with /workspace/, /home/, or /tmp/");
+        }
+    }
+
     @Override
     public void copyToContainer(String containerId, byte[] content, String containerPath) {
+        validateContainerPath(containerPath);
         String encoded = Base64.getEncoder().encodeToString(content);
         String[] command = new String[]{"sh", "-c", "echo '" + encoded + "' | base64 -d > " + containerPath};
         ExecResult result = exec(containerId, command);
@@ -186,6 +212,7 @@ public class KubernetesWorkspaceProvider implements WorkspaceProvider {
 
     @Override
     public byte[] copyFromContainer(String containerId, String containerPath) {
+        validateContainerPath(containerPath);
         String[] command = new String[]{"cat", containerPath};
         ExecResult result = exec(containerId, command);
         if (result.getExitCode() != 0) {

@@ -38,9 +38,9 @@ class ReviewPolicyRepositoryTest {
     }
 
     @Test
-    void should_haveTwoCustomQueryMethods_when_interfaceInspected() {
+    void should_haveThreeCustomQueryMethods_when_interfaceInspected() {
         Method[] methods = ReviewPolicyRepository.class.getDeclaredMethods();
-        assertEquals(2, methods.length);
+        assertEquals(3, methods.length);
     }
 
     @Test

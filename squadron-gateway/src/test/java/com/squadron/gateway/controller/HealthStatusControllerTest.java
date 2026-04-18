@@ -125,7 +125,7 @@ class HealthStatusControllerTest {
 
                     services.forEach((name, entry) -> {
                         assertThat(entry.get("status")).as("Service %s should be UP", name).isEqualTo("UP");
-                        assertThat(entry.get("url")).as("Service %s should have url", name).isNotNull();
+                        assertThat(entry).as("Service %s should not expose url", name).doesNotContainKey("url");
                     });
 
                     Map<String, Map<String, String>> infra =
@@ -168,9 +168,9 @@ class HealthStatusControllerTest {
     @Test
     void should_returnDown_when_criticalServiceGatewayDown() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "DOWN", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "UP", "url", "http://localhost:8081"));
-        services.put("config", Map.of("status", "UP", "url", "http://localhost:8082"));
+        services.put("gateway", Map.of("status", "DOWN"));
+        services.put("identity", Map.of("status", "UP"));
+        services.put("config", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = allInfraUp();
 
@@ -181,9 +181,9 @@ class HealthStatusControllerTest {
     @Test
     void should_returnDown_when_criticalServiceIdentityDown() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "UP", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "DOWN", "url", "http://localhost:8081"));
-        services.put("config", Map.of("status", "UP", "url", "http://localhost:8082"));
+        services.put("gateway", Map.of("status", "UP"));
+        services.put("identity", Map.of("status", "DOWN"));
+        services.put("config", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = allInfraUp();
 
@@ -194,8 +194,8 @@ class HealthStatusControllerTest {
     @Test
     void should_returnDown_when_postgresqlDown() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "UP", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "UP", "url", "http://localhost:8081"));
+        services.put("gateway", Map.of("status", "UP"));
+        services.put("identity", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = new LinkedHashMap<>();
         infra.put("postgresql", Map.of("status", "DOWN"));
@@ -210,10 +210,10 @@ class HealthStatusControllerTest {
     @Test
     void should_returnDegraded_when_nonCriticalServiceDown() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "UP", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "UP", "url", "http://localhost:8081"));
-        services.put("config", Map.of("status", "DOWN", "url", "http://localhost:8082"));
-        services.put("orchestrator", Map.of("status", "UP", "url", "http://localhost:8083"));
+        services.put("gateway", Map.of("status", "UP"));
+        services.put("identity", Map.of("status", "UP"));
+        services.put("config", Map.of("status", "DOWN"));
+        services.put("orchestrator", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = allInfraUp();
 
@@ -224,8 +224,8 @@ class HealthStatusControllerTest {
     @Test
     void should_returnDegraded_when_redisDown() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "UP", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "UP", "url", "http://localhost:8081"));
+        services.put("gateway", Map.of("status", "UP"));
+        services.put("identity", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = new LinkedHashMap<>();
         infra.put("postgresql", Map.of("status", "UP"));
@@ -240,8 +240,8 @@ class HealthStatusControllerTest {
     @Test
     void should_returnDegraded_when_natsDown() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "UP", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "UP", "url", "http://localhost:8081"));
+        services.put("gateway", Map.of("status", "UP"));
+        services.put("identity", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = new LinkedHashMap<>();
         infra.put("postgresql", Map.of("status", "UP"));
@@ -256,8 +256,8 @@ class HealthStatusControllerTest {
     @Test
     void should_returnDegraded_when_keycloakDown() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "UP", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "UP", "url", "http://localhost:8081"));
+        services.put("gateway", Map.of("status", "UP"));
+        services.put("identity", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = new LinkedHashMap<>();
         infra.put("postgresql", Map.of("status", "UP"));
@@ -272,9 +272,9 @@ class HealthStatusControllerTest {
     @Test
     void should_returnUp_when_allComponentsUp() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "UP", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "UP", "url", "http://localhost:8081"));
-        services.put("config", Map.of("status", "UP", "url", "http://localhost:8082"));
+        services.put("gateway", Map.of("status", "UP"));
+        services.put("identity", Map.of("status", "UP"));
+        services.put("config", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = allInfraUp();
 
@@ -285,8 +285,8 @@ class HealthStatusControllerTest {
     @Test
     void should_returnDown_when_multipleCriticalComponentsDown() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "DOWN", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "DOWN", "url", "http://localhost:8081"));
+        services.put("gateway", Map.of("status", "DOWN"));
+        services.put("identity", Map.of("status", "DOWN"));
 
         Map<String, Map<String, String>> infra = new LinkedHashMap<>();
         infra.put("postgresql", Map.of("status", "DOWN"));
@@ -301,8 +301,8 @@ class HealthStatusControllerTest {
     @Test
     void should_treatUnknownAsNotDown_when_computingOverallStatus() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "UP", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "UP", "url", "http://localhost:8081"));
+        services.put("gateway", Map.of("status", "UP"));
+        services.put("identity", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = new LinkedHashMap<>();
         infra.put("postgresql", Map.of("status", "UP"));
@@ -318,7 +318,7 @@ class HealthStatusControllerTest {
     void should_returnDown_when_criticalServiceMissing() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
         // "gateway" is missing entirely
-        services.put("identity", Map.of("status", "UP", "url", "http://localhost:8081"));
+        services.put("identity", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = new LinkedHashMap<>();
         infra.put("postgresql", Map.of("status", "UP"));
@@ -331,8 +331,8 @@ class HealthStatusControllerTest {
     @Test
     void should_returnDown_when_postgresqlMissing() {
         Map<String, Map<String, String>> services = new LinkedHashMap<>();
-        services.put("gateway", Map.of("status", "UP", "url", "http://localhost:8443"));
-        services.put("identity", Map.of("status", "UP", "url", "http://localhost:8081"));
+        services.put("gateway", Map.of("status", "UP"));
+        services.put("identity", Map.of("status", "UP"));
 
         Map<String, Map<String, String>> infra = new LinkedHashMap<>();
         // "postgresql" is missing entirely
@@ -360,7 +360,7 @@ class HealthStatusControllerTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void should_includeServiceUrls_when_returning() {
+    void should_notExposeServiceUrls_when_returning() {
         stubWebClientAllUp();
         stubRedisUp();
 
@@ -368,16 +368,9 @@ class HealthStatusControllerTest {
                 .assertNext(response -> {
                     Map<String, Map<String, String>> services =
                             (Map<String, Map<String, String>>) response.get("services");
-                    assertThat(services.get("gateway").get("url")).isEqualTo("http://localhost:8443");
-                    assertThat(services.get("identity").get("url")).isEqualTo("http://localhost:8081");
-                    assertThat(services.get("config").get("url")).isEqualTo("http://localhost:8082");
-                    assertThat(services.get("orchestrator").get("url")).isEqualTo("http://localhost:8083");
-                    assertThat(services.get("platform").get("url")).isEqualTo("http://localhost:8084");
-                    assertThat(services.get("agent").get("url")).isEqualTo("http://localhost:8085");
-                    assertThat(services.get("workspace").get("url")).isEqualTo("http://localhost:8086");
-                    assertThat(services.get("git").get("url")).isEqualTo("http://localhost:8087");
-                    assertThat(services.get("review").get("url")).isEqualTo("http://localhost:8088");
-                    assertThat(services.get("notification").get("url")).isEqualTo("http://localhost:8089");
+                    services.forEach((name, entry) -> {
+                        assertThat(entry).doesNotContainKey("url");
+                    });
                 })
                 .verifyComplete();
     }

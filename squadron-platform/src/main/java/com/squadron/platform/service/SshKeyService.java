@@ -24,6 +24,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Slf4j
@@ -102,9 +103,10 @@ public class SshKeyService {
 
     @Transactional(readOnly = true)
     public SshKey getSshKey(UUID id) {
-        return sshKeyRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("SSH key not found: " + id));
+        return TenantScopedLookup.findByIdScoped(id, sshKeyRepository::findById, sshKeyRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("SshKey", id));
     }
+
+
 
     @Transactional(readOnly = true)
     public List<SshKey> listSshKeysByTenant(UUID tenantId) {

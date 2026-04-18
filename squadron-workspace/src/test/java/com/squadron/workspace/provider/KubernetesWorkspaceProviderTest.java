@@ -302,4 +302,68 @@ class KubernetesWorkspaceProviderTest {
                 () -> spyProvider.copyFromContainer("pod-123", "/tmp/missing.txt"));
         assertTrue(ex.getMessage().contains("Failed to copy from container"));
     }
+
+    // --- validateContainerPath tests ---
+
+    @Test
+    void should_rejectNullPath() {
+        assertThrows(IllegalArgumentException.class,
+                () -> KubernetesWorkspaceProvider.validateContainerPath(null));
+    }
+
+    @Test
+    void should_rejectBlankPath() {
+        assertThrows(IllegalArgumentException.class,
+                () -> KubernetesWorkspaceProvider.validateContainerPath("  "));
+    }
+
+    @Test
+    void should_rejectPathTraversal() {
+        assertThrows(IllegalArgumentException.class,
+                () -> KubernetesWorkspaceProvider.validateContainerPath("/tmp/../etc/passwd"));
+    }
+
+    @Test
+    void should_rejectShellMetacharacters() {
+        assertThrows(IllegalArgumentException.class,
+                () -> KubernetesWorkspaceProvider.validateContainerPath("/tmp/file;rm -rf /"));
+        assertThrows(IllegalArgumentException.class,
+                () -> KubernetesWorkspaceProvider.validateContainerPath("/tmp/file$(whoami)"));
+        assertThrows(IllegalArgumentException.class,
+                () -> KubernetesWorkspaceProvider.validateContainerPath("/tmp/file|cat /etc/passwd"));
+        assertThrows(IllegalArgumentException.class,
+                () -> KubernetesWorkspaceProvider.validateContainerPath("/tmp/file`id`"));
+    }
+
+    @Test
+    void should_rejectDisallowedPathPrefix() {
+        assertThrows(IllegalArgumentException.class,
+                () -> KubernetesWorkspaceProvider.validateContainerPath("/etc/passwd"));
+        assertThrows(IllegalArgumentException.class,
+                () -> KubernetesWorkspaceProvider.validateContainerPath("/var/log/syslog"));
+    }
+
+    @Test
+    void should_acceptValidPaths() {
+        assertDoesNotThrow(() -> KubernetesWorkspaceProvider.validateContainerPath("/tmp/test.txt"));
+        assertDoesNotThrow(() -> KubernetesWorkspaceProvider.validateContainerPath("/home/user/file.txt"));
+        assertDoesNotThrow(() -> KubernetesWorkspaceProvider.validateContainerPath("/workspace/repo/src/Main.java"));
+    }
+
+    @Test
+    void should_copyToContainer_rejectInjectionPath() {
+        KubernetesWorkspaceProvider spyProvider = spy(provider);
+        byte[] content = "hello".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> spyProvider.copyToContainer("pod-123", content, "/tmp/file;rm -rf /"));
+    }
+
+    @Test
+    void should_copyFromContainer_rejectInjectionPath() {
+        KubernetesWorkspaceProvider spyProvider = spy(provider);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> spyProvider.copyFromContainer("pod-123", "/etc/passwd"));
+    }
 }

@@ -32,4 +32,7 @@ public class ToolExecutionContext {
 
     /** Optional OAuth token for git operations */
     private String accessToken;
+
+    /** Agent type (PLANNING, CODING, REVIEW, QA, MERGE) for tool permission filtering */
+    private String agentType;
 }

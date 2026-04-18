@@ -2,6 +2,7 @@ package com.squadron.notification.channel;
 
 import com.squadron.notification.entity.Notification;
 import com.squadron.notification.entity.NotificationPreference;
+import com.squadron.notification.util.WebhookUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -36,6 +37,8 @@ public class SlackNotificationChannel implements NotificationChannel {
         log.info("Sending Slack notification {} to webhook for user {}", notification.getId(), notification.getUserId());
 
         try {
+            WebhookUrlValidator.validateSlackWebhookUrl(webhookUrl);
+
             String text = String.format("*%s*\n%s", notification.getSubject(), notification.getBody());
             Map<String, String> payload = Map.of("text", text);
 

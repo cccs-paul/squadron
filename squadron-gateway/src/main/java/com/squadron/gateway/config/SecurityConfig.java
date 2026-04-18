@@ -10,6 +10,7 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -75,7 +76,7 @@ public class SecurityConfig {
             NimbusReactiveJwtDecoder squadronDecoder = NimbusReactiveJwtDecoder.withJwkSetUri(squadronJwksUri).build();
             NimbusReactiveJwtDecoder keycloakDecoder = NimbusReactiveJwtDecoder.withJwkSetUri(keycloakJwksUri).build();
             return token -> squadronDecoder.decode(token)
-                    .onErrorResume(e -> keycloakDecoder.decode(token));
+                    .onErrorResume(JwtException.class, e -> keycloakDecoder.decode(token));
         }
 
         return NimbusReactiveJwtDecoder.withJwkSetUri(jwksUri).build();

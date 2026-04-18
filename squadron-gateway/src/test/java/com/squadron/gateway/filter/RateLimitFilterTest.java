@@ -26,6 +26,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -72,18 +73,53 @@ class RateLimitFilterTest {
     }
 
     @Test
-    void should_passThrough_when_noSecurityContext() {
+    void should_rateLimitByIp_when_noSecurityContext() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/api/test").build());
 
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.increment(anyString())).thenReturn(Mono.just(1L));
+        when(redisTemplate.expire(anyString(), any(Duration.class))).thenReturn(Mono.just(true));
         when(chain.filter(any(ServerWebExchange.class))).thenReturn(Mono.empty());
 
-        // No security context set -- the switchIfEmpty path should be taken
         StepVerifier.create(rateLimitFilter.filter(exchange, chain))
                 .verifyComplete();
 
-        verify(chain, atLeastOnce()).filter(exchange);
-        verifyNoInteractions(redisTemplate);
+        verify(redisTemplate.opsForValue()).increment(argThat(key -> key.startsWith("rate_limit:ip:")));
+    }
+
+    @Test
+    void should_rejectByIp_when_overIpRateLimit() {
+        // IP limit is 30% of 100 = 30
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/test").build());
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.increment(anyString())).thenReturn(Mono.just(31L));
+
+        StepVerifier.create(rateLimitFilter.filter(exchange, chain))
+                .verifyComplete();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @Test
+    void should_extractClientIp_when_remoteAddressPresent() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/test").remoteAddress(new java.net.InetSocketAddress("192.168.1.1", 12345)).build());
+
+        String ip = rateLimitFilter.extractClientIp(exchange);
+        assertThat(ip).isEqualTo("192.168.1.1");
+    }
+
+    @Test
+    void should_returnUnknown_when_remoteAddressNull() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/test").build());
+
+        String ip = rateLimitFilter.extractClientIp(exchange);
+        // MockServerHttpRequest may or may not have a remote address
+        assertThat(ip).isNotNull();
     }
 
     @Test
@@ -143,8 +179,6 @@ class RateLimitFilterTest {
 
         when(redisTemplate.opsForValue()).thenReturn(valueOps);
         when(valueOps.increment("rate_limit:user-789")).thenReturn(Mono.just(101L));
-        // Must stub chain.filter because switchIfEmpty eagerly evaluates the argument
-        when(chain.filter(any(ServerWebExchange.class))).thenReturn(Mono.empty());
 
         Mono<Void> result = rateLimitFilter.filter(exchange, chain)
                 .contextWrite(ReactiveSecurityContextHolder.withSecurityContext(Mono.just(securityContext)));
@@ -213,8 +247,6 @@ class RateLimitFilterTest {
 
         when(redisTemplate.opsForValue()).thenReturn(valueOps);
         when(valueOps.increment("rate_limit:user-low")).thenReturn(Mono.just(6L));
-        // Must stub chain.filter because switchIfEmpty eagerly evaluates the argument
-        when(chain.filter(any(ServerWebExchange.class))).thenReturn(Mono.empty());
 
         Mono<Void> result = lowLimitFilter.filter(exchange, chain)
                 .contextWrite(ReactiveSecurityContextHolder.withSecurityContext(Mono.just(securityContext)));

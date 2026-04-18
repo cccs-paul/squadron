@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 public class PlatformSyncService {
@@ -55,8 +56,7 @@ public class PlatformSyncService {
     public List<PlatformTaskDto> syncTasks(UUID connectionId, String projectKey) {
         log.info("Syncing tasks for connection {} with project {}", connectionId, projectKey);
 
-        PlatformConnection connection = connectionRepository.findById(connectionId)
-                .orElseThrow(() -> new ResourceNotFoundException("PlatformConnection", connectionId));
+        PlatformConnection connection = TenantScopedLookup.findByIdScoped(connectionId, connectionRepository::findById, connectionRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PlatformConnection", connectionId));
 
         TicketingPlatformAdapter adapter = adapterRegistry.getAdapter(connection.getPlatformType());
         adapter.configure(connection.getBaseUrl(), getDecryptedCredentialsMap(connection));
@@ -94,8 +94,7 @@ public class PlatformSyncService {
                                String comment, UUID userId) {
         log.info("Pushing status update for task {} on connection {} by user {}", externalId, connectionId, userId);
 
-        PlatformConnection connection = connectionRepository.findById(connectionId)
-                .orElseThrow(() -> new ResourceNotFoundException("PlatformConnection", connectionId));
+        PlatformConnection connection = TenantScopedLookup.findByIdScoped(connectionId, connectionRepository::findById, connectionRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PlatformConnection", connectionId));
 
         // Use user's delegated token if available, decrypted automatically
         Map<String, String> credentials;

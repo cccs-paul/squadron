@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 /**
  * Central credential resolution service. Tries credential strategies in priority order:
@@ -73,8 +74,7 @@ public class CredentialResolutionService {
     public CredentialResolutionResult resolveCredentials(UUID userId, UUID connectionId, CredentialPurpose purpose) {
         log.info("Resolving credentials for user {} on connection {} for purpose {}", userId, connectionId, purpose);
 
-        PlatformConnection connection = connectionRepository.findById(connectionId)
-                .orElseThrow(() -> new ResourceNotFoundException("PlatformConnection", connectionId));
+        PlatformConnection connection = TenantScopedLookup.findByIdScoped(connectionId, connectionRepository::findById, connectionRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("PlatformConnection", connectionId));
 
         // Strategy 1: Try OAuth2 token
         CredentialResolutionResult oauth2Result = tryOAuth2Token(userId, connectionId);

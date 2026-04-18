@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -138,8 +139,7 @@ public class ConfigService {
      * Deletes a config entry by ID.
      */
     public void deleteConfig(UUID configId) {
-        ConfigEntry entry = configEntryRepository.findById(configId)
-                .orElseThrow(() -> new ResourceNotFoundException("ConfigEntry", configId));
+        ConfigEntry entry = TenantScopedLookup.findByIdScoped(configId, configEntryRepository::findById, configEntryRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("ConfigEntry", configId));
         configEntryRepository.delete(entry);
         log.info("Config entry deleted: id={}, key={}", configId, entry.getConfigKey());
     }

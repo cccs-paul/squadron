@@ -54,9 +54,9 @@ class NotificationRepositoryTest {
     }
 
     @Test
-    void should_haveSixCustomQueryMethods_when_interfaceInspected() {
+    void should_haveSevenCustomQueryMethods_when_interfaceInspected() {
         Method[] methods = NotificationRepository.class.getDeclaredMethods();
-        assertEquals(6, methods.length);
+        assertEquals(7, methods.length);
     }
 
     @Test

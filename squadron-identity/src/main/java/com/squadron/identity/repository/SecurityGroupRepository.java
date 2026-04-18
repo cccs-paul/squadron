@@ -14,4 +14,6 @@ public interface SecurityGroupRepository extends JpaRepository<SecurityGroup, UU
     List<SecurityGroup> findByTenantId(UUID tenantId);
 
     Optional<SecurityGroup> findByTenantIdAndName(UUID tenantId, String name);
+
+    Optional<SecurityGroup> findByIdAndTenantId(UUID id, UUID tenantId);
 }

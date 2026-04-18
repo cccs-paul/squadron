@@ -10,19 +10,28 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.util.regex.Pattern;
+
 @Component
 public class RequestLoggingFilter implements GlobalFilter, Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(RequestLoggingFilter.class);
+    private static final Pattern ACCESS_TOKEN_PATTERN = Pattern.compile("access_token=[^&]*");
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String method = request.getMethod().name();
         String path = request.getURI().getPath();
+        String query = request.getURI().getRawQuery();
+        String logPath = path;
+        if (query != null) {
+            logPath = path + "?" + ACCESS_TOKEN_PATTERN.matcher(query).replaceAll("access_token=REDACTED");
+        }
         long startTime = System.currentTimeMillis();
+        final String finalLogPath = logPath;
 
-        log.info("Incoming request: {} {}", method, path);
+        log.info("Incoming request: {} {}", method, finalLogPath);
 
         return chain.filter(exchange)
                 .doFinally(signalType -> {
@@ -31,7 +40,7 @@ public class RequestLoggingFilter implements GlobalFilter, Ordered {
                             ? exchange.getResponse().getStatusCode().value()
                             : 0;
                     log.info("Completed request: {} {} - status={} duration={}ms",
-                            method, path, statusCode, duration);
+                            method, finalLogPath, statusCode, duration);
                 });
     }
 

@@ -1,21 +1,14 @@
 package com.squadron.agent.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.agent.dto.AgentConfigDto;
+import com.squadron.agent.dto.WorkspaceInfo;
 import com.squadron.agent.entity.Conversation;
 import com.squadron.agent.entity.TaskPlan;
-import com.squadron.agent.provider.AgentProvider;
 import com.squadron.agent.provider.AgentProviderRegistry;
-import com.squadron.agent.provider.ChatMessage;
-import com.squadron.agent.tool.ToolCall;
 import com.squadron.agent.tool.ToolDefinition;
-import com.squadron.agent.tool.ToolExecutionContext;
 import com.squadron.agent.tool.ToolExecutionEngine;
-import com.squadron.agent.tool.ToolParameter;
 import com.squadron.agent.tool.ToolRegistry;
-import com.squadron.agent.tool.ToolResult;
-import com.squadron.agent.dto.WorkspaceInfo;
 import com.squadron.common.config.NatsEventPublisher;
 import com.squadron.common.event.AgentCompletedEvent;
 import com.squadron.common.event.TaskStateChangedEvent;
@@ -23,14 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Orchestrates the coding agent's agentic tool-calling loop.
@@ -50,16 +37,15 @@ public class CodingAgentService {
     private static final Logger log = LoggerFactory.getLogger(CodingAgentService.class);
     static final int MAX_ITERATIONS = 25;
 
-    /** Regex to match: <tool_call name="tool_name">JSON_BODY</tool_call> */
-    static final Pattern TOOL_CALL_PATTERN = Pattern.compile(
-            "<tool_call\\s+name=\"([^\"]+)\">(.*?)</tool_call>",
-            Pattern.DOTALL);
+    private static final String NUDGE_MESSAGE =
+            "Please continue implementing the plan. Use the available "
+                    + "tools to make code changes. When you're done, include [DONE] in "
+                    + "your response.";
 
     private final PlanService planService;
     private final ConversationService conversationService;
     private final SquadronConfigService configService;
     private final AgentProviderRegistry providerRegistry;
-    private final SystemPromptBuilder promptBuilder;
     private final ToolRegistry toolRegistry;
     private final ToolExecutionEngine toolExecutionEngine;
     private final NatsEventPublisher natsEventPublisher;
@@ -80,7 +66,6 @@ public class CodingAgentService {
         this.conversationService = conversationService;
         this.configService = configService;
         this.providerRegistry = providerRegistry;
-        this.promptBuilder = promptBuilder;
         this.toolRegistry = toolRegistry;
         this.toolExecutionEngine = toolExecutionEngine;
         this.natsEventPublisher = natsEventPublisher;
@@ -140,93 +125,24 @@ public class CodingAgentService {
                     + plan.getPlanContent();
 
             UUID workspaceId = workspaceInfo != null ? workspaceInfo.getWorkspaceId() : null;
-            AgentLoopResult result = runAgentLoop(
-                    conversation.getId(), tenantId, userId, config,
-                    systemPrompt, initialMessage, taskId, workspaceId);
+            AgentLoopResult result = AgentLoopSupport.runAgentLoop(
+                    conversation.getId(), tenantId, config,
+                    systemPrompt, initialMessage, taskId, workspaceId,
+                    MAX_ITERATIONS, NUDGE_MESSAGE, true,
+                    conversationService, providerRegistry, toolExecutionEngine, objectMapper);
 
             // 7. Publish completion event
-            publishCodingCompletedEvent(tenantId, taskId, conversation.getId(),
-                    result.isSuccess(), result.getSummary());
+            AgentLoopSupport.publishCompletedEvent(tenantId, taskId, conversation.getId(),
+                    "CODING", result.isSuccess(), result.getSummary(), natsEventPublisher);
 
             log.info("Code generation {} for task {} after {} iterations",
                     result.isSuccess() ? "completed" : "failed", taskId, result.getIterations());
 
         } catch (Exception e) {
             log.error("Code generation failed for task {}", taskId, e);
-            publishCodingCompletedEvent(tenantId, taskId, null, false,
-                    "Error: " + e.getMessage());
+            AgentLoopSupport.publishCompletedEvent(tenantId, taskId, null,
+                    "CODING", false, "Error: " + e.getMessage(), natsEventPublisher);
         }
-    }
-
-    /**
-     * Runs the agentic tool-calling loop. The LLM responds with text or tool calls.
-     * Tool calls are parsed from the response, executed, and results fed back.
-     * Loop continues until the LLM signals completion or max iterations are reached.
-     */
-    AgentLoopResult runAgentLoop(UUID conversationId, UUID tenantId, UUID userId,
-                                 AgentConfigDto config, String systemPrompt,
-                                 String initialMessage, UUID taskId, UUID workspaceId) {
-        AgentProvider provider = providerRegistry.getProvider(
-                config.getProvider() != null ? config.getProvider() : "openai-compatible");
-
-        List<ChatMessage> history = new ArrayList<>();
-        String currentMessage = initialMessage;
-        int iterations = 0;
-
-        while (iterations < MAX_ITERATIONS) {
-            iterations++;
-
-            // Save user/system message
-            conversationService.addMessage(conversationId,
-                    iterations == 1 ? "USER" : "SYSTEM", currentMessage, null);
-
-            // Call LLM
-            String response;
-            try {
-                response = provider.chat(systemPrompt, history, currentMessage, config);
-            } catch (Exception e) {
-                log.error("LLM call failed at iteration {}", iterations, e);
-                return new AgentLoopResult(false, iterations,
-                        "LLM call failed: " + e.getMessage());
-            }
-
-            // Save assistant response
-            conversationService.addMessage(conversationId, "ASSISTANT", response,
-                    response.length() / 4);
-
-            // Add to history
-            history.add(ChatMessage.builder().role("USER").content(currentMessage).build());
-            history.add(ChatMessage.builder().role("ASSISTANT").content(response).build());
-
-            // Parse tool calls from response
-            List<ToolCall> toolCalls = parseToolCalls(response);
-
-            if (toolCalls.isEmpty()) {
-                // No tool calls — agent is done (or just conversing)
-                if (isCompletionSignal(response)) {
-                    return new AgentLoopResult(true, iterations, extractSummary(response));
-                }
-                // Ask the agent to continue or use tools
-                currentMessage = "Please continue implementing the plan. Use the available "
-                        + "tools to make code changes. When you're done, include [DONE] in "
-                        + "your response.";
-                continue;
-            }
-
-            // Execute tool calls
-            ToolExecutionContext baseContext = ToolExecutionContext.builder()
-                    .taskId(taskId)
-                    .tenantId(tenantId)
-                    .workspaceId(workspaceId)
-                    .build();
-
-            List<ToolResult> results = toolExecutionEngine.executeTools(toolCalls, baseContext);
-
-            // Format tool results as the next message
-            currentMessage = formatToolResults(results);
-        }
-
-        return new AgentLoopResult(false, iterations, "Max iterations reached");
     }
 
     /**
@@ -246,20 +162,7 @@ public class CodingAgentService {
                 
                 """);
 
-        for (ToolDefinition tool : tools) {
-            sb.append("### ").append(tool.getName()).append("\n");
-            sb.append(tool.getDescription()).append("\n");
-            if (tool.getParameters() != null && !tool.getParameters().isEmpty()) {
-                sb.append("Parameters:\n");
-                for (ToolParameter param : tool.getParameters()) {
-                    sb.append("  - `").append(param.getName()).append("` (")
-                            .append(param.getType()).append(")")
-                            .append(param.isRequired() ? " **required**" : " optional")
-                            .append(": ").append(param.getDescription()).append("\n");
-                }
-            }
-            sb.append("\n");
-        }
+        sb.append(AgentLoopSupport.renderToolDefinitions(tools));
 
         sb.append("""
                 ## Implementation Plan
@@ -277,141 +180,5 @@ public class CodingAgentService {
                 """);
 
         return sb.toString();
-    }
-
-    /**
-     * Parses tool calls from the LLM response text. The LLM is instructed to use
-     * the format: {@code <tool_call name="tool_name">{"param": "value"}</tool_call>}
-     */
-    List<ToolCall> parseToolCalls(String response) {
-        if (response == null || response.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        List<ToolCall> toolCalls = new ArrayList<>();
-        Matcher matcher = TOOL_CALL_PATTERN.matcher(response);
-
-        while (matcher.find()) {
-            String toolName = matcher.group(1);
-            String jsonBody = matcher.group(2).trim();
-
-            try {
-                Map<String, Object> arguments = objectMapper.readValue(
-                        jsonBody, new TypeReference<>() {});
-                toolCalls.add(ToolCall.builder()
-                        .id(UUID.randomUUID().toString())
-                        .toolName(toolName)
-                        .arguments(arguments)
-                        .build());
-            } catch (Exception e) {
-                log.warn("Failed to parse tool call arguments for tool '{}': {}",
-                        toolName, e.getMessage());
-            }
-        }
-
-        return toolCalls;
-    }
-
-    /**
-     * Returns {@code true} if the response contains a completion signal.
-     */
-    boolean isCompletionSignal(String response) {
-        if (response == null) {
-            return false;
-        }
-        return response.contains("[DONE]") || response.contains("[COMPLETE]");
-    }
-
-    /**
-     * Extracts a summary from the completion response. Looks for text after
-     * the completion marker, falling back to the last paragraph.
-     */
-    String extractSummary(String response) {
-        if (response == null || response.isEmpty()) {
-            return "No summary provided";
-        }
-
-        // Try to extract text after [DONE] or [COMPLETE]
-        int doneIdx = response.indexOf("[DONE]");
-        if (doneIdx >= 0) {
-            String after = response.substring(doneIdx + "[DONE]".length()).trim();
-            if (!after.isEmpty()) {
-                return after.length() > 500 ? after.substring(0, 500) : after;
-            }
-        }
-
-        int completeIdx = response.indexOf("[COMPLETE]");
-        if (completeIdx >= 0) {
-            String after = response.substring(completeIdx + "[COMPLETE]".length()).trim();
-            if (!after.isEmpty()) {
-                return after.length() > 500 ? after.substring(0, 500) : after;
-            }
-        }
-
-        // Fall back to the response itself (truncated)
-        return response.length() > 500 ? response.substring(0, 500) : response;
-    }
-
-    /**
-     * Formats tool execution results into a human-readable string that will be
-     * sent back to the LLM as the next message in the conversation.
-     */
-    String formatToolResults(List<ToolResult> results) {
-        if (results == null || results.isEmpty()) {
-            return "No tool results.";
-        }
-
-        return results.stream()
-                .map(result -> {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("## Tool: ").append(result.getToolName()).append("\n");
-                    sb.append("Status: ").append(result.isSuccess() ? "SUCCESS" : "FAILED").append("\n");
-                    if (result.isSuccess() && result.getOutput() != null) {
-                        sb.append("Output:\n```\n").append(sanitizeOutput(result.getOutput())).append("\n```\n");
-                    }
-                    if (!result.isSuccess() && result.getError() != null) {
-                        sb.append("Error: ").append(sanitizeOutput(result.getError())).append("\n");
-                    }
-                    return sb.toString();
-                })
-                .collect(Collectors.joining("\n"));
-    }
-
-    /**
-     * Sanitizes output to remove embedded credentials/tokens from URLs.
-     * Prevents token leakage when feeding tool output back to the LLM.
-     */
-    static String sanitizeOutput(String output) {
-        if (output == null) return "";
-        return output.replaceAll("(https?://)[^@/]+@", "$1***@")
-                .replaceAll("(?<!https?://)oauth2:[^@]+@", "oauth2:***@");
-    }
-
-    /**
-     * Publishes an {@link AgentCompletedEvent} with agentType="CODING" to NATS.
-     */
-    void publishCodingCompletedEvent(UUID tenantId, UUID taskId, UUID conversationId,
-                                      boolean success, String summary) {
-        AgentCompletedEvent event = new AgentCompletedEvent();
-        event.setTenantId(tenantId);
-        event.setTaskId(taskId);
-        event.setConversationId(conversationId);
-        event.setAgentType("CODING");
-        event.setSuccess(success);
-        event.setSource("squadron-agent");
-
-        String subject = success
-                ? "squadron.agent.coding.completed"
-                : "squadron.agent.coding.failed";
-
-        natsEventPublisher.publishAsync(subject, event);
-
-        // Also publish to aggregated subject for notification service
-        natsEventPublisher.publishAsync("squadron.agents.completed", event);
-
-        log.info("Published coding {} event for task {} (summary: {})",
-                success ? "completed" : "failed", taskId,
-                summary != null && summary.length() > 100
-                        ? summary.substring(0, 100) + "..." : summary);
     }
 }

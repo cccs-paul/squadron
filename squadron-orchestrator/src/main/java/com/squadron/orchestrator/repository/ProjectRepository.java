@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
 
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, UUID> {
@@ -19,4 +20,6 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     Page<Project> findByTenantIdAndNameContainingIgnoreCase(UUID tenantId, String name, Pageable pageable);
 
     List<Project> findByTeamId(UUID teamId);
+
+    Optional<Project> findByIdAndTenantId(UUID id, UUID tenantId);
 }

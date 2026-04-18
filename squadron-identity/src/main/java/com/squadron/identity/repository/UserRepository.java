@@ -22,4 +22,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> findByTenantId(UUID tenantId);
 
     List<User> findByTenantIdAndRole(UUID tenantId, String role);
+
+    Optional<User> findByIdAndTenantId(UUID id, UUID tenantId);
 }

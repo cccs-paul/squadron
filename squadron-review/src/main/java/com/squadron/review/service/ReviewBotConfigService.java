@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Slf4j
@@ -51,8 +52,7 @@ public class ReviewBotConfigService {
 
     @Transactional(readOnly = true)
     public ReviewBotConfigDto getBotConfig(UUID id) {
-        ReviewBotConfig config = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("ReviewBotConfig", id));
+        ReviewBotConfig config = TenantScopedLookup.findByIdScoped(id, repository::findById, repository::findByIdAndTenantId, () -> new ResourceNotFoundException("ReviewBotConfig", id));
         return toDto(config);
     }
 
@@ -73,14 +73,12 @@ public class ReviewBotConfigService {
      */
     @Transactional(readOnly = true)
     public String getDecryptedBotToken(UUID id) {
-        ReviewBotConfig config = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("ReviewBotConfig", id));
+        ReviewBotConfig config = TenantScopedLookup.findByIdScoped(id, repository::findById, repository::findByIdAndTenantId, () -> new ResourceNotFoundException("ReviewBotConfig", id));
         return encryptionService.decrypt(config.getBotAccessToken());
     }
 
     public ReviewBotConfigDto updateBotConfig(UUID id, CreateReviewBotConfigRequest request) {
-        ReviewBotConfig config = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("ReviewBotConfig", id));
+        ReviewBotConfig config = TenantScopedLookup.findByIdScoped(id, repository::findById, repository::findByIdAndTenantId, () -> new ResourceNotFoundException("ReviewBotConfig", id));
 
         config.setBotUsername(request.getBotUsername());
         if (request.getBotAccessToken() != null && !request.getBotAccessToken().isBlank()) {
@@ -95,8 +93,7 @@ public class ReviewBotConfigService {
     }
 
     public void deleteBotConfig(UUID id) {
-        ReviewBotConfig config = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("ReviewBotConfig", id));
+        ReviewBotConfig config = TenantScopedLookup.findByIdScoped(id, repository::findById, repository::findByIdAndTenantId, () -> new ResourceNotFoundException("ReviewBotConfig", id));
         repository.delete(config);
         log.info("Deleted review bot config {}", id);
     }

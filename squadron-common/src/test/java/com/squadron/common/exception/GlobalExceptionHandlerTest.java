@@ -136,7 +136,7 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertNotNull(response.getBody());
         assertFalse(response.getBody().isSuccess());
-        assertEquals("An unexpected error occurred", response.getBody().getMessage());
+        assertEquals("Internal server error", response.getBody().getMessage());
     }
 
     @Test
@@ -152,8 +152,7 @@ class GlobalExceptionHandlerTest {
         assertNotNull(response.getBody());
         assertFalse(response.getBody().isSuccess());
         assertTrue(response.getBody().getMessage().contains("userId"));
-        assertTrue(response.getBody().getMessage().contains("demo-user-001"));
-        assertTrue(response.getBody().getMessage().contains("UUID"));
+        assertFalse(response.getBody().getMessage().contains("demo-user-001"));
     }
 
     @Test

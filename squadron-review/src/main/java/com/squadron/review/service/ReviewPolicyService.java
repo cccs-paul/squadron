@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
+import com.squadron.common.security.TenantScopedLookup;
 
 @Service
 @Transactional
@@ -87,7 +88,6 @@ public class ReviewPolicyService {
 
     @Transactional(readOnly = true)
     public ReviewPolicy getPolicy(UUID id) {
-        return reviewPolicyRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("ReviewPolicy", id));
+        return TenantScopedLookup.findByIdScoped(id, reviewPolicyRepository::findById, reviewPolicyRepository::findByIdAndTenantId, () -> new ResourceNotFoundException("ReviewPolicy", id));
     }
 }

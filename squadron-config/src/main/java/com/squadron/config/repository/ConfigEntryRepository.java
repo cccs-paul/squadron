@@ -21,4 +21,6 @@ public interface ConfigEntryRepository extends JpaRepository<ConfigEntry, UUID> 
     List<ConfigEntry> findByTenantIdAndTeamIdAndUserIdIsNull(UUID tenantId, UUID teamId);
 
     List<ConfigEntry> findByTenantIdAndUserId(UUID tenantId, UUID userId);
+
+    Optional<ConfigEntry> findByIdAndTenantId(UUID id, UUID tenantId);
 }

@@ -5,23 +5,21 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * In-memory audit event query service backed by a bounded concurrent buffer.
+ * In-memory audit event query service backed by a bounded concurrent deque.
  * <p>
- * This implementation stores audit events in an in-memory list with a maximum
- * capacity of {@value #MAX_BUFFER_SIZE}. When the buffer is full, the oldest
- * events are evicted.
- * <p>
- * In a production environment, this would be replaced by a database-backed
- * implementation.
+ * Uses a ConcurrentLinkedDeque with an AtomicInteger size counter instead of
+ * CopyOnWriteArrayList for better write performance under contention.
  */
 public class AuditQueryService {
 
     static final int MAX_BUFFER_SIZE = 10_000;
 
-    private final CopyOnWriteArrayList<AuditEvent> buffer = new CopyOnWriteArrayList<>();
+    private final ConcurrentLinkedDeque<AuditEvent> buffer = new ConcurrentLinkedDeque<>();
+    private final AtomicInteger size = new AtomicInteger(0);
 
     /**
      * Stores an audit event in the buffer, evicting the oldest event if the
@@ -31,16 +29,19 @@ public class AuditQueryService {
         if (event == null) {
             return;
         }
-        // Evict oldest if at capacity
-        while (buffer.size() >= MAX_BUFFER_SIZE) {
-            buffer.remove(0);
+        buffer.addLast(event);
+        int currentSize = size.incrementAndGet();
+        // Evict oldest entries if over capacity
+        while (currentSize > MAX_BUFFER_SIZE) {
+            AuditEvent evicted = buffer.pollFirst();
+            if (evicted != null) {
+                currentSize = size.decrementAndGet();
+            } else {
+                break;
+            }
         }
-        buffer.add(event);
     }
 
-    /**
-     * Find audit events by tenant ID with pagination.
-     */
     public List<AuditEvent> findByTenantId(UUID tenantId, int page, int size) {
         if (tenantId == null) {
             return Collections.emptyList();
@@ -51,9 +52,6 @@ public class AuditQueryService {
         return paginate(filtered, page, size);
     }
 
-    /**
-     * Find audit events by user ID within a tenant, with pagination.
-     */
     public List<AuditEvent> findByUserId(UUID tenantId, UUID userId, int page, int size) {
         if (tenantId == null || userId == null) {
             return Collections.emptyList();
@@ -65,9 +63,6 @@ public class AuditQueryService {
         return paginate(filtered, page, size);
     }
 
-    /**
-     * Find audit events by resource type within a tenant, with pagination.
-     */
     public List<AuditEvent> findByResourceType(UUID tenantId, String resourceType, int page, int size) {
         if (tenantId == null || resourceType == null) {
             return Collections.emptyList();
@@ -79,9 +74,6 @@ public class AuditQueryService {
         return paginate(filtered, page, size);
     }
 
-    /**
-     * Find audit events by resource type and resource ID within a tenant.
-     */
     public List<AuditEvent> findByResourceId(UUID tenantId, String resourceType, String resourceId) {
         if (tenantId == null || resourceType == null || resourceId == null) {
             return Collections.emptyList();
@@ -93,9 +85,6 @@ public class AuditQueryService {
                 .toList();
     }
 
-    /**
-     * Find audit events within a date range for a tenant, with pagination.
-     */
     public List<AuditEvent> findByDateRange(UUID tenantId, Instant from, Instant to, int page, int size) {
         if (tenantId == null || from == null || to == null) {
             return Collections.emptyList();
@@ -108,11 +97,8 @@ public class AuditQueryService {
         return paginate(filtered, page, size);
     }
 
-    /**
-     * Returns the current number of events in the buffer.
-     */
     public int size() {
-        return buffer.size();
+        return size.get();
     }
 
     private List<AuditEvent> paginate(List<AuditEvent> list, int page, int size) {
