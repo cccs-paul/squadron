@@ -4,18 +4,24 @@ import { provideHttpClientTesting, HttpTestingController } from '@angular/common
 import { AgentTestService } from './agent-test.service';
 import { AgentTestRequest, AgentTestResult, AgentTestConfig } from '../models/agent-test.model';
 import { ApiResponse } from '../auth/auth.models';
+import { AuthService } from '../auth/auth.service';
 import { environment } from '../../../environments/environment';
 
 describe('AgentTestService', () => {
   let service: AgentTestService;
   let httpTesting: HttpTestingController;
+  let authServiceSpy: jasmine.SpyObj<AuthService>;
   const apiUrl = environment.apiUrl;
 
   beforeEach(() => {
+    authServiceSpy = jasmine.createSpyObj('AuthService', ['getAccessToken']);
+    authServiceSpy.getAccessToken.and.returnValue('mock-token');
+
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: AuthService, useValue: authServiceSpy },
       ],
     });
     service = TestBed.inject(AgentTestService);
@@ -34,7 +40,8 @@ describe('AgentTestService', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should_executeTest_when_called', () => {
+  // executeTest now uses fetch() + SSE, so we test it differently
+  it('should_executeTest_withFetch_when_called', (done) => {
     const request: AgentTestRequest = { agentConfigId: 'a1', testMode: 'PLANNING' };
     const mockResult: AgentTestResult = {
       testId: 't1',
@@ -46,16 +53,122 @@ describe('AgentTestService', () => {
       durationMs: 1234,
     };
 
-    service.executeTest(request).subscribe((result) => {
-      expect(result.testId).toBe('t1');
-      expect(result.status).toBe('SUCCESS');
-      expect(result.logEntries.length).toBe(1);
+    // Mock fetch to return an SSE stream
+    const sseBody = `event:complete\ndata:${JSON.stringify(mockResult)}\n\n`;
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(sseBody));
+        controller.close();
+      },
     });
+    spyOn(globalThis, 'fetch').and.returnValue(
+      Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })),
+    );
 
-    const req = httpTesting.expectOne(`${apiUrl}/agents/test/execute`);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual(request);
-    req.flush(wrapResponse(mockResult));
+    const results: AgentTestResult[] = [];
+    service.executeTest(request).subscribe({
+      next: (result) => results.push(result),
+      complete: () => {
+        expect(results.length).toBe(1);
+        expect(results[0].testId).toBe('t1');
+        expect(results[0].status).toBe('SUCCESS');
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          `${apiUrl}/agents/test/execute/stream`,
+          jasmine.objectContaining({ method: 'POST' }),
+        );
+        done();
+      },
+    });
+  });
+
+  it('should_emitMultipleProgressEvents_when_streaming', (done) => {
+    const request: AgentTestRequest = { agentConfigId: 'a1', testMode: 'CODE_GENERATION' };
+    const progress: AgentTestResult = {
+      testId: 't1', agentConfigId: 'a1', testMode: 'CODE_GENERATION',
+      status: 'RUNNING', logEntries: [{ timestamp: '', phase: 'INIT', message: 'Starting', level: 'INFO' }],
+    };
+    const complete: AgentTestResult = {
+      testId: 't1', agentConfigId: 'a1', testMode: 'CODE_GENERATION',
+      status: 'SUCCESS', summary: 'Done', agentOutput: 'output', logEntries: [],
+    };
+
+    const sseBody =
+      `event:progress\ndata:${JSON.stringify(progress)}\n\n` +
+      `event:complete\ndata:${JSON.stringify(complete)}\n\n`;
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(sseBody));
+        controller.close();
+      },
+    });
+    spyOn(globalThis, 'fetch').and.returnValue(
+      Promise.resolve(new Response(stream, { status: 200 })),
+    );
+
+    const results: AgentTestResult[] = [];
+    service.executeTest(request).subscribe({
+      next: (result) => results.push(result),
+      complete: () => {
+        expect(results.length).toBe(2);
+        expect(results[0].status).toBe('RUNNING');
+        expect(results[1].status).toBe('SUCCESS');
+        expect(results[1].agentOutput).toBe('output');
+        done();
+      },
+    });
+  });
+
+  it('should_handleFetchError_when_serverReturns500', (done) => {
+    const request: AgentTestRequest = { agentConfigId: 'a1', testMode: 'PLANNING' };
+
+    spyOn(globalThis, 'fetch').and.returnValue(
+      Promise.resolve(new Response('Server error', { status: 500, statusText: 'Internal Server Error' })),
+    );
+
+    service.executeTest(request).subscribe({
+      error: (err) => {
+        expect(err.message).toContain('500');
+        done();
+      },
+    });
+  });
+
+  it('should_includeAuthToken_when_available', (done) => {
+    const request: AgentTestRequest = { agentConfigId: 'a1', testMode: 'PLANNING' };
+    const sseBody = `event:complete\ndata:${JSON.stringify({
+      testId: 't1', agentConfigId: 'a1', testMode: 'PLANNING',
+      status: 'SUCCESS', logEntries: [],
+    })}\n\n`;
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(sseBody));
+        controller.close();
+      },
+    });
+    const fetchSpy = spyOn(globalThis, 'fetch').and.returnValue(
+      Promise.resolve(new Response(stream, { status: 200 })),
+    );
+
+    service.executeTest(request).subscribe({
+      complete: () => {
+        const [, init] = fetchSpy.calls.mostRecent().args;
+        expect((init as any).headers.Authorization).toBe('Bearer mock-token');
+        done();
+      },
+    });
+  });
+
+  it('should_abortFetch_when_unsubscribed', () => {
+    const request: AgentTestRequest = { agentConfigId: 'a1', testMode: 'PLANNING' };
+
+    // Return a never-resolving stream to keep the subscription alive
+    spyOn(globalThis, 'fetch').and.returnValue(
+      new Promise(() => {}), // never resolves
+    );
+
+    const sub = service.executeTest(request).subscribe();
+    // Should not throw when unsubscribing (abort is called)
+    expect(() => sub.unsubscribe()).not.toThrow();
   });
 
   it('should_getTestConfig_when_called', () => {
@@ -95,39 +208,6 @@ describe('AgentTestService', () => {
     req.flush(wrapResponse(config));
   });
 
-  it('should_unwrapApiResponse_when_executeTestSucceeds', () => {
-    const request: AgentTestRequest = { agentConfigId: 'a1', testMode: 'CODE_GENERATION' };
-    const mockResult: AgentTestResult = {
-      testId: 't2',
-      agentConfigId: 'a1',
-      testMode: 'CODE_GENERATION',
-      status: 'FAILURE',
-      summary: 'Test failed',
-      logEntries: [],
-    };
-
-    service.executeTest(request).subscribe((result) => {
-      expect(result.status).toBe('FAILURE');
-      expect(result.testMode).toBe('CODE_GENERATION');
-    });
-
-    const req = httpTesting.expectOne(`${apiUrl}/agents/test/execute`);
-    req.flush(wrapResponse(mockResult));
-  });
-
-  it('should_handleHttpError_when_executeTestFails', () => {
-    const request: AgentTestRequest = { agentConfigId: 'a1', testMode: 'PLANNING' };
-
-    service.executeTest(request).subscribe({
-      error: (err) => {
-        expect(err.status).toBe(500);
-      },
-    });
-
-    const req = httpTesting.expectOne(`${apiUrl}/agents/test/execute`);
-    req.flush('Server error', { status: 500, statusText: 'Internal Server Error' });
-  });
-
   it('should_handleHttpError_when_getTestConfigFails', () => {
     service.getTestConfig().subscribe({
       error: (err) => {
@@ -154,27 +234,6 @@ describe('AgentTestService', () => {
 
     const req = httpTesting.expectOne(`${apiUrl}/agents/test/config`);
     req.flush('Bad request', { status: 400, statusText: 'Bad Request' });
-  });
-
-  it('should_executeTest_withCodeReviewMode', () => {
-    const request: AgentTestRequest = { agentConfigId: 'a2', testMode: 'CODE_REVIEW' };
-    const mockResult: AgentTestResult = {
-      testId: 't3',
-      agentConfigId: 'a2',
-      testMode: 'CODE_REVIEW',
-      status: 'SUCCESS',
-      summary: 'Review passed',
-      logEntries: [],
-    };
-
-    service.executeTest(request).subscribe((result) => {
-      expect(result.testMode).toBe('CODE_REVIEW');
-      expect(result.agentConfigId).toBe('a2');
-    });
-
-    const req = httpTesting.expectOne(`${apiUrl}/agents/test/execute`);
-    expect(req.request.body.testMode).toBe('CODE_REVIEW');
-    req.flush(wrapResponse(mockResult));
   });
 
   it('should_updateTestConfig_withOptionalFields', () => {

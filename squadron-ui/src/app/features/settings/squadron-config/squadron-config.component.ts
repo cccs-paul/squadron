@@ -393,7 +393,7 @@ import {
     .squadron-config__test-log-phase {
       font-weight: 600; min-width: 100px; flex-shrink: 0; color: #6b7280;
     }
-    .squadron-config__test-log-message { word-break: break-word; }
+    .squadron-config__test-log-message { word-break: break-word; white-space: pre-wrap; }
 
     /* Agent output */
     .squadron-config__test-output { border: 1px solid #e5e7eb; border-radius: 4px; overflow: hidden; }
@@ -562,8 +562,12 @@ export class SquadronConfigComponent implements OnInit {
 
     this.testService.executeTest({ agentConfigId: agent.id, testMode: mode }).subscribe({
       next: (result) => {
+        // Each SSE event is a snapshot — update progressively
         this.updateTestResult(agent.id!, result);
-        this.testingAgentId.set(null);
+        // If the result has a final status, test is done
+        if (result.status === 'SUCCESS' || result.status === 'FAILURE' || result.status === 'ERROR') {
+          this.testingAgentId.set(null);
+        }
       },
       error: (err) => {
         const errorResult: AgentTestResult = {
@@ -571,13 +575,19 @@ export class SquadronConfigComponent implements OnInit {
           agentConfigId: agent.id!,
           testMode: mode,
           status: 'ERROR',
-          summary: 'Test failed: ' + (err.error?.message || err.message || 'Unknown error'),
+          summary: 'Test failed: ' + (err.message || 'Unknown error'),
           logEntries: [
-            { timestamp: new Date().toISOString(), phase: 'ERROR', message: 'Request failed: ' + (err.status || 'network error'), level: 'ERROR' },
+            { timestamp: new Date().toISOString(), phase: 'ERROR', message: 'Request failed: ' + (err.message || 'network error'), level: 'ERROR' },
           ],
         };
         this.updateTestResult(agent.id!, errorResult);
         this.testingAgentId.set(null);
+      },
+      complete: () => {
+        // Ensure testingAgentId is cleared on stream completion
+        if (this.testingAgentId() === agent.id) {
+          this.testingAgentId.set(null);
+        }
       },
     });
   }

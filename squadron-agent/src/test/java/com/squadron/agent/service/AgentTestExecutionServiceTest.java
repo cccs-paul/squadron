@@ -14,7 +14,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.codec.ServerSentEvent;
+import reactor.test.StepVerifier;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -281,5 +285,111 @@ class AgentTestExecutionServiceTest {
         AgentTestResult result = service.executeTest(tenantId, userId, request);
 
         assertEquals("FAILURE", result.getStatus());
+    }
+
+    // =================== Streaming Tests ===================
+
+    @Test
+    void should_streamProgressEvents_when_testSucceeds() {
+        setupHappyPath("PLANNING");
+
+        AgentTestRequest request = AgentTestRequest.builder()
+                .agentConfigId(agentConfigId)
+                .testMode("PLANNING")
+                .build();
+
+        var flux = service.executeTestStreaming(tenantId, userId, request);
+        List<ServerSentEvent<AgentTestResult>> events = new ArrayList<>();
+
+        StepVerifier.create(flux)
+                .recordWith(() -> events)
+                .thenConsumeWhile(e -> true)
+                .verifyComplete();
+
+        // Should have multiple progress events + 1 final complete event
+        assertFalse(events.isEmpty());
+        // Last event should be "complete" with SUCCESS status
+        var lastEvent = events.get(events.size() - 1);
+        assertEquals("complete", lastEvent.event());
+        assertNotNull(lastEvent.data());
+        assertEquals("SUCCESS", lastEvent.data().getStatus());
+        assertNotNull(lastEvent.data().getAgentOutput());
+        assertTrue(lastEvent.data().getSummary().contains("Sol"));
+    }
+
+    @Test
+    void should_streamProgressAndFailure_when_testFails() {
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.empty());
+
+        AgentTestRequest request = AgentTestRequest.builder()
+                .agentConfigId(agentConfigId)
+                .testMode("PLANNING")
+                .build();
+
+        var flux = service.executeTestStreaming(tenantId, userId, request);
+        List<ServerSentEvent<AgentTestResult>> events = new ArrayList<>();
+
+        StepVerifier.create(flux)
+                .recordWith(() -> events)
+                .thenConsumeWhile(e -> true)
+                .verifyComplete();
+
+        var lastEvent = events.get(events.size() - 1);
+        assertEquals("complete", lastEvent.event());
+        assertEquals("FAILURE", lastEvent.data().getStatus());
+        assertTrue(lastEvent.data().getSummary().contains("failed"));
+    }
+
+    @Test
+    void should_emitProgressEventsWithRunningStatus_when_streaming() {
+        setupHappyPath("CODE_GENERATION");
+
+        AgentTestRequest request = AgentTestRequest.builder()
+                .agentConfigId(agentConfigId)
+                .testMode("CODE_GENERATION")
+                .build();
+
+        var flux = service.executeTestStreaming(tenantId, userId, request);
+        List<ServerSentEvent<AgentTestResult>> events = new ArrayList<>();
+
+        StepVerifier.create(flux)
+                .recordWith(() -> events)
+                .thenConsumeWhile(e -> true)
+                .verifyComplete();
+
+        // All intermediate events should have "progress" event type and RUNNING status
+        for (int i = 0; i < events.size() - 1; i++) {
+            assertEquals("progress", events.get(i).event());
+            assertEquals("RUNNING", events.get(i).data().getStatus());
+        }
+        // Last event should be complete
+        assertEquals("complete", events.get(events.size() - 1).event());
+    }
+
+    @Test
+    void should_includeGrowingLogEntries_when_streaming() {
+        setupHappyPath("CODE_REVIEW");
+
+        AgentTestRequest request = AgentTestRequest.builder()
+                .agentConfigId(agentConfigId)
+                .testMode("CODE_REVIEW")
+                .build();
+
+        var flux = service.executeTestStreaming(tenantId, userId, request);
+        List<ServerSentEvent<AgentTestResult>> events = new ArrayList<>();
+
+        StepVerifier.create(flux)
+                .recordWith(() -> events)
+                .thenConsumeWhile(e -> true)
+                .verifyComplete();
+
+        // Each progress event should have more log entries than the previous
+        int previousCount = 0;
+        for (var event : events) {
+            int currentCount = event.data().getLogEntries().size();
+            assertTrue(currentCount >= previousCount,
+                    "Log entries should grow: " + currentCount + " < " + previousCount);
+            previousCount = currentCount;
+        }
     }
 }

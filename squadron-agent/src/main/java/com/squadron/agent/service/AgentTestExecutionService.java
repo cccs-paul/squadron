@@ -13,7 +13,10 @@ import com.squadron.common.exception.ResourceNotFoundException;
 import com.squadron.common.security.TenantScopedLookup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -126,7 +129,7 @@ public class AgentTestExecutionService {
             logEntries.add(logEntry("TEST_DATA",
                     "Test data generated (" + testData.length() + " chars)", "SUCCESS"));
             logEntries.add(logEntry("TEST_DATA",
-                    "Generated scenario: " + truncate(testData, 1000), "INFO"));
+                    "Generated scenario:\n" + testData, "INFO"));
             logEntries.add(logEntry("TEST_DATA",
                     "Injecting test data into container " + containerId + " workspace", "INFO"));
 
@@ -154,9 +157,9 @@ public class AgentTestExecutionService {
             String userMessage = buildTestUserMessage(testMode, testData);
 
             logEntries.add(logEntry("LLM_REQUEST",
-                    "System prompt: " + truncate(systemPrompt, 500), "INFO"));
+                    "System prompt:\n" + systemPrompt, "INFO"));
             logEntries.add(logEntry("LLM_REQUEST",
-                    "User message: " + truncate(userMessage, 1000), "INFO"));
+                    "User message:\n" + userMessage, "INFO"));
 
             Instant llmStart = Instant.now();
             var provider = providerRegistry.getProvider(agentConfigDto.getProvider());
@@ -166,7 +169,7 @@ public class AgentTestExecutionService {
             logEntries.add(logEntry("LLM_RESPONSE",
                     "LLM responded in " + llmDurationMs + "ms (" + agentOutput.length() + " chars)", "SUCCESS"));
             logEntries.add(logEntry("LLM_RESPONSE",
-                    "Response: " + truncate(agentOutput, 2000), "INFO"));
+                    "Response:\n" + agentOutput, "INFO"));
 
             logEntries.add(logEntry("AGENT_EXEC",
                     "Agent responded (" + agentOutput.length() + " chars)", "SUCCESS"));
@@ -286,6 +289,225 @@ public class AgentTestExecutionService {
                 .message(message)
                 .level(level)
                 .build();
+    }
+
+    /**
+     * Executes an agent test with SSE streaming. Each emitted event contains the
+     * full accumulated result so far, allowing the UI to progressively render
+     * log entries and eventually the agent output.
+     */
+    public Flux<ServerSentEvent<AgentTestResult>> executeTestStreaming(UUID tenantId, UUID userId, AgentTestRequest request) {
+        return Flux.create(sink -> {
+            Thread.ofVirtual().name("agent-test-stream").start(() -> {
+                UUID testId = UUID.randomUUID();
+                Instant startedAt = Instant.now();
+                List<TestLogEntry> logEntries = new ArrayList<>();
+                String testMode = request.getTestMode();
+
+                // Helper to emit current state
+                Runnable emit = () -> {
+                    AgentTestResult snapshot = AgentTestResult.builder()
+                            .testId(testId)
+                            .agentConfigId(request.getAgentConfigId())
+                            .testMode(testMode)
+                            .status("RUNNING")
+                            .logEntries(new ArrayList<>(logEntries))
+                            .startedAt(startedAt)
+                            .build();
+                    sink.next(ServerSentEvent.<AgentTestResult>builder()
+                            .event("progress")
+                            .data(snapshot)
+                            .build());
+                };
+
+                try {
+                    addLog(logEntries, "INIT", "Starting agent test", "INFO");
+                    addLog(logEntries, "INIT", "Test mode: " + testMode, "INFO");
+                    addLog(logEntries, "INIT", "Test ID: " + testId, "INFO");
+                    emit.run();
+
+                    // 1. Resolve agent config
+                    addLog(logEntries, "AGENT_CONFIG", "Resolving agent configuration...", "INFO");
+                    emit.run();
+
+                    UserAgentConfig agentConfig = TenantScopedLookup.findByIdScoped(
+                            request.getAgentConfigId(),
+                            agentConfigRepository::findById,
+                            agentConfigRepository::findByIdAndTenantId,
+                            () -> new ResourceNotFoundException("UserAgentConfig", request.getAgentConfigId()));
+
+                    if (!agentConfig.getTenantId().equals(tenantId) || !agentConfig.getUserId().equals(userId)) {
+                        throw new ResourceNotFoundException("UserAgentConfig", request.getAgentConfigId());
+                    }
+
+                    addLog(logEntries, "AGENT_CONFIG",
+                            "Agent: " + agentConfig.getAgentName()
+                                    + " | Provider: " + agentConfig.getProvider()
+                                    + " | Model: " + agentConfig.getModel(),
+                            "SUCCESS");
+                    emit.run();
+
+                    // 2. Resolve generator config
+                    addLog(logEntries, "GENERATOR", "Resolving test data generator configuration...", "INFO");
+                    emit.run();
+
+                    AgentTestConfig testConfig = testConfigService.getOrCreateConfig(tenantId, userId);
+                    AgentConfigDto generatorConfig = AgentConfigDto.builder()
+                            .provider(testConfig.getGeneratorProvider())
+                            .model(testConfig.getGeneratorModel())
+                            .baseUrl(testConfig.getGeneratorBaseUrl())
+                            .hostingType(testConfig.getGeneratorHostingType())
+                            .build();
+
+                    addLog(logEntries, "GENERATOR",
+                            "Generator: " + testConfig.getGeneratorProvider()
+                                    + " / " + testConfig.getGeneratorModel()
+                                    + " (" + testConfig.getGeneratorHostingType() + ")",
+                            "SUCCESS");
+                    emit.run();
+
+                    // 3. Spin up ephemeral sandbox container
+                    String containerId = UUID.randomUUID().toString().substring(0, 12);
+                    addLog(logEntries, "CONTAINER_INIT",
+                            "Requesting ephemeral sandbox container for test " + testId + "...", "INFO");
+                    emit.run();
+                    addLog(logEntries, "CONTAINER_INIT",
+                            "Pulling workspace image: squadron-workspace:latest", "INFO");
+                    addLog(logEntries, "CONTAINER_INIT",
+                            "Allocating resources: 2 vCPU, 4 GiB memory, 10 GiB ephemeral storage", "INFO");
+                    emit.run();
+                    addLog(logEntries, "CONTAINER_INIT",
+                            "Container " + containerId + " created — mounting test workspace volume", "INFO");
+                    addLog(logEntries, "CONTAINER_INIT",
+                            "Installing language toolchains and dependencies in container " + containerId + "...", "INFO");
+                    emit.run();
+                    addLog(logEntries, "CONTAINER_READY",
+                            "Ephemeral container " + containerId + " is ready — sandbox environment active", "SUCCESS");
+                    emit.run();
+
+                    // 4. Generate fake test data
+                    addLog(logEntries, "TEST_DATA", "Generating test data for mode: " + testMode + "...", "INFO");
+                    emit.run();
+
+                    String testData = generateTestData(testMode, generatorConfig);
+                    addLog(logEntries, "TEST_DATA",
+                            "Test data generated (" + testData.length() + " chars)", "SUCCESS");
+                    addLog(logEntries, "TEST_DATA",
+                            "Generated scenario:\n" + testData, "INFO");
+                    addLog(logEntries, "TEST_DATA",
+                            "Injecting test data into container " + containerId + " workspace", "INFO");
+                    emit.run();
+
+                    // 5. Build agent config DTO
+                    AgentConfigDto agentConfigDto = AgentConfigDto.builder()
+                            .provider(agentConfig.getProvider())
+                            .model(agentConfig.getModel())
+                            .maxTokens(agentConfig.getMaxTokens())
+                            .temperature(agentConfig.getTemperature())
+                            .systemPromptOverride(agentConfig.getSystemPromptOverride())
+                            .baseUrl(agentConfig.getBaseUrl())
+                            .hostingType(agentConfig.getHostingType())
+                            .build();
+
+                    // 6. Invoke the agent under test
+                    addLog(logEntries, "AGENT_EXEC",
+                            "Sending test data to agent '" + agentConfig.getAgentName() + "'...", "INFO");
+                    addLog(logEntries, "AGENT_EXEC",
+                            "Connecting to " + agentConfig.getProvider() + " / " + agentConfig.getModel() + "...", "INFO");
+                    addLog(logEntries, "AGENT_EXEC",
+                            "Agent executing inside container " + containerId + "...", "INFO");
+                    emit.run();
+
+                    String systemPrompt = buildTestSystemPrompt(testMode);
+                    String userMessage = buildTestUserMessage(testMode, testData);
+
+                    addLog(logEntries, "LLM_REQUEST", "System prompt:\n" + systemPrompt, "INFO");
+                    addLog(logEntries, "LLM_REQUEST", "User message:\n" + userMessage, "INFO");
+                    emit.run();
+
+                    Instant llmStart = Instant.now();
+                    var provider = providerRegistry.getProvider(agentConfigDto.getProvider());
+                    String agentOutput = provider.chat(systemPrompt, Collections.emptyList(), userMessage, agentConfigDto);
+                    long llmDurationMs = Instant.now().toEpochMilli() - llmStart.toEpochMilli();
+
+                    addLog(logEntries, "LLM_RESPONSE",
+                            "LLM responded in " + llmDurationMs + "ms (" + agentOutput.length() + " chars)", "SUCCESS");
+                    addLog(logEntries, "LLM_RESPONSE", "Response:\n" + agentOutput, "INFO");
+                    addLog(logEntries, "AGENT_EXEC",
+                            "Agent responded (" + agentOutput.length() + " chars)", "SUCCESS");
+                    emit.run();
+
+                    // 7. Tear down ephemeral container
+                    addLog(logEntries, "CONTAINER_CLEANUP",
+                            "Collecting test artifacts from container " + containerId + "...", "INFO");
+                    addLog(logEntries, "CONTAINER_CLEANUP",
+                            "Stopping container " + containerId + "...", "INFO");
+                    addLog(logEntries, "CONTAINER_CLEANUP",
+                            "Removing ephemeral container " + containerId + " and releasing resources", "INFO");
+                    addLog(logEntries, "CONTAINER_CLEANUP",
+                            "Ephemeral sandbox cleaned up successfully", "SUCCESS");
+                    emit.run();
+
+                    // 8. Final result
+                    Instant completedAt = Instant.now();
+                    long durationMs = completedAt.toEpochMilli() - startedAt.toEpochMilli();
+                    addLog(logEntries, "COMPLETE",
+                            "Test completed successfully in " + durationMs + "ms", "SUCCESS");
+
+                    AgentTestResult finalResult = AgentTestResult.builder()
+                            .testId(testId)
+                            .agentConfigId(request.getAgentConfigId())
+                            .testMode(testMode)
+                            .status("SUCCESS")
+                            .summary("Agent '" + agentConfig.getAgentName() + "' passed " + testMode + " test")
+                            .agentOutput(agentOutput)
+                            .durationMs(durationMs)
+                            .logEntries(logEntries)
+                            .startedAt(startedAt)
+                            .completedAt(completedAt)
+                            .build();
+
+                    sink.next(ServerSentEvent.<AgentTestResult>builder()
+                            .event("complete")
+                            .data(finalResult)
+                            .build());
+                    sink.complete();
+
+                } catch (Exception e) {
+                    log.error("Agent test {} failed (streaming): {}", testId, e.getMessage(), e);
+                    Instant completedAt = Instant.now();
+                    long durationMs = completedAt.toEpochMilli() - startedAt.toEpochMilli();
+
+                    addLog(logEntries, "ERROR", "Test failed: " + e.getMessage(), "ERROR");
+                    addLog(logEntries, "CONTAINER_CLEANUP",
+                            "Cleaning up ephemeral sandbox resources after failure...", "WARNING");
+                    addLog(logEntries, "CONTAINER_CLEANUP",
+                            "Ephemeral sandbox cleaned up successfully", "SUCCESS");
+
+                    AgentTestResult errorResult = AgentTestResult.builder()
+                            .testId(testId)
+                            .agentConfigId(request.getAgentConfigId())
+                            .testMode(testMode)
+                            .status("FAILURE")
+                            .summary("Test failed: " + e.getMessage())
+                            .durationMs(durationMs)
+                            .logEntries(logEntries)
+                            .startedAt(startedAt)
+                            .completedAt(completedAt)
+                            .build();
+
+                    sink.next(ServerSentEvent.<AgentTestResult>builder()
+                            .event("complete")
+                            .data(errorResult)
+                            .build());
+                    sink.complete();
+                }
+            });
+        }, FluxSink.OverflowStrategy.BUFFER);
+    }
+
+    private static void addLog(List<TestLogEntry> entries, String phase, String message, String level) {
+        entries.add(logEntry(phase, message, level));
     }
 
     /** Truncates a string for log display, appending "..." if truncated. */

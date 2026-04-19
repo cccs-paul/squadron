@@ -11,13 +11,16 @@ import com.squadron.common.security.TenantContext;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 
 import java.util.UUID;
 
@@ -59,6 +62,22 @@ public class AgentTestController {
 
         AgentTestResult result = executionService.executeTest(tenantId, userId, request);
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    /**
+     * Executes an agent test and streams progress via Server-Sent Events.
+     * Each SSE event contains the accumulated result so far, allowing the UI
+     * to progressively display log entries and eventually the agent output.
+     */
+    @PostMapping(value = "/execute/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<AgentTestResult>> executeTestStream(
+            @Valid @RequestBody AgentTestRequest request) {
+        UUID tenantId = TenantContext.getTenantId();
+        UUID userId = TenantContext.getUserId();
+        log.info("Agent test stream requested: agentConfigId={}, mode={}, user={}",
+                request.getAgentConfigId(), request.getTestMode(), userId);
+
+        return executionService.executeTestStreaming(tenantId, userId, request);
     }
 
     /**

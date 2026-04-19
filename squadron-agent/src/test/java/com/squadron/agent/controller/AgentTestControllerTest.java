@@ -16,11 +16,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import reactor.core.publisher.Flux;
 
 import java.time.Instant;
 import java.util.List;
@@ -208,5 +210,46 @@ class AgentTestControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_streamTestExecution_when_validRequest() throws Exception {
+        UUID agentConfigId = UUID.randomUUID();
+        UUID testId = UUID.randomUUID();
+
+        AgentTestResult result = AgentTestResult.builder()
+                .testId(testId)
+                .agentConfigId(agentConfigId)
+                .testMode("PLANNING")
+                .status("SUCCESS")
+                .summary("Agent 'Sol' passed PLANNING test")
+                .agentOutput("Generated plan content")
+                .durationMs(1500L)
+                .logEntries(List.of())
+                .startedAt(Instant.now())
+                .completedAt(Instant.now())
+                .build();
+
+        ServerSentEvent<AgentTestResult> sse = ServerSentEvent.<AgentTestResult>builder()
+                .event("complete")
+                .data(result)
+                .build();
+
+        when(executionService.executeTestStreaming(eq(tenantId), eq(userId), any(AgentTestRequest.class)))
+                .thenReturn(Flux.just(sse));
+
+        AgentTestRequest request = AgentTestRequest.builder()
+                .agentConfigId(agentConfigId)
+                .testMode("PLANNING")
+                .build();
+
+        mockMvc.perform(post("/api/agents/test/execute/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM_VALUE)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(executionService).executeTestStreaming(eq(tenantId), eq(userId), any(AgentTestRequest.class));
     }
 }
