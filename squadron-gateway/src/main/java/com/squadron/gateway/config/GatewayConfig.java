@@ -75,6 +75,10 @@ public class GatewayConfig {
                 .route("agent-dashboard", r -> r
                         .path("/api/agents/dashboard/**", "/api/agents/dashboard")
                         .uri(agentUri))
+                .route("agent-test", r -> r
+                        .path("/api/agents/test/**", "/api/agents/test")
+                        .metadata("response-timeout", 300000)
+                        .uri(agentUri))
                 .route("agent-squadron", r -> r
                         .path("/api/agents/squadron/**", "/api/agents/squadron")
                         .uri(agentUri))

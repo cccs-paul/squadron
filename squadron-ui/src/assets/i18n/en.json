@@ -111,7 +111,8 @@
       "agentSquadron": "Agent Squadron",
       "notifications": "Notifications",
       "agentConfig": "Agent Config",
-      "platformTokens": "Platform Tokens"
+      "platformTokens": "Platform Tokens",
+      "testGenerator": "Test Generator"
     },
     "general": {
       "profile": "Profile",
@@ -327,7 +328,29 @@
       "description": "Description",
       "descriptionHint": "Leave blank to auto-generate from provider and model",
       "systemPrompt": "System Prompt",
-      "systemPromptPlaceholder": "Optional system prompt override for this agent..."
+      "systemPromptPlaceholder": "Optional system prompt override for this agent...",
+      "test": "Test",
+      "selectTestMode": "Select a test mode:",
+      "testModes": {
+        "planning": "Test Planning",
+        "codeGeneration": "Test Code Generation",
+        "codeReview": "Test Code Review"
+      },
+      "agentOutput": "Agent Output",
+      "dismissResult": "Dismiss"
+    },
+    "testGenerator": {
+      "title": "Test Data Generator",
+      "subtitle": "Configure the AI model used to generate fake test data (plans, code, reviews) when testing agents.",
+      "loading": "Loading configuration...",
+      "saveSuccess": "Test generator configuration saved successfully",
+      "hostingType": "Hosting Type",
+      "provider": "Provider",
+      "model": "Model",
+      "baseUrl": "Base URL",
+      "apiKey": "API Key",
+      "info": "By default, test data is generated using a locally deployed Gemma 4 model via Ollama. You can change the provider and model to use any supported LLM.",
+      "save": "Save Configuration"
     }
   },
   "notifications": {

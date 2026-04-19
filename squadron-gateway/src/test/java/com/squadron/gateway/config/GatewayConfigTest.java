@@ -86,7 +86,7 @@ class GatewayConfigTest {
 
         List<Route> routes = routeLocator.getRoutes().collectList().block();
         assertThat(routes).isNotNull();
-        assertThat(routes).hasSize(18);
+        assertThat(routes).hasSize(19);
     }
 
     @Test
@@ -208,6 +208,7 @@ class GatewayConfigTest {
                 "orchestrator-service",
                 "platform-service",
                 "agent-dashboard",
+                "agent-test",
                 "agent-squadron",
                 "agent-service",
                 "workspace-service",

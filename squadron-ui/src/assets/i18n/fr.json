@@ -111,7 +111,8 @@
       "agentSquadron": "Escadron d'agents",
       "notifications": "Notifications",
       "agentConfig": "Configuration des agents",
-      "platformTokens": "Jetons de plateforme"
+      "platformTokens": "Jetons de plateforme",
+      "testGenerator": "Générateur de tests"
     },
     "general": {
       "profile": "Profil",
@@ -327,7 +328,29 @@
       "description": "Description",
       "descriptionHint": "Laisser vide pour générer automatiquement à partir du fournisseur et du modèle",
       "systemPrompt": "Prompt système",
-      "systemPromptPlaceholder": "Prompt système optionnel pour cet agent..."
+      "systemPromptPlaceholder": "Prompt système optionnel pour cet agent...",
+      "test": "Tester",
+      "selectTestMode": "Sélectionner un mode de test :",
+      "testModes": {
+        "planning": "Tester la planification",
+        "codeGeneration": "Tester la génération de code",
+        "codeReview": "Tester la revue de code"
+      },
+      "agentOutput": "Sortie de l'agent",
+      "dismissResult": "Fermer"
+    },
+    "testGenerator": {
+      "title": "Générateur de données de test",
+      "subtitle": "Configurez le modèle d'IA utilisé pour générer des données de test fictives (plans, code, revues) lors du test des agents.",
+      "loading": "Chargement de la configuration...",
+      "saveSuccess": "Configuration du générateur de tests enregistrée avec succès",
+      "hostingType": "Type d'hébergement",
+      "provider": "Fournisseur",
+      "model": "Modèle",
+      "baseUrl": "URL de base",
+      "apiKey": "Clé API",
+      "info": "Par défaut, les données de test sont générées à l'aide d'un modèle Gemma 4 déployé localement via Ollama. Vous pouvez changer le fournisseur et le modèle pour utiliser n'importe quel LLM pris en charge.",
+      "save": "Enregistrer la configuration"
     }
   },
   "notifications": {

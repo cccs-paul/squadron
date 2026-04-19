@@ -4,6 +4,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TranslateModule } from '@ngx-translate/core';
 import { SquadronConfigComponent } from './squadron-config.component';
 import { UserSquadronService } from '../../../core/services/user-squadron.service';
+import { AgentTestService } from '../../../core/services/agent-test.service';
 import {
   UserAgentConfig,
   SquadronLimits,
@@ -16,6 +17,7 @@ describe('SquadronConfigComponent', () => {
   let component: SquadronConfigComponent;
   let fixture: ComponentFixture<SquadronConfigComponent>;
   let serviceSpy: jasmine.SpyObj<UserSquadronService>;
+  let testServiceSpy: jasmine.SpyObj<AgentTestService>;
 
   function mockAgent(overrides: Partial<UserAgentConfig> = {}): UserAgentConfig {
     return {
@@ -24,7 +26,7 @@ describe('SquadronConfigComponent', () => {
       agentType: 'GENERAL',
       displayOrder: 0,
       provider: 'ollama',
-      model: 'gemma4',
+      model: 'gemma4:e2b',
       hostingType: 'SELF_HOSTED',
       description: 'Gemma 4 (local)',
       enabled: true,
@@ -42,15 +44,25 @@ describe('SquadronConfigComponent', () => {
       'resetToDefaults',
     ]);
 
+    testServiceSpy = jasmine.createSpyObj('AgentTestService', [
+      'executeTest', 'getTestConfig', 'updateTestConfig',
+    ]);
+    testServiceSpy.executeTest.and.returnValue(of({
+      testId: '', agentConfigId: '', testMode: 'PLANNING',
+      status: 'SUCCESS', summary: '', logEntries: [],
+    } as any));
+    testServiceSpy.getTestConfig.and.returnValue(throwError(() => new Error('mock')));
+    testServiceSpy.updateTestConfig.and.returnValue(of({} as any));
+
     serviceSpy.getMySquadron.and.returnValue(of([
       mockAgent({
         id: 'a1', agentName: 'Sol', displayOrder: 0,
-        provider: 'ollama', model: 'gemma4',
+        provider: 'ollama', model: 'gemma4:e2b',
         hostingType: 'SELF_HOSTED', description: 'Gemma 4 (local)',
       }),
       mockAgent({
         id: 'a2', agentName: 'Titan', displayOrder: 1,
-        provider: 'ollama', model: 'gemma4',
+        provider: 'ollama', model: 'gemma4:e2b',
         hostingType: 'SELF_HOSTED', description: 'Gemma 4 (local)',
       }),
     ]));
@@ -62,6 +74,7 @@ describe('SquadronConfigComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: UserSquadronService, useValue: serviceSpy },
+        { provide: AgentTestService, useValue: testServiceSpy },
       ],
     });
 
@@ -113,7 +126,7 @@ describe('SquadronConfigComponent', () => {
     expect(component.editingId()).toBe('a1');
     expect(component.editName).toBe('Sol');
     expect(component.editProvider).toBe('ollama');
-    expect(component.editModel).toBe('gemma4');
+    expect(component.editModel).toBe('gemma4:e2b');
     expect(component.editHostingType).toBe('SELF_HOSTED');
     expect(component.editDescription).toBe('Gemma 4 (local)');
   });
@@ -141,7 +154,7 @@ describe('SquadronConfigComponent', () => {
   it('should_clearProviderAndModel_when_hostingTypeChanges', () => {
     component.startEdit(component.agents()[0]);
     component.editProvider = 'ollama';
-    component.editModel = 'gemma4';
+    component.editModel = 'gemma4:e2b';
 
     component.editHostingType = 'SELF_HOSTED';
     component.onHostingTypeChange();
@@ -152,7 +165,7 @@ describe('SquadronConfigComponent', () => {
 
   it('should_clearModel_when_providerChanges', () => {
     component.startEdit(component.agents()[0]);
-    component.editModel = 'gemma4';
+    component.editModel = 'gemma4:e2b';
 
     component.onProviderChange();
 
@@ -247,7 +260,7 @@ describe('SquadronConfigComponent', () => {
     const defaults = [
       mockAgent({
         id: 'd1', agentName: 'Sol',
-        provider: 'ollama', model: 'gemma4',
+        provider: 'ollama', model: 'gemma4:e2b',
         description: 'Gemma 4 (local)',
       }),
     ];
@@ -395,6 +408,100 @@ describe('SquadronConfigComponent', () => {
 
     component.onHostingTypeChange();
     expect(component.selectedProviderEntry()).toBeNull();
+  });
+
+  // --- Test functionality ---
+
+  it('should_openTestMenu_when_testButtonClicked', () => {
+    component.openTestMenu(component.agents()[0]);
+    expect(component.testMenuAgentId()).toBe('a1');
+  });
+
+  it('should_closeTestMenu_when_alreadyOpen', () => {
+    component.openTestMenu(component.agents()[0]);
+    expect(component.testMenuAgentId()).toBe('a1');
+    component.openTestMenu(component.agents()[0]);
+    expect(component.testMenuAgentId()).toBeNull();
+  });
+
+  it('should_closeTestMenu_when_closeTestMenuCalled', () => {
+    component.openTestMenu(component.agents()[0]);
+    component.closeTestMenu();
+    expect(component.testMenuAgentId()).toBeNull();
+  });
+
+  it('should_renderTestButton_forEachAgent', () => {
+    const testBtns = fixture.nativeElement.querySelectorAll('.squadron-config__btn--test');
+    expect(testBtns.length).toBe(2);
+  });
+
+  it('should_renderTestMenu_when_testMenuOpen', () => {
+    component.openTestMenu(component.agents()[0]);
+    fixture.detectChanges();
+    const menu = fixture.nativeElement.querySelector('.squadron-config__test-menu');
+    expect(menu).toBeTruthy();
+    const modeButtons = menu.querySelectorAll('.squadron-config__btn--test-mode');
+    expect(modeButtons.length).toBe(3);
+  });
+
+  it('should_runTest_when_testModeSelected', () => {
+    const mockResult = {
+      testId: 't1',
+      agentConfigId: 'a1',
+      testMode: 'PLANNING' as const,
+      status: 'SUCCESS' as const,
+      summary: 'Test passed',
+      logEntries: [{ timestamp: '2026-01-01T00:00:00Z', phase: 'DONE', message: 'ok', level: 'SUCCESS' as const }],
+      durationMs: 1234,
+    };
+    testServiceSpy.executeTest.and.returnValue(of(mockResult));
+
+    component.runTest(component.agents()[0], 'PLANNING');
+    expect(component.testingAgentId()).toBeNull(); // completed
+    expect(component.testResultForAgent('a1')).toBeTruthy();
+    expect(component.testResultForAgent('a1')!.status).toBe('SUCCESS');
+  });
+
+  it('should_showErrorResult_when_testFails', () => {
+    testServiceSpy.executeTest.and.returnValue(throwError(() => ({ status: 500, message: 'Server error' })));
+
+    component.runTest(component.agents()[0], 'CODE_GENERATION');
+    expect(component.testResultForAgent('a1')!.status).toBe('ERROR');
+  });
+
+  it('should_toggleTestExpanded', () => {
+    expect(component.isTestExpanded('a1')).toBeFalse();
+    component.toggleTestExpanded('a1');
+    expect(component.isTestExpanded('a1')).toBeTrue();
+    component.toggleTestExpanded('a1');
+    expect(component.isTestExpanded('a1')).toBeFalse();
+  });
+
+  it('should_toggleOutputExpanded', () => {
+    expect(component.isOutputExpanded('a1')).toBeFalse();
+    component.toggleOutputExpanded('a1');
+    expect(component.isOutputExpanded('a1')).toBeTrue();
+    component.toggleOutputExpanded('a1');
+    expect(component.isOutputExpanded('a1')).toBeFalse();
+  });
+
+  it('should_dismissTestResult', () => {
+    const mockResult = {
+      testId: 't1', agentConfigId: 'a1', testMode: 'PLANNING' as const,
+      status: 'SUCCESS' as const, summary: 'ok', logEntries: [],
+    };
+    testServiceSpy.executeTest.and.returnValue(of(mockResult));
+    component.runTest(component.agents()[0], 'PLANNING');
+    expect(component.testResultForAgent('a1')).toBeTruthy();
+
+    component.dismissTestResult('a1');
+    expect(component.testResultForAgent('a1')).toBeNull();
+  });
+
+  it('should_notRunTest_when_agentHasNoId', () => {
+    const noIdAgent = { ...component.agents()[0], id: undefined };
+    component.runTest(noIdAgent as any, 'PLANNING');
+    expect(testServiceSpy.executeTest).not.toHaveBeenCalled();
   });
 });
 

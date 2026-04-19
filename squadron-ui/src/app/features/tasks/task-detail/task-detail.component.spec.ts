@@ -76,8 +76,8 @@ describe('TaskDetailComponent', () => {
   };
 
   const mockAgents: UserAgentConfig[] = [
-    { agentName: 'Sol', agentType: 'PLANNING', displayOrder: 1, enabled: true, provider: 'ollama', model: 'gemma4' },
-    { agentName: 'Titan', agentType: 'CODING', displayOrder: 2, enabled: true, provider: 'ollama', model: 'gemma4' },
+    { agentName: 'Sol', agentType: 'PLANNING', displayOrder: 1, enabled: true, provider: 'ollama', model: 'gemma4:e2b' },
+    { agentName: 'Titan', agentType: 'CODING', displayOrder: 2, enabled: true, provider: 'ollama', model: 'gemma4:e2b' },
     { agentName: 'Disabled', agentType: 'QA', displayOrder: 3, enabled: false },
   ];
 

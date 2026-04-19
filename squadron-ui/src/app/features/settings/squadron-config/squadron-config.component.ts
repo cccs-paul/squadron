@@ -1,7 +1,8 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { UserSquadronService } from '../../../core/services/user-squadron.service';
+import { AgentTestService } from '../../../core/services/agent-test.service';
 import {
   UserAgentConfig,
   HostingType,
@@ -10,6 +11,12 @@ import {
   ModelCatalogEntry,
   generateAgentDescription,
 } from '../../../core/models/squadron-config.model';
+import {
+  TestMode,
+  TEST_MODE_LABELS,
+  AgentTestResult,
+  TestLogEntry,
+} from '../../../core/models/agent-test.model';
 
 @Component({
   selector: 'sq-squadron-config',
@@ -70,12 +77,100 @@ import {
                       [disabled]="saving()">{{ 'settings.squadronConfig.save' | translate }}</button>
                     <button class="squadron-config__btn squadron-config__btn--cancel" (click)="cancelEdit()">{{ 'common.cancel' | translate }}</button>
                   } @else {
+                    <button class="squadron-config__btn squadron-config__btn--test" (click)="openTestMenu(agent)"
+                      [disabled]="testingAgentId() === agent.id">
+                      {{ 'settings.squadronConfig.test' | translate }}
+                    </button>
                     <button class="squadron-config__btn squadron-config__btn--edit" (click)="startEdit(agent)">{{ 'settings.squadronConfig.edit' | translate }}</button>
                     <button class="squadron-config__btn squadron-config__btn--remove" (click)="removeAgent(agent)"
                       [disabled]="agents().length <= 1">{{ 'settings.squadronConfig.remove' | translate }}</button>
                   }
                 </div>
               </div>
+
+              <!-- Test mode selector (shows when test menu is open for this agent) -->
+              @if (testMenuAgentId() === agent.id && !testingAgentId()) {
+                <div class="squadron-config__test-menu">
+                  <span class="squadron-config__test-menu-label">{{ 'settings.squadronConfig.selectTestMode' | translate }}</span>
+                  <div class="squadron-config__test-menu-buttons">
+                    <button class="squadron-config__btn squadron-config__btn--test-mode"
+                      (click)="runTest(agent, 'PLANNING')">
+                      {{ 'settings.squadronConfig.testModes.planning' | translate }}
+                    </button>
+                    <button class="squadron-config__btn squadron-config__btn--test-mode"
+                      (click)="runTest(agent, 'CODE_GENERATION')">
+                      {{ 'settings.squadronConfig.testModes.codeGeneration' | translate }}
+                    </button>
+                    <button class="squadron-config__btn squadron-config__btn--test-mode"
+                      (click)="runTest(agent, 'CODE_REVIEW')">
+                      {{ 'settings.squadronConfig.testModes.codeReview' | translate }}
+                    </button>
+                    <button class="squadron-config__btn squadron-config__btn--cancel"
+                      (click)="closeTestMenu()">
+                      {{ 'common.cancel' | translate }}
+                    </button>
+                  </div>
+                </div>
+              }
+
+              <!-- Expandable test result panel -->
+              @if (testResultForAgent(agent.id!); as result) {
+                <div class="squadron-config__test-panel">
+                  <div class="squadron-config__test-panel-header" (click)="toggleTestExpanded(agent.id!)">
+                    <div class="squadron-config__test-status"
+                         [class.squadron-config__test-status--running]="result.status === 'RUNNING'"
+                         [class.squadron-config__test-status--success]="result.status === 'SUCCESS'"
+                         [class.squadron-config__test-status--failure]="result.status === 'FAILURE' || result.status === 'ERROR'">
+                      @if (result.status === 'RUNNING') {
+                        <span class="squadron-config__spinner"></span>
+                      }
+                      {{ result.status }}
+                    </div>
+                    <span class="squadron-config__test-summary">{{ result.summary }}</span>
+                    @if (result.durationMs) {
+                      <span class="squadron-config__test-duration">{{ result.durationMs }}ms</span>
+                    }
+                    <span class="squadron-config__test-expand-icon">
+                      {{ isTestExpanded(agent.id!) ? '&#9660;' : '&#9654;' }}
+                    </span>
+                  </div>
+
+                  @if (isTestExpanded(agent.id!)) {
+                    <div class="squadron-config__test-panel-body">
+                      <!-- Verbose log entries -->
+                      <div class="squadron-config__test-log">
+                        @for (entry of result.logEntries; track $index) {
+                          <div class="squadron-config__test-log-entry"
+                               [class.squadron-config__test-log-entry--success]="entry.level === 'SUCCESS'"
+                               [class.squadron-config__test-log-entry--warning]="entry.level === 'WARNING'"
+                               [class.squadron-config__test-log-entry--error]="entry.level === 'ERROR'">
+                            <span class="squadron-config__test-log-phase">{{ entry.phase }}</span>
+                            <span class="squadron-config__test-log-message">{{ entry.message }}</span>
+                          </div>
+                        }
+                      </div>
+
+                      <!-- Agent output (collapsed by default, expandable) -->
+                      @if (result.agentOutput) {
+                        <div class="squadron-config__test-output">
+                          <div class="squadron-config__test-output-header" (click)="toggleOutputExpanded(agent.id!)">
+                            <span>{{ 'settings.squadronConfig.agentOutput' | translate }}</span>
+                            <span>{{ isOutputExpanded(agent.id!) ? '&#9660;' : '&#9654;' }}</span>
+                          </div>
+                          @if (isOutputExpanded(agent.id!)) {
+                            <pre class="squadron-config__test-output-content">{{ result.agentOutput }}</pre>
+                          }
+                        </div>
+                      }
+
+                      <button class="squadron-config__btn squadron-config__btn--dismiss"
+                        (click)="dismissTestResult(agent.id!)">
+                        {{ 'settings.squadronConfig.dismissResult' | translate }}
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
 
               @if (editingId() === agent.id) {
                 <div class="squadron-config__agent-details">
@@ -243,11 +338,81 @@ import {
     .squadron-config__btn--remove { color: #dc2626; border-color: #fecaca; }
     .squadron-config__btn--add { background: #2563eb; color: #fff; border-color: #2563eb; }
     .squadron-config__btn--reset { background: #f3f4f6; }
+    .squadron-config__btn--test { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; font-weight: 500; }
+    .squadron-config__btn--test:hover { background: #dcfce7; }
+    .squadron-config__btn--test-mode { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+    .squadron-config__btn--test-mode:hover { background: #dcfce7; }
+    .squadron-config__btn--dismiss { background: #f3f4f6; font-size: 0.75rem; margin-top: 8px; }
     .squadron-config__footer { margin-top: 20px; display: flex; gap: 12px; }
+
+    /* Test menu */
+    .squadron-config__test-menu {
+      margin-top: 12px; padding: 12px; background: #f0fdf4; border-radius: 6px;
+      border: 1px solid #bbf7d0;
+    }
+    .squadron-config__test-menu-label { font-size: 0.75rem; font-weight: 500; color: #374151; display: block; margin-bottom: 8px; }
+    .squadron-config__test-menu-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* Test result panel */
+    .squadron-config__test-panel {
+      margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden;
+    }
+    .squadron-config__test-panel-header {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      background: #f9fafb; cursor: pointer; user-select: none;
+    }
+    .squadron-config__test-panel-header:hover { background: #f3f4f6; }
+    .squadron-config__test-status {
+      font-size: 0.6875rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;
+    }
+    .squadron-config__test-status--running { background: #dbeafe; color: #1d4ed8; }
+    .squadron-config__test-status--success { background: #d1fae5; color: #065f46; }
+    .squadron-config__test-status--failure { background: #fee2e2; color: #991b1b; }
+    .squadron-config__test-summary { flex: 1; font-size: 0.8125rem; color: #374151; }
+    .squadron-config__test-duration { font-size: 0.75rem; color: #6b7280; }
+    .squadron-config__test-expand-icon { font-size: 0.75rem; color: #9ca3af; }
+    .squadron-config__test-panel-body { padding: 14px; border-top: 1px solid #e5e7eb; }
+
+    /* Spinner */
+    .squadron-config__spinner {
+      display: inline-block; width: 12px; height: 12px; border: 2px solid #93c5fd;
+      border-top-color: #2563eb; border-radius: 50%; animation: sq-spin 0.8s linear infinite;
+    }
+    @keyframes sq-spin { to { transform: rotate(360deg); } }
+
+    /* Log entries */
+    .squadron-config__test-log { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .squadron-config__test-log-entry {
+      display: flex; gap: 8px; font-size: 0.75rem; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      padding: 4px 8px; border-radius: 3px; background: #f9fafb;
+    }
+    .squadron-config__test-log-entry--success { background: #f0fdf4; color: #166534; }
+    .squadron-config__test-log-entry--warning { background: #fffbeb; color: #92400e; }
+    .squadron-config__test-log-entry--error { background: #fef2f2; color: #991b1b; }
+    .squadron-config__test-log-phase {
+      font-weight: 600; min-width: 100px; flex-shrink: 0; color: #6b7280;
+    }
+    .squadron-config__test-log-message { word-break: break-word; }
+
+    /* Agent output */
+    .squadron-config__test-output { border: 1px solid #e5e7eb; border-radius: 4px; overflow: hidden; }
+    .squadron-config__test-output-header {
+      display: flex; justify-content: space-between; padding: 8px 12px;
+      background: #f9fafb; cursor: pointer; font-size: 0.8125rem; font-weight: 500;
+      user-select: none;
+    }
+    .squadron-config__test-output-header:hover { background: #f3f4f6; }
+    .squadron-config__test-output-content {
+      padding: 12px; font-size: 0.75rem; font-family: 'SF Mono', 'Fira Code', monospace;
+      background: #1e293b; color: #e2e8f0; overflow-x: auto; max-height: 400px; overflow-y: auto;
+      margin: 0; white-space: pre-wrap; word-break: break-word;
+    }
   `],
 })
 export class SquadronConfigComponent implements OnInit {
   private squadronService = inject(UserSquadronService);
+  private testService = inject(AgentTestService);
 
   loading = signal(true);
   saving = signal(false);
@@ -256,6 +421,13 @@ export class SquadronConfigComponent implements OnInit {
   agents = signal<UserAgentConfig[]>([]);
   maxAgents = signal(8);
   editingId = signal<string | null>(null);
+
+  // Test state
+  testMenuAgentId = signal<string | null>(null);
+  testingAgentId = signal<string | null>(null);
+  testResults = signal<Map<string, AgentTestResult>>(new Map());
+  expandedTests = signal<Set<string>>(new Set());
+  expandedOutputs = signal<Set<string>>(new Set());
 
   // Edit form fields
   editName = '';
@@ -355,6 +527,116 @@ export class SquadronConfigComponent implements OnInit {
     }
   }
 
+  // ====================== Test Methods ======================
+
+  openTestMenu(agent: UserAgentConfig): void {
+    if (this.testMenuAgentId() === agent.id) {
+      this.testMenuAgentId.set(null);
+    } else {
+      this.testMenuAgentId.set(agent.id ?? null);
+    }
+  }
+
+  closeTestMenu(): void {
+    this.testMenuAgentId.set(null);
+  }
+
+  runTest(agent: UserAgentConfig, mode: TestMode): void {
+    if (!agent.id) return;
+    this.testMenuAgentId.set(null);
+    this.testingAgentId.set(agent.id);
+
+    // Set initial running state
+    const runningResult: AgentTestResult = {
+      testId: '',
+      agentConfigId: agent.id,
+      testMode: mode,
+      status: 'RUNNING',
+      summary: 'Running ' + TEST_MODE_LABELS[mode] + '...',
+      logEntries: [
+        { timestamp: new Date().toISOString(), phase: 'INIT', message: 'Starting test...', level: 'INFO' },
+      ],
+    };
+    this.updateTestResult(agent.id, runningResult);
+    this.expandTest(agent.id);
+
+    this.testService.executeTest({ agentConfigId: agent.id, testMode: mode }).subscribe({
+      next: (result) => {
+        this.updateTestResult(agent.id!, result);
+        this.testingAgentId.set(null);
+      },
+      error: (err) => {
+        const errorResult: AgentTestResult = {
+          testId: '',
+          agentConfigId: agent.id!,
+          testMode: mode,
+          status: 'ERROR',
+          summary: 'Test failed: ' + (err.error?.message || err.message || 'Unknown error'),
+          logEntries: [
+            { timestamp: new Date().toISOString(), phase: 'ERROR', message: 'Request failed: ' + (err.status || 'network error'), level: 'ERROR' },
+          ],
+        };
+        this.updateTestResult(agent.id!, errorResult);
+        this.testingAgentId.set(null);
+      },
+    });
+  }
+
+  testResultForAgent(agentId: string): AgentTestResult | null {
+    return this.testResults().get(agentId) ?? null;
+  }
+
+  isTestExpanded(agentId: string): boolean {
+    return this.expandedTests().has(agentId);
+  }
+
+  toggleTestExpanded(agentId: string): void {
+    const expanded = new Set(this.expandedTests());
+    if (expanded.has(agentId)) {
+      expanded.delete(agentId);
+    } else {
+      expanded.add(agentId);
+    }
+    this.expandedTests.set(expanded);
+  }
+
+  isOutputExpanded(agentId: string): boolean {
+    return this.expandedOutputs().has(agentId);
+  }
+
+  toggleOutputExpanded(agentId: string): void {
+    const expanded = new Set(this.expandedOutputs());
+    if (expanded.has(agentId)) {
+      expanded.delete(agentId);
+    } else {
+      expanded.add(agentId);
+    }
+    this.expandedOutputs.set(expanded);
+  }
+
+  dismissTestResult(agentId: string): void {
+    const results = new Map(this.testResults());
+    results.delete(agentId);
+    this.testResults.set(results);
+    const expanded = new Set(this.expandedTests());
+    expanded.delete(agentId);
+    this.expandedTests.set(expanded);
+  }
+
+  private updateTestResult(agentId: string, result: AgentTestResult): void {
+    const results = new Map(this.testResults());
+    results.set(agentId, result);
+    this.testResults.set(results);
+  }
+
+  private expandTest(agentId: string): void {
+    const expanded = new Set(this.expandedTests());
+    expanded.add(agentId);
+    this.expandedTests.set(expanded);
+  }
+
+  // ====================== CRUD Methods ======================
+
   saveAgent(agent: UserAgentConfig): void {
     if (!agent.id) return;
     this.saving.set(true);
@@ -453,7 +735,6 @@ export class SquadronConfigComponent implements OnInit {
 
   private updateFilteredProviders(): void {
     if (this.editHostingType === 'CUSTOM') {
-      // Custom shows all providers plus a custom option
       this.filteredProviders.set(PROVIDER_CATALOG);
     } else {
       this.filteredProviders.set(

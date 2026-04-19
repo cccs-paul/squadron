@@ -80,10 +80,10 @@ class UserAgentConfigControllerTest {
     @WithMockUser(roles = {"developer"})
     void should_getMySquadron_when_authenticated() throws Exception {
         List<UserAgentConfig> agents = List.of(
-                buildAgent("Sol", "GENERAL", 0, "ollama", "gemma4",
-                        "SELF_HOSTED", "Gemma 4 (local)"),
-                buildAgent("Titan", "GENERAL", 1, "ollama", "gemma4",
-                        "SELF_HOSTED", "Gemma 4 (local)")
+                buildAgent("Sol", "GENERAL", 0, "ollama", "gemma4:e2b",
+                        "SELF_HOSTED", "Gemma 4 E2B (local)"),
+                buildAgent("Titan", "GENERAL", 1, "ollama", "qwen2.5-coder:7b",
+                        "SELF_HOSTED", "Qwen 2.5 Coder 7B (local)")
         );
 
         when(service.getUserSquadron(tenantId, userId)).thenReturn(agents);
@@ -95,11 +95,11 @@ class UserAgentConfigControllerTest {
                 .andExpect(jsonPath("$.data[0].agentName").value("Sol"))
                 .andExpect(jsonPath("$.data[0].agentType").value("GENERAL"))
                 .andExpect(jsonPath("$.data[0].provider").value("ollama"))
-                .andExpect(jsonPath("$.data[0].model").value("gemma4"))
+                .andExpect(jsonPath("$.data[0].model").value("gemma4:e2b"))
                 .andExpect(jsonPath("$.data[0].hostingType").value("SELF_HOSTED"))
-                .andExpect(jsonPath("$.data[0].description").value("Gemma 4 (local)"))
+                .andExpect(jsonPath("$.data[0].description").value("Gemma 4 E2B (local)"))
                 .andExpect(jsonPath("$.data[1].agentName").value("Titan"))
-                .andExpect(jsonPath("$.data[1].description").value("Gemma 4 (local)"));
+                .andExpect(jsonPath("$.data[1].description").value("Qwen 2.5 Coder 7B (local)"));
 
         verify(service).getUserSquadron(tenantId, userId);
     }
@@ -244,10 +244,10 @@ class UserAgentConfigControllerTest {
     @WithMockUser(roles = {"developer"})
     void should_resetToDefaults_when_authenticated() throws Exception {
         List<UserAgentConfig> defaults = List.of(
-                buildAgent("Sol", "GENERAL", 0, "ollama", "gemma4",
-                        "SELF_HOSTED", "Gemma 4 (local)"),
-                buildAgent("Titan", "GENERAL", 1, "ollama", "gemma4",
-                        "SELF_HOSTED", "Gemma 4 (local)")
+                buildAgent("Sol", "GENERAL", 0, "ollama", "gemma4:e2b",
+                        "SELF_HOSTED", "Gemma 4 E2B (local)"),
+                buildAgent("Titan", "GENERAL", 1, "ollama", "qwen2.5-coder:7b",
+                        "SELF_HOSTED", "Qwen 2.5 Coder 7B (local)")
         );
 
         when(service.resetToDefaults(tenantId, userId)).thenReturn(defaults);
@@ -257,7 +257,7 @@ class UserAgentConfigControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].agentName").value("Sol"))
-                .andExpect(jsonPath("$.data[0].description").value("Gemma 4 (local)"));
+                .andExpect(jsonPath("$.data[0].description").value("Gemma 4 E2B (local)"));
 
         verify(service).resetToDefaults(tenantId, userId);
     }

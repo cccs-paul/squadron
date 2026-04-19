@@ -78,12 +78,14 @@ class AgentConfigDtoTest {
 
     @Test
     void should_createAgentConfigDto_when_usingAllArgsConstructor() {
-        AgentConfigDto config = new AgentConfigDto("openai", "gpt-4", 4096, 0.7, "prompt");
+        AgentConfigDto config = new AgentConfigDto("openai", "gpt-4", 4096, 0.7, "prompt", null, null);
 
         assertEquals("openai", config.getProvider());
         assertEquals("gpt-4", config.getModel());
         assertEquals(4096, config.getMaxTokens());
         assertEquals(0.7, config.getTemperature());
         assertEquals("prompt", config.getSystemPromptOverride());
+        assertNull(config.getBaseUrl());
+        assertNull(config.getHostingType());
     }
 }

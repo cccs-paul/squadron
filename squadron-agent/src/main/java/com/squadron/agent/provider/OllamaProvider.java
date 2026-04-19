@@ -8,56 +8,52 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.ai.ollama.api.OllamaOptions;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Provider implementation for locally-hosted open-source models via Ollama.
  *
- * <p>Ollama runs models like Qwen2.5-Coder, DeepSeek Coder, CodeLlama, and
- * StarCoder2 on local hardware. This provider uses Spring AI's native Ollama
- * integration ({@code spring-ai-starter-model-ollama}) for direct communication
- * with the Ollama REST API at {@code http://localhost:11434}.
+ * <p>This provider is always registered. If Spring AI auto-configured an
+ * {@link OllamaChatModel} bean (via {@code spring.ai.ollama.*} properties),
+ * it is used as the default. Otherwise, dynamic {@link OllamaChatModel}
+ * instances are created on-the-fly using the {@code baseUrl} from the
+ * agent configuration (defaulting to {@code http://localhost:11434}).
  *
- * <p>Unlike the OpenAI-compatible provider that uses a generic ChatClient,
- * this provider creates a dedicated ChatClient backed by {@link OllamaChatModel},
- * which supports Ollama-specific features like model pulling, keep-alive
- * configuration, and GPU layer control.
- *
- * <p>To use this provider, ensure Ollama is running locally and the desired
- * model is pulled:
- * <pre>
- *   ollama pull qwen2.5-coder:7b
- *   ollama pull deepseek-coder-v2:16b
- *   ollama pull codellama:13b
- * </pre>
- *
- * <p>This provider is auto-registered when the {@link OllamaChatModel} bean is
- * available (i.e., when the Ollama starter is on the classpath and configured).
- *
- * @see AgentProvider
- * @see AgentProviderRegistry
+ * <p>Dynamic models are cached by base URL to avoid re-creating them
+ * on every request.
  */
 @Component
-@ConditionalOnBean(OllamaChatModel.class)
 public class OllamaProvider implements AgentProvider {
 
     private static final Logger log = LoggerFactory.getLogger(OllamaProvider.class);
     private static final String PROVIDER_NAME = "ollama";
+    private static final String DEFAULT_BASE_URL = "http://localhost:11434";
 
-    private final OllamaChatModel ollamaChatModel;
+    /** Auto-configured OllamaChatModel (may be null if Ollama is not auto-configured). */
+    @Nullable
+    private final OllamaChatModel autoConfiguredModel;
 
-    public OllamaProvider(OllamaChatModel ollamaChatModel) {
-        this.ollamaChatModel = ollamaChatModel;
-        log.info("Ollama provider initialized — local open-source model support enabled");
+    /** Cache of dynamically created OllamaChatModel instances, keyed by base URL. */
+    private final Map<String, OllamaChatModel> dynamicModels = new ConcurrentHashMap<>();
+
+    public OllamaProvider(@Nullable OllamaChatModel ollamaChatModel) {
+        this.autoConfiguredModel = ollamaChatModel;
+        if (ollamaChatModel != null) {
+            log.info("Ollama provider initialized with auto-configured model");
+        } else {
+            log.info("Ollama provider initialized (dynamic mode — no auto-configured model)");
+        }
     }
 
     @Override
@@ -70,10 +66,11 @@ public class OllamaProvider implements AgentProvider {
         log.debug("Sending chat request via Ollama provider (model: {})",
                 config != null && config.getModel() != null ? config.getModel() : "default");
 
+        OllamaChatModel model = resolveModel(config);
         List<Message> messages = buildMessages(systemPrompt, history, userMessage);
         Prompt prompt = buildPrompt(messages, config);
 
-        ChatClient chatClient = ChatClient.builder(ollamaChatModel).build();
+        ChatClient chatClient = ChatClient.builder(model).build();
 
         String response = chatClient.prompt(prompt)
                 .call()
@@ -90,10 +87,11 @@ public class OllamaProvider implements AgentProvider {
         log.debug("Sending streaming chat request via Ollama provider (model: {})",
                 config != null && config.getModel() != null ? config.getModel() : "default");
 
+        OllamaChatModel model = resolveModel(config);
         List<Message> messages = buildMessages(systemPrompt, history, userMessage);
         Prompt prompt = buildPrompt(messages, config);
 
-        ChatClient chatClient = ChatClient.builder(ollamaChatModel).build();
+        ChatClient chatClient = ChatClient.builder(model).build();
 
         return chatClient.prompt(prompt)
                 .stream()
@@ -101,9 +99,35 @@ public class OllamaProvider implements AgentProvider {
     }
 
     /**
+     * Resolves the OllamaChatModel to use: if an auto-configured model exists
+     * and no custom base URL is specified, use it. Otherwise, create (or
+     * retrieve from cache) a dynamic model for the target base URL.
+     */
+    private OllamaChatModel resolveModel(AgentConfigDto config) {
+        String baseUrl = (config != null && config.getBaseUrl() != null && !config.getBaseUrl().isBlank())
+                ? config.getBaseUrl()
+                : DEFAULT_BASE_URL;
+
+        // Use auto-configured model if available and using default URL
+        if (autoConfiguredModel != null && DEFAULT_BASE_URL.equals(baseUrl)) {
+            return autoConfiguredModel;
+        }
+
+        // Create or retrieve a dynamic model for the target base URL
+        return dynamicModels.computeIfAbsent(baseUrl, url -> {
+            log.info("Creating dynamic Ollama model for base URL: {}", url);
+            OllamaApi api = OllamaApi.builder()
+                    .baseUrl(url)
+                    .build();
+            return OllamaChatModel.builder()
+                    .ollamaApi(api)
+                    .build();
+        });
+    }
+
+    /**
      * Builds a Prompt with optional Ollama-specific options derived from the
-     * agent configuration. This allows per-request model, temperature, and
-     * max-token overrides without changing the global application config.
+     * agent configuration.
      */
     private Prompt buildPrompt(List<Message> messages, AgentConfigDto config) {
         if (config == null) {

@@ -9,8 +9,9 @@ import { SquadronConfigComponent } from './squadron-config/squadron-config.compo
 import { NotificationPreferencesComponent } from './notification-preferences/notification-preferences.component';
 import { AgentConfigComponent } from './agent-config/agent-config.component';
 import { UserTokensComponent } from './user-tokens/user-tokens.component';
+import { TestGeneratorConfigComponent } from './test-generator-config/test-generator-config.component';
 
-export type SettingsTab = 'general' | 'providers-projects' | 'squadron' | 'notifications' | 'agent-config' | 'platform-tokens';
+export type SettingsTab = 'general' | 'providers-projects' | 'squadron' | 'notifications' | 'agent-config' | 'platform-tokens' | 'test-generator';
 
 @Component({
   selector: 'sq-settings',
@@ -23,6 +24,7 @@ export type SettingsTab = 'general' | 'providers-projects' | 'squadron' | 'notif
     NotificationPreferencesComponent,
     AgentConfigComponent,
     UserTokensComponent,
+    TestGeneratorConfigComponent,
   ],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
@@ -56,6 +58,7 @@ export class SettingsComponent implements OnInit {
     { id: 'notifications', labelKey: 'settings.tabs.notifications' },
     { id: 'agent-config', labelKey: 'settings.tabs.agentConfig' },
     { id: 'platform-tokens', labelKey: 'settings.tabs.platformTokens' },
+    { id: 'test-generator', labelKey: 'settings.tabs.testGenerator' },
   ];
 
   ngOnInit(): void {

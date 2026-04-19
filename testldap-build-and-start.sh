@@ -619,10 +619,17 @@ start_services() {
 }
 
 pull_ollama_model() {
-    log_step "Pulling Ollama model"
+    log_step "Pulling default Ollama models"
 
-    local model="${OLLAMA_MODEL:-qwen2.5-coder:7b}"
-    log_info "Pulling model: $model"
+    local models=("${OLLAMA_MODEL:-qwen2.5-coder:7b}" "gemma4:e2b")
+    local unique_models=()
+    declare -A seen
+    for m in "${models[@]}"; do
+        if [[ -z "${seen[$m]:-}" ]]; then
+            seen[$m]=1
+            unique_models+=("$m")
+        fi
+    done
 
     # Wait for Ollama to be ready
     local max_wait=60
@@ -636,17 +643,19 @@ pull_ollama_model() {
         fi
     done
 
-    if curl -sf http://localhost:11434/api/tags | grep -q "$model" 2>/dev/null; then
-        log_success "Model $model already available"
-    else
-        log_info "Downloading $model (this may take several minutes)..."
-        if curl -sf http://localhost:11434/api/pull -d "{\"name\": \"$model\"}" >/dev/null; then
-            log_success "Model $model pulled successfully"
+    for model in "${unique_models[@]}"; do
+        if curl -sf http://localhost:11434/api/tags | grep -q "\"$model\"" 2>/dev/null; then
+            log_success "Model $model already available"
         else
-            log_warn "Failed to pull model. You can pull it later with:"
-            log_warn "  curl http://localhost:11434/api/pull -d '{\"name\": \"$model\"}'"
+            log_info "Downloading $model (this may take several minutes)..."
+            if curl -sf --max-time 900 http://localhost:11434/api/pull -d "{\"name\": \"$model\", \"stream\": false}" >/dev/null; then
+                log_success "Model $model pulled successfully"
+            else
+                log_warn "Failed to pull model $model. You can pull it later with:"
+                log_warn "  curl http://localhost:11434/api/pull -d '{\"name\": \"$model\"}'"
+            fi
         fi
-    fi
+    done
 }
 
 stop_all() {
@@ -897,10 +906,8 @@ main() {
         log_info "Start services with: $(basename "$0") --skip-build"
     fi
 
-    # Pull Ollama model if requested
-    if [ "$do_pull_model" = true ]; then
-        pull_ollama_model
-    fi
+    # Pull Ollama models (always — needed for agent testing)
+    pull_ollama_model
 
     # Print access info
     local end_time

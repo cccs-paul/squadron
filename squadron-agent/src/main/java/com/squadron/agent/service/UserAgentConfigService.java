@@ -29,8 +29,8 @@ public class UserAgentConfigService {
 
     /** Default agent names seeded for new users. Each entry: {name, type, provider, model, description}. */
     private static final List<String[]> DEFAULT_AGENTS = List.of(
-            new String[]{"Sol", "GENERAL", "ollama", "gemma4", "Gemma 4 (local)"},
-            new String[]{"Titan", "GENERAL", "ollama", "gemma4", "Gemma 4 (local)"}
+            new String[]{"Sol", "GENERAL", "ollama", "gemma4:e2b", "Gemma 4 E2B (local)"},
+            new String[]{"Titan", "GENERAL", "ollama", "qwen2.5-coder:7b", "Qwen 2.5 Coder 7B (local)"}
     );
 
     private final UserAgentConfigRepository repository;
@@ -162,6 +162,7 @@ public class UserAgentConfigService {
      */
     public List<UserAgentConfig> resetToDefaults(UUID tenantId, UUID userId) {
         repository.deleteByTenantIdAndUserId(tenantId, userId);
+        repository.flush();
         log.info("Reset squadron to defaults for user {} in tenant {}", userId, tenantId);
         return seedDefaults(tenantId, userId);
     }
@@ -238,19 +239,65 @@ public class UserAgentConfigService {
     /** Converts a model ID to a friendlier display name. */
     private static String humanizeModel(String model) {
         return switch (model.toLowerCase()) {
+            // Anthropic
             case "claude-opus-4" -> "Claude Opus 4";
+            case "claude-opus-4.6" -> "Claude Opus 4.6";
             case "claude-sonnet-4" -> "Claude Sonnet 4";
             case "claude-haiku-3.5" -> "Claude Haiku 3.5";
+            // OpenAI
+            case "gpt-4.1" -> "GPT-4.1";
+            case "gpt-4.1-mini" -> "GPT-4.1 Mini";
+            case "gpt-4.1-nano" -> "GPT-4.1 Nano";
             case "gpt-4o" -> "GPT-4o";
+            case "gpt-4o-mini" -> "GPT-4o Mini";
             case "o3" -> "o3";
+            case "o3-mini" -> "o3 Mini";
             case "o4-mini" -> "o4-mini";
+            case "codex-mini" -> "Codex Mini";
+            // Google
             case "gemini-2.5-pro" -> "Gemini 2.5 Pro";
-            case "gemma-4", "gemma4" -> "Gemma 4";
+            case "gemini-2.5-flash" -> "Gemini 2.5 Flash";
+            case "gemini-2.0-flash" -> "Gemini 2.0 Flash";
+            case "gemma4:e2b", "gemma4", "gemma-4" -> "Gemma 4 E2B";
+            case "gemma4:e4b" -> "Gemma 4 E4B";
+            case "gemma4:26b" -> "Gemma 4 26B";
+            case "gemma3:4b", "gemma3", "gemma-3" -> "Gemma 3 4B";
+            // Mistral
+            case "mistral-large-latest" -> "Mistral Large";
+            case "mistral-medium-latest" -> "Mistral Medium";
+            case "mistral-small-latest" -> "Mistral Small";
+            case "codestral-latest", "codestral:latest", "codestral" -> "Codestral";
+            case "devstral-small-latest", "devstral:latest", "devstral" -> "Devstral";
+            case "mistral:latest", "mistral" -> "Mistral 7B";
+            // Cohere
             case "command-a-03-2025" -> "Command A";
-            case "llama3.3" -> "Llama 3.3";
-            case "deepseek-coder-v2" -> "DeepSeek Coder v2";
-            case "codestral" -> "Codestral";
-            case "qwen2.5-coder" -> "Qwen 2.5 Coder";
+            case "command-a-reasoning-08-2025" -> "Command A Reasoning";
+            case "command-a-vision-07-2025" -> "Command A Vision";
+            case "command-r7b-12-2024" -> "Command R7B";
+            case "command-r-plus-08-2024", "command-r-plus" -> "Command R+";
+            case "command-r-08-2024", "command-r" -> "Command R";
+            // DeepSeek
+            case "deepseek-chat" -> "DeepSeek V3";
+            case "deepseek-reasoner" -> "DeepSeek R1";
+            case "deepseek-coder", "deepseek-coder-v2:16b", "deepseek-coder-v2" -> "DeepSeek Coder";
+            case "deepseek-r1:8b" -> "DeepSeek R1 8B";
+            case "deepseek-r1:14b" -> "DeepSeek R1 14B";
+            // xAI
+            case "grok-3" -> "Grok 3";
+            case "grok-3-mini" -> "Grok 3 Mini";
+            // Meta Llama
+            case "llama3.3:latest", "llama3.3:70b", "llama3.3" -> "Llama 3.3 70B";
+            case "llama3.1:8b", "llama3.1" -> "Llama 3.1 8B";
+            // Qwen
+            case "qwen2.5-coder:1.5b" -> "Qwen 2.5 Coder 1.5B";
+            case "qwen2.5-coder:7b", "qwen2.5-coder" -> "Qwen 2.5 Coder 7B";
+            case "qwen2.5-coder:14b" -> "Qwen 2.5 Coder 14B";
+            case "qwen2.5-coder:32b" -> "Qwen 2.5 Coder 32B";
+            // Microsoft Phi
+            case "phi-4-mini" -> "Phi-4 Mini";
+            case "phi-4:latest", "phi-4" -> "Phi-4 14B";
+            // StarCoder
+            case "starcoder2:7b", "starcoder2" -> "StarCoder2 7B";
             default -> model;
         };
     }

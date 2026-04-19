@@ -16,4 +16,6 @@ public class AgentConfigDto {
     private Integer maxTokens;
     private Double temperature;
     private String systemPromptOverride;
+    private String baseUrl;
+    private String hostingType;
 }

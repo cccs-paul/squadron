@@ -72,21 +72,21 @@ class UserAgentConfigServiceTest {
         List<UserAgentConfig> result = service.getUserSquadron(tenantId, userId);
 
         assertEquals(2, result.size());
-        // Verify first agent: Sol with ollama/gemma4
+        // Verify first agent: Sol with ollama/gemma4:e2b
         assertEquals("Sol", result.get(0).getAgentName());
         assertEquals("GENERAL", result.get(0).getAgentType());
         assertEquals("ollama", result.get(0).getProvider());
-        assertEquals("gemma4", result.get(0).getModel());
+        assertEquals("gemma4:e2b", result.get(0).getModel());
         assertEquals("SELF_HOSTED", result.get(0).getHostingType());
-        assertEquals("Gemma 4 (local)", result.get(0).getDescription());
+        assertEquals("Gemma 4 E2B (local)", result.get(0).getDescription());
 
-        // Verify second agent: Titan with ollama/gemma4
+        // Verify second agent: Titan with ollama/qwen2.5-coder:7b
         assertEquals("Titan", result.get(1).getAgentName());
         assertEquals("GENERAL", result.get(1).getAgentType());
         assertEquals("ollama", result.get(1).getProvider());
-        assertEquals("gemma4", result.get(1).getModel());
+        assertEquals("qwen2.5-coder:7b", result.get(1).getModel());
         assertEquals("SELF_HOSTED", result.get(1).getHostingType());
-        assertEquals("Gemma 4 (local)", result.get(1).getDescription());
+        assertEquals("Qwen 2.5 Coder 7B (local)", result.get(1).getDescription());
 
         verify(repository).saveAll(anyList());
     }
@@ -180,7 +180,7 @@ class UserAgentConfigServiceTest {
                 .build();
 
         UserAgentConfig result = service.addAgent(tenantId, userId, dto);
-        assertEquals("DeepSeek Coder v2 (local)", result.getDescription());
+        assertEquals("DeepSeek Coder (local)", result.getDescription());
     }
 
     @Test
@@ -251,10 +251,10 @@ class UserAgentConfigServiceTest {
                 .agentType("GENERAL")
                 .displayOrder(3)
                 .provider("ollama")
-                .model("qwen2.5-coder")
+                .model("qwen2.5-coder:7b")
                 .hostingType("SELF_HOSTED")
                 .baseUrl("http://localhost:11434")
-                .description("Qwen 2.5 Coder (local)")
+                .description("Qwen 2.5 Coder 7B (local)")
                 .enabled(true)
                 .build();
 
@@ -263,10 +263,10 @@ class UserAgentConfigServiceTest {
         assertEquals("New Name", result.getAgentName());
         assertEquals("GENERAL", result.getAgentType());
         assertEquals("ollama", result.getProvider());
-        assertEquals("qwen2.5-coder", result.getModel());
+        assertEquals("qwen2.5-coder:7b", result.getModel());
         assertEquals("SELF_HOSTED", result.getHostingType());
         assertEquals("http://localhost:11434", result.getBaseUrl());
-        assertEquals("Qwen 2.5 Coder (local)", result.getDescription());
+        assertEquals("Qwen 2.5 Coder 7B (local)", result.getDescription());
     }
 
     @Test
@@ -460,11 +460,12 @@ class UserAgentConfigServiceTest {
         List<UserAgentConfig> result = service.resetToDefaults(tenantId, userId);
 
         verify(repository).deleteByTenantIdAndUserId(tenantId, userId);
+        verify(repository).flush();
         assertEquals(2, result.size());
         assertEquals("Sol", result.get(0).getAgentName());
         assertEquals("ollama", result.get(0).getProvider());
-        assertEquals("gemma4", result.get(0).getModel());
-        assertEquals("Gemma 4 (local)", result.get(0).getDescription());
+        assertEquals("gemma4:e2b", result.get(0).getModel());
+        assertEquals("Gemma 4 E2B (local)", result.get(0).getDescription());
     }
 
     // ============================================================
@@ -494,7 +495,7 @@ class UserAgentConfigServiceTest {
 
     @Test
     void should_generateLocalDescription_when_selfHosted() {
-        assertEquals("Llama 3.3 (local)",
+        assertEquals("Llama 3.3 70B (local)",
                 UserAgentConfigService.generateDescription("ollama", "llama3.3", "SELF_HOSTED"));
     }
 
@@ -524,14 +525,14 @@ class UserAgentConfigServiceTest {
 
     @Test
     void should_generateGoogleDescription_when_gemma4Model() {
-        assertEquals("Gemma 4 via Google",
-                UserAgentConfigService.generateDescription("google", "gemma-4", "PLATFORM"));
+        assertEquals("Gemma 4 E2B via Google",
+                UserAgentConfigService.generateDescription("google", "gemma4:e2b", "PLATFORM"));
     }
 
     @Test
     void should_generateLocalDescription_when_gemma4OnOllama() {
-        assertEquals("Gemma 4 (local)",
-                UserAgentConfigService.generateDescription("ollama", "gemma4", "SELF_HOSTED"));
+        assertEquals("Gemma 4 E2B (local)",
+                UserAgentConfigService.generateDescription("ollama", "gemma4:e2b", "SELF_HOSTED"));
     }
 
     // ============================================================
