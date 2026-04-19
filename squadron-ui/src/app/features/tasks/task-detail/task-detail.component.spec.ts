@@ -76,8 +76,8 @@ describe('TaskDetailComponent', () => {
   };
 
   const mockAgents: UserAgentConfig[] = [
-    { agentName: 'Sol', agentType: 'PLANNING', displayOrder: 1, enabled: true, provider: 'github-copilot', model: 'claude-sonnet-4' },
-    { agentName: 'Titan', agentType: 'CODING', displayOrder: 2, enabled: true, provider: 'github-copilot', model: 'gpt-4o' },
+    { agentName: 'Sol', agentType: 'PLANNING', displayOrder: 1, enabled: true, provider: 'ollama', model: 'gemma4' },
+    { agentName: 'Titan', agentType: 'CODING', displayOrder: 2, enabled: true, provider: 'ollama', model: 'gemma4' },
     { agentName: 'Disabled', agentType: 'QA', displayOrder: 3, enabled: false },
   ];
 

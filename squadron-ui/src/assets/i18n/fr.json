@@ -321,6 +321,7 @@
       "selectModel": "Sélectionner un modèle...",
       "customProvider": "Personnalisé (compatible OpenAI)",
       "baseUrl": "URL de base",
+      "baseUrlHint": "Par défaut : {{ url }} — laisser vide pour utiliser la valeur par défaut",
       "apiKey": "Clé API",
       "apiKeyPlaceholder": "Entrer la clé API pour ce point de terminaison",
       "description": "Description",

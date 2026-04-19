@@ -19,6 +19,8 @@ x-common-env: &common-env
   NATS_URL: nats://nats:4222
   SPRING_DATASOURCE_USERNAME: squadron
   SPRING_DATASOURCE_PASSWORD: squadron
+  SPRING_FLYWAY_CONNECT_RETRIES: "30"
+  SPRING_FLYWAY_CONNECT_RETRIES_INTERVAL: "3"
   KEYCLOAK_URL: http://keycloak:8080
   KEYCLOAK_CLIENT_SECRET: change-me-in-production
   SQUADRON_JWKS_URI: http://squadron-identity:8081/api/auth/jwks
@@ -27,7 +29,7 @@ x-common-env: &common-env
   PLATFORM_SERVICE_URL: http://squadron-platform:8084
 
 x-service-defaults: &service-defaults
-  restart: "no"
+  restart: on-failure:10
   networks:
     - squadron-net
   depends_on:
@@ -259,6 +261,7 @@ services:
       HEALTH_GIT_URL: http://squadron-git:8087
       HEALTH_REVIEW_URL: http://squadron-review:8088
       HEALTH_NOTIFICATION_URL: http://squadron-notification:8089
+      KEYCLOAK_HEALTH_URL: http://keycloak:9000
     depends_on:
       postgres:
         condition: service_healthy
@@ -270,8 +273,8 @@ services:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8443/actuator/health/liveness || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   squadron-identity:
     <<: *service-defaults
@@ -286,13 +289,13 @@ services:
     environment:
       <<: *common-env
       SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_identity
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_identity?connectTimeout=10&socketTimeout=30
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8081/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   squadron-config:
     <<: *service-defaults
@@ -307,13 +310,13 @@ services:
     environment:
       <<: *common-env
       SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_config
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_config?connectTimeout=10&socketTimeout=30
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8082/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   squadron-orchestrator:
     <<: *service-defaults
@@ -328,13 +331,13 @@ services:
     environment:
       <<: *common-env
       SERVER_PORT: 8083
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_orchestrator
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_orchestrator?connectTimeout=10&socketTimeout=30
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8083/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   squadron-platform:
     <<: *service-defaults
@@ -349,13 +352,13 @@ services:
     environment:
       <<: *common-env
       SERVER_PORT: 8084
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_platform
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_platform?connectTimeout=10&socketTimeout=30
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8084/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   squadron-agent:
     <<: *service-defaults
@@ -370,7 +373,7 @@ services:
     environment:
       <<: *common-env
       SERVER_PORT: 8085
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_agent
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_agent?connectTimeout=10&socketTimeout=30
       OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-placeholder}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
@@ -384,8 +387,8 @@ services:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8085/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   squadron-workspace:
     <<: *service-defaults
@@ -400,7 +403,7 @@ services:
     environment:
       <<: *common-env
       SERVER_PORT: 8086
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_workspace
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_workspace?connectTimeout=10&socketTimeout=30
       SQUADRON_WORKSPACE_PROVIDER: docker
       SQUADRON_WORKSPACE_DOCKER_HOST: unix:///var/run/docker.sock
       SQUADRON_PLATFORM_URL: http://squadron-platform:8084
@@ -414,8 +417,8 @@ services:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8086/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   squadron-git:
     <<: *service-defaults
@@ -430,13 +433,13 @@ services:
     environment:
       <<: *common-env
       SERVER_PORT: 8087
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_git
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_git?connectTimeout=10&socketTimeout=30
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8087/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   squadron-review:
     <<: *service-defaults
@@ -451,13 +454,13 @@ services:
     environment:
       <<: *common-env
       SERVER_PORT: 8088
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_review
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_review?connectTimeout=10&socketTimeout=30
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8088/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   squadron-notification:
     <<: *service-defaults
@@ -472,15 +475,15 @@ services:
     environment:
       <<: *common-env
       SERVER_PORT: 8089
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_notification
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/squadron_notification?connectTimeout=10&socketTimeout=30
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8089/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   # ===========================================================================
   # Frontend (use --profile frontend to start)

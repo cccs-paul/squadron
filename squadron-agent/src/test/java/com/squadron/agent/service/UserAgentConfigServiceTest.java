@@ -71,37 +71,30 @@ class UserAgentConfigServiceTest {
 
         List<UserAgentConfig> result = service.getUserSquadron(tenantId, userId);
 
-        assertEquals(8, result.size());
-        // Verify first agent: Sol with github-copilot/claude-sonnet-4
+        assertEquals(2, result.size());
+        // Verify first agent: Sol with ollama/gemma4
         assertEquals("Sol", result.get(0).getAgentName());
         assertEquals("GENERAL", result.get(0).getAgentType());
-        assertEquals("github-copilot", result.get(0).getProvider());
-        assertEquals("claude-sonnet-4", result.get(0).getModel());
-        assertEquals("PLATFORM", result.get(0).getHostingType());
-        assertEquals("Claude Sonnet 4 via GitHub Copilot", result.get(0).getDescription());
+        assertEquals("ollama", result.get(0).getProvider());
+        assertEquals("gemma4", result.get(0).getModel());
+        assertEquals("SELF_HOSTED", result.get(0).getHostingType());
+        assertEquals("Gemma 4 (local)", result.get(0).getDescription());
 
-        // Verify second agent: Titan with github-copilot/gpt-4o
+        // Verify second agent: Titan with ollama/gemma4
         assertEquals("Titan", result.get(1).getAgentName());
         assertEquals("GENERAL", result.get(1).getAgentType());
-        assertEquals("github-copilot", result.get(1).getProvider());
-        assertEquals("gpt-4o", result.get(1).getModel());
-        assertEquals("GPT-4o via GitHub Copilot", result.get(1).getDescription());
-
-        // Verify last agent: Nebula with ollama (self-hosted)
-        assertEquals("Nebula", result.get(7).getAgentName());
-        assertEquals("GENERAL", result.get(7).getAgentType());
-        assertEquals("ollama", result.get(7).getProvider());
-        assertEquals("llama3.3", result.get(7).getModel());
-        assertEquals("SELF_HOSTED", result.get(7).getHostingType());
-        assertEquals("Llama 3.3 (local)", result.get(7).getDescription());
+        assertEquals("ollama", result.get(1).getProvider());
+        assertEquals("gemma4", result.get(1).getModel());
+        assertEquals("SELF_HOSTED", result.get(1).getHostingType());
+        assertEquals("Gemma 4 (local)", result.get(1).getDescription());
 
         verify(repository).saveAll(anyList());
     }
 
     @Test
     void should_respectMaxLimit_when_seedingDefaults() {
-        // Create service with max=3
-        UserAgentConfigService limitedService = new UserAgentConfigService(repository, 3);
+        // Create service with max=1 (less than the 2 defaults)
+        UserAgentConfigService limitedService = new UserAgentConfigService(repository, 1);
 
         when(repository.findByTenantIdAndUserIdOrderByDisplayOrderAsc(tenantId, userId))
                 .thenReturn(Collections.emptyList());
@@ -109,7 +102,7 @@ class UserAgentConfigServiceTest {
 
         List<UserAgentConfig> result = limitedService.getUserSquadron(tenantId, userId);
 
-        assertEquals(3, result.size());
+        assertEquals(1, result.size());
     }
 
     // ============================================================
@@ -467,11 +460,11 @@ class UserAgentConfigServiceTest {
         List<UserAgentConfig> result = service.resetToDefaults(tenantId, userId);
 
         verify(repository).deleteByTenantIdAndUserId(tenantId, userId);
-        assertEquals(8, result.size());
+        assertEquals(2, result.size());
         assertEquals("Sol", result.get(0).getAgentName());
-        assertEquals("github-copilot", result.get(0).getProvider());
-        assertEquals("claude-sonnet-4", result.get(0).getModel());
-        assertEquals("Claude Sonnet 4 via GitHub Copilot", result.get(0).getDescription());
+        assertEquals("ollama", result.get(0).getProvider());
+        assertEquals("gemma4", result.get(0).getModel());
+        assertEquals("Gemma 4 (local)", result.get(0).getDescription());
     }
 
     // ============================================================

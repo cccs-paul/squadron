@@ -61,6 +61,7 @@ management:
     health:
       probes:
         enabled: true
+      show-details: always
   endpoints:
     web:
       exposure:
@@ -70,3 +71,5 @@ management:
       enabled: true
     readinessState:
       enabled: true
+    redis:
+      enabled: false

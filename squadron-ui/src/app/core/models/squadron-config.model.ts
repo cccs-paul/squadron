@@ -39,6 +39,10 @@ export interface ProviderCatalogEntry {
   label: string;
   hostingType: HostingType;
   models: ModelCatalogEntry[];
+  /** Whether this provider requires the user to supply an API key. */
+  requiresApiKey?: boolean;
+  /** Default base URL hint shown as placeholder (optional override). */
+  defaultBaseUrl?: string;
 }
 
 /** A known model entry within a provider. */
@@ -67,6 +71,8 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     id: 'anthropic',
     label: 'Anthropic',
     hostingType: 'PLATFORM',
+    requiresApiKey: true,
+    defaultBaseUrl: 'https://api.anthropic.com',
     models: [
       { id: 'claude-opus-4', label: 'Claude Opus 4' },
       { id: 'claude-sonnet-4', label: 'Claude Sonnet 4' },
@@ -77,6 +83,8 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     id: 'openai',
     label: 'OpenAI',
     hostingType: 'PLATFORM',
+    requiresApiKey: true,
+    defaultBaseUrl: 'https://api.openai.com/v1',
     models: [
       { id: 'gpt-4o', label: 'GPT-4o' },
       { id: 'o3', label: 'o3' },
@@ -87,6 +95,8 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     id: 'google',
     label: 'Google',
     hostingType: 'PLATFORM',
+    requiresApiKey: true,
+    defaultBaseUrl: 'https://generativelanguage.googleapis.com',
     models: [
       { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
       { id: 'gemma-4', label: 'Gemma 4' },
@@ -96,6 +106,8 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     id: 'cohere',
     label: 'Cohere',
     hostingType: 'PLATFORM',
+    requiresApiKey: true,
+    defaultBaseUrl: 'https://api.cohere.com/v2',
     models: [
       { id: 'command-a-03-2025', label: 'Command A' },
     ],
@@ -104,6 +116,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     id: 'ollama',
     label: 'Ollama',
     hostingType: 'SELF_HOSTED',
+    defaultBaseUrl: 'http://localhost:11434',
     models: [
       { id: 'llama3.3', label: 'Llama 3.3' },
       { id: 'deepseek-coder-v2', label: 'DeepSeek Coder v2' },

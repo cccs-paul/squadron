@@ -25,6 +25,7 @@ public abstract class BaseSecurityConfig {
 
     private static final String[] DEFAULT_PERMIT_ALL = {
         "/actuator/health",
+        "/actuator/health/**",
         "/actuator/info",
         "/v3/api-docs/**",
         "/swagger-ui/**"

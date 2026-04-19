@@ -119,19 +119,23 @@ import {
                     }
                   </div>
 
-                  <!-- Base URL (for self-hosted / custom) -->
-                  @if (editHostingType === 'SELF_HOSTED' || editHostingType === 'CUSTOM') {
+                  <!-- Base URL (for self-hosted / custom / providers with default base URL) -->
+                  @if (editHostingType === 'SELF_HOSTED' || editHostingType === 'CUSTOM' || selectedProviderEntry()?.defaultBaseUrl) {
                     <div class="squadron-config__field">
                       <label class="squadron-config__label">{{ 'settings.squadronConfig.baseUrl' | translate }}</label>
                       <input class="squadron-config__input" [(ngModel)]="editBaseUrl"
-                             [placeholder]="editHostingType === 'SELF_HOSTED'
-                               ? 'http://localhost:11434'
-                               : 'https://api.example.com/v1'" />
+                             [placeholder]="selectedProviderEntry()?.defaultBaseUrl
+                               ?? (editHostingType === 'SELF_HOSTED'
+                                 ? 'http://localhost:11434'
+                                 : 'https://api.example.com/v1')" />
+                      @if (selectedProviderEntry()?.defaultBaseUrl) {
+                        <span class="squadron-config__hint">{{ 'settings.squadronConfig.baseUrlHint' | translate:{ url: selectedProviderEntry()!.defaultBaseUrl } }}</span>
+                      }
                     </div>
                   }
 
-                  <!-- API Key (for custom endpoints) -->
-                  @if (editHostingType === 'CUSTOM') {
+                  <!-- API Key (for custom endpoints or providers that require it) -->
+                  @if (editHostingType === 'CUSTOM' || selectedProviderEntry()?.requiresApiKey) {
                     <div class="squadron-config__field">
                       <label class="squadron-config__label">{{ 'settings.squadronConfig.apiKey' | translate }}</label>
                       <input class="squadron-config__input" type="password" [(ngModel)]="editApiKeyRef"
@@ -271,6 +275,9 @@ export class SquadronConfigComponent implements OnInit {
 
   /** Models available for the currently selected provider. */
   availableModels = signal<ModelCatalogEntry[]>([]);
+
+  /** The currently selected provider catalog entry (if any). */
+  selectedProviderEntry = signal<ProviderCatalogEntry | null>(null);
 
   ngOnInit(): void {
     this.loadSquadron();
@@ -456,7 +463,8 @@ export class SquadronConfigComponent implements OnInit {
   }
 
   private updateAvailableModels(): void {
-    const provider = PROVIDER_CATALOG.find(p => p.id === this.editProvider);
+    const provider = PROVIDER_CATALOG.find(p => p.id === this.editProvider) ?? null;
+    this.selectedProviderEntry.set(provider);
     this.availableModels.set(provider?.models ?? []);
   }
 }

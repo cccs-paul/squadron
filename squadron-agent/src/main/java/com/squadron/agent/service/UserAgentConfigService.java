@@ -29,14 +29,8 @@ public class UserAgentConfigService {
 
     /** Default agent names seeded for new users. Each entry: {name, type, provider, model, description}. */
     private static final List<String[]> DEFAULT_AGENTS = List.of(
-            new String[]{"Sol", "GENERAL", "github-copilot", "claude-sonnet-4", "Claude Sonnet 4 via GitHub Copilot"},
-            new String[]{"Titan", "GENERAL", "github-copilot", "gpt-4o", "GPT-4o via GitHub Copilot"},
-            new String[]{"Vega", "GENERAL", "anthropic", "claude-sonnet-4", "Claude Sonnet 4 via Anthropic"},
-            new String[]{"Comet", "GENERAL", "openai", "o3", "o3 via OpenAI"},
-            new String[]{"Pulsar", "GENERAL", "github-copilot", "o4-mini", "o4-mini via GitHub Copilot"},
-            new String[]{"Quasar", "GENERAL", "google", "gemini-2.5-pro", "Gemini 2.5 Pro via Google"},
-            new String[]{"Nova", "GENERAL", "anthropic", "claude-opus-4", "Claude Opus 4 via Anthropic"},
-            new String[]{"Nebula", "GENERAL", "ollama", "llama3.3", "Llama 3.3 (local)"}
+            new String[]{"Sol", "GENERAL", "ollama", "gemma4", "Gemma 4 (local)"},
+            new String[]{"Titan", "GENERAL", "ollama", "gemma4", "Gemma 4 (local)"}
     );
 
     private final UserAgentConfigRepository repository;

@@ -321,6 +321,7 @@
       "selectModel": "Select a model...",
       "customProvider": "Custom (OpenAI-compatible)",
       "baseUrl": "Base URL",
+      "baseUrlHint": "Default: {{ url }} — leave blank to use default",
       "apiKey": "API Key",
       "apiKeyPlaceholder": "Enter API key for this endpoint",
       "description": "Description",

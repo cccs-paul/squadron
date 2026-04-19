@@ -80,10 +80,10 @@ class UserAgentConfigControllerTest {
     @WithMockUser(roles = {"developer"})
     void should_getMySquadron_when_authenticated() throws Exception {
         List<UserAgentConfig> agents = List.of(
-                buildAgent("Sol", "GENERAL", 0, "github-copilot", "claude-sonnet-4",
-                        "PLATFORM", "Claude Sonnet 4 via GitHub Copilot"),
-                buildAgent("Titan", "GENERAL", 1, "github-copilot", "gpt-4o",
-                        "PLATFORM", "GPT-4o via GitHub Copilot")
+                buildAgent("Sol", "GENERAL", 0, "ollama", "gemma4",
+                        "SELF_HOSTED", "Gemma 4 (local)"),
+                buildAgent("Titan", "GENERAL", 1, "ollama", "gemma4",
+                        "SELF_HOSTED", "Gemma 4 (local)")
         );
 
         when(service.getUserSquadron(tenantId, userId)).thenReturn(agents);
@@ -94,12 +94,12 @@ class UserAgentConfigControllerTest {
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].agentName").value("Sol"))
                 .andExpect(jsonPath("$.data[0].agentType").value("GENERAL"))
-                .andExpect(jsonPath("$.data[0].provider").value("github-copilot"))
-                .andExpect(jsonPath("$.data[0].model").value("claude-sonnet-4"))
-                .andExpect(jsonPath("$.data[0].hostingType").value("PLATFORM"))
-                .andExpect(jsonPath("$.data[0].description").value("Claude Sonnet 4 via GitHub Copilot"))
+                .andExpect(jsonPath("$.data[0].provider").value("ollama"))
+                .andExpect(jsonPath("$.data[0].model").value("gemma4"))
+                .andExpect(jsonPath("$.data[0].hostingType").value("SELF_HOSTED"))
+                .andExpect(jsonPath("$.data[0].description").value("Gemma 4 (local)"))
                 .andExpect(jsonPath("$.data[1].agentName").value("Titan"))
-                .andExpect(jsonPath("$.data[1].description").value("GPT-4o via GitHub Copilot"));
+                .andExpect(jsonPath("$.data[1].description").value("Gemma 4 (local)"));
 
         verify(service).getUserSquadron(tenantId, userId);
     }
@@ -244,10 +244,10 @@ class UserAgentConfigControllerTest {
     @WithMockUser(roles = {"developer"})
     void should_resetToDefaults_when_authenticated() throws Exception {
         List<UserAgentConfig> defaults = List.of(
-                buildAgent("Sol", "GENERAL", 0, "github-copilot", "claude-sonnet-4",
-                        "PLATFORM", "Claude Sonnet 4 via GitHub Copilot"),
-                buildAgent("Titan", "GENERAL", 1, "github-copilot", "gpt-4o",
-                        "PLATFORM", "GPT-4o via GitHub Copilot")
+                buildAgent("Sol", "GENERAL", 0, "ollama", "gemma4",
+                        "SELF_HOSTED", "Gemma 4 (local)"),
+                buildAgent("Titan", "GENERAL", 1, "ollama", "gemma4",
+                        "SELF_HOSTED", "Gemma 4 (local)")
         );
 
         when(service.resetToDefaults(tenantId, userId)).thenReturn(defaults);
@@ -257,7 +257,7 @@ class UserAgentConfigControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].agentName").value("Sol"))
-                .andExpect(jsonPath("$.data[0].description").value("Claude Sonnet 4 via GitHub Copilot"));
+                .andExpect(jsonPath("$.data[0].description").value("Gemma 4 (local)"));
 
         verify(service).resetToDefaults(tenantId, userId);
     }

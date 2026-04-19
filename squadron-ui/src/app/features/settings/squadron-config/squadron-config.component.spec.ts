@@ -23,10 +23,10 @@ describe('SquadronConfigComponent', () => {
       agentName: 'Titan',
       agentType: 'GENERAL',
       displayOrder: 0,
-      provider: 'github-copilot',
-      model: 'gpt-4o',
-      hostingType: 'PLATFORM',
-      description: 'GPT-4o via GitHub Copilot',
+      provider: 'ollama',
+      model: 'gemma4',
+      hostingType: 'SELF_HOSTED',
+      description: 'Gemma 4 (local)',
       enabled: true,
       ...overrides,
     };
@@ -45,13 +45,13 @@ describe('SquadronConfigComponent', () => {
     serviceSpy.getMySquadron.and.returnValue(of([
       mockAgent({
         id: 'a1', agentName: 'Sol', displayOrder: 0,
-        provider: 'github-copilot', model: 'claude-sonnet-4',
-        hostingType: 'PLATFORM', description: 'Claude Sonnet 4 via GitHub Copilot',
+        provider: 'ollama', model: 'gemma4',
+        hostingType: 'SELF_HOSTED', description: 'Gemma 4 (local)',
       }),
       mockAgent({
         id: 'a2', agentName: 'Titan', displayOrder: 1,
-        provider: 'github-copilot', model: 'gpt-4o',
-        hostingType: 'PLATFORM', description: 'GPT-4o via GitHub Copilot',
+        provider: 'ollama', model: 'gemma4',
+        hostingType: 'SELF_HOSTED', description: 'Gemma 4 (local)',
       }),
     ]));
     serviceSpy.getLimits.and.returnValue(of({ maxAgentsPerUser: 8 } as SquadronLimits));
@@ -98,36 +98,36 @@ describe('SquadronConfigComponent', () => {
 
   it('should_displayAgentDescriptions_when_loaded', () => {
     const descriptions = fixture.nativeElement.querySelectorAll('.squadron-config__agent-description');
-    expect(descriptions[0].textContent.trim()).toBe('Claude Sonnet 4 via GitHub Copilot');
-    expect(descriptions[1].textContent.trim()).toBe('GPT-4o via GitHub Copilot');
+    expect(descriptions[0].textContent.trim()).toBe('Gemma 4 (local)');
+    expect(descriptions[1].textContent.trim()).toBe('Gemma 4 (local)');
   });
 
   it('should_displayHostingBadges_when_loaded', () => {
     const badges = fixture.nativeElement.querySelectorAll('.squadron-config__hosting-badge');
     expect(badges.length).toBe(2);
-    expect(badges[0].textContent.trim()).toBe('Cloud');
+    expect(badges[0].textContent.trim()).toBe('Local');
   });
 
   it('should_startEditing_when_editClicked', () => {
     component.startEdit(component.agents()[0]);
     expect(component.editingId()).toBe('a1');
     expect(component.editName).toBe('Sol');
-    expect(component.editProvider).toBe('github-copilot');
-    expect(component.editModel).toBe('claude-sonnet-4');
-    expect(component.editHostingType).toBe('PLATFORM');
-    expect(component.editDescription).toBe('Claude Sonnet 4 via GitHub Copilot');
+    expect(component.editProvider).toBe('ollama');
+    expect(component.editModel).toBe('gemma4');
+    expect(component.editHostingType).toBe('SELF_HOSTED');
+    expect(component.editDescription).toBe('Gemma 4 (local)');
   });
 
   it('should_populateFilteredProviders_when_editingPlatformAgent', () => {
     component.startEdit(component.agents()[0]);
-    const platformProviders = PROVIDER_CATALOG.filter(p => p.hostingType === 'PLATFORM');
-    expect(component.filteredProviders().length).toBe(platformProviders.length);
+    const selfHostedProviders = PROVIDER_CATALOG.filter(p => p.hostingType === 'SELF_HOSTED');
+    expect(component.filteredProviders().length).toBe(selfHostedProviders.length);
   });
 
   it('should_populateAvailableModels_when_editingAgentWithProvider', () => {
     component.startEdit(component.agents()[0]);
-    const copilotModels = PROVIDER_CATALOG.find(p => p.id === 'github-copilot')?.models ?? [];
-    expect(component.availableModels().length).toBe(copilotModels.length);
+    const ollamaModels = PROVIDER_CATALOG.find(p => p.id === 'ollama')?.models ?? [];
+    expect(component.availableModels().length).toBe(ollamaModels.length);
   });
 
   it('should_cancelEditing_when_cancelClicked', () => {
@@ -140,8 +140,8 @@ describe('SquadronConfigComponent', () => {
 
   it('should_clearProviderAndModel_when_hostingTypeChanges', () => {
     component.startEdit(component.agents()[0]);
-    component.editProvider = 'github-copilot';
-    component.editModel = 'gpt-4o';
+    component.editProvider = 'ollama';
+    component.editModel = 'gemma4';
 
     component.editHostingType = 'SELF_HOSTED';
     component.onHostingTypeChange();
@@ -152,7 +152,7 @@ describe('SquadronConfigComponent', () => {
 
   it('should_clearModel_when_providerChanges', () => {
     component.startEdit(component.agents()[0]);
-    component.editModel = 'gpt-4o';
+    component.editModel = 'gemma4';
 
     component.onProviderChange();
 
@@ -247,8 +247,8 @@ describe('SquadronConfigComponent', () => {
     const defaults = [
       mockAgent({
         id: 'd1', agentName: 'Sol',
-        provider: 'github-copilot', model: 'claude-sonnet-4',
-        description: 'Claude Sonnet 4 via GitHub Copilot',
+        provider: 'ollama', model: 'gemma4',
+        description: 'Gemma 4 (local)',
       }),
     ];
     serviceSpy.resetToDefaults.and.returnValue(of(defaults));
@@ -335,6 +335,66 @@ describe('SquadronConfigComponent', () => {
     const badge = fixture.nativeElement.querySelector('.squadron-config__hosting-badge--self-hosted');
     expect(badge).toBeTruthy();
     expect(badge.textContent.trim()).toBe('Local');
+  });
+
+  it('should_setSelectedProviderEntry_when_editingAgent', () => {
+    component.startEdit(component.agents()[0]);
+    expect(component.selectedProviderEntry()).toBeTruthy();
+    expect(component.selectedProviderEntry()!.id).toBe('ollama');
+  });
+
+  it('should_showApiKeyField_when_providerRequiresApiKey', () => {
+    component.agents.set([mockAgent({
+      id: 'a1', agentName: 'Claude',
+      provider: 'anthropic', model: 'claude-sonnet-4',
+      hostingType: 'PLATFORM', description: 'Claude Sonnet 4 via Anthropic',
+    })]);
+    fixture.detectChanges();
+
+    component.startEdit(component.agents()[0]);
+    fixture.detectChanges();
+
+    expect(component.selectedProviderEntry()?.requiresApiKey).toBeTrue();
+    const apiKeyInput = fixture.nativeElement.querySelector('input[type="password"]');
+    expect(apiKeyInput).toBeTruthy();
+  });
+
+  it('should_notShowApiKeyField_when_providerDoesNotRequireApiKey', () => {
+    component.agents.set([mockAgent({
+      id: 'a1', agentName: 'Copilot',
+      provider: 'github-copilot', model: 'gpt-4o',
+      hostingType: 'PLATFORM', description: 'GPT-4o via GitHub Copilot',
+    })]);
+    fixture.detectChanges();
+
+    component.startEdit(component.agents()[0]);
+    fixture.detectChanges();
+
+    expect(component.selectedProviderEntry()?.requiresApiKey).toBeFalsy();
+    const apiKeyInput = fixture.nativeElement.querySelector('input[type="password"]');
+    expect(apiKeyInput).toBeFalsy();
+  });
+
+  it('should_showBaseUrlField_when_providerHasDefaultBaseUrl', () => {
+    component.agents.set([mockAgent({
+      id: 'a1', agentName: 'OpenAI Agent',
+      provider: 'openai', model: 'gpt-4o',
+      hostingType: 'PLATFORM', description: 'GPT-4o via OpenAI',
+    })]);
+    fixture.detectChanges();
+
+    component.startEdit(component.agents()[0]);
+    fixture.detectChanges();
+
+    expect(component.selectedProviderEntry()?.defaultBaseUrl).toBe('https://api.openai.com/v1');
+  });
+
+  it('should_clearSelectedProviderEntry_when_hostingTypeChanges', () => {
+    component.startEdit(component.agents()[0]);
+    expect(component.selectedProviderEntry()).toBeTruthy();
+
+    component.onHostingTypeChange();
+    expect(component.selectedProviderEntry()).toBeNull();
   });
 });
 

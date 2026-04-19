@@ -134,19 +134,24 @@ public class HealthStatusController {
     }
 
     private Mono<Map<String, String>> checkService(String name, String baseUrl) {
-        return webClient.get()
-                .uri(baseUrl + "/actuator/health")
-                .retrieve()
-                .bodyToMono(Map.class)
-                .timeout(HEALTH_CHECK_TIMEOUT)
-                .map(body -> {
-                    String status = extractStatus(body);
-                    return serviceEntry(status, baseUrl);
-                })
-                .onErrorResume(ex -> {
-                    log.debug("Health check failed for service '{}' at {}: {}", name, baseUrl, ex.getMessage());
-                    return Mono.just(serviceEntry(STATUS_DOWN, baseUrl));
-                });
+        try {
+            return webClient.get()
+                    .uri(baseUrl + "/actuator/health")
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .timeout(HEALTH_CHECK_TIMEOUT)
+                    .map(body -> {
+                        String status = extractStatus(body);
+                        return serviceEntry(status, baseUrl);
+                    })
+                    .onErrorResume(ex -> {
+                        log.debug("Health check failed for service '{}' at {}: {}", name, baseUrl, ex.getMessage());
+                        return Mono.just(serviceEntry(STATUS_DOWN, baseUrl));
+                    });
+        } catch (Exception ex) {
+            log.debug("Health check error for service '{}': {}", name, ex.getMessage());
+            return Mono.just(serviceEntry(STATUS_DOWN, baseUrl));
+        }
     }
 
     private Mono<Map<String, Map<String, String>>> checkAllInfrastructure() {
@@ -194,15 +199,20 @@ public class HealthStatusController {
      * Check Redis health by executing a simple PING command via the reactive Redis template.
      */
     private Mono<Map<String, String>> checkRedis() {
-        return redisTemplate.getConnectionFactory()
-                .getReactiveConnection()
-                .ping()
-                .timeout(HEALTH_CHECK_TIMEOUT)
-                .map(pong -> infraEntry(STATUS_UP))
-                .onErrorResume(ex -> {
-                    log.debug("Redis health check failed: {}", ex.getMessage());
-                    return Mono.just(infraEntry(STATUS_DOWN));
-                });
+        try {
+            return redisTemplate.getConnectionFactory()
+                    .getReactiveConnection()
+                    .ping()
+                    .timeout(HEALTH_CHECK_TIMEOUT)
+                    .map(pong -> infraEntry(STATUS_UP))
+                    .onErrorResume(ex -> {
+                        log.debug("Redis health check failed: {}", ex.getMessage());
+                        return Mono.just(infraEntry(STATUS_DOWN));
+                    });
+        } catch (Exception ex) {
+            log.debug("Redis connection factory error: {}", ex.getMessage());
+            return Mono.just(infraEntry(STATUS_DOWN));
+        }
     }
 
     /**
@@ -238,7 +248,7 @@ public class HealthStatusController {
             return Mono.just(infraEntry("UNKNOWN"));
         }
         return webClient.get()
-                .uri(keycloakUrl + "/health")
+                .uri(keycloakUrl + "/health/ready")
                 .retrieve()
                 .bodyToMono(Map.class)
                 .timeout(HEALTH_CHECK_TIMEOUT)
