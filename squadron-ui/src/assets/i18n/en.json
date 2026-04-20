@@ -32,7 +32,9 @@
     "searchPlaceholder": "Search tasks, projects, reviews...",
     "settings": "Settings",
     "signOut": "Sign out",
-    "toggleSidebar": "Toggle sidebar"
+    "toggleSidebar": "Toggle sidebar",
+    "darkMode": "Dark mode",
+    "lightMode": "Light mode"
   },
   "sidebar": {
     "dashboard": "Dashboard",
@@ -45,7 +47,8 @@
     "teams": "Teams",
     "securityGroups": "Security Groups",
     "permissions": "Permissions",
-    "authProviders": "Auth Providers"
+    "authProviders": "Auth Providers",
+    "devTools": "Dev Tools"
   },
   "login": {
     "title": "Squadron",
@@ -540,6 +543,9 @@
         "modeBuild": "Build",
         "agentLabel": "Agent",
         "selectAgent": "Select an agent...",
+        "projectLabel": "Project (Git Remote)",
+        "selectProject": "Select a project...",
+        "noGitRemoteProjects": "No projects with a configured Git remote",
         "cancel": "Cancel",
         "create": "Create Task",
         "noTasks": "No ticketless tasks",
@@ -1604,6 +1610,87 @@
   "auth": {
     "oidcCallback": {
       "completingSignIn": "Completing sign in..."
+    }
+  },
+  "devTools": {
+    "title": "Developer Tools",
+    "subtitle": "System status, API reference, and debugging information",
+    "refresh": "Refresh Health",
+    "refreshing": "Refreshing...",
+    "lastRefresh": "Last refreshed",
+    "overallStatus": "Overall Status",
+    "port": "Port",
+    "defaultPort": "Default port",
+    "method": "Method",
+    "endpoint": "Endpoint",
+    "description": "Description",
+    "copy": "Copy",
+    "category": "Category",
+    "technologies": "Technologies",
+    "apiIntro": "All API endpoints are accessible through the gateway (port 8443). Authentication is required via a Bearer JWT token in the Authorization header, except for /api/health/status and /api/auth/* endpoints.",
+    "sections": {
+      "services": "Microservices",
+      "infrastructure": "Infrastructure",
+      "apiReference": "API Reference",
+      "techStack": "Technology Stack",
+      "help": "Architecture & Documentation"
+    },
+    "help": {
+      "architecture": {
+        "title": "Architecture Overview",
+        "desc": "Squadron is a Maven multi-module monorepo with 11 microservices communicating via NATS JetStream (async) and Spring Cloud OpenFeign (sync REST).",
+        "multiTenancy": "Multi-tenancy",
+        "multiTenancyDesc": "Row-level isolation with tenant_id on all tables. All API operations are scoped to the authenticated user's tenant.",
+        "stateMachine": "Workflow Engine",
+        "stateMachineDesc": "Custom PostgreSQL state machine for task lifecycle management. States: OPEN, IN_PROGRESS, IN_REVIEW, QA, DONE, CLOSED.",
+        "adapters": "Platform Adapters",
+        "adaptersDesc": "Adapter pattern for ticketing (JIRA, GitHub Issues, GitLab, Azure DevOps) and Git (GitHub, GitLab, Bitbucket).",
+        "config": "Hierarchical Configuration",
+        "configDesc": "Settings cascade: default > tenant > team > user (most specific wins)."
+      },
+      "auth": {
+        "title": "Authentication & Authorization",
+        "desc": "Squadron supports both internal authentication and OIDC federation via Keycloak.",
+        "jwt": "Bearer JWT tokens with RS256 signing. Include in Authorization header for all API calls.",
+        "oidc": "OIDC login: redirect to /api/auth/oidc/{provider}/authorize, callback at /auth/callback.",
+        "tokens": "User platform tokens (for external APIs like JIRA, GitHub) are encrypted and stored per-user."
+      },
+      "database": {
+        "title": "Database Schema",
+        "desc": "Each microservice has its own PostgreSQL database with Flyway-managed migrations. All tables have UUID primary keys, tenant_id, and created_at columns. JSONB is used for flexible fields.",
+        "identity": "Users, tenants, roles, permissions, auth providers",
+        "config": "Hierarchical configuration, tenant/team/user overrides",
+        "orchestrator": "Projects, tasks, workflow definitions, state transitions",
+        "platform": "Platform connections, OAuth tokens, external sync state",
+        "agent": "Agent configs, sessions, conversations, tool calls",
+        "workspace": "Sandbox containers, workspace provisioning state",
+        "git": "Branch strategies, clone URLs, repository metadata",
+        "review": "Code reviews, review comments, diff analysis",
+        "notification": "Notification preferences, delivery history, templates"
+      },
+      "conventions": {
+        "title": "Development Conventions",
+        "tables": "Database tables",
+        "tablesDesc": "All tables have id UUID PK, tenant_id UUID NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT NOW().",
+        "packages": "Java packages",
+        "migrations": "Flyway migrations",
+        "config": "Configuration",
+        "configDesc": "Hierarchical: default > tenant > team > user (most specific wins)."
+      },
+      "links": {
+        "title": "Quick Links",
+        "swagger": "Gateway Swagger UI (aggregated)",
+        "gatewayHealth": "Gateway Actuator Health",
+        "aggregatedHealth": "Aggregated Health Status (all services)"
+      },
+      "currentUser": {
+        "title": "Current User (Debug)",
+        "username": "Username",
+        "email": "Email",
+        "tenant": "Tenant",
+        "roles": "Roles",
+        "admin": "Admin"
+      }
     }
   }
 }

@@ -104,6 +104,11 @@ export const routes: Routes = [
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },
       {
+        path: 'dev-tools',
+        loadComponent: () =>
+          import('./features/dev-tools/dev-tools.component').then((m) => m.DevToolsComponent),
+      },
+      {
         path: 'admin',
         canActivate: [adminGuard],
         loadChildren: () =>

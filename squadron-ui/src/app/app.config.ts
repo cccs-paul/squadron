@@ -8,9 +8,14 @@ import { importProvidersFrom } from '@angular/core';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { I18nService } from './core/services/i18n.service';
+import { ThemeService } from './core/services/theme.service';
 
 export function initI18n(i18nService: I18nService): () => void {
   return () => i18nService.init();
+}
+
+export function initTheme(themeService: ThemeService): () => void {
+  return () => themeService.init();
 }
 
 export const appConfig: ApplicationConfig = {
@@ -32,6 +37,12 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: initI18n,
       deps: [I18nService],
+      multi: true,
+    },
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initTheme,
+      deps: [ThemeService],
       multi: true,
     },
   ],

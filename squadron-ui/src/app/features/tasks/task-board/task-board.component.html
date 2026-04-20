@@ -468,7 +468,7 @@
           <div class="agent-modal__field">
             <label class="agent-modal__label">{{ 'tasks.board.ticketless.titleLabel' | translate }}</label>
             <input type="text" class="sq-input" [placeholder]="'tasks.board.ticketless.titlePlaceholder' | translate"
-              [ngModel]="ticketlessTitle()" (ngModelChange)="ticketlessTitle.set($event)" />
+              [ngModel]="ticketlessTitle()" (ngModelChange)="onTicketlessTitleChange($event)" />
           </div>
 
           <div class="agent-modal__field">
@@ -477,6 +477,19 @@
               [placeholder]="'tasks.board.ticketless.promptPlaceholder' | translate"
               [ngModel]="ticketlessPrompt()" (ngModelChange)="ticketlessPrompt.set($event)"
               rows="4"></textarea>
+          </div>
+
+          <div class="agent-modal__field">
+            <label class="agent-modal__label">{{ 'tasks.board.ticketless.projectLabel' | translate }}</label>
+            <select class="sq-select" [ngModel]="ticketlessProjectId()" (ngModelChange)="onTicketlessProjectChange($event)">
+              <option value="">{{ 'tasks.board.ticketless.selectProject' | translate }}</option>
+              @for (project of gitRemoteProjects(); track project.id) {
+                <option [value]="project.id">{{ project.name }}</option>
+              }
+            </select>
+            @if (gitRemoteProjects().length === 0) {
+              <small class="sq-hint sq-hint--warning">{{ 'tasks.board.ticketless.noGitRemoteProjects' | translate }}</small>
+            }
           </div>
 
           <div class="agent-modal__field">
@@ -515,7 +528,7 @@
             {{ 'tasks.board.ticketless.cancel' | translate }}
           </button>
           <button class="sq-btn sq-btn--primary"
-            [disabled]="creatingTicketless() || !ticketlessTitle().trim() || !ticketlessPrompt().trim() || !ticketlessAgentConfigId()"
+            [disabled]="creatingTicketless() || !ticketlessTitle().trim() || !ticketlessPrompt().trim() || !ticketlessAgentConfigId() || !ticketlessProjectId()"
             (click)="createTicketlessTask()">
             @if (creatingTicketless()) { {{ 'tasks.board.ticketless.creating' | translate }} }
             @else { {{ 'tasks.board.ticketless.create' | translate }} }

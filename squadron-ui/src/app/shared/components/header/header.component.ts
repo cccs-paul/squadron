@@ -2,6 +2,7 @@ import { Component, inject, output } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../../core/auth/auth.service';
 import { I18nService, SupportedLanguage } from '../../../core/services/i18n.service';
+import { ThemeService } from '../../../core/services/theme.service';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 import { AvatarComponent } from '../avatar/avatar.component';
 
@@ -15,6 +16,7 @@ import { AvatarComponent } from '../avatar/avatar.component';
 export class HeaderComponent {
   private authService = inject(AuthService);
   readonly i18n = inject(I18nService);
+  readonly theme = inject(ThemeService);
 
   readonly user = this.authService.user;
   readonly menuToggle = output<void>();
@@ -34,6 +36,14 @@ export class HeaderComponent {
   switchLang(lang: SupportedLanguage): void {
     this.i18n.switchLanguage(lang);
     this.langMenuOpen = false;
+  }
+
+  toggleTheme(): void {
+    this.theme.toggleTheme();
+    const userId = this.authService.user()?.id;
+    if (userId) {
+      this.theme.persistThemeToBackend(userId);
+    }
   }
 
   logout(): void {

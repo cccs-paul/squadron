@@ -118,6 +118,7 @@ export interface CreateTicketlessTaskRequest {
   createBranch: boolean;
   agentMode: 'PLAN' | 'BUILD';
   agentConfigId: string;
+  projectId: string;
 }
 
 /** A ticketless task (extends Task with ticketless-specific fields) */

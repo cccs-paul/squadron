@@ -32,7 +32,9 @@
     "searchPlaceholder": "Rechercher des tâches, projets, revues...",
     "settings": "Paramètres",
     "signOut": "Se déconnecter",
-    "toggleSidebar": "Basculer la barre latérale"
+    "toggleSidebar": "Basculer la barre latérale",
+    "darkMode": "Mode sombre",
+    "lightMode": "Mode clair"
   },
   "sidebar": {
     "dashboard": "Tableau de bord",
@@ -45,7 +47,8 @@
     "teams": "Équipes",
     "securityGroups": "Groupes de sécurité",
     "permissions": "Permissions",
-    "authProviders": "Fournisseurs d'authentification"
+    "authProviders": "Fournisseurs d'authentification",
+    "devTools": "Outils dev"
   },
   "login": {
     "title": "Squadron",
@@ -540,6 +543,9 @@
         "modeBuild": "Construire",
         "agentLabel": "Agent",
         "selectAgent": "Sélectionner un agent...",
+        "projectLabel": "Projet (dépôt Git)",
+        "selectProject": "Sélectionner un projet...",
+        "noGitRemoteProjects": "Aucun projet avec un dépôt Git configuré",
         "cancel": "Annuler",
         "create": "Créer la tâche",
         "noTasks": "Aucune tâche sans ticket",
@@ -1604,6 +1610,87 @@
   "auth": {
     "oidcCallback": {
       "completingSignIn": "Connexion en cours..."
+    }
+  },
+  "devTools": {
+    "title": "Outils développeur",
+    "subtitle": "État du système, référence API et informations de débogage",
+    "refresh": "Actualiser",
+    "refreshing": "Actualisation...",
+    "lastRefresh": "Dernière actualisation",
+    "overallStatus": "État général",
+    "port": "Port",
+    "defaultPort": "Port par défaut",
+    "method": "Méthode",
+    "endpoint": "Point d'accès",
+    "description": "Description",
+    "copy": "Copier",
+    "category": "Catégorie",
+    "technologies": "Technologies",
+    "apiIntro": "Tous les points d'accès API sont accessibles via la passerelle (port 8443). L'authentification est requise via un jeton JWT Bearer dans l'en-tête Authorization, sauf pour /api/health/status et /api/auth/*.",
+    "sections": {
+      "services": "Microservices",
+      "infrastructure": "Infrastructure",
+      "apiReference": "Référence API",
+      "techStack": "Stack technique",
+      "help": "Architecture et documentation"
+    },
+    "help": {
+      "architecture": {
+        "title": "Vue d'ensemble de l'architecture",
+        "desc": "Squadron est un monorepo Maven multi-module avec 11 microservices communiquant via NATS JetStream (asynchrone) et Spring Cloud OpenFeign (REST synchrone).",
+        "multiTenancy": "Multi-locataire",
+        "multiTenancyDesc": "Isolation au niveau des lignes avec tenant_id sur toutes les tables. Toutes les opérations API sont limitées au locataire de l'utilisateur authentifié.",
+        "stateMachine": "Moteur de workflow",
+        "stateMachineDesc": "Machine à états PostgreSQL personnalisée pour la gestion du cycle de vie des tâches.",
+        "adapters": "Adaptateurs de plateformes",
+        "adaptersDesc": "Patron adaptateur pour les plateformes de tickets (JIRA, GitHub Issues, GitLab, Azure DevOps) et Git (GitHub, GitLab, Bitbucket).",
+        "config": "Configuration hiérarchique",
+        "configDesc": "Les paramètres en cascade : défaut > locataire > équipe > utilisateur (le plus spécifique l'emporte)."
+      },
+      "auth": {
+        "title": "Authentification et autorisation",
+        "desc": "Squadron prend en charge l'authentification interne et la fédération OIDC via Keycloak.",
+        "jwt": "Jetons JWT Bearer avec signature RS256. À inclure dans l'en-tête Authorization pour tous les appels API.",
+        "oidc": "Connexion OIDC : rediriger vers /api/auth/oidc/{provider}/authorize, rappel à /auth/callback.",
+        "tokens": "Les jetons de plateforme utilisateur (pour les API externes comme JIRA, GitHub) sont chiffrés et stockés par utilisateur."
+      },
+      "database": {
+        "title": "Schéma de base de données",
+        "desc": "Chaque microservice possède sa propre base PostgreSQL avec des migrations gérées par Flyway. Toutes les tables ont des clés primaires UUID, tenant_id et created_at. JSONB est utilisé pour les champs flexibles.",
+        "identity": "Utilisateurs, locataires, rôles, permissions, fournisseurs d'authentification",
+        "config": "Configuration hiérarchique, surcharges locataire/équipe/utilisateur",
+        "orchestrator": "Projets, tâches, définitions de workflow, transitions d'état",
+        "platform": "Connexions de plateformes, jetons OAuth, état de synchronisation",
+        "agent": "Configs d'agents, sessions, conversations, appels d'outils",
+        "workspace": "Conteneurs sandbox, état de provisionnement",
+        "git": "Stratégies de branches, URLs de clonage, métadonnées de dépôt",
+        "review": "Revues de code, commentaires, analyse de diff",
+        "notification": "Préférences de notification, historique de livraison, modèles"
+      },
+      "conventions": {
+        "title": "Conventions de développement",
+        "tables": "Tables de base de données",
+        "tablesDesc": "Toutes les tables ont id UUID PK, tenant_id UUID NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT NOW().",
+        "packages": "Packages Java",
+        "migrations": "Migrations Flyway",
+        "config": "Configuration",
+        "configDesc": "Hiérarchique : défaut > locataire > équipe > utilisateur (le plus spécifique l'emporte)."
+      },
+      "links": {
+        "title": "Liens rapides",
+        "swagger": "Swagger UI de la passerelle (agrégé)",
+        "gatewayHealth": "Santé Actuator de la passerelle",
+        "aggregatedHealth": "État de santé agrégé (tous les services)"
+      },
+      "currentUser": {
+        "title": "Utilisateur actuel (débogage)",
+        "username": "Nom d'utilisateur",
+        "email": "E-mail",
+        "tenant": "Locataire",
+        "roles": "Rôles",
+        "admin": "Administrateur"
+      }
     }
   }
 }

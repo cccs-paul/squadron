@@ -156,11 +156,17 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   ticketlessCreateBranch = signal(false);
   ticketlessAgentMode = signal<'PLAN' | 'BUILD'>('BUILD');
   ticketlessAgentConfigId = signal('');
+  ticketlessProjectId = signal('');
   creatingTicketless = signal(false);
 
   /** Projects that can be synced (have connectionId + externalProjectId configured) */
   syncableProjects = computed(() =>
     this.projects().filter(p => p.connectionId && p.externalProjectId),
+  );
+
+  /** Projects that have a configured Git remote (gitConnectionId) */
+  gitRemoteProjects = computed(() =>
+    this.projects().filter(p => p.gitConnectionId),
   );
 
   /** All tasks flat list for list view */
@@ -901,6 +907,43 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     this.ticketlessCreateBranch.set(false);
     this.ticketlessAgentMode.set('BUILD');
     this.ticketlessAgentConfigId.set(this.availableAgents()[0]?.id ?? '');
+    // Default to selected project if it has a git remote, otherwise empty (user must pick)
+    const selected = this.selectedProject();
+    this.ticketlessProjectId.set(selected?.gitConnectionId ? selected.id : '');
+    this.applyBranchTemplate();
+  }
+
+  /** Re-apply the branch naming template when project or title changes */
+  onTicketlessProjectChange(projectId: string): void {
+    this.ticketlessProjectId.set(projectId);
+    this.applyBranchTemplate();
+  }
+
+  onTicketlessTitleChange(title: string): void {
+    this.ticketlessTitle.set(title);
+    this.applyBranchTemplate();
+  }
+
+  private applyBranchTemplate(): void {
+    const projectId = this.ticketlessProjectId();
+    if (!projectId) return;
+
+    const project = this.projectMap()[projectId];
+    if (!project?.branchNamingTemplate) return;
+
+    const title = this.ticketlessTitle().trim();
+    const slug = title
+      ? title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50)
+      : '';
+
+    const branch = project.branchNamingTemplate
+      .replace('{strategy}', 'feature')
+      .replace('{ticket}', 'ticketless')
+      .replace('{description}', slug || 'task')
+      .replace('{type}', 'feat')
+      .replace('{user}', '');
+
+    this.ticketlessBranch.set(branch);
   }
 
   closeTicketlessDialog(): void {
@@ -911,7 +954,8 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     const title = this.ticketlessTitle().trim();
     const prompt = this.ticketlessPrompt().trim();
     const agentConfigId = this.ticketlessAgentConfigId();
-    if (!title || !prompt || !agentConfigId) return;
+    const projectId = this.ticketlessProjectId();
+    if (!title || !prompt || !agentConfigId || !projectId) return;
 
     const request: CreateTicketlessTaskRequest = {
       title,
@@ -920,6 +964,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
       createBranch: this.ticketlessCreateBranch(),
       agentMode: this.ticketlessAgentMode(),
       agentConfigId,
+      projectId,
     };
 
     this.creatingTicketless.set(true);

@@ -1,0 +1,236 @@
+<div class="dev-tools">
+  <div class="dev-tools__header">
+    <div class="dev-tools__title-row">
+      <h1 class="dev-tools__title">{{ 'devTools.title' | translate }}</h1>
+      <span class="dev-tools__subtitle">{{ 'devTools.subtitle' | translate }}</span>
+    </div>
+    <div class="dev-tools__actions">
+      <button class="sq-btn sq-btn--secondary sq-btn--sm" (click)="refreshHealth()" [disabled]="loading()">
+        @if (loading()) { {{ 'devTools.refreshing' | translate }} }
+        @else { {{ 'devTools.refresh' | translate }} }
+      </button>
+      @if (lastRefreshed()) {
+        <span class="dev-tools__last-refresh">{{ 'devTools.lastRefresh' | translate }}: {{ lastRefreshed() | date:'HH:mm:ss' }}</span>
+      }
+    </div>
+  </div>
+
+  <!-- Overall Status Banner -->
+  @if (healthData()) {
+    <div class="dev-tools__banner" [class]="'dev-tools__banner--' + (healthData()!.status | lowercase)">
+      <span class="dev-tools__banner-dot" [class]="statusClass(healthData()!.status)"></span>
+      <strong>{{ 'devTools.overallStatus' | translate }}:</strong>
+      <span>{{ healthData()!.status }}</span>
+      <span class="dev-tools__banner-time">{{ healthData()!.timestamp | date:'medium' }}</span>
+    </div>
+  }
+
+  <!-- Services Section -->
+  <section class="dev-tools__section">
+    <button class="dev-tools__section-header" (click)="toggleSection('services')">
+      <h2 class="dev-tools__section-title">{{ 'devTools.sections.services' | translate }}</h2>
+      <span class="dev-tools__section-toggle">{{ expandedSection() === 'services' ? '&#9650;' : '&#9660;' }}</span>
+    </button>
+    @if (expandedSection() === 'services') {
+      <div class="dev-tools__section-body">
+        <div class="dev-tools__grid">
+          @for (svc of services; track svc.name) {
+            <div class="dev-tools__card">
+              <div class="dev-tools__card-header">
+                <span class="dev-tools__card-name">{{ svc.name }}</span>
+                <span class="dev-tools__status-badge" [class]="statusClass(getServiceStatus(svc.name))">
+                  {{ getServiceStatus(svc.name) }}
+                </span>
+              </div>
+              <p class="dev-tools__card-desc">{{ svc.description }}</p>
+              <div class="dev-tools__card-meta">
+                <span class="dev-tools__card-port">{{ 'devTools.port' | translate }}: {{ svc.port }}</span>
+              </div>
+              <div class="dev-tools__card-actions">
+                <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="openSwagger(svc.port)">Swagger UI</button>
+                <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="openActuator(svc.port)">Actuator</button>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </section>
+
+  <!-- Infrastructure Section -->
+  <section class="dev-tools__section">
+    <button class="dev-tools__section-header" (click)="toggleSection('infrastructure')">
+      <h2 class="dev-tools__section-title">{{ 'devTools.sections.infrastructure' | translate }}</h2>
+      <span class="dev-tools__section-toggle">{{ expandedSection() === 'infrastructure' ? '&#9650;' : '&#9660;' }}</span>
+    </button>
+    @if (expandedSection() === 'infrastructure') {
+      <div class="dev-tools__section-body">
+        <div class="dev-tools__grid dev-tools__grid--2">
+          @for (infra of infrastructure; track infra.name) {
+            <div class="dev-tools__card">
+              <div class="dev-tools__card-header">
+                <span class="dev-tools__card-name">{{ infra.name }}</span>
+                <span class="dev-tools__status-badge" [class]="statusClass(getInfraStatus(infra.name))">
+                  {{ getInfraStatus(infra.name) }}
+                </span>
+              </div>
+              <p class="dev-tools__card-desc">{{ infra.description }}</p>
+              <div class="dev-tools__card-meta">
+                <span class="dev-tools__card-port">{{ 'devTools.defaultPort' | translate }}: {{ infra.defaultPort }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </section>
+
+  <!-- API Reference Section -->
+  <section class="dev-tools__section">
+    <button class="dev-tools__section-header" (click)="toggleSection('api')">
+      <h2 class="dev-tools__section-title">{{ 'devTools.sections.apiReference' | translate }}</h2>
+      <span class="dev-tools__section-toggle">{{ expandedSection() === 'api' ? '&#9650;' : '&#9660;' }}</span>
+    </button>
+    @if (expandedSection() === 'api') {
+      <div class="dev-tools__section-body">
+        <p class="dev-tools__section-intro">{{ 'devTools.apiIntro' | translate }}</p>
+        <div class="dev-tools__table-wrap">
+          <table class="sq-table">
+            <thead>
+              <tr>
+                <th>{{ 'devTools.method' | translate }}</th>
+                <th>{{ 'devTools.endpoint' | translate }}</th>
+                <th>{{ 'devTools.description' | translate }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (ep of apiEndpoints; track ep.path) {
+                <tr>
+                  <td><span class="dev-tools__method" [class]="methodClass(ep.method)">{{ ep.method }}</span></td>
+                  <td><code class="dev-tools__path">{{ ep.path }}</code></td>
+                  <td>{{ ep.description }}</td>
+                  <td><button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="copyToClipboard(ep.path)">{{ 'devTools.copy' | translate }}</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  </section>
+
+  <!-- Technology Stack Section -->
+  <section class="dev-tools__section">
+    <button class="dev-tools__section-header" (click)="toggleSection('tech')">
+      <h2 class="dev-tools__section-title">{{ 'devTools.sections.techStack' | translate }}</h2>
+      <span class="dev-tools__section-toggle">{{ expandedSection() === 'tech' ? '&#9650;' : '&#9660;' }}</span>
+    </button>
+    @if (expandedSection() === 'tech') {
+      <div class="dev-tools__section-body">
+        <div class="dev-tools__table-wrap">
+          <table class="sq-table">
+            <thead>
+              <tr>
+                <th>{{ 'devTools.category' | translate }}</th>
+                <th>{{ 'devTools.technologies' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of techStack; track item.category) {
+                <tr>
+                  <td><strong>{{ item.category }}</strong></td>
+                  <td>{{ item.items }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  </section>
+
+  <!-- Architecture & Help Section -->
+  <section class="dev-tools__section">
+    <button class="dev-tools__section-header" (click)="toggleSection('help')">
+      <h2 class="dev-tools__section-title">{{ 'devTools.sections.help' | translate }}</h2>
+      <span class="dev-tools__section-toggle">{{ expandedSection() === 'help' ? '&#9650;' : '&#9660;' }}</span>
+    </button>
+    @if (expandedSection() === 'help') {
+      <div class="dev-tools__section-body dev-tools__help">
+        <div class="dev-tools__help-card">
+          <h3>{{ 'devTools.help.architecture.title' | translate }}</h3>
+          <p>{{ 'devTools.help.architecture.desc' | translate }}</p>
+          <ul>
+            <li><strong>{{ 'devTools.help.architecture.multiTenancy' | translate }}:</strong> {{ 'devTools.help.architecture.multiTenancyDesc' | translate }}</li>
+            <li><strong>{{ 'devTools.help.architecture.stateMachine' | translate }}:</strong> {{ 'devTools.help.architecture.stateMachineDesc' | translate }}</li>
+            <li><strong>{{ 'devTools.help.architecture.adapters' | translate }}:</strong> {{ 'devTools.help.architecture.adaptersDesc' | translate }}</li>
+            <li><strong>{{ 'devTools.help.architecture.config' | translate }}:</strong> {{ 'devTools.help.architecture.configDesc' | translate }}</li>
+          </ul>
+        </div>
+
+        <div class="dev-tools__help-card">
+          <h3>{{ 'devTools.help.auth.title' | translate }}</h3>
+          <p>{{ 'devTools.help.auth.desc' | translate }}</p>
+          <ul>
+            <li>{{ 'devTools.help.auth.jwt' | translate }}</li>
+            <li>{{ 'devTools.help.auth.oidc' | translate }}</li>
+            <li>{{ 'devTools.help.auth.tokens' | translate }}</li>
+          </ul>
+        </div>
+
+        <div class="dev-tools__help-card">
+          <h3>{{ 'devTools.help.database.title' | translate }}</h3>
+          <p>{{ 'devTools.help.database.desc' | translate }}</p>
+          <ul>
+            <li><code>squadron_identity</code> - {{ 'devTools.help.database.identity' | translate }}</li>
+            <li><code>squadron_config</code> - {{ 'devTools.help.database.config' | translate }}</li>
+            <li><code>squadron_orchestrator</code> - {{ 'devTools.help.database.orchestrator' | translate }}</li>
+            <li><code>squadron_platform</code> - {{ 'devTools.help.database.platform' | translate }}</li>
+            <li><code>squadron_agent</code> - {{ 'devTools.help.database.agent' | translate }}</li>
+            <li><code>squadron_workspace</code> - {{ 'devTools.help.database.workspace' | translate }}</li>
+            <li><code>squadron_git</code> - {{ 'devTools.help.database.git' | translate }}</li>
+            <li><code>squadron_review</code> - {{ 'devTools.help.database.review' | translate }}</li>
+            <li><code>squadron_notification</code> - {{ 'devTools.help.database.notification' | translate }}</li>
+          </ul>
+        </div>
+
+        <div class="dev-tools__help-card">
+          <h3>{{ 'devTools.help.conventions.title' | translate }}</h3>
+          <ul>
+            <li><strong>{{ 'devTools.help.conventions.tables' | translate }}:</strong> {{ 'devTools.help.conventions.tablesDesc' | translate }}</li>
+            <li><strong>{{ 'devTools.help.conventions.packages' | translate }}:</strong> <code>com.squadron.&lt;module&gt;.&lt;subpackage&gt;</code></li>
+            <li><strong>{{ 'devTools.help.conventions.migrations' | translate }}:</strong> <code>V1__description.sql</code></li>
+            <li><strong>{{ 'devTools.help.conventions.config' | translate }}:</strong> {{ 'devTools.help.conventions.configDesc' | translate }}</li>
+          </ul>
+        </div>
+
+        <div class="dev-tools__help-card">
+          <h3>{{ 'devTools.help.links.title' | translate }}</h3>
+          <ul>
+            <li><a [href]="gatewayBaseUrl + '/swagger-ui.html'" target="_blank">{{ 'devTools.help.links.swagger' | translate }}</a></li>
+            <li><a [href]="gatewayBaseUrl + '/actuator/health'" target="_blank">{{ 'devTools.help.links.gatewayHealth' | translate }}</a></li>
+            <li><a [href]="gatewayBaseUrl + '/api/health/status'" target="_blank">{{ 'devTools.help.links.aggregatedHealth' | translate }}</a></li>
+          </ul>
+        </div>
+
+        <!-- Current User Info (useful for debugging) -->
+        @if (user()) {
+          <div class="dev-tools__help-card">
+            <h3>{{ 'devTools.help.currentUser.title' | translate }}</h3>
+            <table class="sq-table">
+              <tbody>
+                <tr><td><strong>ID</strong></td><td><code>{{ user()!.id }}</code></td></tr>
+                <tr><td><strong>{{ 'devTools.help.currentUser.username' | translate }}</strong></td><td>{{ user()!.username }}</td></tr>
+                <tr><td><strong>{{ 'devTools.help.currentUser.email' | translate }}</strong></td><td>{{ user()!.email }}</td></tr>
+                <tr><td><strong>{{ 'devTools.help.currentUser.tenant' | translate }}</strong></td><td>{{ user()!.tenantName }} (<code>{{ user()!.tenantId }}</code>)</td></tr>
+                <tr><td><strong>{{ 'devTools.help.currentUser.roles' | translate }}</strong></td><td>{{ user()!.roles.join(', ') }}</td></tr>
+                <tr><td><strong>{{ 'devTools.help.currentUser.admin' | translate }}</strong></td><td>{{ isAdmin() ? 'Yes' : 'No' }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+  </section>
+</div>

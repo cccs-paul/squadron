@@ -29,6 +29,7 @@ export class SidebarComponent {
     { labelKey: 'sidebar.projects', route: '/projects', icon: 'projects' },
     { labelKey: 'sidebar.reviews', route: '/reviews', icon: 'reviews' },
     { labelKey: 'sidebar.settings', route: '/settings', icon: 'settings' },
+    { labelKey: 'sidebar.devTools', route: '/dev-tools', icon: 'devtools' },
   ];
 
   readonly adminItems: NavItem[] = [
