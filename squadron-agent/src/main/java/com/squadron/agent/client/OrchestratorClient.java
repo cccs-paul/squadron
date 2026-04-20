@@ -11,4 +11,8 @@ public interface OrchestratorClient {
     @PostMapping("/api/tasks/{taskId}/transition")
     Map<String, Object> transitionTask(@PathVariable("taskId") String taskId,
                                         @RequestBody Map<String, Object> request);
+
+    @PutMapping("/api/tasks/{taskId}/ticketless-status")
+    Map<String, Object> updateTicketlessStatus(@PathVariable("taskId") String taskId,
+                                                @RequestBody Map<String, String> request);
 }

@@ -3,6 +3,7 @@ package com.squadron.orchestrator.controller;
 import com.squadron.common.dto.ApiResponse;
 import com.squadron.common.security.TenantContext;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
+import com.squadron.orchestrator.dto.CreateTicketlessTaskRequest;
 import com.squadron.orchestrator.dto.DelegateTaskRequest;
 import com.squadron.orchestrator.dto.TaskDetailDto;
 import com.squadron.orchestrator.dto.TaskStatsDto;
@@ -180,6 +181,42 @@ public class TaskController {
         UUID tenantId = TenantContext.getTenantId();
         TaskStatsDto stats = taskService.getTaskStats(tenantId);
         return ResponseEntity.ok(ApiResponse.success(stats));
+    }
+
+    // --- Ticketless task endpoints ---
+
+    @PostMapping("/ticketless")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
+    @Operation(summary = "Create a ticketless task", description = "Creates a task directly from the UI without an external ticket")
+    public ResponseEntity<ApiResponse<Task>> createTicketlessTask(
+            @Valid @RequestBody CreateTicketlessTaskRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        // Use tenant from JWT if not provided
+        if (request.getTenantId() == null) {
+            request.setTenantId(UUID.fromString(jwt.getClaimAsString("tenant_id")));
+        }
+        Task task = taskService.createTicketlessTask(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(task));
+    }
+
+    @GetMapping("/ticketless")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer','qa','viewer')")
+    @Operation(summary = "Get ticketless tasks for current tenant")
+    public ResponseEntity<ApiResponse<List<Task>>> getTicketlessTasks() {
+        UUID tenantId = TenantContext.getTenantId();
+        List<Task> tasks = taskService.getTicketlessTasks(tenantId);
+        return ResponseEntity.ok(ApiResponse.success(tasks));
+    }
+
+    @PutMapping("/{id}/ticketless-status")
+    @PreAuthorize("hasAnyRole('squadron-admin','team-lead','developer')")
+    @Operation(summary = "Update the ticketless status of a task")
+    public ResponseEntity<ApiResponse<Task>> updateTicketlessStatus(
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> body) {
+        String status = body.get("status");
+        Task task = taskService.updateTicketlessStatus(id, status);
+        return ResponseEntity.ok(ApiResponse.success(task));
     }
 
     @PostMapping("/sync")

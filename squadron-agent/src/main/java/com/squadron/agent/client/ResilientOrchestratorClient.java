@@ -38,6 +38,11 @@ public class ResilientOrchestratorClient {
                 () -> delegate.transitionTask(taskId, request));
     }
 
+    public Map<String, Object> updateTicketlessStatus(String taskId, Map<String, String> request) {
+        return resilientClient.execute("updateTicketlessStatus",
+                () -> delegate.updateTicketlessStatus(taskId, request));
+    }
+
     public ResilientClient getResilientClient() {
         return resilientClient;
     }

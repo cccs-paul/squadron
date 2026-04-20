@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squadron.common.security.TenantContext;
 import com.squadron.orchestrator.config.SecurityConfig;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
+import com.squadron.orchestrator.dto.CreateTicketlessTaskRequest;
 import com.squadron.orchestrator.dto.DelegateTaskRequest;
 import com.squadron.orchestrator.dto.TaskDetailDto;
 import com.squadron.orchestrator.dto.TaskStatsDto;
@@ -604,5 +605,114 @@ class TaskControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"agentType\":\"CODING\"}"))
             .andExpect(status().isUnauthorized());
+    }
+
+    // --- Ticketless task tests ---
+
+    @Test
+    void should_createTicketlessTask_when_developerRole() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        UUID agentConfigId = UUID.randomUUID();
+
+        CreateTicketlessTaskRequest request = CreateTicketlessTaskRequest.builder()
+                .tenantId(tenantId)
+                .prompt("Implement login page")
+                .branchName("feature/login")
+                .createBranch(true)
+                .agentMode("BUILD")
+                .agentConfigId(agentConfigId)
+                .build();
+
+        Task savedTask = Task.builder()
+                .id(UUID.randomUUID())
+                .tenantId(tenantId)
+                .title("Implement login page")
+                .ticketless(true)
+                .ticketlessStatus("CREATED")
+                .branchName("feature/login")
+                .agentMode("BUILD")
+                .agentConfigId(agentConfigId)
+                .build();
+
+        when(taskService.createTicketlessTask(any(CreateTicketlessTaskRequest.class)))
+                .thenReturn(savedTask);
+
+        mockMvc.perform(post("/api/tasks/ticketless")
+                        .with(jwt().jwt(j -> j.subject(UUID.randomUUID().toString())
+                                .claim("roles", List.of("developer"))
+                                .claim("tenant_id", tenantId.toString()))
+                                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_developer")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.ticketless").value(true))
+                .andExpect(jsonPath("$.data.ticketlessStatus").value("CREATED"))
+                .andExpect(jsonPath("$.data.branchName").value("feature/login"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_getTicketlessTasks_when_authenticated() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        TenantContext.setContext(TenantContext.builder().tenantId(tenantId).build());
+
+        List<Task> tasks = List.of(
+                Task.builder().id(UUID.randomUUID()).tenantId(tenantId).title("T1")
+                        .ticketless(true).ticketlessStatus("CREATED").build(),
+                Task.builder().id(UUID.randomUUID()).tenantId(tenantId).title("T2")
+                        .ticketless(true).ticketlessStatus("COMPLETED").build()
+        );
+
+        when(taskService.getTicketlessTasks(tenantId)).thenReturn(tasks);
+
+        mockMvc.perform(get("/api/tasks/ticketless"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].ticketless").value(true));
+    }
+
+    @Test
+    void should_updateTicketlessStatus_when_developerRole() throws Exception {
+        UUID taskId = UUID.randomUUID();
+
+        Task updatedTask = Task.builder()
+                .id(taskId)
+                .ticketless(true)
+                .ticketlessStatus("BUILDING")
+                .title("Ticketless Task")
+                .build();
+
+        when(taskService.updateTicketlessStatus(eq(taskId), eq("BUILDING")))
+                .thenReturn(updatedTask);
+
+        mockMvc.perform(put("/api/tasks/{id}/ticketless-status", taskId)
+                        .with(jwt().jwt(j -> j.subject(UUID.randomUUID().toString())
+                                .claim("roles", List.of("developer")))
+                                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_developer")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"BUILDING\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.ticketlessStatus").value("BUILDING"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"viewer"})
+    void should_return403_when_viewerTriesToCreateTicketless() throws Exception {
+        CreateTicketlessTaskRequest request = CreateTicketlessTaskRequest.builder()
+                .tenantId(UUID.randomUUID())
+                .prompt("test")
+                .branchName("main")
+                .agentMode("PLAN")
+                .agentConfigId(UUID.randomUUID())
+                .build();
+
+        mockMvc.perform(post("/api/tasks/ticketless")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
     }
 }

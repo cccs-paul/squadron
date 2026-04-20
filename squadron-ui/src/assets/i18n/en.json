@@ -522,6 +522,34 @@
         "skipAgent": "Skip",
         "delegate": "Delegate",
         "delegating": "Delegating..."
+      },
+      "ticketless": {
+        "columnTitle": "Ticketless",
+        "createButton": "New Ticketless Task",
+        "creating": "Creating...",
+        "dialogTitle": "Create Ticketless Task",
+        "titleLabel": "Title",
+        "titlePlaceholder": "Brief task title...",
+        "promptLabel": "Prompt",
+        "promptPlaceholder": "Describe what you want the agent to do...",
+        "branchLabel": "Branch Name",
+        "branchPlaceholder": "e.g. feature/my-task",
+        "createBranchLabel": "Create new branch",
+        "agentModeLabel": "Agent Mode",
+        "modePlan": "Plan",
+        "modeBuild": "Build",
+        "agentLabel": "Agent",
+        "selectAgent": "Select an agent...",
+        "cancel": "Cancel",
+        "create": "Create Task",
+        "noTasks": "No ticketless tasks",
+        "status": {
+          "CREATED": "Created",
+          "PLANNING": "Planning",
+          "BUILDING": "Building",
+          "COMPLETED": "Completed",
+          "FAILED": "Failed"
+        }
       }
     },
     "detail": {

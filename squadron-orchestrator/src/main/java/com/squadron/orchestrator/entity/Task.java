@@ -36,7 +36,7 @@ public class Task {
     @Column(name = "team_id")
     private UUID teamId;
 
-    @Column(name = "project_id", nullable = false)
+    @Column(name = "project_id")
     private UUID projectId;
 
     @Column(name = "external_id")
@@ -62,6 +62,29 @@ public class Task {
 
     @Column(name = "token_usage")
     private Long tokenUsage;
+
+    @Column(nullable = false)
+    @lombok.Builder.Default
+    private Boolean ticketless = false;
+
+    @Column(name = "ticketless_status", length = 50)
+    private String ticketlessStatus;
+
+    @Column(name = "branch_name", length = 500)
+    private String branchName;
+
+    @Column(name = "create_branch")
+    @lombok.Builder.Default
+    private Boolean createBranch = false;
+
+    @Column(name = "agent_mode", length = 50)
+    private String agentMode;
+
+    @Column(name = "agent_config_id")
+    private UUID agentConfigId;
+
+    @Column(columnDefinition = "text")
+    private String prompt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

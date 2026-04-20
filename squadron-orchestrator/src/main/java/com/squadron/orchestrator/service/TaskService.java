@@ -2,14 +2,17 @@ package com.squadron.orchestrator.service;
 
 import com.squadron.common.config.NatsEventPublisher;
 import com.squadron.common.event.TaskStateChangedEvent;
+import com.squadron.common.event.TicketlessTaskCreatedEvent;
 import com.squadron.common.exception.ResourceNotFoundException;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
+import com.squadron.orchestrator.dto.CreateTicketlessTaskRequest;
 import com.squadron.orchestrator.dto.DelegateTaskRequest;
 import com.squadron.orchestrator.dto.TaskDetailDto;
 import com.squadron.orchestrator.dto.TaskStatsDto;
 import com.squadron.orchestrator.dto.TaskWorkflowDto;
 import com.squadron.orchestrator.dto.TransitionRequest;
 import com.squadron.orchestrator.engine.TaskState;
+import com.squadron.orchestrator.engine.TicketlessStatus;
 import com.squadron.orchestrator.engine.WorkflowEngine;
 import com.squadron.orchestrator.entity.Project;
 import com.squadron.orchestrator.entity.ProjectWorkflowMapping;
@@ -187,13 +190,16 @@ public class TaskService {
         Map<UUID, String> taskStateMap = workflows.stream()
                 .collect(Collectors.toMap(TaskWorkflow::getTaskId, TaskWorkflow::getCurrentState));
 
-        // Group tasks by their workflow state
+        // Group tasks by their workflow state (exclude ticketless tasks — they have their own column)
         Map<String, List<Task>> result = new LinkedHashMap<>();
         for (TaskState state : TaskState.values()) {
             result.put(state.name(), new ArrayList<>());
         }
 
         for (Task task : tasks) {
+            if (Boolean.TRUE.equals(task.getTicketless())) {
+                continue; // Ticketless tasks are returned by getTicketlessTasks()
+            }
             String state = taskStateMap.getOrDefault(task.getId(), TaskState.BACKLOG.name());
             result.computeIfAbsent(state, k -> new ArrayList<>()).add(task);
         }
@@ -294,6 +300,77 @@ public class TaskService {
                 .createdAt(task.getCreatedAt() != null ? task.getCreatedAt().toString() : null)
                 .updatedAt(task.getUpdatedAt() != null ? task.getUpdatedAt().toString() : null)
                 .build();
+    }
+
+    // --- Ticketless task methods ---
+
+    /**
+     * Creates a ticketless task and publishes a NATS event to trigger agent execution.
+     */
+    public Task createTicketlessTask(CreateTicketlessTaskRequest request) {
+        log.info("Creating ticketless task for tenant {} with mode {}", request.getTenantId(), request.getAgentMode());
+
+        String title = request.getTitle();
+        if (title == null || title.isBlank()) {
+            // Auto-generate title from prompt (first 80 chars)
+            title = request.getPrompt().length() > 80
+                    ? request.getPrompt().substring(0, 80) + "..."
+                    : request.getPrompt();
+        }
+
+        Task task = Task.builder()
+                .tenantId(request.getTenantId())
+                .projectId(request.getProjectId())
+                .title(title)
+                .description(request.getPrompt())
+                .priority(request.getPriority())
+                .ticketless(true)
+                .ticketlessStatus(TicketlessStatus.CREATED.name())
+                .branchName(request.getBranchName())
+                .createBranch(request.isCreateBranch())
+                .agentMode(request.getAgentMode())
+                .agentConfigId(request.getAgentConfigId())
+                .prompt(request.getPrompt())
+                .build();
+
+        task = taskRepository.save(task);
+
+        // Publish NATS event for agent module to pick up
+        TicketlessTaskCreatedEvent event = new TicketlessTaskCreatedEvent();
+        event.setTenantId(request.getTenantId());
+        event.setSource("squadron-orchestrator");
+        event.setTaskId(task.getId());
+        event.setPrompt(request.getPrompt());
+        event.setBranchName(request.getBranchName());
+        event.setCreateBranch(request.isCreateBranch());
+        event.setAgentMode(request.getAgentMode());
+        event.setAgentConfigId(request.getAgentConfigId());
+        event.setProjectId(request.getProjectId());
+
+        try {
+            natsEventPublisher.publishAsync("squadron.tasks.ticketless.created", event);
+            log.info("Published ticketless task created event for task {}", task.getId());
+        } catch (Exception e) {
+            log.warn("Failed to publish ticketless task event for task {}: {}", task.getId(), e.getMessage());
+        }
+
+        return task;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Task> getTicketlessTasks(UUID tenantId) {
+        return taskRepository.findByTenantIdAndTicketlessTrue(tenantId);
+    }
+
+    public Task updateTicketlessStatus(UUID taskId, String status) {
+        Task task = getTask(taskId);
+        if (!Boolean.TRUE.equals(task.getTicketless())) {
+            throw new IllegalArgumentException("Task " + taskId + " is not a ticketless task");
+        }
+        // Validate status
+        TicketlessStatus.valueOf(status);
+        task.setTicketlessStatus(status);
+        return taskRepository.save(task);
     }
 
     public void delegateToAgent(UUID taskId, DelegateTaskRequest request) {

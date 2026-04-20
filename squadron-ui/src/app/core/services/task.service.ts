@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { ApiService, PageResponse } from './api.service';
-import { Task, TaskDetail, TaskFilter, TaskState, TaskSyncRequest, TaskSyncResult, DelegateTaskRequest } from '../models/task.model';
+import { Task, TaskDetail, TaskFilter, TaskState, TaskSyncRequest, TaskSyncResult, DelegateTaskRequest, CreateTicketlessTaskRequest, TicketlessTask } from '../models/task.model';
 import { ApiResponse } from '../auth/auth.models';
 
 @Injectable({ providedIn: 'root' })
@@ -55,6 +55,23 @@ export class TaskService extends ApiService {
 
   delegateToAgent(taskId: string, request: DelegateTaskRequest): Observable<void> {
     return this.http.post<ApiResponse<void>>(`${this.baseUrl}/tasks/${taskId}/delegate`, request)
+      .pipe(map(r => r.data));
+  }
+
+  // --- Ticketless tasks ---
+
+  createTicketlessTask(request: CreateTicketlessTaskRequest): Observable<TicketlessTask> {
+    return this.http.post<ApiResponse<TicketlessTask>>(`${this.baseUrl}/tasks/ticketless`, request)
+      .pipe(map(r => r.data));
+  }
+
+  getTicketlessTasks(): Observable<TicketlessTask[]> {
+    return this.http.get<ApiResponse<TicketlessTask[]>>(`${this.baseUrl}/tasks/ticketless`)
+      .pipe(map(r => r.data));
+  }
+
+  updateTicketlessStatus(taskId: string, status: string): Observable<void> {
+    return this.http.put<ApiResponse<void>>(`${this.baseUrl}/tasks/${taskId}/ticketless-status`, { status })
       .pipe(map(r => r.data));
   }
 }

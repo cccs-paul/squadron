@@ -522,6 +522,34 @@
         "skipAgent": "Ignorer",
         "delegate": "Déléguer",
         "delegating": "Délégation..."
+      },
+      "ticketless": {
+        "columnTitle": "Sans ticket",
+        "createButton": "Nouvelle tâche sans ticket",
+        "creating": "Création...",
+        "dialogTitle": "Créer une tâche sans ticket",
+        "titleLabel": "Titre",
+        "titlePlaceholder": "Titre bref de la tâche...",
+        "promptLabel": "Prompt",
+        "promptPlaceholder": "Décrivez ce que l'agent doit faire...",
+        "branchLabel": "Nom de la branche",
+        "branchPlaceholder": "ex. feature/ma-tache",
+        "createBranchLabel": "Créer une nouvelle branche",
+        "agentModeLabel": "Mode de l'agent",
+        "modePlan": "Planifier",
+        "modeBuild": "Construire",
+        "agentLabel": "Agent",
+        "selectAgent": "Sélectionner un agent...",
+        "cancel": "Annuler",
+        "create": "Créer la tâche",
+        "noTasks": "Aucune tâche sans ticket",
+        "status": {
+          "CREATED": "Créé",
+          "PLANNING": "Planification",
+          "BUILDING": "Construction",
+          "COMPLETED": "Terminé",
+          "FAILED": "Échoué"
+        }
       }
     },
     "detail": {

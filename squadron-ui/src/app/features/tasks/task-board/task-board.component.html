@@ -22,6 +22,9 @@
       <button class="sq-btn sq-btn--ghost sq-btn--sm" (click)="refresh()">
         {{ 'tasks.board.refresh' | translate }}
       </button>
+      <button class="sq-btn sq-btn--primary sq-btn--sm" (click)="openTicketlessDialog()">
+        {{ 'tasks.board.ticketless.createButton' | translate }}
+      </button>
     </div>
   </div>
 
@@ -55,8 +58,46 @@
             <span class="task-board__mapping-pill-arrow">&#8594;</span>
             <span class="task-board__mapping-pill-external">{{ mapping.externalStatus }}</span>
           </span>
-        }
+      }
+
+      <!-- Ticketless column -->
+      <div class="board__column board__column--ticketless">
+        <div class="board__column-header" style="border-top-color: #F97316">
+          <div class="board__column-title">
+            <span class="board__column-dot" style="background: #F97316"></span>
+            {{ 'tasks.board.ticketless.columnTitle' | translate }}
+            <span class="board__column-count">{{ ticketlessTasks().length }}</span>
+          </div>
+        </div>
+        <div class="board__column-body">
+          @for (task of ticketlessTasks(); track task.id) {
+            <div class="board__task-wrapper">
+              <div class="board__task-card" (click)="openTask(task)">
+                <div class="board__task-top-row">
+                  <span class="board__ticketless-status" [style.color]="ticketlessStatusColor(task.ticketlessStatus)">
+                    {{ getTicketlessStatusLabel(task.ticketlessStatus) }}
+                  </span>
+                  @if (task.agentMode) {
+                    <span class="board__ticketless-mode">{{ task.agentMode }}</span>
+                  }
+                </div>
+                <h4 class="board__task-title">{{ task.title }}</h4>
+                @if (task.prompt) {
+                  <p class="board__task-desc">{{ task.prompt | slice:0:100 }}</p>
+                }
+                @if (task.branchName) {
+                  <div class="board__task-meta">
+                    <span class="board__ticketless-branch">{{ task.branchName }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          } @empty {
+            <div class="board__empty"><p>{{ 'tasks.board.ticketless.noTasks' | translate }}</p></div>
+          }
+        </div>
       </div>
+    </div>
     </div>
   }
 
@@ -412,6 +453,75 @@
       } @empty {
         <div class="task-list__empty"><p>{{ 'tasks.board.noTasks' | translate }}</p></div>
       }
+    </div>
+  }
+
+  <!-- Ticketless Task Create Dialog -->
+  @if (showTicketlessDialog()) {
+    <div class="agent-modal-overlay" (click)="closeTicketlessDialog()">
+      <div class="agent-modal" (click)="$event.stopPropagation()">
+        <div class="agent-modal__header">
+          <h3 class="agent-modal__title">{{ 'tasks.board.ticketless.dialogTitle' | translate }}</h3>
+          <button class="agent-modal__close" (click)="closeTicketlessDialog()">&#10005;</button>
+        </div>
+        <div class="agent-modal__body">
+          <div class="agent-modal__field">
+            <label class="agent-modal__label">{{ 'tasks.board.ticketless.titleLabel' | translate }}</label>
+            <input type="text" class="sq-input" [placeholder]="'tasks.board.ticketless.titlePlaceholder' | translate"
+              [ngModel]="ticketlessTitle()" (ngModelChange)="ticketlessTitle.set($event)" />
+          </div>
+
+          <div class="agent-modal__field">
+            <label class="agent-modal__label">{{ 'tasks.board.ticketless.promptLabel' | translate }}</label>
+            <textarea class="sq-input agent-modal__textarea"
+              [placeholder]="'tasks.board.ticketless.promptPlaceholder' | translate"
+              [ngModel]="ticketlessPrompt()" (ngModelChange)="ticketlessPrompt.set($event)"
+              rows="4"></textarea>
+          </div>
+
+          <div class="agent-modal__field">
+            <label class="agent-modal__label">{{ 'tasks.board.ticketless.agentModeLabel' | translate }}</label>
+            <select class="sq-select" [ngModel]="ticketlessAgentMode()" (ngModelChange)="ticketlessAgentMode.set($event)">
+              <option value="PLAN">{{ 'tasks.board.ticketless.modePlan' | translate }}</option>
+              <option value="BUILD">{{ 'tasks.board.ticketless.modeBuild' | translate }}</option>
+            </select>
+          </div>
+
+          <div class="agent-modal__field">
+            <label class="agent-modal__label">{{ 'tasks.board.ticketless.agentLabel' | translate }}</label>
+            <select class="sq-select" [ngModel]="ticketlessAgentConfigId()" (ngModelChange)="ticketlessAgentConfigId.set($event)">
+              <option value="">{{ 'tasks.board.ticketless.selectAgent' | translate }}</option>
+              @for (agent of availableAgents(); track agent.id) {
+                <option [value]="agent.id">{{ agent.agentName }} ({{ agent.model }})</option>
+              }
+            </select>
+          </div>
+
+          <div class="agent-modal__field">
+            <label class="agent-modal__label">{{ 'tasks.board.ticketless.branchLabel' | translate }}</label>
+            <input type="text" class="sq-input" [placeholder]="'tasks.board.ticketless.branchPlaceholder' | translate"
+              [ngModel]="ticketlessBranch()" (ngModelChange)="ticketlessBranch.set($event)" />
+          </div>
+
+          <div class="agent-modal__field">
+            <label class="ticketless-dialog__checkbox-label">
+              <input type="checkbox" [ngModel]="ticketlessCreateBranch()" (ngModelChange)="ticketlessCreateBranch.set($event)" />
+              {{ 'tasks.board.ticketless.createBranchLabel' | translate }}
+            </label>
+          </div>
+        </div>
+        <div class="agent-modal__footer">
+          <button class="sq-btn sq-btn--ghost" (click)="closeTicketlessDialog()">
+            {{ 'tasks.board.ticketless.cancel' | translate }}
+          </button>
+          <button class="sq-btn sq-btn--primary"
+            [disabled]="creatingTicketless() || !ticketlessTitle().trim() || !ticketlessPrompt().trim() || !ticketlessAgentConfigId()"
+            (click)="createTicketlessTask()">
+            @if (creatingTicketless()) { {{ 'tasks.board.ticketless.creating' | translate }} }
+            @else { {{ 'tasks.board.ticketless.create' | translate }} }
+          </button>
+        </div>
+      </div>
     </div>
   }
 

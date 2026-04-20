@@ -100,3 +100,33 @@ export interface DelegateTaskRequest {
   instructions?: string;
   targetState?: string;
 }
+
+/** Ticketless task status lifecycle */
+export enum TicketlessStatus {
+  CREATED = 'CREATED',
+  PLANNING = 'PLANNING',
+  BUILDING = 'BUILDING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
+
+/** Request to create a ticketless task */
+export interface CreateTicketlessTaskRequest {
+  title: string;
+  prompt: string;
+  branchName?: string;
+  createBranch: boolean;
+  agentMode: 'PLAN' | 'BUILD';
+  agentConfigId: string;
+}
+
+/** A ticketless task (extends Task with ticketless-specific fields) */
+export interface TicketlessTask extends Task {
+  ticketless: boolean;
+  ticketlessStatus?: TicketlessStatus;
+  branchName?: string;
+  createBranch?: boolean;
+  agentMode?: string;
+  agentConfigId?: string;
+  prompt?: string;
+}

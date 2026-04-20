@@ -10,9 +10,11 @@ import { ProjectService } from '../../../core/services/project.service';
 import { AgentService, AgentSession, AgentMessage } from '../../../core/services/agent.service';
 import { WorkspaceService } from '../../../core/services/workspace.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Task, TaskState, TaskPriority, TaskSyncRequest, TaskSyncResult, DelegateTaskRequest } from '../../../core/models/task.model';
+import { UserSquadronService } from '../../../core/services/user-squadron.service';
+import { Task, TaskState, TaskPriority, TaskSyncRequest, TaskSyncResult, DelegateTaskRequest, TicketlessTask, TicketlessStatus, CreateTicketlessTaskRequest } from '../../../core/models/task.model';
 import { Project, ProjectSummary, WorkflowMapping } from '../../../core/models/project.model';
 import { ConversationSummary } from '../../../core/models/agent.model';
+import { UserAgentConfig } from '../../../core/models/squadron-config.model';
 
 /** Enriched task with resolved project name and agent session info. */
 export interface BoardTask extends Task {
@@ -70,6 +72,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   private workspaceService = inject(WorkspaceService);
   private authService = inject(AuthService);
   private translate = inject(TranslateService);
+  private userSquadronService = inject(UserSquadronService);
   private router = inject(Router);
   private subscriptions: Subscription[] = [];
 
@@ -140,6 +143,20 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   /** All unique states for state filter */
   allStates = Object.values(TaskState);
   agentTypes = AGENT_TYPES;
+
+  /** Ticketless tasks */
+  ticketlessTasks = signal<TicketlessTask[]>([]);
+  /** Available agents for ticketless task creation */
+  availableAgents = signal<UserAgentConfig[]>([]);
+  /** Ticketless create dialog */
+  showTicketlessDialog = signal(false);
+  ticketlessTitle = signal('');
+  ticketlessPrompt = signal('');
+  ticketlessBranch = signal('');
+  ticketlessCreateBranch = signal(false);
+  ticketlessAgentMode = signal<'PLAN' | 'BUILD'>('BUILD');
+  ticketlessAgentConfigId = signal('');
+  creatingTicketless = signal(false);
 
   /** Projects that can be synced (have connectionId + externalProjectId configured) */
   syncableProjects = computed(() =>
@@ -235,6 +252,8 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
 
     const sources: Record<string, any> = {
       tasksByState: this.taskService.getTasksByState(),
+      ticketless: this.taskService.getTicketlessTasks().pipe(catchError(() => of([] as TicketlessTask[]))),
+      agents: this.userSquadronService.getMySquadron().pipe(catchError(() => of([] as UserAgentConfig[]))),
     };
     if (tenantId) {
       sources['projects'] = this.projectService.getProjectsByTenant(tenantId);
@@ -248,6 +267,11 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         const tasksByState: Record<TaskState, Task[]> = results.tasksByState;
         const projectList: Project[] = results.projects ?? [];
         const summaries: ProjectSummary[] = results.summaries ?? [];
+        const ticketless: TicketlessTask[] = results.ticketless ?? [];
+        const agents: UserAgentConfig[] = results.agents ?? [];
+
+        this.ticketlessTasks.set(ticketless);
+        this.availableAgents.set(agents.filter(a => a.enabled));
 
         // Build project map
         const pMap: Record<string, Project> = {};
@@ -865,5 +889,65 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
 
   refresh(): void {
     this.loadData();
+  }
+
+  // --- Ticketless tasks ---
+
+  openTicketlessDialog(): void {
+    this.showTicketlessDialog.set(true);
+    this.ticketlessTitle.set('');
+    this.ticketlessPrompt.set('');
+    this.ticketlessBranch.set('');
+    this.ticketlessCreateBranch.set(false);
+    this.ticketlessAgentMode.set('BUILD');
+    this.ticketlessAgentConfigId.set(this.availableAgents()[0]?.id ?? '');
+  }
+
+  closeTicketlessDialog(): void {
+    this.showTicketlessDialog.set(false);
+  }
+
+  createTicketlessTask(): void {
+    const title = this.ticketlessTitle().trim();
+    const prompt = this.ticketlessPrompt().trim();
+    const agentConfigId = this.ticketlessAgentConfigId();
+    if (!title || !prompt || !agentConfigId) return;
+
+    const request: CreateTicketlessTaskRequest = {
+      title,
+      prompt,
+      branchName: this.ticketlessBranch().trim() || undefined,
+      createBranch: this.ticketlessCreateBranch(),
+      agentMode: this.ticketlessAgentMode(),
+      agentConfigId,
+    };
+
+    this.creatingTicketless.set(true);
+    this.taskService.createTicketlessTask(request).subscribe({
+      next: () => {
+        this.creatingTicketless.set(false);
+        this.showTicketlessDialog.set(false);
+        this.loadData();
+      },
+      error: () => {
+        this.creatingTicketless.set(false);
+      },
+    });
+  }
+
+  getTicketlessStatusLabel(status?: string): string {
+    if (!status) return '';
+    return this.translate.instant(`tasks.board.ticketless.status.${status}`);
+  }
+
+  ticketlessStatusColor(status?: string): string {
+    switch (status) {
+      case 'CREATED': return '#94A3B8';
+      case 'PLANNING': return '#818CF8';
+      case 'BUILDING': return '#06B6D4';
+      case 'COMPLETED': return '#10B981';
+      case 'FAILED': return '#DC2626';
+      default: return '#94A3B8';
+    }
   }
 }

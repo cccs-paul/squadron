@@ -1006,6 +1006,57 @@
   }
 }
 
+// Ticketless column
+.board__column--ticketless {
+  border-color: rgba(249, 115, 22, 0.2);
+  background: rgba(249, 115, 22, 0.02);
+}
+
+.board__ticketless-status {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.board__ticketless-mode {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: var(--sq-radius-full);
+  color: var(--sq-text-secondary);
+  background: var(--sq-surface);
+  border: 1px solid var(--sq-border);
+}
+
+.board__ticketless-branch {
+  font-size: 11px;
+  font-family: var(--sq-font-mono);
+  color: var(--sq-text-tertiary);
+  background: var(--sq-bg);
+  padding: 1px 6px;
+  border-radius: var(--sq-radius-sm);
+  border: 1px solid var(--sq-border);
+}
+
+// Ticketless dialog checkbox
+.ticketless-dialog__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--sq-text);
+  cursor: pointer;
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+}
+
 // CDK Drag-Drop
 .cdk-drag-preview {
   box-sizing: border-box;

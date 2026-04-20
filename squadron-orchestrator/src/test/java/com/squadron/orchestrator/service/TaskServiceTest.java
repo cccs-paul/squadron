@@ -3,12 +3,14 @@ package com.squadron.orchestrator.service;
 import com.squadron.common.config.NatsEventPublisher;
 import com.squadron.common.exception.ResourceNotFoundException;
 import com.squadron.orchestrator.dto.CreateTaskRequest;
+import com.squadron.orchestrator.dto.CreateTicketlessTaskRequest;
 import com.squadron.orchestrator.dto.DelegateTaskRequest;
 import com.squadron.orchestrator.dto.TaskDetailDto;
 import com.squadron.orchestrator.dto.TaskStatsDto;
 import com.squadron.orchestrator.dto.TaskWorkflowDto;
 import com.squadron.orchestrator.dto.TransitionRequest;
 import com.squadron.orchestrator.engine.TaskState;
+import com.squadron.orchestrator.engine.TicketlessStatus;
 import com.squadron.orchestrator.engine.WorkflowEngine;
 import com.squadron.orchestrator.entity.Project;
 import com.squadron.orchestrator.entity.ProjectWorkflowMapping;
@@ -702,5 +704,182 @@ class TaskServiceTest {
 
         assertThrows(ResourceNotFoundException.class,
                 () -> taskService.delegateToAgent(taskId, request));
+    }
+
+    // --- Ticketless task tests ---
+
+    @Test
+    void should_createTicketlessTask_when_validRequest() {
+        UUID tenantId = UUID.randomUUID();
+        UUID agentConfigId = UUID.randomUUID();
+        UUID savedId = UUID.randomUUID();
+
+        CreateTicketlessTaskRequest request = CreateTicketlessTaskRequest.builder()
+                .tenantId(tenantId)
+                .prompt("Implement the login page")
+                .branchName("feature/login")
+                .createBranch(true)
+                .agentMode("BUILD")
+                .agentConfigId(agentConfigId)
+                .build();
+
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> {
+            Task t = inv.getArgument(0);
+            t.setId(savedId);
+            return t;
+        });
+
+        Task result = taskService.createTicketlessTask(request);
+
+        assertNotNull(result);
+        assertEquals(savedId, result.getId());
+        assertTrue(result.getTicketless());
+        assertEquals(TicketlessStatus.CREATED.name(), result.getTicketlessStatus());
+        assertEquals("feature/login", result.getBranchName());
+        assertTrue(result.getCreateBranch());
+        assertEquals("BUILD", result.getAgentMode());
+        assertEquals(agentConfigId, result.getAgentConfigId());
+        assertEquals("Implement the login page", result.getPrompt());
+        verify(natsEventPublisher).publishAsync(eq("squadron.tasks.ticketless.created"), any());
+    }
+
+    @Test
+    void should_createTicketlessTask_when_noTitle_autoGenerateFromPrompt() {
+        UUID tenantId = UUID.randomUUID();
+
+        CreateTicketlessTaskRequest request = CreateTicketlessTaskRequest.builder()
+                .tenantId(tenantId)
+                .prompt("Short prompt")
+                .branchName("main")
+                .agentMode("PLAN")
+                .agentConfigId(UUID.randomUUID())
+                .build();
+
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> {
+            Task t = inv.getArgument(0);
+            t.setId(UUID.randomUUID());
+            return t;
+        });
+
+        Task result = taskService.createTicketlessTask(request);
+
+        assertEquals("Short prompt", result.getTitle());
+    }
+
+    @Test
+    void should_createTicketlessTask_when_longPrompt_truncateTitle() {
+        UUID tenantId = UUID.randomUUID();
+        String longPrompt = "A".repeat(100);
+
+        CreateTicketlessTaskRequest request = CreateTicketlessTaskRequest.builder()
+                .tenantId(tenantId)
+                .prompt(longPrompt)
+                .branchName("main")
+                .agentMode("PLAN")
+                .agentConfigId(UUID.randomUUID())
+                .build();
+
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> {
+            Task t = inv.getArgument(0);
+            t.setId(UUID.randomUUID());
+            return t;
+        });
+
+        Task result = taskService.createTicketlessTask(request);
+
+        assertEquals(83, result.getTitle().length()); // 80 + "..."
+        assertTrue(result.getTitle().endsWith("..."));
+    }
+
+    @Test
+    void should_getTicketlessTasks_when_tasksExist() {
+        UUID tenantId = UUID.randomUUID();
+        List<Task> tasks = List.of(
+                Task.builder().id(UUID.randomUUID()).tenantId(tenantId).ticketless(true).title("T1").build(),
+                Task.builder().id(UUID.randomUUID()).tenantId(tenantId).ticketless(true).title("T2").build()
+        );
+
+        when(taskRepository.findByTenantIdAndTicketlessTrue(tenantId)).thenReturn(tasks);
+
+        List<Task> result = taskService.getTicketlessTasks(tenantId);
+
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    void should_updateTicketlessStatus_when_validStatus() {
+        UUID taskId = UUID.randomUUID();
+        Task task = Task.builder()
+                .id(taskId)
+                .ticketless(true)
+                .ticketlessStatus("CREATED")
+                .title("Ticketless Task")
+                .build();
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(Task.class))).thenReturn(task);
+
+        Task result = taskService.updateTicketlessStatus(taskId, "BUILDING");
+
+        assertEquals("BUILDING", result.getTicketlessStatus());
+    }
+
+    @Test
+    void should_throwException_when_updatingNonTicketlessTask() {
+        UUID taskId = UUID.randomUUID();
+        Task task = Task.builder()
+                .id(taskId)
+                .ticketless(false)
+                .title("Regular Task")
+                .build();
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> taskService.updateTicketlessStatus(taskId, "BUILDING"));
+    }
+
+    @Test
+    void should_throwException_when_invalidTicketlessStatus() {
+        UUID taskId = UUID.randomUUID();
+        Task task = Task.builder()
+                .id(taskId)
+                .ticketless(true)
+                .title("Ticketless Task")
+                .build();
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> taskService.updateTicketlessStatus(taskId, "INVALID_STATUS"));
+    }
+
+    @Test
+    void should_getTasksByState_when_ticketlessTasksExcluded() {
+        UUID tenantId = UUID.randomUUID();
+        UUID taskId1 = UUID.randomUUID();
+        UUID taskId2 = UUID.randomUUID();
+
+        List<Task> tasks = List.of(
+                Task.builder().id(taskId1).tenantId(tenantId).title("Regular").ticketless(false).build(),
+                Task.builder().id(taskId2).tenantId(tenantId).title("Ticketless").ticketless(true).build()
+        );
+
+        List<TaskWorkflow> workflows = List.of(
+                TaskWorkflow.builder().taskId(taskId1).currentState("PLANNING").tenantId(tenantId)
+                        .transitionAt(Instant.now()).transitionedBy(UUID.randomUUID()).build()
+        );
+
+        when(taskRepository.findByTenantId(tenantId)).thenReturn(tasks);
+        when(taskWorkflowRepository.findByTenantId(tenantId)).thenReturn(workflows);
+
+        Map<String, List<Task>> result = taskService.getTasksByState(tenantId);
+
+        // Only the regular task should appear (in PLANNING)
+        assertEquals(1, result.get("PLANNING").size());
+        assertEquals("Regular", result.get("PLANNING").get(0).getTitle());
+        // Ticketless task should NOT appear in any state column
+        long totalTasks = result.values().stream().mapToLong(List::size).sum();
+        assertEquals(1, totalTasks);
     }
 }
