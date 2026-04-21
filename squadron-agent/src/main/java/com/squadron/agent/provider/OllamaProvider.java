@@ -3,7 +3,6 @@ package com.squadron.agent.provider;
 import com.squadron.agent.dto.AgentConfigDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -70,16 +69,15 @@ public class OllamaProvider implements AgentProvider {
         List<Message> messages = buildMessages(systemPrompt, history, userMessage);
         Prompt prompt = buildPrompt(messages, config);
 
-        ChatClient chatClient = ChatClient.builder(model).build();
-
-        String response = chatClient.prompt(prompt)
-                .call()
-                .content();
+        var response = model.call(prompt);
+        String content = response.getResult() != null && response.getResult().getOutput() != null
+                ? response.getResult().getOutput().getText()
+                : "";
 
         log.debug("Received response from Ollama provider ({} chars)",
-                response != null ? response.length() : 0);
+                content != null ? content.length() : 0);
 
-        return response;
+        return content;
     }
 
     @Override
@@ -91,11 +89,10 @@ public class OllamaProvider implements AgentProvider {
         List<Message> messages = buildMessages(systemPrompt, history, userMessage);
         Prompt prompt = buildPrompt(messages, config);
 
-        ChatClient chatClient = ChatClient.builder(model).build();
-
-        return chatClient.prompt(prompt)
-                .stream()
-                .content();
+        return model.stream(prompt)
+                .filter(response -> response.getResult() != null && response.getResult().getOutput() != null)
+                .map(response -> response.getResult().getOutput().getText())
+                .filter(text -> text != null);
     }
 
     /**

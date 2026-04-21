@@ -11,7 +11,7 @@ import {
   PROVIDER_CATALOG,
   generateAgentDescription,
 } from '../../../core/models/squadron-config.model';
-import { of, throwError } from 'rxjs';
+import { of, throwError, NEVER, Observable } from 'rxjs';
 
 describe('SquadronConfigComponent', () => {
   let component: SquadronConfigComponent;
@@ -46,6 +46,8 @@ describe('SquadronConfigComponent', () => {
 
     testServiceSpy = jasmine.createSpyObj('AgentTestService', [
       'executeTest', 'getTestConfig', 'updateTestConfig',
+      'startInteractiveSession', 'sendInteractiveMessage',
+      'getInteractiveSession', 'getInteractiveSessions', 'closeInteractiveSession',
     ]);
     testServiceSpy.executeTest.and.returnValue(of({
       testId: '', agentConfigId: '', testMode: 'PLANNING',
@@ -53,6 +55,13 @@ describe('SquadronConfigComponent', () => {
     } as any));
     testServiceSpy.getTestConfig.and.returnValue(throwError(() => new Error('mock')));
     testServiceSpy.updateTestConfig.and.returnValue(of({} as any));
+    testServiceSpy.startInteractiveSession.and.returnValue(of({
+      sessionId: 'sess-1', agentConfigId: 'a1', agentName: 'Sol',
+      provider: 'ollama', model: 'gemma4', status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+      messages: [{ id: 'm1', role: 'SYSTEM', content: 'Session started', createdAt: new Date().toISOString() }],
+    } as any));
+    testServiceSpy.closeInteractiveSession.and.returnValue(of(undefined as any));
 
     serviceSpy.getMySquadron.and.returnValue(of([
       mockAgent({
@@ -441,7 +450,7 @@ describe('SquadronConfigComponent', () => {
     const menu = fixture.nativeElement.querySelector('.squadron-config__test-menu');
     expect(menu).toBeTruthy();
     const modeButtons = menu.querySelectorAll('.squadron-config__btn--test-mode');
-    expect(modeButtons.length).toBe(3);
+    expect(modeButtons.length).toBe(4);
   });
 
   it('should_runTest_when_testModeSelected', () => {
@@ -457,7 +466,7 @@ describe('SquadronConfigComponent', () => {
     testServiceSpy.executeTest.and.returnValue(of(mockResult));
 
     component.runTest(component.agents()[0], 'PLANNING');
-    expect(component.testingAgentId()).toBeNull(); // completed
+    expect(component.testingAgentIds().has('a1')).toBeFalse(); // completed
     expect(component.testResultForAgent('a1')).toBeTruthy();
     expect(component.testResultForAgent('a1')!.status).toBe('SUCCESS');
   });
@@ -502,6 +511,166 @@ describe('SquadronConfigComponent', () => {
     const noIdAgent = { ...component.agents()[0], id: undefined };
     component.runTest(noIdAgent as any, 'PLANNING');
     expect(testServiceSpy.executeTest).not.toHaveBeenCalled();
+  });
+
+  // --- Interactive test functionality ---
+
+  it('should_startInteractiveSession_when_interactiveTestClicked', () => {
+    component.startInteractiveTest(component.agents()[0]);
+    expect(testServiceSpy.startInteractiveSession).toHaveBeenCalledWith('a1');
+    expect(component.interactiveSessionForAgent('a1')).toBeTruthy();
+    expect(component.interactiveSessionForAgent('a1')!.agentName).toBe('Sol');
+  });
+
+  it('should_notStartDuplicate_when_sessionAlreadyExists', () => {
+    component.startInteractiveTest(component.agents()[0]);
+    testServiceSpy.startInteractiveSession.calls.reset();
+    component.startInteractiveTest(component.agents()[0]);
+    expect(testServiceSpy.startInteractiveSession).not.toHaveBeenCalled();
+  });
+
+  it('should_closeInteractiveSession_when_closeClicked', () => {
+    component.startInteractiveTest(component.agents()[0]);
+    expect(component.interactiveSessionForAgent('a1')).toBeTruthy();
+
+    component.closeInteractiveSession('a1');
+    expect(component.interactiveSessionForAgent('a1')).toBeNull();
+    expect(testServiceSpy.closeInteractiveSession).toHaveBeenCalledWith('sess-1');
+  });
+
+  it('should_manageChatInput_perAgent', () => {
+    expect(component.getChatInput('a1')).toBe('');
+    component.setChatInput('a1', 'Hello');
+    expect(component.getChatInput('a1')).toBe('Hello');
+    expect(component.getChatInput('a2')).toBe('');
+  });
+
+  it('should_closeTestMenu_when_startingInteractiveTest', () => {
+    component.testMenuAgentId.set('a1');
+    component.startInteractiveTest(component.agents()[0]);
+    expect(component.testMenuAgentId()).toBeNull();
+  });
+
+  it('should_renderChatPanel_when_interactiveSessionActive', () => {
+    component.startInteractiveTest(component.agents()[0]);
+    fixture.detectChanges();
+    const chatPanel = fixture.nativeElement.querySelector('.squadron-config__chat-panel');
+    expect(chatPanel).toBeTruthy();
+    const chatMessages = fixture.nativeElement.querySelectorAll('.squadron-config__chat-message');
+    expect(chatMessages.length).toBeGreaterThan(0);
+  });
+
+  it('should_formatCodeBlocks_correctly', () => {
+    const result = component.formatCodeBlocks('Use `foo()` to call it');
+    expect(result).toContain('<code class="inline-code">foo()</code>');
+  });
+
+  it('should_formatCodeBlocks_handleLatexBlock', () => {
+    const result = component.formatCodeBlocks('Math: $$x^2 + y^2 = z^2$$');
+    expect(result).toContain('class="squadron-config__chat-latex"');
+    expect(result).toContain('x^2 + y^2 = z^2');
+  });
+
+  it('should_formatCodeBlocks_handleLatexInline', () => {
+    const result = component.formatCodeBlocks('The formula $E=mc^2$ is famous');
+    expect(result).toContain('class="squadron-config__chat-latex-inline"');
+    expect(result).toContain('E=mc^2');
+  });
+
+  it('should_formatCodeBlocks_handleMarkdownHeadings', () => {
+    const result = component.formatCodeBlocks('### Summary of Flow');
+    expect(result).toContain('class="squadron-config__chat-h3"');
+    expect(result).toContain('Summary of Flow');
+  });
+
+  it('should_formatCodeBlocks_handleMarkdownLinks', () => {
+    const result = component.formatCodeBlocks('[click here](https://example.com)');
+    expect(result).toContain('<a href="https://example.com"');
+    expect(result).toContain('click here');
+  });
+
+  it('should_formatCodeBlocks_handleUnorderedLists', () => {
+    const result = component.formatCodeBlocks('- item one\n- item two');
+    expect(result).toContain('squadron-config__chat-list-item');
+    expect(result).toContain('item one');
+  });
+
+  it('should_formatCodeBlocks_handleBoldAndItalic', () => {
+    const boldResult = component.formatCodeBlocks('this is **bold** text');
+    expect(boldResult).toContain('<strong>bold</strong>');
+    const italicResult = component.formatCodeBlocks('this is *italic* text');
+    expect(italicResult).toContain('<em>italic</em>');
+  });
+
+  it('should_hasStreamingAgentMessage_returnFalse_when_noAgentMessage', () => {
+    const session = {
+      sessionId: 's1', agentConfigId: 'a1', agentName: 'Sol', provider: 'ollama',
+      model: 'gemma4', status: 'STREAMING' as const, createdAt: '', messages: [
+        { id: 'm1', role: 'USER' as const, content: 'hi', createdAt: '' },
+      ],
+    };
+    expect(component.hasStreamingAgentMessage(session)).toBeFalse();
+  });
+
+  it('should_hasStreamingAgentMessage_returnTrue_when_lastMessageIsAgent', () => {
+    const session = {
+      sessionId: 's1', agentConfigId: 'a1', agentName: 'Sol', provider: 'ollama',
+      model: 'gemma4', status: 'STREAMING' as const, createdAt: '', messages: [
+        { id: 'm1', role: 'USER' as const, content: 'hi', createdAt: '' },
+        { id: 'm2', role: 'AGENT' as const, content: 'Hello...', createdAt: '' },
+      ],
+    };
+    expect(component.hasStreamingAgentMessage(session)).toBeTrue();
+  });
+
+  it('should_sendInteractiveMessage_when_inputHasText', () => {
+    const mockSession = {
+      sessionId: 'sess-1', agentConfigId: 'a1', agentName: 'Sol',
+      provider: 'ollama', model: 'gemma4', status: 'ACTIVE' as const,
+      createdAt: new Date().toISOString(), messages: [],
+    };
+    testServiceSpy.sendInteractiveMessage.and.returnValue(of(mockSession));
+
+    component.startInteractiveTest(component.agents()[0]);
+    component.setChatInput('a1', 'Hello');
+    component.sendInteractiveMessage('a1');
+
+    expect(testServiceSpy.sendInteractiveMessage).toHaveBeenCalledWith('sess-1', 'Hello');
+    expect(component.getChatInput('a1')).toBe('');
+  });
+
+  it('should_notSendInteractiveMessage_when_inputIsBlank', () => {
+    component.startInteractiveTest(component.agents()[0]);
+    component.sendInteractiveMessage('a1');
+
+    expect(testServiceSpy.sendInteractiveMessage).not.toHaveBeenCalled();
+  });
+
+  it('should_showError_when_startInteractiveSessionFails', () => {
+    testServiceSpy.startInteractiveSession.and.returnValue(throwError(() => ({ status: 500 })));
+
+    component.startInteractiveTest(component.agents()[0]);
+
+    expect(component.saveError()).not.toBeNull();
+  });
+
+  it('should_allowMultipleAgentsTestingSimultaneously', () => {
+    testServiceSpy.executeTest.and.returnValue(new Observable(() => {}));
+
+    component.runTest(component.agents()[0], 'PLANNING');
+
+    expect(component.testingAgentIds().has('a1')).toBeTrue();
+    expect(component.testingAgentIds().has('a2')).toBeFalse();
+  });
+
+  it('should_handleHorizontalRule_inFormatCodeBlocks', () => {
+    const result = component.formatCodeBlocks('---');
+    expect(result).toContain('squadron-config__chat-hr');
+  });
+
+  it('should_handleFencedCodeBlock_inFormatCodeBlocks', () => {
+    const result = component.formatCodeBlocks('```js\nconsole.log("hi")\n```');
+    expect(result).toContain('<pre><code');
   });
 });
 

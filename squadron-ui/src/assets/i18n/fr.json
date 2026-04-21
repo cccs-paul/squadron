@@ -337,10 +337,25 @@
       "testModes": {
         "planning": "Tester la planification",
         "codeGeneration": "Tester la génération de code",
-        "codeReview": "Tester la revue de code"
+        "codeReview": "Tester la revue de code",
+        "interactive": "Chat interactif"
       },
       "agentOutput": "Sortie de l'agent",
-      "dismissResult": "Fermer"
+      "dismissResult": "Fermer",
+      "interactive": {
+        "startSession": "Démarrage de la session interactive...",
+        "sessionStarted": "Session démarrée",
+        "close": "Fermer le chat",
+        "placeholder": "Écrivez un message...",
+        "send": "Envoyer",
+        "streaming": "Diffusion en cours...",
+        "errorStarting": "Échec du démarrage de la session interactive.",
+        "errorSending": "Échec de l'envoi du message.",
+        "sessionClosed": "Session fermée.",
+        "agentLabel": "Agent",
+        "youLabel": "Vous",
+        "systemLabel": "Système"
+      }
     },
     "testGenerator": {
       "title": "Générateur de données de test",

@@ -1,6 +1,7 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, ElementRef, inject, OnInit, OnDestroy, signal, ViewChildren, QueryList } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
+import { Subscription } from 'rxjs';
 import { UserSquadronService } from '../../../core/services/user-squadron.service';
 import { AgentTestService } from '../../../core/services/agent-test.service';
 import {
@@ -16,6 +17,8 @@ import {
   TEST_MODE_LABELS,
   AgentTestResult,
   TestLogEntry,
+  InteractiveTestSession,
+  InteractiveTestMessage,
 } from '../../../core/models/agent-test.model';
 
 @Component({
@@ -78,7 +81,7 @@ import {
                     <button class="squadron-config__btn squadron-config__btn--cancel" (click)="cancelEdit()">{{ 'common.cancel' | translate }}</button>
                   } @else {
                     <button class="squadron-config__btn squadron-config__btn--test" (click)="openTestMenu(agent)"
-                      [disabled]="testingAgentId() === agent.id">
+                      [disabled]="testingAgentIds().has(agent.id!)">
                       {{ 'settings.squadronConfig.test' | translate }}
                     </button>
                     <button class="squadron-config__btn squadron-config__btn--edit" (click)="startEdit(agent)">{{ 'settings.squadronConfig.edit' | translate }}</button>
@@ -89,7 +92,7 @@ import {
               </div>
 
               <!-- Test mode selector (shows when test menu is open for this agent) -->
-              @if (testMenuAgentId() === agent.id && !testingAgentId()) {
+              @if (testMenuAgentId() === agent.id && !testingAgentIds().has(agent.id!)) {
                 <div class="squadron-config__test-menu">
                   <span class="squadron-config__test-menu-label">{{ 'settings.squadronConfig.selectTestMode' | translate }}</span>
                   <div class="squadron-config__test-menu-buttons">
@@ -104,6 +107,10 @@ import {
                     <button class="squadron-config__btn squadron-config__btn--test-mode"
                       (click)="runTest(agent, 'CODE_REVIEW')">
                       {{ 'settings.squadronConfig.testModes.codeReview' | translate }}
+                    </button>
+                    <button class="squadron-config__btn squadron-config__btn--test-mode squadron-config__btn--interactive"
+                      (click)="startInteractiveTest(agent)">
+                      {{ 'settings.squadronConfig.testModes.interactive' | translate }}
                     </button>
                     <button class="squadron-config__btn squadron-config__btn--cancel"
                       (click)="closeTestMenu()">
@@ -169,6 +176,76 @@ import {
                       </button>
                     </div>
                   }
+                </div>
+              }
+
+              <!-- Interactive chat panel (inline on the agent card) -->
+              @if (interactiveSessionForAgent(agent.id!); as chatSession) {
+                <div class="squadron-config__chat-panel">
+                  <div class="squadron-config__chat-header">
+                    <div class="squadron-config__chat-title">
+                      <span class="squadron-config__chat-agent-name">{{ chatSession.agentName }}</span>
+                      <span class="squadron-config__chat-model">{{ chatSession.provider }}/{{ chatSession.model }}</span>
+                      @if (chatSession.status === 'STREAMING') {
+                        <span class="squadron-config__chat-streaming-badge">
+                          {{ 'settings.squadronConfig.interactive.streaming' | translate }}
+                        </span>
+                      }
+                    </div>
+                    <button class="squadron-config__btn squadron-config__btn--close-chat"
+                      (click)="closeInteractiveSession(agent.id!)">
+                      {{ 'settings.squadronConfig.interactive.close' | translate }}
+                    </button>
+                  </div>
+
+                  <div class="squadron-config__chat-body" [attr.data-agent-id]="agent.id">
+                    @for (msg of chatSession.messages; track msg.id) {
+                      <div class="squadron-config__chat-message"
+                           [class.squadron-config__chat-message--user]="msg.role === 'USER'"
+                           [class.squadron-config__chat-message--agent]="msg.role === 'AGENT'"
+                           [class.squadron-config__chat-message--system]="msg.role === 'SYSTEM'">
+                        <div class="squadron-config__chat-message-role">
+                          @switch (msg.role) {
+                            @case ('USER') { {{ 'settings.squadronConfig.interactive.youLabel' | translate }} }
+                            @case ('AGENT') { {{ 'settings.squadronConfig.interactive.agentLabel' | translate }} }
+                            @case ('SYSTEM') { {{ 'settings.squadronConfig.interactive.systemLabel' | translate }} }
+                          }
+                        </div>
+                        <div class="squadron-config__chat-message-content" [innerHTML]="formatCodeBlocks(msg.content)"></div>
+                        @if (msg.tokenCount) {
+                          <span class="squadron-config__chat-message-tokens">{{ msg.tokenCount }} tokens</span>
+                        }
+                      </div>
+                    }
+
+                    @if (chatSession.status === 'STREAMING' && !hasStreamingAgentMessage(chatSession)) {
+                      <div class="squadron-config__chat-message squadron-config__chat-message--agent">
+                        <div class="squadron-config__chat-message-role">
+                          {{ 'settings.squadronConfig.interactive.agentLabel' | translate }}
+                        </div>
+                        <div class="squadron-config__chat-typing">
+                          <span></span><span></span><span></span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+
+                  <div class="squadron-config__chat-input">
+                    <input
+                      type="text"
+                      class="squadron-config__input squadron-config__chat-input-field"
+                      [placeholder]="'settings.squadronConfig.interactive.placeholder' | translate"
+                      [value]="getChatInput(agent.id!)"
+                      (input)="setChatInput(agent.id!, $any($event.target).value)"
+                      (keyup.enter)="sendInteractiveMessage(agent.id!)"
+                      [disabled]="chatSession.status === 'STREAMING'"
+                    />
+                    <button class="squadron-config__btn squadron-config__btn--send"
+                      (click)="sendInteractiveMessage(agent.id!)"
+                      [disabled]="chatSession.status === 'STREAMING' || !getChatInput(agent.id!).trim()">
+                      {{ 'settings.squadronConfig.interactive.send' | translate }}
+                    </button>
+                  </div>
                 </div>
               }
 
@@ -408,9 +485,128 @@ import {
       background: #1e293b; color: #e2e8f0; overflow-x: auto; max-height: 400px; overflow-y: auto;
       margin: 0; white-space: pre-wrap; word-break: break-word;
     }
+
+    /* Interactive chat panel */
+    .squadron-config__chat-panel {
+      margin-top: 12px; border: 1px solid #c7d2fe; border-radius: 8px; overflow: hidden;
+      display: flex; flex-direction: column; max-height: 500px;
+    }
+    .squadron-config__chat-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 14px; background: #eef2ff; border-bottom: 1px solid #c7d2fe;
+    }
+    .squadron-config__chat-title { display: flex; align-items: center; gap: 8px; }
+    .squadron-config__chat-agent-name { font-weight: 600; font-size: 0.875rem; }
+    .squadron-config__chat-model { font-size: 0.75rem; color: #6b7280; }
+    .squadron-config__chat-streaming-badge {
+      font-size: 0.6875rem; font-weight: 500; color: #4f46e5; font-style: italic;
+    }
+    .squadron-config__btn--close-chat {
+      background: #fee2e2; color: #dc2626; border-color: #fecaca; font-size: 0.75rem;
+    }
+    .squadron-config__btn--close-chat:hover { background: #fecaca; }
+    .squadron-config__btn--interactive {
+      background: #eef2ff; color: #4f46e5; border-color: #c7d2fe;
+    }
+    .squadron-config__btn--interactive:hover { background: #e0e7ff; }
+    .squadron-config__chat-body {
+      flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px;
+      min-height: 200px; max-height: 350px; background: #fafbfc;
+    }
+    .squadron-config__chat-message {
+      padding: 8px 12px; border-radius: 8px; max-width: 85%;
+    }
+    .squadron-config__chat-message--user {
+      background: #eef2ff; align-self: flex-end; border-bottom-right-radius: 2px;
+    }
+    .squadron-config__chat-message--agent {
+      background: #fff; border: 1px solid #e5e7eb; align-self: flex-start; border-bottom-left-radius: 2px;
+    }
+    .squadron-config__chat-message--system {
+      background: #f3f4f6; align-self: center; text-align: center;
+      font-size: 0.75rem; color: #6b7280; max-width: 95%;
+    }
+    .squadron-config__chat-message-role {
+      font-size: 0.6875rem; font-weight: 600; color: #6b7280; margin-bottom: 2px;
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .squadron-config__chat-message--system .squadron-config__chat-message-role { display: none; }
+    .squadron-config__chat-message-content {
+      font-size: 0.8125rem; line-height: 1.5; word-break: break-word;
+    }
+    .squadron-config__chat-message-content pre {
+      background: #1e293b; color: #e2e8f0; padding: 8px 10px; border-radius: 4px;
+      margin: 6px 0; overflow-x: auto; font-size: 0.75rem; line-height: 1.4;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+    .squadron-config__chat-message-content .inline-code {
+      background: rgba(79, 70, 229, 0.1); color: #4338ca; padding: 1px 4px;
+      border-radius: 3px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;
+    }
+    .squadron-config__chat-message-content .squadron-config__chat-latex {
+      background: #f8f5ff; color: #4338ca; padding: 10px 12px; border-radius: 4px;
+      margin: 6px 0; overflow-x: auto; font-size: 0.8rem; line-height: 1.5;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      border-left: 3px solid #a78bfa; white-space: pre-wrap;
+    }
+    .squadron-config__chat-message-content .squadron-config__chat-latex-inline {
+      background: rgba(167, 139, 250, 0.1); color: #5b21b6; padding: 1px 4px;
+      border-radius: 3px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;
+    }
+    .squadron-config__chat-message-content .squadron-config__chat-h1 {
+      font-size: 1.25rem; font-weight: 700; margin: 12px 0 6px; line-height: 1.3;
+    }
+    .squadron-config__chat-message-content .squadron-config__chat-h2 {
+      font-size: 1.1rem; font-weight: 700; margin: 10px 0 4px; line-height: 1.3;
+    }
+    .squadron-config__chat-message-content .squadron-config__chat-h3 {
+      font-size: 1rem; font-weight: 600; margin: 8px 0 4px; line-height: 1.3;
+    }
+    .squadron-config__chat-message-content .squadron-config__chat-h4 {
+      font-size: 0.9rem; font-weight: 600; margin: 6px 0 3px; line-height: 1.3; color: #374151;
+    }
+    .squadron-config__chat-message-content .squadron-config__chat-list-item {
+      padding-left: 12px; margin: 2px 0;
+    }
+    .squadron-config__chat-message-content .squadron-config__chat-hr {
+      border: none; border-top: 1px solid #d1d5db; margin: 8px 0;
+    }
+    .squadron-config__chat-message-content a {
+      color: #4f46e5; text-decoration: underline;
+    }
+    .squadron-config__chat-message-content a:hover { color: #4338ca; }
+    .squadron-config__chat-message-tokens {
+      display: block; margin-top: 4px; font-size: 0.6875rem; color: #9ca3af;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .squadron-config__chat-input {
+      display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #e5e7eb;
+      background: #fff;
+    }
+    .squadron-config__chat-input-field { flex: 1; }
+    .squadron-config__btn--send {
+      background: #4f46e5; color: #fff; border-color: #4f46e5; font-size: 0.8125rem;
+    }
+    .squadron-config__btn--send:hover { background: #4338ca; }
+    .squadron-config__btn--send:disabled { background: #a5b4fc; border-color: #a5b4fc; }
+
+    /* Typing indicator */
+    .squadron-config__chat-typing {
+      display: flex; gap: 4px; padding: 4px 0;
+    }
+    .squadron-config__chat-typing span {
+      width: 7px; height: 7px; background: #9ca3af; border-radius: 50%;
+      animation: sq-chat-pulse 1.4s ease infinite;
+    }
+    .squadron-config__chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+    .squadron-config__chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes sq-chat-pulse {
+      0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1); }
+    }
   `],
 })
-export class SquadronConfigComponent implements OnInit {
+export class SquadronConfigComponent implements OnInit, OnDestroy {
   private squadronService = inject(UserSquadronService);
   private testService = inject(AgentTestService);
 
@@ -424,10 +620,15 @@ export class SquadronConfigComponent implements OnInit {
 
   // Test state
   testMenuAgentId = signal<string | null>(null);
-  testingAgentId = signal<string | null>(null);
+  testingAgentIds = signal<Set<string>>(new Set());
   testResults = signal<Map<string, AgentTestResult>>(new Map());
   expandedTests = signal<Set<string>>(new Set());
   expandedOutputs = signal<Set<string>>(new Set());
+
+  // Interactive test state
+  interactiveSessions = signal<Map<string, InteractiveTestSession>>(new Map());
+  chatInputs: Map<string, string> = new Map();
+  private interactiveSubs = new Map<string, Subscription>();
 
   // Edit form fields
   editName = '';
@@ -529,6 +730,12 @@ export class SquadronConfigComponent implements OnInit {
 
   // ====================== Test Methods ======================
 
+  ngOnDestroy(): void {
+    // Close all interactive sessions and unsubscribe
+    this.interactiveSubs.forEach((sub) => sub.unsubscribe());
+    this.interactiveSubs.clear();
+  }
+
   openTestMenu(agent: UserAgentConfig): void {
     if (this.testMenuAgentId() === agent.id) {
       this.testMenuAgentId.set(null);
@@ -544,7 +751,7 @@ export class SquadronConfigComponent implements OnInit {
   runTest(agent: UserAgentConfig, mode: TestMode): void {
     if (!agent.id) return;
     this.testMenuAgentId.set(null);
-    this.testingAgentId.set(agent.id);
+    this.testingAgentIds.update(ids => { const s = new Set(ids); s.add(agent.id!); return s; });
 
     // Set initial running state
     const runningResult: AgentTestResult = {
@@ -566,7 +773,7 @@ export class SquadronConfigComponent implements OnInit {
         this.updateTestResult(agent.id!, result);
         // If the result has a final status, test is done
         if (result.status === 'SUCCESS' || result.status === 'FAILURE' || result.status === 'ERROR') {
-          this.testingAgentId.set(null);
+          this.testingAgentIds.update(ids => { const s = new Set(ids); s.delete(agent.id!); return s; });
         }
       },
       error: (err) => {
@@ -581,13 +788,11 @@ export class SquadronConfigComponent implements OnInit {
           ],
         };
         this.updateTestResult(agent.id!, errorResult);
-        this.testingAgentId.set(null);
+        this.testingAgentIds.update(ids => { const s = new Set(ids); s.delete(agent.id!); return s; });
       },
       complete: () => {
-        // Ensure testingAgentId is cleared on stream completion
-        if (this.testingAgentId() === agent.id) {
-          this.testingAgentId.set(null);
-        }
+        // Ensure testing state is cleared on stream completion
+        this.testingAgentIds.update(ids => { const s = new Set(ids); s.delete(agent.id!); return s; });
       },
     });
   }
@@ -643,6 +848,172 @@ export class SquadronConfigComponent implements OnInit {
     const expanded = new Set(this.expandedTests());
     expanded.add(agentId);
     this.expandedTests.set(expanded);
+  }
+
+  // ====================== Interactive Test Methods ======================
+
+  interactiveSessionForAgent(agentId: string): InteractiveTestSession | null {
+    return this.interactiveSessions().get(agentId) ?? null;
+  }
+
+  hasStreamingAgentMessage(session: InteractiveTestSession): boolean {
+    // The backend adds a temporary streaming AGENT message in the snapshot when content is being streamed
+    const msgs = session.messages;
+    if (msgs.length === 0) return false;
+    const last = msgs[msgs.length - 1];
+    return last.role === 'AGENT' && session.status === 'STREAMING';
+  }
+
+  getChatInput(agentId: string): string {
+    return this.chatInputs.get(agentId) ?? '';
+  }
+
+  setChatInput(agentId: string, value: string): void {
+    this.chatInputs.set(agentId, value);
+  }
+
+  startInteractiveTest(agent: UserAgentConfig): void {
+    if (!agent.id) return;
+    this.testMenuAgentId.set(null);
+
+    // If session already exists for this agent, don't start a new one
+    if (this.interactiveSessions().has(agent.id)) return;
+
+    this.testService.startInteractiveSession(agent.id).subscribe({
+      next: (session) => {
+        const sessions = new Map(this.interactiveSessions());
+        sessions.set(agent.id!, session);
+        this.interactiveSessions.set(sessions);
+      },
+      error: () => {
+        this.saveError.set('Failed to start interactive session.');
+        setTimeout(() => this.saveError.set(null), 5000);
+      },
+    });
+  }
+
+  sendInteractiveMessage(agentId: string): void {
+    const message = this.getChatInput(agentId).trim();
+    if (!message) return;
+
+    const session = this.interactiveSessions().get(agentId);
+    if (!session) return;
+
+    // Clear input immediately
+    this.chatInputs.set(agentId, '');
+
+    // Cancel any existing streaming subscription for this agent
+    this.interactiveSubs.get(agentId)?.unsubscribe();
+
+    const sub = this.testService.sendInteractiveMessage(session.sessionId, message).subscribe({
+      next: (snapshot) => {
+        const sessions = new Map(this.interactiveSessions());
+        sessions.set(agentId, snapshot);
+        this.interactiveSessions.set(sessions);
+        this.scrollChatToBottom(agentId);
+      },
+      error: (err) => {
+        // Add error to the session's messages locally
+        const sessions = new Map(this.interactiveSessions());
+        const current = sessions.get(agentId);
+        if (current) {
+          const errorMsg: InteractiveTestMessage = {
+            id: crypto.randomUUID(),
+            role: 'SYSTEM',
+            content: 'Error: ' + (err.message || 'Failed to send message'),
+            createdAt: new Date().toISOString(),
+          };
+          sessions.set(agentId, {
+            ...current,
+            status: 'ACTIVE',
+            messages: [...current.messages, errorMsg],
+          });
+          this.interactiveSessions.set(sessions);
+        }
+      },
+      complete: () => {
+        this.interactiveSubs.delete(agentId);
+      },
+    });
+
+    this.interactiveSubs.set(agentId, sub);
+  }
+
+  closeInteractiveSession(agentId: string): void {
+    const session = this.interactiveSessions().get(agentId);
+    if (!session) return;
+
+    // Unsubscribe from any streaming
+    this.interactiveSubs.get(agentId)?.unsubscribe();
+    this.interactiveSubs.delete(agentId);
+
+    // Remove from local state immediately
+    const sessions = new Map(this.interactiveSessions());
+    sessions.delete(agentId);
+    this.interactiveSessions.set(sessions);
+    this.chatInputs.delete(agentId);
+
+    // Close on the backend (fire-and-forget)
+    this.testService.closeInteractiveSession(session.sessionId).subscribe();
+  }
+
+  formatCodeBlocks(content: string): string {
+    // Fenced code blocks first (before any line-level processing)
+    let result = content
+      .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code class="lang-$1">$2</code></pre>');
+
+    // Block LaTeX: $$...$$ (may span multiple lines)
+    result = result.replace(/\$\$([\s\S]*?)\$\$/g,
+      '<pre class="squadron-config__chat-latex">$1</pre>');
+
+    // Inline LaTeX: $...$ (single line, not preceded/followed by space+$)
+    result = result.replace(/(?<!\$)\$(?!\$)([^$\n]+?)(?<!\$)\$(?!\$)/g,
+      '<code class="squadron-config__chat-latex-inline">$1</code>');
+
+    // Inline code
+    result = result.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+
+    // Bold and italic
+    result = result.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    result = result.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    result = result.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+
+    // Links: [text](url)
+    result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    // Horizontal rules (---, ***, ___)
+    result = result.replace(/^([-*_]{3,})$/gm, '<hr class="squadron-config__chat-hr">');
+
+    // Headings (must be processed before newline→<br>)
+    result = result.replace(/^#### (.+)$/gm, '<div class="squadron-config__chat-h4">$1</div>');
+    result = result.replace(/^### (.+)$/gm, '<div class="squadron-config__chat-h3">$1</div>');
+    result = result.replace(/^## (.+)$/gm, '<div class="squadron-config__chat-h2">$1</div>');
+    result = result.replace(/^# (.+)$/gm, '<div class="squadron-config__chat-h1">$1</div>');
+
+    // Unordered lists: lines starting with - or *
+    result = result.replace(/^[*-] (.+)$/gm,
+      '<div class="squadron-config__chat-list-item">&#8226; $1</div>');
+
+    // Ordered lists: lines starting with 1. 2. etc.
+    result = result.replace(/^\d+\. (.+)$/gm,
+      '<div class="squadron-config__chat-list-item">$&</div>');
+
+    // Newlines to <br> (but not inside <pre> blocks)
+    result = result.replace(/\n/g, '<br>');
+
+    return result;
+  }
+
+  private scrollChatToBottom(agentId: string): void {
+    setTimeout(() => {
+      const chatBody = document.querySelector(
+        `.squadron-config__chat-body[data-agent-id="${agentId}"]`
+      );
+      if (chatBody) {
+        chatBody.scrollTop = chatBody.scrollHeight;
+      }
+    }, 50);
   }
 
   // ====================== CRUD Methods ======================

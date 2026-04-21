@@ -3,9 +3,12 @@ package com.squadron.agent.controller;
 import com.squadron.agent.dto.AgentTestConfigDto;
 import com.squadron.agent.dto.AgentTestRequest;
 import com.squadron.agent.dto.AgentTestResult;
+import com.squadron.agent.dto.InteractiveTestMessageRequest;
+import com.squadron.agent.dto.InteractiveTestSessionDto;
 import com.squadron.agent.entity.AgentTestConfig;
 import com.squadron.agent.service.AgentTestConfigService;
 import com.squadron.agent.service.AgentTestExecutionService;
+import com.squadron.agent.service.InteractiveTestSessionService;
 import com.squadron.common.dto.ApiResponse;
 import com.squadron.common.security.TenantContext;
 import jakarta.validation.Valid;
@@ -14,22 +17,27 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
  * REST controller for agent testing.
  * Provides endpoints to:
  * <ul>
- *   <li>Execute agent tests (planning, code generation, code review)</li>
+ *   <li>Execute automated agent tests (planning, code generation, code review)</li>
  *   <li>Manage the test data generator configuration</li>
+ *   <li>Start and manage interactive test sessions (multi-turn chat)</li>
  * </ul>
  *
  * Path: /api/agents/test (forwarded from gateway without stripPrefix).
@@ -42,12 +50,17 @@ public class AgentTestController {
 
     private final AgentTestExecutionService executionService;
     private final AgentTestConfigService configService;
+    private final InteractiveTestSessionService interactiveService;
 
     public AgentTestController(AgentTestExecutionService executionService,
-                                AgentTestConfigService configService) {
+                                AgentTestConfigService configService,
+                                InteractiveTestSessionService interactiveService) {
         this.executionService = executionService;
         this.configService = configService;
+        this.interactiveService = interactiveService;
     }
+
+    // ========================= Automated Tests =========================
 
     /**
      * Executes an agent test synchronously and returns the full result.
@@ -66,8 +79,6 @@ public class AgentTestController {
 
     /**
      * Executes an agent test and streams progress via Server-Sent Events.
-     * Each SSE event contains the accumulated result so far, allowing the UI
-     * to progressively display log entries and eventually the agent output.
      */
     @PostMapping(value = "/execute/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentTestResult>> executeTestStream(
@@ -79,6 +90,8 @@ public class AgentTestController {
 
         return executionService.executeTestStreaming(tenantId, userId, request);
     }
+
+    // ========================= Test Config =========================
 
     /**
      * Returns the user's test data generator configuration.
@@ -101,5 +114,77 @@ public class AgentTestController {
         UUID userId = TenantContext.getUserId();
         AgentTestConfig config = configService.updateConfig(tenantId, userId, dto);
         return ResponseEntity.ok(ApiResponse.success(configService.toDto(config)));
+    }
+
+    // ========================= Interactive Test Sessions =========================
+
+    /**
+     * Starts a new interactive test session for the specified agent.
+     * Interactive sessions allow multi-turn, free-form conversation with an agent
+     * without requiring a real task, workspace, or project.
+     */
+    @PostMapping("/interactive/start")
+    public ResponseEntity<ApiResponse<InteractiveTestSessionDto>> startInteractiveSession(
+            @RequestParam UUID agentConfigId) {
+        UUID tenantId = TenantContext.getTenantId();
+        UUID userId = TenantContext.getUserId();
+        log.info("Interactive test session requested: agentConfigId={}, user={}", agentConfigId, userId);
+
+        InteractiveTestSessionDto session = interactiveService.startSession(tenantId, userId, agentConfigId);
+        return ResponseEntity.ok(ApiResponse.success(session));
+    }
+
+    /**
+     * Sends a message in an interactive test session and streams the agent's response via SSE.
+     * Each SSE event contains a full session snapshot including all messages so far,
+     * allowing the UI to progressively update.
+     */
+    @PostMapping(value = "/interactive/message/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<InteractiveTestSessionDto>> sendInteractiveMessage(
+            @Valid @RequestBody InteractiveTestMessageRequest request) {
+        UUID tenantId = TenantContext.getTenantId();
+        UUID userId = TenantContext.getUserId();
+        log.info("Interactive test message: sessionId={}, user={}", request.getSessionId(), userId);
+
+        return interactiveService.sendMessage(tenantId, userId, request);
+    }
+
+    /**
+     * Returns the current state of an interactive test session.
+     */
+    @GetMapping("/interactive/{sessionId}")
+    public ResponseEntity<ApiResponse<InteractiveTestSessionDto>> getInteractiveSession(
+            @PathVariable UUID sessionId) {
+        UUID tenantId = TenantContext.getTenantId();
+        UUID userId = TenantContext.getUserId();
+
+        InteractiveTestSessionDto session = interactiveService.getSession(sessionId, tenantId, userId);
+        return ResponseEntity.ok(ApiResponse.success(session));
+    }
+
+    /**
+     * Lists all active interactive test sessions for the current user.
+     */
+    @GetMapping("/interactive/sessions")
+    public ResponseEntity<ApiResponse<List<InteractiveTestSessionDto>>> listInteractiveSessions() {
+        UUID tenantId = TenantContext.getTenantId();
+        UUID userId = TenantContext.getUserId();
+
+        List<InteractiveTestSessionDto> sessions = interactiveService.getUserSessions(tenantId, userId);
+        return ResponseEntity.ok(ApiResponse.success(sessions));
+    }
+
+    /**
+     * Closes an interactive test session and frees resources.
+     */
+    @DeleteMapping("/interactive/{sessionId}")
+    public ResponseEntity<ApiResponse<Void>> closeInteractiveSession(
+            @PathVariable UUID sessionId) {
+        UUID tenantId = TenantContext.getTenantId();
+        UUID userId = TenantContext.getUserId();
+        log.info("Closing interactive test session: sessionId={}, user={}", sessionId, userId);
+
+        interactiveService.closeSession(sessionId, tenantId, userId);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

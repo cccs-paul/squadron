@@ -5,9 +5,12 @@ import com.squadron.agent.config.SecurityConfig;
 import com.squadron.agent.dto.AgentTestConfigDto;
 import com.squadron.agent.dto.AgentTestRequest;
 import com.squadron.agent.dto.AgentTestResult;
+import com.squadron.agent.dto.InteractiveTestSessionDto;
+import com.squadron.agent.dto.InteractiveTestSessionDto.InteractiveTestMessage;
 import com.squadron.agent.entity.AgentTestConfig;
 import com.squadron.agent.service.AgentTestConfigService;
 import com.squadron.agent.service.AgentTestExecutionService;
+import com.squadron.agent.service.InteractiveTestSessionService;
 import com.squadron.common.security.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +35,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -56,6 +60,9 @@ class AgentTestControllerTest {
 
     @MockBean
     private AgentTestConfigService configService;
+
+    @MockBean
+    private InteractiveTestSessionService interactiveService;
 
     @MockBean
     private JwtDecoder jwtDecoder;
@@ -251,5 +258,181 @@ class AgentTestControllerTest {
                 .andExpect(status().isOk());
 
         verify(executionService).executeTestStreaming(eq(tenantId), eq(userId), any(AgentTestRequest.class));
+    }
+
+    // ========================= Interactive Test Endpoints =========================
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_startInteractiveSession_when_validRequest() throws Exception {
+        UUID agentConfigId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+
+        InteractiveTestSessionDto session = InteractiveTestSessionDto.builder()
+                .sessionId(sessionId)
+                .agentConfigId(agentConfigId)
+                .agentName("Sol")
+                .provider("ollama")
+                .model("gemma4")
+                .status("ACTIVE")
+                .createdAt(Instant.now())
+                .messages(List.of(
+                        InteractiveTestMessage.builder()
+                                .id(UUID.randomUUID())
+                                .role("SYSTEM")
+                                .content("Session started with Sol")
+                                .createdAt(Instant.now())
+                                .build()
+                ))
+                .build();
+
+        when(interactiveService.startSession(eq(tenantId), eq(userId), eq(agentConfigId)))
+                .thenReturn(session);
+
+        mockMvc.perform(post("/api/agents/test/interactive/start")
+                        .param("agentConfigId", agentConfigId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.agentName").value("Sol"))
+                .andExpect(jsonPath("$.data.provider").value("ollama"))
+                .andExpect(jsonPath("$.data.model").value("gemma4"))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        verify(interactiveService).startSession(eq(tenantId), eq(userId), eq(agentConfigId));
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_getInteractiveSession_when_sessionExists() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+
+        InteractiveTestSessionDto session = InteractiveTestSessionDto.builder()
+                .sessionId(sessionId)
+                .agentConfigId(UUID.randomUUID())
+                .agentName("Titan")
+                .provider("ollama")
+                .model("qwen2.5-coder")
+                .status("ACTIVE")
+                .createdAt(Instant.now())
+                .messages(List.of())
+                .build();
+
+        when(interactiveService.getSession(eq(sessionId), eq(tenantId), eq(userId)))
+                .thenReturn(session);
+
+        mockMvc.perform(get("/api/agents/test/interactive/" + sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.agentName").value("Titan"));
+
+        verify(interactiveService).getSession(eq(sessionId), eq(tenantId), eq(userId));
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_listInteractiveSessions_when_userHasSessions() throws Exception {
+        InteractiveTestSessionDto session = InteractiveTestSessionDto.builder()
+                .sessionId(UUID.randomUUID())
+                .agentConfigId(UUID.randomUUID())
+                .agentName("Sol")
+                .provider("ollama")
+                .model("gemma4")
+                .status("ACTIVE")
+                .createdAt(Instant.now())
+                .messages(List.of())
+                .build();
+
+        when(interactiveService.getUserSessions(eq(tenantId), eq(userId)))
+                .thenReturn(List.of(session));
+
+        mockMvc.perform(get("/api/agents/test/interactive/sessions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].agentName").value("Sol"));
+
+        verify(interactiveService).getUserSessions(eq(tenantId), eq(userId));
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_closeInteractiveSession_when_sessionExists() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/agents/test/interactive/" + sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(interactiveService).closeSession(eq(sessionId), eq(tenantId), eq(userId));
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_streamInteractiveMessage_when_validRequest() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+
+        InteractiveTestSessionDto snapshot = InteractiveTestSessionDto.builder()
+                .sessionId(sessionId)
+                .agentConfigId(UUID.randomUUID())
+                .agentName("Sol")
+                .provider("ollama")
+                .model("gemma4")
+                .status("ACTIVE")
+                .createdAt(Instant.now())
+                .messages(List.of())
+                .build();
+
+        ServerSentEvent<InteractiveTestSessionDto> sse = ServerSentEvent.<InteractiveTestSessionDto>builder()
+                .event("snapshot")
+                .data(snapshot)
+                .build();
+
+        when(interactiveService.sendMessage(eq(tenantId), eq(userId), any()))
+                .thenReturn(Flux.just(sse));
+
+        String json = "{\"sessionId\":\"" + sessionId + "\",\"message\":\"Hello\"}";
+
+        mockMvc.perform(post("/api/agents/test/interactive/message/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM_VALUE)
+                        .content(json))
+                .andExpect(status().isOk());
+
+        verify(interactiveService).sendMessage(eq(tenantId), eq(userId), any());
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_return400_when_interactiveMessageMissingSessionId() throws Exception {
+        String json = "{\"message\":\"Hello\"}";
+
+        mockMvc.perform(post("/api/agents/test/interactive/message/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM_VALUE)
+                        .content(json))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_return400_when_interactiveMessageMissingMessage() throws Exception {
+        String json = "{\"sessionId\":\"" + UUID.randomUUID() + "\"}";
+
+        mockMvc.perform(post("/api/agents/test/interactive/message/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM_VALUE)
+                        .content(json))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = {"developer"})
+    void should_return400_when_interactiveMessageBlankMessage() throws Exception {
+        String json = "{\"sessionId\":\"" + UUID.randomUUID() + "\",\"message\":\"  \"}";
+
+        mockMvc.perform(post("/api/agents/test/interactive/message/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM_VALUE)
+                        .content(json))
+                .andExpect(status().isBadRequest());
     }
 }

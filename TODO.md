@@ -628,6 +628,22 @@
 - [x] All 4,328 backend tests passing (0 failures, 0 errors across 11 modules)
 - [x] Angular production build passing
 
+### Feature 25: Interactive Test Mode (Test Agents via Real-Time Chat)
+- [x] Backend: `InteractiveTestSessionDto` — session DTO with sessionId, agentConfigId, agentName, provider, model, status, messages list; inner `InteractiveTestMessage` class with id, role, content, tokenCount, createdAt
+- [x] Backend: `InteractiveTestMessageRequest` — request DTO with sessionId and message fields, Jakarta validation
+- [x] Backend: `InteractiveTestSessionService` — in-memory session store (ConcurrentHashMap), startSession, sendMessage (SSE streaming via Flux.create + virtual threads + blockLast), getSession, closeSession, getUserSessions, cleanupExpiredSessions (@Scheduled), max 8 sessions per user, 30-min TTL, per-agent-type system prompts
+- [x] Backend: `AgentTestController` updated with 5 new endpoints: POST /interactive/start, POST /interactive/message/stream, GET /interactive/{sessionId}, GET /interactive/sessions, DELETE /interactive/{sessionId}
+- [x] Backend: `InteractiveTestSessionServiceTest` — 17 unit tests (start session, access control, CRUD, streaming, error handling, max sessions, expiry cleanup, custom system prompt, multiple simultaneous sessions, cross-user access denied)
+- [x] Backend: `AgentTestControllerTest` — 4 new tests for interactive endpoints; all 27 agent tests passing
+- [x] Backend: Fixed virtual thread + reactive timing issue — promptBuilder mock needed for non-null system prompt in streaming test
+- [x] Frontend: `agent-test.model.ts` — added `INTERACTIVE` to TestMode, `InteractiveTestSession` and `InteractiveTestMessage` interfaces
+- [x] Frontend: `agent-test.service.ts` — added startInteractiveSession, sendInteractiveMessage (SSE via fetch), getInteractiveSession, getInteractiveSessions, closeInteractiveSession
+- [x] Frontend: `squadron-config.component.ts` — "Interactive Chat" button in test menu, inline chat panel per agent card (message list with role-based styling, streaming content display, typing indicator, send/close buttons, auto-scroll), multiple simultaneous sessions via Map<agentId, session>, formatCodeBlocks for markdown rendering, full BEM CSS for chat UI
+- [x] Frontend: i18n keys in en.json and fr.json (interactive.startSession, close, placeholder, send, streaming, error messages, role labels)
+- [x] Frontend: `squadron-config.component.spec.ts` — 9 new tests for interactive functionality (start session, prevent duplicates, close session, chat input management, render chat panel, formatCodeBlocks, hasStreamingAgentMessage)
+- [x] Frontend: `agent-test.service.spec.ts` — 5 new tests for interactive service methods (start, get, list, close, sendMessage via SSE)
+- [x] Angular production build passing
+
 ---
 
 ## Phase 9: Credential Delegation & End-to-End Agent Git Workflow (Epics 1-11)

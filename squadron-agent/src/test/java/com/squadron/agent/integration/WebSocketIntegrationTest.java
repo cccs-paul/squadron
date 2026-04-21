@@ -130,8 +130,7 @@ class WebSocketIntegrationTest {
     @MockBean
     private SystemPromptBuilder promptBuilder;
 
-    @MockBean
-    private AgentProvider agentProvider;
+    private AgentProvider agentProvider = org.mockito.Mockito.mock(AgentProvider.class);
 
     @MockBean
     @SuppressWarnings("unused")

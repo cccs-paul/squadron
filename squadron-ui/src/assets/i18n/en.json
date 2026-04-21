@@ -337,10 +337,25 @@
       "testModes": {
         "planning": "Test Planning",
         "codeGeneration": "Test Code Generation",
-        "codeReview": "Test Code Review"
+        "codeReview": "Test Code Review",
+        "interactive": "Interactive Chat"
       },
       "agentOutput": "Agent Output",
-      "dismissResult": "Dismiss"
+      "dismissResult": "Dismiss",
+      "interactive": {
+        "startSession": "Starting interactive session...",
+        "sessionStarted": "Session started",
+        "close": "Close Chat",
+        "placeholder": "Type a message...",
+        "send": "Send",
+        "streaming": "Streaming...",
+        "errorStarting": "Failed to start interactive session.",
+        "errorSending": "Failed to send message.",
+        "sessionClosed": "Session closed.",
+        "agentLabel": "Agent",
+        "youLabel": "You",
+        "systemLabel": "System"
+      }
     },
     "testGenerator": {
       "title": "Test Data Generator",
