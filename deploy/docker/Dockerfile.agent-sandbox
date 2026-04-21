@@ -6,17 +6,20 @@ FROM squadron/workspace-base:latest
 # Switch to root to install opencode
 USER root
 
-# Install opencode, curl (for health checks), and Node.js (opencode runtime dependency)
+# Copy corporate CA certificates if present (for proxy environments)
+COPY ca-certs/ /usr/local/share/ca-certificates/custom/
+RUN update-ca-certificates 2>/dev/null || true
+
+# Install curl (for health checks) and download opencode binary from GitHub releases
 RUN apt-get update -qq \
     && apt-get install -y --no-install-recommends \
         curl \
-        nodejs \
-        npm \
-    && npm install -g opencode-ai \
-    && apt-get purge -y npm \
-    && apt-get autoremove -y \
+    && curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-x64.tar.gz" -o /tmp/opencode.tar.gz \
+    && tar -xzf /tmp/opencode.tar.gz -C /tmp \
+    && mv /tmp/opencode /usr/local/bin/opencode \
+    && chmod +x /usr/local/bin/opencode \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /root/.npm /tmp/*
+    && rm -rf /var/lib/apt/lists/* /tmp/*
 
 # Create config directory writable by squadron user (will be on tmpfs at runtime)
 RUN mkdir -p /home/squadron/.config/opencode \

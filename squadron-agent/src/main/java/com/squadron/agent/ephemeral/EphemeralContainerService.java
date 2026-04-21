@@ -171,7 +171,7 @@ public class EphemeralContainerService {
         request.put("tenantId", tenantId.toString());
         request.put("taskId", sessionId.toString()); // Use sessionId as pseudo-taskId
         request.put("userId", sessionId.toString());  // Will be replaced by real userId
-        request.put("repoUrl", ""); // No repo to clone — this is a sandbox
+        request.put("repoUrl", null); // No repo to clone — this is a sandbox
         request.put("baseImage", config.getImage());
         request.put("resourceLimits", Map.of(
                 "memory", config.getMemoryLimit(),

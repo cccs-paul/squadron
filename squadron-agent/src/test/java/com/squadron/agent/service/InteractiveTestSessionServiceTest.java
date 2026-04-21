@@ -565,4 +565,168 @@ class InteractiveTestSessionServiceTest {
                 .anyMatch(m -> "SYSTEM".equals(m.getRole()) && m.getContent().contains("stream failed"));
         assertTrue(hasError);
     }
+
+    // --- User-friendly error message tests ---
+
+    @Test
+    void should_showMemoryError_when_ollamaOutOfMemory() {
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        when(promptBuilder.buildPlanningPrompt(anyString(), anyString()))
+                .thenReturn("You are a planning agent.");
+        when(providerRegistry.getProvider("ollama")).thenReturn(mockProvider);
+        when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
+                .thenReturn(Flux.error(new RuntimeException(
+                        "500 Internal Server Error",
+                        new RuntimeException("model requires more system memory (4.0 GiB) than is available (3.8 GiB)"))));
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
+                .sessionId(session.getSessionId()).message("test").build();
+
+        Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.sendMessage(tenantId, userId, request);
+        List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block(java.time.Duration.ofSeconds(10));
+
+        assertNotNull(events);
+        InteractiveTestSessionDto finalSnapshot = events.get(events.size() - 1).data();
+        String errorMsg = finalSnapshot.getMessages().stream()
+                .filter(m -> "SYSTEM".equals(m.getRole()) && m.getContent().startsWith("Error:"))
+                .map(InteractiveTestMessage::getContent)
+                .findFirst().orElse("");
+
+        assertTrue(errorMsg.contains("cannot be loaded"), "Should mention model can't be loaded");
+        assertTrue(errorMsg.contains("4.0 GiB"), "Should include required memory");
+        assertTrue(errorMsg.contains("3.8 GiB"), "Should include available memory");
+        assertTrue(errorMsg.contains("smaller model"), "Should suggest a smaller model");
+    }
+
+    @Test
+    void should_showConnectionError_when_providerRefusesConnection() {
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        when(promptBuilder.buildPlanningPrompt(anyString(), anyString()))
+                .thenReturn("You are a planning agent.");
+        when(providerRegistry.getProvider("ollama")).thenReturn(mockProvider);
+        when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
+                .thenReturn(Flux.error(new RuntimeException("Connection refused")));
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
+                .sessionId(session.getSessionId()).message("test").build();
+
+        Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.sendMessage(tenantId, userId, request);
+        List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block(java.time.Duration.ofSeconds(10));
+
+        assertNotNull(events);
+        String errorMsg = events.get(events.size() - 1).data().getMessages().stream()
+                .filter(m -> "SYSTEM".equals(m.getRole()) && m.getContent().startsWith("Error:"))
+                .map(InteractiveTestMessage::getContent)
+                .findFirst().orElse("");
+
+        assertTrue(errorMsg.contains("Could not connect"), "Should mention connection failure");
+        assertTrue(errorMsg.contains("ollama"), "Should mention the provider");
+        assertTrue(errorMsg.contains("running and accessible"), "Should suggest checking the service");
+    }
+
+    @Test
+    void should_showModelNotFoundError_when_modelMissing() {
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        when(promptBuilder.buildPlanningPrompt(anyString(), anyString()))
+                .thenReturn("You are a planning agent.");
+        when(providerRegistry.getProvider("ollama")).thenReturn(mockProvider);
+        when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
+                .thenReturn(Flux.error(new RuntimeException("model 'gemma4' not found")));
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
+                .sessionId(session.getSessionId()).message("test").build();
+
+        Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.sendMessage(tenantId, userId, request);
+        List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block(java.time.Duration.ofSeconds(10));
+
+        assertNotNull(events);
+        String errorMsg = events.get(events.size() - 1).data().getMessages().stream()
+                .filter(m -> "SYSTEM".equals(m.getRole()) && m.getContent().startsWith("Error:"))
+                .map(InteractiveTestMessage::getContent)
+                .findFirst().orElse("");
+
+        assertTrue(errorMsg.contains("not found"), "Should mention model not found");
+        assertTrue(errorMsg.contains("ollama pull"), "Should suggest pulling the model");
+    }
+
+    @Test
+    void should_showAuthError_when_unauthorized() {
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        when(promptBuilder.buildPlanningPrompt(anyString(), anyString()))
+                .thenReturn("You are a planning agent.");
+        when(providerRegistry.getProvider("ollama")).thenReturn(mockProvider);
+        when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
+                .thenReturn(Flux.error(new RuntimeException("401 Unauthorized")));
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
+                .sessionId(session.getSessionId()).message("test").build();
+
+        Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.sendMessage(tenantId, userId, request);
+        List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block(java.time.Duration.ofSeconds(10));
+
+        assertNotNull(events);
+        String errorMsg = events.get(events.size() - 1).data().getMessages().stream()
+                .filter(m -> "SYSTEM".equals(m.getRole()) && m.getContent().startsWith("Error:"))
+                .map(InteractiveTestMessage::getContent)
+                .findFirst().orElse("");
+
+        assertTrue(errorMsg.contains("Authentication failed"), "Should mention auth failure");
+        assertTrue(errorMsg.contains("API key"), "Should suggest checking the API key");
+    }
+
+    @Test
+    void should_showTimeoutError_when_requestTimesOut() {
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        when(promptBuilder.buildPlanningPrompt(anyString(), anyString()))
+                .thenReturn("You are a planning agent.");
+        when(providerRegistry.getProvider("ollama")).thenReturn(mockProvider);
+        when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
+                .thenReturn(Flux.error(new RuntimeException("Read timed out")));
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
+                .sessionId(session.getSessionId()).message("test").build();
+
+        Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.sendMessage(tenantId, userId, request);
+        List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block(java.time.Duration.ofSeconds(10));
+
+        assertNotNull(events);
+        String errorMsg = events.get(events.size() - 1).data().getMessages().stream()
+                .filter(m -> "SYSTEM".equals(m.getRole()) && m.getContent().startsWith("Error:"))
+                .map(InteractiveTestMessage::getContent)
+                .findFirst().orElse("");
+
+        assertTrue(errorMsg.contains("timed out"), "Should mention timeout");
+        assertTrue(errorMsg.contains("try again"), "Should suggest retrying");
+    }
+
+    @Test
+    void should_showRateLimitError_when_tooManyRequests() {
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        when(promptBuilder.buildPlanningPrompt(anyString(), anyString()))
+                .thenReturn("You are a planning agent.");
+        when(providerRegistry.getProvider("ollama")).thenReturn(mockProvider);
+        when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
+                .thenReturn(Flux.error(new RuntimeException("429 Too Many Requests")));
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
+                .sessionId(session.getSessionId()).message("test").build();
+
+        Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.sendMessage(tenantId, userId, request);
+        List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block(java.time.Duration.ofSeconds(10));
+
+        assertNotNull(events);
+        String errorMsg = events.get(events.size() - 1).data().getMessages().stream()
+                .filter(m -> "SYSTEM".equals(m.getRole()) && m.getContent().startsWith("Error:"))
+                .map(InteractiveTestMessage::getContent)
+                .findFirst().orElse("");
+
+        assertTrue(errorMsg.contains("Rate limited"), "Should mention rate limiting");
+        assertTrue(errorMsg.contains("wait"), "Should suggest waiting");
+    }
 }

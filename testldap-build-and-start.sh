@@ -286,6 +286,11 @@ build_docker_images() {
 
     # Build the agent-sandbox image (extends workspace-base with OpenCode for ephemeral containers)
     log_info "Building agent-sandbox image (OpenCode server for ephemeral agent containers)..."
+    # Ensure ca-certs directory exists (populate with corporate CAs if behind a proxy)
+    mkdir -p "${COMPOSE_DIR}/ca-certs"
+    if [ -d /usr/local/share/ca-certificates ] && ls /usr/local/share/ca-certificates/*.crt >/dev/null 2>&1; then
+        cp /usr/local/share/ca-certificates/*.crt "${COMPOSE_DIR}/ca-certs/" 2>/dev/null || true
+    fi
     if docker build -t "squadron/agent-sandbox:latest" \
         -f "${COMPOSE_DIR}/Dockerfile.agent-sandbox" \
         "${COMPOSE_DIR}" 2>&1 | tail -5; then

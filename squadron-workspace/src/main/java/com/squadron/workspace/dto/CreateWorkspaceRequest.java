@@ -25,8 +25,7 @@ public class CreateWorkspaceRequest {
     @NotNull
     private UUID userId;
 
-    @NotBlank
-    private String repoUrl;
+    private String repoUrl; // Nullable for sandbox workspaces (no repo to clone)
 
     private String branch;
 

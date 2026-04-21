@@ -105,3 +105,4 @@ deploy/helm/charts/*.tgz
 coverage/
 *.lcov
 jacoco.exec
+deploy/docker/ca-certs/

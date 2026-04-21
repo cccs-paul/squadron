@@ -411,13 +411,141 @@ public class InteractiveTestSessionService {
                                   Exception e) {
         log.error("Interactive test error for session {}: {}", state.sessionId, e.getMessage(), e);
 
-        state.messages.add(systemMessage("Error: " + e.getMessage()));
+        String userMessage = extractUserFriendlyErrorMessage(e, state);
+        state.messages.add(systemMessage(userMessage));
         state.streamingContent = null;
         state.status = "ACTIVE";
         state.lastActivityAt = Instant.now();
 
         emitSnapshot(sink, state);
         sink.complete();
+    }
+
+    /**
+     * Translates raw exceptions from LLM providers into clear, actionable messages
+     * for the user. Handles common failure modes: OOM, connection refused, model
+     * not found, auth errors, timeouts, and rate limits.
+     */
+    private String extractUserFriendlyErrorMessage(Exception e, SessionState state) {
+        String raw = buildFullExceptionMessage(e);
+        String model = state.agentConfig != null ? state.agentConfig.getModel() : "unknown";
+        String provider = state.provider != null ? state.provider : "unknown";
+
+        // Ollama: model requires more memory than available
+        if (raw.contains("model requires more system memory")) {
+            String needed = extractBetween(raw, "memory (", ")");
+            String available = extractBetween(raw, "available (", ")");
+            return String.format(
+                    "Error: The model '%s' cannot be loaded — it requires %s of memory but only %s is available. "
+                    + "Try a smaller model (e.g. a lower quantization or fewer parameters), "
+                    + "or free up memory by stopping other services.",
+                    model, needed != null ? needed : "more", available != null ? available : "less");
+        }
+
+        // Ollama: model not found
+        if (raw.contains("model") && (raw.contains("not found") || raw.contains("does not exist"))) {
+            return String.format(
+                    "Error: The model '%s' was not found on the Ollama server. "
+                    + "Run 'ollama pull %s' to download it, or choose a different model in the agent configuration.",
+                    model, model);
+        }
+
+        // Connection refused (provider not running)
+        if (raw.contains("Connection refused")) {
+            String baseUrl = state.agentConfig != null ? state.agentConfig.getBaseUrl() : null;
+            String target = baseUrl != null ? baseUrl : provider;
+            return String.format(
+                    "Error: Could not connect to the %s provider at '%s' — connection refused. "
+                    + "Ensure the service is running and accessible from the Squadron network.",
+                    provider, target);
+        }
+
+        // DNS / host not found
+        if (raw.contains("UnknownHostException") || raw.contains("nodename nor servname")
+                || raw.contains("Name or service not known")) {
+            return String.format(
+                    "Error: Could not resolve the hostname for the %s provider. "
+                    + "Check that the provider URL is correct and the service is reachable.",
+                    provider);
+        }
+
+        // Timeout
+        if (raw.contains("timed out") || raw.contains("TimeoutException") || raw.contains("Read timed out")) {
+            return String.format(
+                    "Error: The request to the %s provider timed out. "
+                    + "The model may be loading or the server is under heavy load. Please try again.",
+                    provider);
+        }
+
+        // HTTP 401/403 — auth failure
+        if (raw.contains("401") || raw.contains("Unauthorized")) {
+            return String.format(
+                    "Error: Authentication failed for the %s provider. "
+                    + "Check that the API key in the agent configuration is valid and has not expired.",
+                    provider);
+        }
+        if (raw.contains("403") || raw.contains("Forbidden")) {
+            return String.format(
+                    "Error: Access denied by the %s provider. "
+                    + "The API key may lack required permissions, or the model '%s' may not be available on your plan.",
+                    provider, model);
+        }
+
+        // HTTP 429 — rate limit
+        if (raw.contains("429") || raw.contains("rate limit") || raw.contains("Too Many Requests")) {
+            return String.format(
+                    "Error: Rate limited by the %s provider. Please wait a moment and try again.",
+                    provider);
+        }
+
+        // HTTP 500 from provider (generic)
+        if (raw.contains("500 Internal Server Error")) {
+            return String.format(
+                    "Error: The %s provider returned an internal server error for model '%s'. "
+                    + "This is usually a transient issue — please try again. "
+                    + "If it persists, check the provider's status or try a different model.",
+                    provider, model);
+        }
+
+        // SSL/TLS errors
+        if (raw.contains("SSLHandshakeException") || raw.contains("PKIX path") || raw.contains("certificate")) {
+            return String.format(
+                    "Error: SSL/TLS certificate error connecting to the %s provider. "
+                    + "If behind a corporate proxy, ensure the CA certificates are correctly configured.",
+                    provider);
+        }
+
+        // Fallback — include the raw message but prefix with context
+        return String.format("Error: Failed to get a response from the %s provider (model: %s). %s",
+                provider, model, e.getMessage());
+    }
+
+    /**
+     * Builds a full exception message including cause chain, so we can match
+     * against nested exception messages (e.g., Spring AI wrapping Ollama errors).
+     */
+    private String buildFullExceptionMessage(Exception e) {
+        StringBuilder sb = new StringBuilder();
+        Throwable current = e;
+        while (current != null) {
+            if (sb.length() > 0) sb.append(" -> ");
+            sb.append(current.getClass().getSimpleName());
+            if (current.getMessage() != null) {
+                sb.append(": ").append(current.getMessage());
+            }
+            current = current.getCause();
+        }
+        return sb.toString();
+    }
+
+    /** Extracts text between two marker strings, or returns null if not found. */
+    private String extractBetween(String text, String start, String end) {
+        int startIdx = text.indexOf(start);
+        if (startIdx < 0) return null;
+        startIdx += start.length();
+        int endIdx = text.indexOf(end, startIdx);
+        if (endIdx < 0) return null;
+        return text.substring(startIdx, endIdx);
     }
 
     private String resolveApiKey(UserAgentConfig agentConfig) {
