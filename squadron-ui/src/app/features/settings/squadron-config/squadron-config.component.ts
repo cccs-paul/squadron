@@ -186,6 +186,12 @@ import {
                     <div class="squadron-config__chat-title">
                       <span class="squadron-config__chat-agent-name">{{ chatSession.agentName }}</span>
                       <span class="squadron-config__chat-model">{{ chatSession.provider }}/{{ chatSession.model }}</span>
+                      @if (chatSession.containerId) {
+                        <span class="squadron-config__chat-container-badge"
+                          title="Running in ephemeral container {{ chatSession.containerId }}">
+                          {{ chatSession.containerId }}
+                        </span>
+                      }
                       @if (chatSession.status === 'STREAMING') {
                         <span class="squadron-config__chat-streaming-badge">
                           {{ 'settings.squadronConfig.interactive.streaming' | translate }}
@@ -500,6 +506,10 @@ import {
     .squadron-config__chat-model { font-size: 0.75rem; color: #6b7280; }
     .squadron-config__chat-streaming-badge {
       font-size: 0.6875rem; font-weight: 500; color: #4f46e5; font-style: italic;
+    }
+    .squadron-config__chat-container-badge {
+      font-size: 0.625rem; font-family: monospace; color: #059669; background: #ecfdf5;
+      padding: 1px 6px; border-radius: 3px; border: 1px solid #a7f3d0;
     }
     .squadron-config__btn--close-chat {
       background: #fee2e2; color: #dc2626; border-color: #fecaca; font-size: 0.75rem;

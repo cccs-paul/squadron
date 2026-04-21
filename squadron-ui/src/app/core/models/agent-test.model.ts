@@ -78,6 +78,7 @@ export interface InteractiveTestSession {
   provider: string;
   model: string;
   status: 'ACTIVE' | 'STREAMING' | 'CLOSED';
+  containerId: string;
   createdAt: string;
   messages: InteractiveTestMessage[];
 }

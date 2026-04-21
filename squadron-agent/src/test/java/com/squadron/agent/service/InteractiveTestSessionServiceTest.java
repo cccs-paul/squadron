@@ -84,10 +84,22 @@ class InteractiveTestSessionServiceTest {
         assertEquals("gemma4", session.getModel());
         assertEquals("ACTIVE", session.getStatus());
         assertNotNull(session.getCreatedAt());
-        // Should have initial system message
-        assertEquals(1, session.getMessages().size());
-        assertEquals("SYSTEM", session.getMessages().get(0).getRole());
-        assertTrue(session.getMessages().get(0).getContent().contains("Sol"));
+        assertNotNull(session.getContainerId(), "Session should have an ephemeral container ID");
+        assertEquals(12, session.getContainerId().length(), "Container ID should be 12 chars");
+        // Should have container lifecycle messages + session start message
+        assertTrue(session.getMessages().size() >= 7,
+                "Should have container lifecycle messages and session start message");
+        assertTrue(session.getMessages().stream().allMatch(m -> "SYSTEM".equals(m.getRole())),
+                "All initial messages should be SYSTEM role");
+        // First message should be about container provisioning
+        assertTrue(session.getMessages().get(0).getContent().contains("ephemeral sandbox container"),
+                "First message should reference ephemeral container");
+        // Last message should be the session start message with agent name
+        InteractiveTestMessage lastMsg = session.getMessages().get(session.getMessages().size() - 1);
+        assertTrue(lastMsg.getContent().contains("Sol"),
+                "Last message should contain agent name");
+        assertTrue(lastMsg.getContent().contains("container"),
+                "Last message should reference the container");
     }
 
     @Test
@@ -448,6 +460,48 @@ class InteractiveTestSessionServiceTest {
         verify(promptBuilder, never()).buildCodingPrompt(anyString(), anyString());
         verify(promptBuilder, never()).buildReviewPrompt(anyString());
         verify(promptBuilder, never()).buildQaPrompt(anyString(), anyString());
+    }
+
+    @Test
+    void should_includeContainerLifecycleMessages_when_sessionStarts() {
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+
+        assertNotNull(session.getContainerId());
+
+        List<String> messageContents = session.getMessages().stream()
+                .map(InteractiveTestMessage::getContent)
+                .toList();
+
+        // Verify container lifecycle messages are present in order
+        assertTrue(messageContents.stream().anyMatch(c -> c.contains("Requesting ephemeral sandbox container")),
+                "Should have container request message");
+        assertTrue(messageContents.stream().anyMatch(c -> c.contains("Pulling workspace image")),
+                "Should have image pull message");
+        assertTrue(messageContents.stream().anyMatch(c -> c.contains("Allocating resources")),
+                "Should have resource allocation message");
+        assertTrue(messageContents.stream().anyMatch(c -> c.contains(session.getContainerId() + " created")),
+                "Should reference the container ID in creation message");
+        assertTrue(messageContents.stream().anyMatch(c -> c.contains("Installing language toolchains")),
+                "Should have toolchain install message");
+        assertTrue(messageContents.stream().anyMatch(c -> c.contains("is ready")),
+                "Should have container ready message");
+    }
+
+    @Test
+    void should_logContainerTeardown_when_sessionCloses() {
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+
+        assertNotNull(session.getContainerId(), "Session should have a container ID");
+
+        // Close session — should not throw
+        assertDoesNotThrow(() -> service.closeSession(session.getSessionId(), tenantId, userId));
+
+        // Session should be removed
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.getSession(session.getSessionId(), tenantId, userId));
     }
 
     @Test

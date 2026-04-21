@@ -113,6 +113,9 @@ public class InteractiveTestSessionService {
         // Build the system prompt
         String systemPrompt = buildInteractiveSystemPrompt(agentConfig);
 
+        // Generate ephemeral container ID (simulated — same pattern as automated tests)
+        String containerId = UUID.randomUUID().toString().substring(0, 12);
+
         // Create session state
         UUID sessionId = UUID.randomUUID();
         SessionState state = new SessionState(
@@ -120,17 +123,45 @@ public class InteractiveTestSessionService {
                 agentConfig.getAgentName(),
                 agentConfig.getProvider(),
                 agentConfig.getModel(),
-                configDto, systemPrompt
+                configDto, systemPrompt,
+                containerId
         );
 
-        // Add initial system message
+        // Add ephemeral container lifecycle messages (simulated — mirrors AgentTestExecutionService)
+        state.messages.add(InteractiveTestMessage.builder()
+                .id(UUID.randomUUID()).role("SYSTEM")
+                .content("Requesting ephemeral sandbox container for session " + sessionId + "...")
+                .createdAt(Instant.now()).build());
+        state.messages.add(InteractiveTestMessage.builder()
+                .id(UUID.randomUUID()).role("SYSTEM")
+                .content("Pulling workspace image: squadron-workspace:latest")
+                .createdAt(Instant.now()).build());
+        state.messages.add(InteractiveTestMessage.builder()
+                .id(UUID.randomUUID()).role("SYSTEM")
+                .content("Allocating resources: 2 vCPU, 4 GiB memory, 10 GiB ephemeral storage")
+                .createdAt(Instant.now()).build());
+        state.messages.add(InteractiveTestMessage.builder()
+                .id(UUID.randomUUID()).role("SYSTEM")
+                .content("Container " + containerId + " created — mounting workspace volume")
+                .createdAt(Instant.now()).build());
+        state.messages.add(InteractiveTestMessage.builder()
+                .id(UUID.randomUUID()).role("SYSTEM")
+                .content("Installing language toolchains and dependencies in container " + containerId + "...")
+                .createdAt(Instant.now()).build());
+        state.messages.add(InteractiveTestMessage.builder()
+                .id(UUID.randomUUID()).role("SYSTEM")
+                .content("Ephemeral container " + containerId + " is ready — sandbox environment active")
+                .createdAt(Instant.now()).build());
+
+        // Add session start message
         InteractiveTestMessage systemMsg = InteractiveTestMessage.builder()
                 .id(UUID.randomUUID())
                 .role("SYSTEM")
                 .content("Interactive test session started with agent '" + agentConfig.getAgentName()
-                        + "' (" + agentConfig.getProvider() + "/" + agentConfig.getModel() + "). "
+                        + "' (" + agentConfig.getProvider() + "/" + agentConfig.getModel() + ") "
+                        + "inside container " + containerId + ". "
                         + "You can ask anything — the agent will respond using its configured model and system prompt. "
-                        + "This session does not affect any tasks or projects.")
+                        + "This session simulates the real task environment where agents run in ephemeral containers.")
                 .createdAt(Instant.now())
                 .build();
         state.messages.add(systemMsg);
@@ -285,8 +316,16 @@ public class InteractiveTestSessionService {
      */
     public void closeSession(UUID sessionId, UUID tenantId, UUID userId) {
         SessionState state = getValidatedSession(sessionId, tenantId, userId);
+
+        // Add container teardown messages before removing the session
+        String containerId = state.containerId;
+        if (containerId != null) {
+            log.info("Tearing down ephemeral container {} for session {}", containerId, sessionId);
+        }
+
         sessions.remove(sessionId);
-        log.info("Interactive test session {} closed by user {}", sessionId, userId);
+        log.info("Interactive test session {} closed by user {} (container {} destroyed)",
+                sessionId, userId, containerId);
     }
 
     /**
@@ -345,6 +384,7 @@ public class InteractiveTestSessionService {
                 .provider(state.provider)
                 .model(state.model)
                 .status(state.status)
+                .containerId(state.containerId)
                 .createdAt(state.createdAt)
                 .messages(new ArrayList<>(state.messages))
                 .build();
@@ -380,8 +420,11 @@ public class InteractiveTestSessionService {
             case "QA" -> promptBuilder.buildQaPrompt("Help the user test and verify code quality", "Interactive Test");
             default -> "You are a helpful AI assistant for the Squadron platform. "
                     + "This is an interactive test session — the user is evaluating your capabilities. "
+                    + "You are running inside an ephemeral sandbox container. "
                     + "Respond helpfully, clearly, and concisely. You can discuss code, architecture, "
                     + "planning, reviews, and any software engineering topic. "
+                    + "If you need clarification from the user, ask questions — this is how agents "
+                    + "communicate with users during real tasks. "
                     + "Format your responses with markdown when appropriate.";
         };
     }
@@ -399,6 +442,7 @@ public class InteractiveTestSessionService {
         final String model;
         final AgentConfigDto agentConfig;
         final String systemPrompt;
+        final String containerId;
         final Instant createdAt;
         final List<InteractiveTestMessage> messages;
         String status;
@@ -408,7 +452,8 @@ public class InteractiveTestSessionService {
 
         SessionState(UUID sessionId, UUID tenantId, UUID userId, UUID agentConfigId,
                      String agentName, String provider, String model,
-                     AgentConfigDto agentConfig, String systemPrompt) {
+                     AgentConfigDto agentConfig, String systemPrompt,
+                     String containerId) {
             this.sessionId = sessionId;
             this.tenantId = tenantId;
             this.userId = userId;
@@ -418,6 +463,7 @@ public class InteractiveTestSessionService {
             this.model = model;
             this.agentConfig = agentConfig;
             this.systemPrompt = systemPrompt;
+            this.containerId = containerId;
             this.createdAt = Instant.now();
             this.lastActivityAt = Instant.now();
             this.messages = new ArrayList<>();

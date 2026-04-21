@@ -29,6 +29,7 @@ public class InteractiveTestSessionDto {
     private String provider;
     private String model;
     private String status; // ACTIVE, STREAMING, COMPLETED, ERROR
+    private String containerId;
     private Instant createdAt;
 
     @Builder.Default

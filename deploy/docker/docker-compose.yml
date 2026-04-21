@@ -196,6 +196,8 @@ services:
       - "11434:11434"
     volumes:
       - ollama-data:/root/.ollama
+      - /usr/local/share/ca-certificates:/usr/local/share/ca-certificates:ro
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
     environment:
       OLLAMA_HOST: 0.0.0.0
     healthcheck:
@@ -214,7 +216,10 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
-    entrypoint: ["ollama", "pull", "qwen2.5-coder:7b"]
+    entrypoint: ["sh", "-c", "ollama pull gemma4:e2b && ollama pull qwen2.5-coder:7b"]
+    volumes:
+      - /usr/local/share/ca-certificates:/usr/local/share/ca-certificates:ro
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
     environment:
       OLLAMA_HOST: http://ollama:11434
     restart: "no"
