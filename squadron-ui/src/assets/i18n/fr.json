@@ -532,14 +532,20 @@
         "roleSystem": "Système"
       },
       "dropModal": {
-        "title": "État de la tâche modifié",
-        "description": "Cette tâche passe à {{state}}. Souhaitez-vous assigner un agent IA pour la traiter ?",
+        "title": "Déplacer la tâche",
+        "confirmDescription": "Déplacer cette tâche vers {{state}} ?",
+        "agentOptional": "Assigner un agent IA (facultatif)",
         "agentLabel": "Type d'agent",
         "instructionsLabel": "Instructions",
         "instructionsPlaceholder": "Instructions facultatives pour l'agent...",
+        "cancel": "Annuler",
+        "confirm": "Déplacer la tâche",
+        "moving": "Déplacement...",
+        "transitionError": "Impossible de déplacer la tâche. Cette transition n'est peut-être pas autorisée.",
         "skipAgent": "Ignorer",
         "delegate": "Déléguer",
-        "delegating": "Délégation..."
+        "delegating": "Délégation...",
+        "description": "Cette tâche passe à {{state}}. Souhaitez-vous assigner un agent IA pour la traiter ?"
       },
       "ticketless": {
         "columnTitle": "Sans ticket",
@@ -563,6 +569,7 @@
         "noGitRemoteProjects": "Aucun projet avec un dépôt Git configuré",
         "cancel": "Annuler",
         "create": "Créer la tâche",
+        "createError": "Échec de la création de la tâche. Veuillez réessayer.",
         "noTasks": "Aucune tâche sans ticket",
         "status": {
           "CREATED": "Créé",

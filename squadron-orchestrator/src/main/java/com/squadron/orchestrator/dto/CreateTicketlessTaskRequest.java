@@ -19,7 +19,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CreateTicketlessTaskRequest {
 
-    @NotNull(message = "Tenant ID is required")
+    /** Tenant ID — auto-resolved from JWT if not provided */
     private UUID tenantId;
 
     @NotBlank(message = "Prompt is required")

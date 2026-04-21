@@ -501,16 +501,6 @@
           </div>
 
           <div class="agent-modal__field">
-            <label class="agent-modal__label">{{ 'tasks.board.ticketless.agentLabel' | translate }}</label>
-            <select class="sq-select" [ngModel]="ticketlessAgentConfigId()" (ngModelChange)="ticketlessAgentConfigId.set($event)">
-              <option value="">{{ 'tasks.board.ticketless.selectAgent' | translate }}</option>
-              @for (agent of availableAgents(); track agent.id) {
-                <option [value]="agent.id">{{ agent.agentName }} ({{ agent.model }})</option>
-              }
-            </select>
-          </div>
-
-          <div class="agent-modal__field">
             <label class="agent-modal__label">{{ 'tasks.board.ticketless.branchLabel' | translate }}</label>
             <input type="text" class="sq-input" [placeholder]="'tasks.board.ticketless.branchPlaceholder' | translate"
               [ngModel]="ticketlessBranch()" (ngModelChange)="ticketlessBranch.set($event)" />
@@ -524,11 +514,14 @@
           </div>
         </div>
         <div class="agent-modal__footer">
+          @if (ticketlessError()) {
+            <div class="agent-modal__error">{{ ticketlessError() }}</div>
+          }
           <button class="sq-btn sq-btn--ghost" (click)="closeTicketlessDialog()">
             {{ 'tasks.board.ticketless.cancel' | translate }}
           </button>
           <button class="sq-btn sq-btn--primary"
-            [disabled]="creatingTicketless() || !ticketlessTitle().trim() || !ticketlessPrompt().trim() || !ticketlessAgentConfigId() || !ticketlessProjectId()"
+            [disabled]="creatingTicketless() || !ticketlessTitle().trim() || !ticketlessPrompt().trim() || !ticketlessProjectId()"
             (click)="createTicketlessTask()">
             @if (creatingTicketless()) { {{ 'tasks.board.ticketless.creating' | translate }} }
             @else { {{ 'tasks.board.ticketless.create' | translate }} }
@@ -554,34 +547,42 @@
             <span class="agent-modal__state" [style.color]="stateColor(modal.toState)">{{ 'tasks.state.' + modal.toState | translate }}</span>
           </div>
           <p class="agent-modal__description">
-            {{ 'tasks.board.dropModal.description' | translate:{ state: ('tasks.state.' + modal.toState | translate) } }}
+            {{ 'tasks.board.dropModal.confirmDescription' | translate:{ state: ('tasks.state.' + modal.toState | translate) } }}
           </p>
 
-          <div class="agent-modal__field">
-            <label class="agent-modal__label">{{ 'tasks.board.dropModal.agentLabel' | translate }}</label>
-            <select class="sq-select" [ngModel]="modal.suggestedAgent" (ngModelChange)="updateDropModalAgent($event)">
-              @for (at of agentTypes; track at.value) {
-                <option [value]="at.value">{{ at.label | translate }}</option>
-              }
-            </select>
-          </div>
+          @if (hasAgentForState(modal.toState)) {
+            <details class="agent-modal__details">
+              <summary class="agent-modal__details-summary">{{ 'tasks.board.dropModal.agentOptional' | translate }}</summary>
+              <div class="agent-modal__field">
+                <label class="agent-modal__label">{{ 'tasks.board.dropModal.agentLabel' | translate }}</label>
+                <select class="sq-select" [ngModel]="modal.suggestedAgent" (ngModelChange)="updateDropModalAgent($event)">
+                  @for (at of agentTypes; track at.value) {
+                    <option [value]="at.value">{{ at.label | translate }}</option>
+                  }
+                </select>
+              </div>
 
-          <div class="agent-modal__field">
-            <label class="agent-modal__label">{{ 'tasks.board.dropModal.instructionsLabel' | translate }}</label>
-            <textarea class="sq-input agent-modal__textarea"
-              [placeholder]="'tasks.board.dropModal.instructionsPlaceholder' | translate"
-              [ngModel]="modal.instructions"
-              (ngModelChange)="updateDropModalInstructions($event)"
-              rows="3"></textarea>
-          </div>
+              <div class="agent-modal__field">
+                <label class="agent-modal__label">{{ 'tasks.board.dropModal.instructionsLabel' | translate }}</label>
+                <textarea class="sq-input agent-modal__textarea"
+                  [placeholder]="'tasks.board.dropModal.instructionsPlaceholder' | translate"
+                  [ngModel]="modal.instructions"
+                  (ngModelChange)="updateDropModalInstructions($event)"
+                  rows="3"></textarea>
+              </div>
+            </details>
+          }
         </div>
         <div class="agent-modal__footer">
+          @if (dropModalError()) {
+            <div class="agent-modal__error">{{ dropModalError() }}</div>
+          }
           <button class="sq-btn sq-btn--ghost" (click)="dismissDropModal()">
-            {{ 'tasks.board.dropModal.skipAgent' | translate }}
+            {{ 'tasks.board.dropModal.cancel' | translate }}
           </button>
           <button class="sq-btn sq-btn--primary" [disabled]="dropModalDelegating()" (click)="acceptDropModal()">
-            @if (dropModalDelegating()) { {{ 'tasks.board.dropModal.delegating' | translate }} }
-            @else { {{ 'tasks.board.dropModal.delegate' | translate }} }
+            @if (dropModalDelegating()) { {{ 'tasks.board.dropModal.moving' | translate }} }
+            @else { {{ 'tasks.board.dropModal.confirm' | translate }} }
           </button>
         </div>
       </div>

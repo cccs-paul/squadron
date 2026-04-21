@@ -15,7 +15,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class TransitionRequest {
 
-    @NotNull(message = "Task ID is required")
+    /** Task ID — auto-resolved from path variable if not provided */
     private UUID taskId;
 
     @NotBlank(message = "Target state is required")

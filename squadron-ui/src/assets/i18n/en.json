@@ -532,14 +532,20 @@
         "roleSystem": "System"
       },
       "dropModal": {
-        "title": "Task State Changed",
-        "description": "This task is moving to {{state}}. Would you like to assign an AI agent to handle it?",
+        "title": "Move Task",
+        "confirmDescription": "Move this task to {{state}}?",
+        "agentOptional": "Assign an AI agent (optional)",
         "agentLabel": "Agent Type",
         "instructionsLabel": "Instructions",
         "instructionsPlaceholder": "Optional instructions for the agent...",
+        "cancel": "Cancel",
+        "confirm": "Move Task",
+        "moving": "Moving...",
+        "transitionError": "Failed to move task. This transition may not be allowed.",
         "skipAgent": "Skip",
         "delegate": "Delegate",
-        "delegating": "Delegating..."
+        "delegating": "Delegating...",
+        "description": "This task is moving to {{state}}. Would you like to assign an AI agent to handle it?"
       },
       "ticketless": {
         "columnTitle": "Ticketless",
@@ -563,6 +569,7 @@
         "noGitRemoteProjects": "No projects with a configured Git remote",
         "cancel": "Cancel",
         "create": "Create Task",
+        "createError": "Failed to create task. Please try again.",
         "noTasks": "No ticketless tasks",
         "status": {
           "CREATED": "Created",

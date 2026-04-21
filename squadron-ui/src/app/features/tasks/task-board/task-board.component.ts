@@ -130,8 +130,14 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     toState: TaskState;
     suggestedAgent: string;
     instructions: string;
+    /** Stored references for reverting the visual move on cancel/error */
+    previousContainer: BoardTask[];
+    container: BoardTask[];
+    previousIndex: number;
+    currentIndex: number;
   } | null>(null);
   dropModalDelegating = signal(false);
+  dropModalError = signal('');
 
   /** Sync panel state */
   showSyncPanel = signal(false);
@@ -158,6 +164,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   ticketlessAgentConfigId = signal('');
   ticketlessProjectId = signal('');
   creatingTicketless = signal(false);
+  ticketlessError = signal('');
 
   /** Projects that can be synced (have connectionId + externalProjectId configured) */
   syncableProjects = computed(() =>
@@ -807,7 +814,7 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
       const fromState = task.state;
       const targetState = targetColumn.states[0];
 
-      // Move the card visually
+      // Move the card visually (optimistic)
       transferArrayItem(
         event.previousContainer.data,
         event.container.data,
@@ -815,29 +822,19 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         event.currentIndex,
       );
 
-      // Perform the transition
-      this.taskService.transitionTask(task.id, targetState).subscribe({
-        next: () => {
-          task.state = targetState;
-
-          // Always show the drop modal for cross-column moves
-          const suggestedAgent = STATE_AGENT_MAP[targetState] ?? 'PLANNING';
-          this.dropModal.set({
-            task: { ...task },
-            fromState,
-            toState: targetState,
-            suggestedAgent,
-            instructions: '',
-          });
-        },
-        error: () => {
-          transferArrayItem(
-            event.container.data,
-            event.previousContainer.data,
-            event.currentIndex,
-            event.previousIndex,
-          );
-        },
+      // Show confirmation modal BEFORE calling the backend
+      const suggestedAgent = STATE_AGENT_MAP[targetState] ?? 'PLANNING';
+      this.dropModalError.set('');
+      this.dropModal.set({
+        task: { ...task },
+        fromState,
+        toState: targetState,
+        suggestedAgent,
+        instructions: '',
+        previousContainer: event.previousContainer.data,
+        container: event.container.data,
+        previousIndex: event.previousIndex,
+        currentIndex: event.currentIndex,
       });
     }
   }
@@ -845,7 +842,18 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   // --- Drop modal (agent delegation after drag-drop) ---
 
   dismissDropModal(): void {
+    const s = this.dropModal();
+    if (s) {
+      // Revert the visual move — put the card back where it was
+      transferArrayItem(
+        s.container,
+        s.previousContainer,
+        s.currentIndex,
+        s.previousIndex,
+      );
+    }
     this.dropModal.set(null);
+    this.dropModalError.set('');
   }
 
   updateDropModalInstructions(value: string): void {
@@ -866,21 +874,53 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     const s = this.dropModal();
     if (!s) return;
 
-    const request: DelegateTaskRequest = {
-      agentType: s.suggestedAgent,
-      instructions: s.instructions || undefined,
-      targetState: s.toState,
-    };
-
     this.dropModalDelegating.set(true);
-    this.taskService.delegateToAgent(s.task.id, request).subscribe({
+    this.dropModalError.set('');
+
+    // Step 1: Perform the state transition
+    this.taskService.transitionTask(s.task.id, s.toState).subscribe({
       next: () => {
-        this.dropModalDelegating.set(false);
-        this.dropModal.set(null);
-        this.loadData();
+        // Transition succeeded — now optionally delegate to an agent
+        if (s.instructions?.trim()) {
+          const request: DelegateTaskRequest = {
+            agentType: s.suggestedAgent,
+            instructions: s.instructions || undefined,
+            targetState: s.toState,
+          };
+          this.taskService.delegateToAgent(s.task.id, request).subscribe({
+            next: () => {
+              this.dropModalDelegating.set(false);
+              this.dropModal.set(null);
+              this.dropModalError.set('');
+              this.loadData();
+            },
+            error: () => {
+              // Delegation failed but transition succeeded — close modal, reload
+              this.dropModalDelegating.set(false);
+              this.dropModal.set(null);
+              this.dropModalError.set('');
+              this.loadData();
+            },
+          });
+        } else {
+          // No delegation requested — just close
+          this.dropModalDelegating.set(false);
+          this.dropModal.set(null);
+          this.dropModalError.set('');
+          this.loadData();
+        }
       },
-      error: () => {
+      error: (err) => {
         this.dropModalDelegating.set(false);
+        const msg = err?.error?.message || err?.message || this.translate.instant('tasks.board.dropModal.transitionError');
+        this.dropModalError.set(msg);
+        // Revert the visual move
+        transferArrayItem(
+          s.container,
+          s.previousContainer,
+          s.currentIndex,
+          s.previousIndex,
+        );
       },
     });
   }
@@ -907,7 +947,9 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
     this.ticketlessCreateBranch.set(false);
     this.ticketlessAgentMode.set('BUILD');
     this.ticketlessAgentConfigId.set(this.availableAgents()[0]?.id ?? '');
-    // Default to selected project if it has a git remote, otherwise empty (user must pick)
+    this.ticketlessProjectId.set('');
+    this.ticketlessError.set('');
+    // Default to selected project if it has a git remote
     const selected = this.selectedProject();
     this.ticketlessProjectId.set(selected?.gitConnectionId ? selected.id : '');
     this.applyBranchTemplate();
@@ -953,9 +995,11 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
   createTicketlessTask(): void {
     const title = this.ticketlessTitle().trim();
     const prompt = this.ticketlessPrompt().trim();
-    const agentConfigId = this.ticketlessAgentConfigId();
+    const agentConfigId = this.ticketlessAgentConfigId() || this.availableAgents()[0]?.id || '';
     const projectId = this.ticketlessProjectId();
-    if (!title || !prompt || !agentConfigId || !projectId) return;
+    if (!title || !prompt || !projectId) return;
+
+    this.ticketlessError.set('');
 
     const request: CreateTicketlessTaskRequest = {
       title,
@@ -974,8 +1018,10 @@ export class TaskBoardComponent implements OnInit, OnDestroy {
         this.showTicketlessDialog.set(false);
         this.loadData();
       },
-      error: () => {
+      error: (err) => {
         this.creatingTicketless.set(false);
+        const msg = err?.error?.message || err?.message || this.translate.instant('tasks.board.ticketless.createError');
+        this.ticketlessError.set(msg);
       },
     });
   }
