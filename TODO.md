@@ -1,7 +1,7 @@
 # Squadron - Implementation Progress Tracker
 
 **Last updated:** 2026-04-21
-**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-24). Feature 26: Ephemeral Agent Sandbox Containers — COMPLETE. Real OpenCode containers replace simulated ephemeral containers. Backend implementation complete with tests. Docker image builds successfully. **Build passing (`mvn clean package -Dmaven.test.skip=true`). All 1110 squadron-agent tests passing. 0 failures.**
+**Current Status:** All 11 modules fully implemented with tests. All post-launch features complete (Features 1-26). Feature 26: Ephemeral Agent Sandbox Containers — COMPLETE. Real OpenCode containers replace simulated ephemeral containers. Backend + frontend implementation complete with tests. Docker image builds successfully. Full E2E verified (21 containers healthy). Frontend SSE streaming refactored with 401 retry and user-friendly error messages. **Build passing. All backend tests passing. 0 failures.**
 
 ---
 
@@ -33,8 +33,12 @@ Replace simulated ephemeral containers with real containers running OpenCode as 
 #### Not Yet Done
 - [x] Fix `Dockerfile.agent-sandbox` build (switched from npm to direct binary download from GitHub releases)
 - [x] Fix `TenantScopedLookup` NoClassDefFound (resolved: stale squadron-common jar in local Maven repo)
-- [ ] End-to-end testing with `testldap-build-and-start.sh` (Docker image builds; full stack test pending)
-- [x] Frontend changes — not needed (containerId field already in UI)
+- [x] End-to-end testing with `testldap-build-and-start.sh` — all 21 containers healthy (6m 49s)
+- [x] Frontend: `agent-test.service.ts` refactored with `streamSse<T>()` helper — 401 token refresh retry + user-friendly error messages
+- [x] Frontend: Test spec fixes — added missing `containerId` field to mock objects in `agent-test.service.spec.ts` and `squadron-config.component.spec.ts`
+- [x] `CreateWorkspaceRequest.repoUrl` — removed `@NotBlank` validation (sandbox containers don't need a repo)
+- [x] `InteractiveTestSessionService` — added `extractUserFriendlyErrorMessage()` with ~120 lines of error translation (OOM, connection refused, model not found, auth, timeout, rate limit, SSL, generic 500s)
+- [x] `InteractiveTestSessionServiceTest` — 33 tests (27 original + 6 new error message tests)
 
 ### squadron-common (66 src / 66 test)
 - [x] DTOs (TaskDto, TenantDto, TeamDto, UserDto, ProjectDto, etc.)
@@ -1308,8 +1312,8 @@ Replace simulated ephemeral containers with real containers running OpenCode as 
 | squadron-gateway | 11 | 10 | Complete (133 tests) |
 | squadron-identity | 43 | 43 | Complete (461 tests) |
 | squadron-orchestrator | 39 | 39 | Complete (401 tests) |
-| squadron-agent | 99 | 99 | Complete (967 tests) |
-| squadron-workspace | 20 | 19 | Complete (229 tests) |
+| squadron-agent | 102 | 102 | Complete (1116 tests) |
+| squadron-workspace | 20 | 19 | Complete (242 tests) |
 | squadron-platform | 48 | 46 | Complete (550 tests) |
 | squadron-git | 37 | 38 | Complete (371 tests) |
 | squadron-review | 33 | 33 | Complete (245 tests) |
