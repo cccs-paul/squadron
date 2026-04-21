@@ -1,0 +1,35 @@
+# Squadron Agent Sandbox Image
+# Extends workspace-base with OpenCode for agentic AI inside ephemeral containers.
+# Rootless: runs as UID 1000 (squadron), read-only root filesystem compatible.
+FROM squadron/workspace-base:latest
+
+# Switch to root to install opencode
+USER root
+
+# Install opencode, curl (for health checks), and Node.js (opencode runtime dependency)
+RUN apt-get update -qq \
+    && apt-get install -y --no-install-recommends \
+        curl \
+        nodejs \
+        npm \
+    && npm install -g opencode-ai \
+    && apt-get purge -y npm \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /root/.npm /tmp/*
+
+# Create config directory writable by squadron user (will be on tmpfs at runtime)
+RUN mkdir -p /home/squadron/.config/opencode \
+    && chown -R squadron:squadron /home/squadron/.config
+
+# Switch back to rootless user
+USER squadron
+
+# Default working directory for agent work
+WORKDIR /home/squadron
+
+# Expose OpenCode server port
+EXPOSE 4096
+
+# Default: sleep infinity (opencode serve is started via exec after config injection)
+CMD ["sleep", "infinity"]

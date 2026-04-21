@@ -284,6 +284,17 @@ build_docker_images() {
         exit 1
     fi
 
+    # Build the agent-sandbox image (extends workspace-base with OpenCode for ephemeral containers)
+    log_info "Building agent-sandbox image (OpenCode server for ephemeral agent containers)..."
+    if docker build -t "squadron/agent-sandbox:latest" \
+        -f "${COMPOSE_DIR}/Dockerfile.agent-sandbox" \
+        "${COMPOSE_DIR}" 2>&1 | tail -5; then
+        log_success "  squadron/agent-sandbox:latest"
+    else
+        log_error "Failed to build agent-sandbox image"
+        exit 1
+    fi
+
     # Build backend service images
     for service in "${BACKEND_SERVICES[@]}"; do
         local module="${service#squadron-}"  # Remove prefix

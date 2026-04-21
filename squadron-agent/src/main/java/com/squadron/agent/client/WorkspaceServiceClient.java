@@ -8,6 +8,15 @@ import java.util.Map;
 @FeignClient(name = "squadron-workspace", url = "${squadron.workspace.url}")
 public interface WorkspaceServiceClient {
 
+    @PostMapping("/api/workspaces")
+    Map<String, Object> createWorkspace(@RequestBody Map<String, Object> request);
+
+    @GetMapping("/api/workspaces/{workspaceId}")
+    Map<String, Object> getWorkspace(@PathVariable("workspaceId") String workspaceId);
+
+    @DeleteMapping("/api/workspaces/{workspaceId}")
+    void destroyWorkspace(@PathVariable("workspaceId") String workspaceId);
+
     @PostMapping("/api/workspaces/{workspaceId}/exec")
     Map<String, Object> exec(@PathVariable("workspaceId") String workspaceId,
                               @RequestBody Map<String, Object> request);

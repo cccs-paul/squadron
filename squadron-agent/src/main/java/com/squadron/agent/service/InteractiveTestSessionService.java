@@ -5,6 +5,10 @@ import com.squadron.agent.dto.InteractiveTestMessageRequest;
 import com.squadron.agent.dto.InteractiveTestSessionDto;
 import com.squadron.agent.dto.InteractiveTestSessionDto.InteractiveTestMessage;
 import com.squadron.agent.entity.UserAgentConfig;
+import com.squadron.agent.ephemeral.EphemeralContainerConfig;
+import com.squadron.agent.ephemeral.EphemeralContainerService;
+import com.squadron.agent.ephemeral.OpenCodeContainerClient;
+import com.squadron.agent.ephemeral.OpenCodeContainerClient.OpenCodeResponse;
 import com.squadron.agent.provider.AgentProvider;
 import com.squadron.agent.provider.AgentProviderRegistry;
 import com.squadron.agent.provider.ChatMessage;
@@ -28,13 +32,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * Manages interactive test sessions — ephemeral, in-memory conversational sessions
- * that let users converse with their configured agents from the "My Agent Squadron" UI.
+ * Manages interactive test sessions — ephemeral conversational sessions that let users
+ * converse with their configured agents from the "My Agent Squadron" UI.
  *
- * <p>Unlike automated tests (PLANNING/CODE_GENERATION/CODE_REVIEW), interactive tests
- * allow multi-turn, free-form conversation. The user sends messages and receives
- * streamed LLM responses, identical to the task-based agent chat but without
- * requiring a real task, workspace, or project.</p>
+ * <p>When ephemeral containers are enabled, each session runs inside a real sandbox
+ * container with an OpenCode server that provides agentic capabilities (read, write,
+ * bash, etc.) backed by the configured LLM provider (local, cloud, or remote).</p>
+ *
+ * <p>When ephemeral containers are disabled (fallback mode), sessions call the LLM
+ * provider directly without sandbox isolation.</p>
  *
  * <p>Sessions are stored in memory with a configurable TTL. They are not persisted
  * to the database — they are purely for testing/evaluation purposes.</p>
@@ -56,6 +62,8 @@ public class InteractiveTestSessionService {
     private final UserAgentConfigRepository agentConfigRepository;
     private final AgentProviderRegistry providerRegistry;
     private final SystemPromptBuilder promptBuilder;
+    private final EphemeralContainerService containerService;
+    private final EphemeralContainerConfig containerConfig;
 
     /** In-memory session store: sessionId -> SessionState. */
     private final Map<UUID, SessionState> sessions = new ConcurrentHashMap<>();
@@ -63,19 +71,20 @@ public class InteractiveTestSessionService {
     public InteractiveTestSessionService(
             UserAgentConfigRepository agentConfigRepository,
             AgentProviderRegistry providerRegistry,
-            SystemPromptBuilder promptBuilder) {
+            SystemPromptBuilder promptBuilder,
+            EphemeralContainerService containerService,
+            EphemeralContainerConfig containerConfig) {
         this.agentConfigRepository = agentConfigRepository;
         this.providerRegistry = providerRegistry;
         this.promptBuilder = promptBuilder;
+        this.containerService = containerService;
+        this.containerConfig = containerConfig;
     }
 
     /**
      * Starts a new interactive test session for the given agent configuration.
-     *
-     * @param tenantId        the tenant ID from the security context
-     * @param userId          the user ID from the security context
-     * @param agentConfigId   the agent configuration to test
-     * @return the created session DTO with initial system message
+     * If ephemeral containers are enabled, provisions a real sandbox container
+     * with an OpenCode server.
      */
     public InteractiveTestSessionDto startSession(UUID tenantId, UUID userId, UUID agentConfigId) {
         // Validate agent config belongs to this user
@@ -113,74 +122,34 @@ public class InteractiveTestSessionService {
         // Build the system prompt
         String systemPrompt = buildInteractiveSystemPrompt(agentConfig);
 
-        // Generate ephemeral container ID (simulated — same pattern as automated tests)
-        String containerId = UUID.randomUUID().toString().substring(0, 12);
+        UUID sessionId = UUID.randomUUID();
 
         // Create session state
-        UUID sessionId = UUID.randomUUID();
         SessionState state = new SessionState(
                 sessionId, tenantId, userId, agentConfigId,
                 agentConfig.getAgentName(),
                 agentConfig.getProvider(),
                 agentConfig.getModel(),
                 configDto, systemPrompt,
-                containerId
+                null // containerId set below
         );
 
-        // Add ephemeral container lifecycle messages (simulated — mirrors AgentTestExecutionService)
-        state.messages.add(InteractiveTestMessage.builder()
-                .id(UUID.randomUUID()).role("SYSTEM")
-                .content("Requesting ephemeral sandbox container for session " + sessionId + "...")
-                .createdAt(Instant.now()).build());
-        state.messages.add(InteractiveTestMessage.builder()
-                .id(UUID.randomUUID()).role("SYSTEM")
-                .content("Pulling workspace image: squadron-workspace:latest")
-                .createdAt(Instant.now()).build());
-        state.messages.add(InteractiveTestMessage.builder()
-                .id(UUID.randomUUID()).role("SYSTEM")
-                .content("Allocating resources: 2 vCPU, 4 GiB memory, 10 GiB ephemeral storage")
-                .createdAt(Instant.now()).build());
-        state.messages.add(InteractiveTestMessage.builder()
-                .id(UUID.randomUUID()).role("SYSTEM")
-                .content("Container " + containerId + " created — mounting workspace volume")
-                .createdAt(Instant.now()).build());
-        state.messages.add(InteractiveTestMessage.builder()
-                .id(UUID.randomUUID()).role("SYSTEM")
-                .content("Installing language toolchains and dependencies in container " + containerId + "...")
-                .createdAt(Instant.now()).build());
-        state.messages.add(InteractiveTestMessage.builder()
-                .id(UUID.randomUUID()).role("SYSTEM")
-                .content("Ephemeral container " + containerId + " is ready — sandbox environment active")
-                .createdAt(Instant.now()).build());
-
-        // Add session start message
-        InteractiveTestMessage systemMsg = InteractiveTestMessage.builder()
-                .id(UUID.randomUUID())
-                .role("SYSTEM")
-                .content("Interactive test session started with agent '" + agentConfig.getAgentName()
-                        + "' (" + agentConfig.getProvider() + "/" + agentConfig.getModel() + ") "
-                        + "inside container " + containerId + ". "
-                        + "You can ask anything — the agent will respond using its configured model and system prompt. "
-                        + "This session simulates the real task environment where agents run in ephemeral containers.")
-                .createdAt(Instant.now())
-                .build();
-        state.messages.add(systemMsg);
+        // Start ephemeral container or fall back to direct LLM
+        if (containerConfig.isEnabled()) {
+            startWithEphemeralContainer(state, agentConfig);
+        } else {
+            startWithDirectProvider(state);
+        }
 
         sessions.put(sessionId, state);
-        log.info("Interactive test session {} started for agent '{}' by user {}",
-                sessionId, agentConfig.getAgentName(), userId);
+        log.info("Interactive test session {} started for agent '{}' by user {} (ephemeral={})",
+                sessionId, agentConfig.getAgentName(), userId, containerConfig.isEnabled());
 
         return toDto(state);
     }
 
     /**
-     * Sends a user message to an interactive test session and streams the agent's response
-     * back via Server-Sent Events.
-     *
-     * @param tenantId  the tenant ID from the security context
-     * @param userId    the user ID from the security context
-     * @param request   the message request (sessionId + message)
-     * @return a Flux of SSE events containing streamed InteractiveTestMessage chunks
+     * Sends a user message to an interactive test session and streams the agent's response.
      */
     public Flux<ServerSentEvent<InteractiveTestSessionDto>> sendMessage(
             UUID tenantId, UUID userId, InteractiveTestMessageRequest request) {
@@ -204,103 +173,11 @@ public class InteractiveTestSessionService {
         state.status = "STREAMING";
         state.lastActivityAt = Instant.now();
 
-        return Flux.create(sink -> {
-            Thread.ofVirtual().name("interactive-test-" + state.sessionId).start(() -> {
-                try {
-                    // Build chat history from session messages
-                    List<ChatMessage> history = state.messages.stream()
-                            .filter(m -> "USER".equals(m.getRole()) || "AGENT".equals(m.getRole()))
-                            .map(m -> ChatMessage.builder()
-                                    .role("USER".equals(m.getRole()) ? "user" : "assistant")
-                                    .content(m.getContent())
-                                    .build())
-                            .collect(Collectors.toList());
-
-                    // Remove the last user message from history since it's the current request
-                    String currentUserMessage = request.getMessage();
-                    if (!history.isEmpty()) {
-                        history.remove(history.size() - 1);
-                    }
-
-                    // Emit snapshot with user message added (status: STREAMING)
-                    emitSnapshot(sink, state);
-
-                    // Get provider and stream response
-                    AgentProvider provider = providerRegistry.getProvider(state.agentConfig.getProvider());
-                    StringBuilder fullResponse = new StringBuilder();
-
-                    // Use streaming API — block on the virtual thread (virtual threads handle blocking well)
-                    try {
-                        provider.chatStream(state.systemPrompt, history, currentUserMessage, state.agentConfig)
-                                .doOnNext(chunk -> {
-                                    fullResponse.append(chunk);
-                                    // Emit intermediate snapshots periodically
-                                    if (fullResponse.length() % 20 < chunk.length()) {
-                                        state.streamingContent = fullResponse.toString();
-                                        emitSnapshot(sink, state);
-                                    }
-                                })
-                                .blockLast(); // Block until stream completes — safe on virtual thread
-
-                        // Stream completed successfully — add the full response as a message
-                        String completeResponse = fullResponse.toString();
-                        int estimatedTokens = completeResponse.length() / 4;
-
-                        InteractiveTestMessage agentMsg = InteractiveTestMessage.builder()
-                                .id(UUID.randomUUID())
-                                .role("AGENT")
-                                .content(completeResponse)
-                                .tokenCount(estimatedTokens)
-                                .createdAt(Instant.now())
-                                .build();
-                        state.messages.add(agentMsg);
-                        state.streamingContent = null;
-                        state.status = "ACTIVE";
-                        state.lastActivityAt = Instant.now();
-
-                        // Emit final snapshot
-                        emitSnapshot(sink, state);
-                        sink.complete();
-
-                    } catch (Exception streamError) {
-                        log.error("Interactive test streaming error for session {}: {}",
-                                state.sessionId, streamError.getMessage());
-
-                        InteractiveTestMessage errorMsg = InteractiveTestMessage.builder()
-                                .id(UUID.randomUUID())
-                                .role("SYSTEM")
-                                .content("Error: " + streamError.getMessage())
-                                .createdAt(Instant.now())
-                                .build();
-                        state.messages.add(errorMsg);
-                        state.streamingContent = null;
-                        state.status = "ACTIVE";
-                        state.lastActivityAt = Instant.now();
-
-                        emitSnapshot(sink, state);
-                        sink.complete();
-                    }
-
-                } catch (Exception e) {
-                    log.error("Failed to process interactive test message for session {}: {}",
-                            state.sessionId, e.getMessage(), e);
-
-                    InteractiveTestMessage errorMsg = InteractiveTestMessage.builder()
-                            .id(UUID.randomUUID())
-                            .role("SYSTEM")
-                            .content("Error: " + e.getMessage())
-                            .createdAt(Instant.now())
-                            .build();
-                    state.messages.add(errorMsg);
-                    state.streamingContent = null;
-                    state.status = "ACTIVE";
-                    state.lastActivityAt = Instant.now();
-
-                    emitSnapshot(sink, state);
-                    sink.complete();
-                }
-            });
-        }, FluxSink.OverflowStrategy.BUFFER);
+        if (containerConfig.isEnabled() && state.openCodeSessionId != null) {
+            return sendViaEphemeralContainer(state, request.getMessage());
+        } else {
+            return sendViaDirectProvider(state, request.getMessage());
+        }
     }
 
     /**
@@ -312,20 +189,19 @@ public class InteractiveTestSessionService {
     }
 
     /**
-     * Closes an interactive test session and frees resources.
+     * Closes an interactive test session and frees resources (including container).
      */
     public void closeSession(UUID sessionId, UUID tenantId, UUID userId) {
         SessionState state = getValidatedSession(sessionId, tenantId, userId);
 
-        // Add container teardown messages before removing the session
-        String containerId = state.containerId;
-        if (containerId != null) {
-            log.info("Tearing down ephemeral container {} for session {}", containerId, sessionId);
+        // Destroy the ephemeral container if active
+        if (containerConfig.isEnabled()) {
+            containerService.stopContainer(sessionId);
         }
 
         sessions.remove(sessionId);
         log.info("Interactive test session {} closed by user {} (container {} destroyed)",
-                sessionId, userId, containerId);
+                sessionId, userId, state.containerId);
     }
 
     /**
@@ -350,12 +226,205 @@ public class InteractiveTestSessionService {
                 .collect(Collectors.toList());
 
         for (UUID sessionId : expired) {
-            sessions.remove(sessionId);
+            SessionState state = sessions.remove(sessionId);
+            if (state != null && containerConfig.isEnabled()) {
+                containerService.stopContainer(sessionId);
+            }
             log.info("Expired interactive test session {} (inactive > {} min)", sessionId, SESSION_TTL_MS / 60000);
         }
     }
 
-    // --- Internal helpers ---
+    // --- Ephemeral container mode ---
+
+    private void startWithEphemeralContainer(SessionState state, UserAgentConfig agentConfig) {
+        // Add container lifecycle messages
+        state.messages.add(systemMessage("Requesting ephemeral sandbox container for session " + state.sessionId + "..."));
+        state.messages.add(systemMessage("Pulling workspace image: " + containerConfig.getImage()));
+        state.messages.add(systemMessage("Allocating resources: " + containerConfig.getCpuLimit() + " vCPU, "
+                + containerConfig.getMemoryLimit() + " memory"));
+
+        try {
+            OpenCodeContainerClient client = containerService.startContainer(
+                    state.sessionId, state.tenantId,
+                    agentConfig.getProvider(), agentConfig.getModel(),
+                    agentConfig.getBaseUrl(), resolveApiKey(agentConfig),
+                    agentConfig.getHostingType(), state.systemPrompt);
+
+            String workspaceId = containerService.getWorkspaceId(state.sessionId);
+            state.containerId = workspaceId;
+
+            state.messages.add(systemMessage("Container " + workspaceId + " created — OpenCode server starting"));
+            state.messages.add(systemMessage("OpenCode server healthy — sandbox environment active"));
+
+            // Create an OpenCode session inside the container
+            String openCodeSessionId = client.createSession("Interactive Test: " + agentConfig.getAgentName());
+            state.openCodeSessionId = openCodeSessionId;
+
+            state.messages.add(systemMessage(
+                    "Interactive test session started with agent '" + agentConfig.getAgentName()
+                    + "' (" + agentConfig.getProvider() + "/" + agentConfig.getModel() + ") "
+                    + "inside container " + workspaceId + ". "
+                    + "The agent has access to tools: read, write, edit, bash, glob, grep. "
+                    + "Ask anything — the agent will respond using its configured model."));
+
+        } catch (Exception e) {
+            log.error("Failed to start ephemeral container for session {}: {}", state.sessionId, e.getMessage());
+            state.messages.add(systemMessage("Failed to start ephemeral container: " + e.getMessage()
+                    + ". Falling back to direct provider mode."));
+            // Fall back to direct provider mode
+            state.containerId = "fallback-" + UUID.randomUUID().toString().substring(0, 8);
+            addDirectProviderStartMessage(state);
+        }
+    }
+
+    private void startWithDirectProvider(SessionState state) {
+        state.containerId = "direct-" + UUID.randomUUID().toString().substring(0, 8);
+        addDirectProviderStartMessage(state);
+    }
+
+    private void addDirectProviderStartMessage(SessionState state) {
+        state.messages.add(systemMessage(
+                "Interactive test session started with agent '" + state.agentName
+                + "' (" + state.provider + "/" + state.model + ") in direct mode. "
+                + "You can ask anything — the agent will respond using its configured model and system prompt. "
+                + "Note: direct mode does not provide tool access (read, write, bash)."));
+    }
+
+    private Flux<ServerSentEvent<InteractiveTestSessionDto>> sendViaEphemeralContainer(
+            SessionState state, String userMessage) {
+
+        return Flux.create(sink -> {
+            Thread.ofVirtual().name("interactive-container-" + state.sessionId).start(() -> {
+                try {
+                    // Emit snapshot showing user message (status: STREAMING)
+                    emitSnapshot(sink, state);
+
+                    OpenCodeContainerClient client = containerService.getClient(state.sessionId);
+                    if (client == null) {
+                        throw new RuntimeException("No active container for session " + state.sessionId);
+                    }
+
+                    // Send message to OpenCode server (blocking — waits for full response)
+                    // The agent may invoke tools inside the container before responding
+                    OpenCodeResponse response = client.sendMessage(
+                            state.openCodeSessionId, userMessage, null);
+
+                    // Add the agent's response as a message
+                    InteractiveTestMessage agentMsg = InteractiveTestMessage.builder()
+                            .id(UUID.randomUUID())
+                            .role("AGENT")
+                            .content(response.getContent())
+                            .tokenCount(response.getOutputTokens() > 0
+                                    ? response.getOutputTokens()
+                                    : response.getContent().length() / 4)
+                            .createdAt(Instant.now())
+                            .build();
+                    state.messages.add(agentMsg);
+
+                    // Add tool usage info if tools were used
+                    if (response.getToolsUsed() > 0) {
+                        state.messages.add(systemMessage(
+                                "Agent used " + response.getToolsUsed() + " tool(s) to process this request."));
+                    }
+
+                    state.streamingContent = null;
+                    state.status = "ACTIVE";
+                    state.lastActivityAt = Instant.now();
+
+                    emitSnapshot(sink, state);
+                    sink.complete();
+
+                } catch (Exception e) {
+                    handleSendError(state, sink, e);
+                }
+            });
+        }, FluxSink.OverflowStrategy.BUFFER);
+    }
+
+    // --- Direct provider mode (fallback) ---
+
+    private Flux<ServerSentEvent<InteractiveTestSessionDto>> sendViaDirectProvider(
+            SessionState state, String userMessage) {
+
+        return Flux.create(sink -> {
+            Thread.ofVirtual().name("interactive-direct-" + state.sessionId).start(() -> {
+                try {
+                    // Build chat history from session messages
+                    List<ChatMessage> history = state.messages.stream()
+                            .filter(m -> "USER".equals(m.getRole()) || "AGENT".equals(m.getRole()))
+                            .map(m -> ChatMessage.builder()
+                                    .role("USER".equals(m.getRole()) ? "user" : "assistant")
+                                    .content(m.getContent())
+                                    .build())
+                            .collect(Collectors.toList());
+
+                    // Remove the last user message from history (it's the current request)
+                    if (!history.isEmpty()) {
+                        history.remove(history.size() - 1);
+                    }
+
+                    emitSnapshot(sink, state);
+
+                    // Get provider and stream response
+                    AgentProvider provider = providerRegistry.getProvider(state.agentConfig.getProvider());
+                    StringBuilder fullResponse = new StringBuilder();
+
+                    provider.chatStream(state.systemPrompt, history, userMessage, state.agentConfig)
+                            .doOnNext(chunk -> {
+                                fullResponse.append(chunk);
+                                if (fullResponse.length() % 20 < chunk.length()) {
+                                    state.streamingContent = fullResponse.toString();
+                                    emitSnapshot(sink, state);
+                                }
+                            })
+                            .blockLast();
+
+                    String completeResponse = fullResponse.toString();
+                    int estimatedTokens = completeResponse.length() / 4;
+
+                    InteractiveTestMessage agentMsg = InteractiveTestMessage.builder()
+                            .id(UUID.randomUUID())
+                            .role("AGENT")
+                            .content(completeResponse)
+                            .tokenCount(estimatedTokens)
+                            .createdAt(Instant.now())
+                            .build();
+                    state.messages.add(agentMsg);
+                    state.streamingContent = null;
+                    state.status = "ACTIVE";
+                    state.lastActivityAt = Instant.now();
+
+                    emitSnapshot(sink, state);
+                    sink.complete();
+
+                } catch (Exception e) {
+                    handleSendError(state, sink, e);
+                }
+            });
+        }, FluxSink.OverflowStrategy.BUFFER);
+    }
+
+    // --- Helpers ---
+
+    private void handleSendError(SessionState state,
+                                  FluxSink<ServerSentEvent<InteractiveTestSessionDto>> sink,
+                                  Exception e) {
+        log.error("Interactive test error for session {}: {}", state.sessionId, e.getMessage(), e);
+
+        state.messages.add(systemMessage("Error: " + e.getMessage()));
+        state.streamingContent = null;
+        state.status = "ACTIVE";
+        state.lastActivityAt = Instant.now();
+
+        emitSnapshot(sink, state);
+        sink.complete();
+    }
+
+    private String resolveApiKey(UserAgentConfig agentConfig) {
+        // apiKeyRef contains the API key reference — for now, return it directly.
+        // In production, this would decrypt via a credential service.
+        return agentConfig.getApiKeyRef();
+    }
 
     private SessionState getValidatedSession(UUID sessionId, UUID tenantId, UUID userId) {
         SessionState state = sessions.get(sessionId);
@@ -366,6 +435,12 @@ public class InteractiveTestSessionService {
             throw new ResourceNotFoundException("InteractiveTestSession", sessionId);
         }
         return state;
+    }
+
+    private InteractiveTestMessage systemMessage(String content) {
+        return InteractiveTestMessage.builder()
+                .id(UUID.randomUUID()).role("SYSTEM")
+                .content(content).createdAt(Instant.now()).build();
     }
 
     private void emitSnapshot(FluxSink<ServerSentEvent<InteractiveTestSessionDto>> sink, SessionState state) {
@@ -404,12 +479,10 @@ public class InteractiveTestSessionService {
     }
 
     private String buildInteractiveSystemPrompt(UserAgentConfig agentConfig) {
-        // If the agent has a custom system prompt, use it
         if (agentConfig.getSystemPromptOverride() != null && !agentConfig.getSystemPromptOverride().isBlank()) {
             return agentConfig.getSystemPromptOverride();
         }
 
-        // Otherwise, build a default interactive test prompt based on agent type
         String agentType = agentConfig.getAgentType();
         if (agentType == null) agentType = "GENERAL";
 
@@ -420,11 +493,10 @@ public class InteractiveTestSessionService {
             case "QA" -> promptBuilder.buildQaPrompt("Help the user test and verify code quality", "Interactive Test");
             default -> "You are a helpful AI assistant for the Squadron platform. "
                     + "This is an interactive test session — the user is evaluating your capabilities. "
-                    + "You are running inside an ephemeral sandbox container. "
+                    + "You are running inside an ephemeral sandbox container with access to tools: "
+                    + "read, write, edit, bash, glob, grep. "
                     + "Respond helpfully, clearly, and concisely. You can discuss code, architecture, "
                     + "planning, reviews, and any software engineering topic. "
-                    + "If you need clarification from the user, ask questions — this is how agents "
-                    + "communicate with users during real tasks. "
                     + "Format your responses with markdown when appropriate.";
         };
     }
@@ -442,12 +514,12 @@ public class InteractiveTestSessionService {
         final String model;
         final AgentConfigDto agentConfig;
         final String systemPrompt;
-        final String containerId;
+        String containerId;
+        String openCodeSessionId; // OpenCode session ID inside the container
         final Instant createdAt;
         final List<InteractiveTestMessage> messages;
         String status;
         Instant lastActivityAt;
-        /** Transient field for in-progress streaming content. */
         volatile String streamingContent;
 
         SessionState(UUID sessionId, UUID tenantId, UUID userId, UUID agentConfigId,

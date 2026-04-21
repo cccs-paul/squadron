@@ -142,6 +142,63 @@ class ResilientWorkspaceServiceClientTest {
     }
 
     @Test
+    void should_delegateCreateWorkspace_successfully() {
+        Map<String, Object> request = Map.of("tenantId", "t1");
+        Map<String, Object> expected = Map.of("data", Map.of("id", "ws-1"));
+        when(delegate.createWorkspace(request)).thenReturn(expected);
+
+        Map<String, Object> result = resilientClient.createWorkspace(request);
+
+        assertEquals(expected, result);
+        verify(delegate).createWorkspace(request);
+    }
+
+    @Test
+    void should_delegateGetWorkspace_successfully() {
+        Map<String, Object> expected = Map.of("id", "ws-1", "status", "RUNNING");
+        when(delegate.getWorkspace("ws-1")).thenReturn(expected);
+
+        Map<String, Object> result = resilientClient.getWorkspace("ws-1");
+
+        assertEquals(expected, result);
+        verify(delegate).getWorkspace("ws-1");
+    }
+
+    @Test
+    void should_delegateDestroyWorkspace_successfully() {
+        doNothing().when(delegate).destroyWorkspace("ws-1");
+
+        resilientClient.destroyWorkspace("ws-1");
+
+        verify(delegate).destroyWorkspace("ws-1");
+    }
+
+    @Test
+    void should_retryCreateWorkspace_onTransientFailure() {
+        Map<String, Object> request = Map.of("tenantId", "t1");
+        Map<String, Object> expected = Map.of("data", Map.of("id", "ws-1"));
+        when(delegate.createWorkspace(request))
+                .thenThrow(new RuntimeException("Connection refused"))
+                .thenReturn(expected);
+
+        Map<String, Object> result = resilientClient.createWorkspace(request);
+
+        assertEquals(expected, result);
+        verify(delegate, times(2)).createWorkspace(request);
+    }
+
+    @Test
+    void should_retryDestroyWorkspace_onTransientFailure() {
+        doThrow(new RuntimeException("Timeout"))
+                .doNothing()
+                .when(delegate).destroyWorkspace("ws-1");
+
+        resilientClient.destroyWorkspace("ws-1");
+
+        verify(delegate, times(2)).destroyWorkspace("ws-1");
+    }
+
+    @Test
     void should_exposeResilientClient() {
         assertNotNull(resilientClient.getResilientClient());
     }

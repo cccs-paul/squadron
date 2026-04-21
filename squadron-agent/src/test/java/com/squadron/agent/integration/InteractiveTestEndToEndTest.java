@@ -7,6 +7,8 @@ import com.squadron.agent.entity.UserAgentConfig;
 import com.squadron.agent.provider.AgentProvider;
 import com.squadron.agent.provider.AgentProviderRegistry;
 import com.squadron.agent.repository.UserAgentConfigRepository;
+import com.squadron.agent.ephemeral.EphemeralContainerConfig;
+import com.squadron.agent.ephemeral.EphemeralContainerService;
 import com.squadron.agent.service.InteractiveTestSessionService;
 import com.squadron.agent.service.SystemPromptBuilder;
 import com.squadron.common.exception.ResourceNotFoundException;
@@ -46,6 +48,9 @@ class InteractiveTestEndToEndTest {
     @Mock
     private AgentProvider agentProvider;
 
+    @Mock
+    private EphemeralContainerService ephemeralContainerService;
+
     private InteractiveTestSessionService service;
 
     private UUID tenantId;
@@ -55,7 +60,9 @@ class InteractiveTestEndToEndTest {
 
     @BeforeEach
     void setUp() {
-        service = new InteractiveTestSessionService(agentConfigRepository, providerRegistry, promptBuilder);
+        EphemeralContainerConfig ephemeralConfig = new EphemeralContainerConfig();
+        ephemeralConfig.setEnabled(false);
+        service = new InteractiveTestSessionService(agentConfigRepository, providerRegistry, promptBuilder, ephemeralContainerService, ephemeralConfig);
         tenantId = UUID.randomUUID();
         userId = UUID.randomUUID();
         agentConfigId = UUID.randomUUID();

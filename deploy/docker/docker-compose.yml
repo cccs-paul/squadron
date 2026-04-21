@@ -388,6 +388,13 @@ services:
       GIT_SERVICE_URL: http://squadron-git:8087
       REVIEW_SERVICE_URL: http://squadron-review:8088
       WORKSPACE_SERVICE_URL: http://squadron-workspace:8086
+      SQUADRON_EPHEMERAL_ENABLED: ${SQUADRON_EPHEMERAL_ENABLED:-true}
+      SQUADRON_EPHEMERAL_IMAGE: squadron/agent-sandbox:latest
+      SQUADRON_EPHEMERAL_OPENCODE_PORT: 4096
+      SQUADRON_EPHEMERAL_MEMORY: 512Mi
+      SQUADRON_EPHEMERAL_CPU: 1
+      SQUADRON_EPHEMERAL_PASSWORD: ${SQUADRON_EPHEMERAL_PASSWORD:-squadron-ephemeral}
+      SQUADRON_EPHEMERAL_USERNAME: opencode
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8085/actuator/health || exit 1"]
       interval: 10s

@@ -54,6 +54,16 @@ squadron:
     url: ${REVIEW_SERVICE_URL:http://localhost:8088}
   workspace:
     url: ${WORKSPACE_SERVICE_URL:http://localhost:8087}
+  ephemeral:
+    enabled: ${SQUADRON_EPHEMERAL_ENABLED:true}
+    image: ${SQUADRON_EPHEMERAL_IMAGE:squadron/agent-sandbox:latest}
+    open-code-port: ${SQUADRON_EPHEMERAL_OPENCODE_PORT:4096}
+    health-check-timeout-seconds: ${SQUADRON_EPHEMERAL_HEALTH_TIMEOUT:60}
+    health-check-interval-seconds: ${SQUADRON_EPHEMERAL_HEALTH_INTERVAL:2}
+    memory-limit: ${SQUADRON_EPHEMERAL_MEMORY:512Mi}
+    cpu-limit: ${SQUADRON_EPHEMERAL_CPU:1}
+    open-code-password: ${SQUADRON_EPHEMERAL_PASSWORD:squadron-ephemeral}
+    open-code-username: ${SQUADRON_EPHEMERAL_USERNAME:opencode}
   security:
     jwt:
       jwks-uri: ${SQUADRON_JWKS_URI:http://localhost:8081/api/auth/jwks}

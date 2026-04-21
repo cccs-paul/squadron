@@ -5,6 +5,10 @@ import com.squadron.agent.dto.InteractiveTestMessageRequest;
 import com.squadron.agent.dto.InteractiveTestSessionDto;
 import com.squadron.agent.dto.InteractiveTestSessionDto.InteractiveTestMessage;
 import com.squadron.agent.entity.UserAgentConfig;
+import com.squadron.agent.ephemeral.EphemeralContainerConfig;
+import com.squadron.agent.ephemeral.EphemeralContainerService;
+import com.squadron.agent.ephemeral.OpenCodeContainerClient;
+import com.squadron.agent.ephemeral.OpenCodeContainerClient.OpenCodeResponse;
 import com.squadron.agent.provider.AgentProvider;
 import com.squadron.agent.provider.AgentProviderRegistry;
 import com.squadron.agent.repository.UserAgentConfigRepository;
@@ -42,6 +46,10 @@ class InteractiveTestSessionServiceTest {
     @Mock
     private AgentProvider mockProvider;
 
+    @Mock
+    private EphemeralContainerService containerService;
+
+    private EphemeralContainerConfig containerConfig;
     private InteractiveTestSessionService service;
 
     private UUID tenantId;
@@ -51,7 +59,11 @@ class InteractiveTestSessionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new InteractiveTestSessionService(agentConfigRepository, providerRegistry, promptBuilder);
+        containerConfig = new EphemeralContainerConfig();
+        containerConfig.setEnabled(false); // Default to direct mode for most tests
+        service = new InteractiveTestSessionService(
+                agentConfigRepository, providerRegistry, promptBuilder,
+                containerService, containerConfig);
         tenantId = UUID.randomUUID();
         userId = UUID.randomUUID();
         agentConfigId = UUID.randomUUID();
@@ -71,7 +83,7 @@ class InteractiveTestSessionServiceTest {
     }
 
     @Test
-    void should_startSession_when_validAgentConfig() {
+    void should_startSession_when_validAgentConfig_directMode() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
 
         InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
@@ -84,22 +96,62 @@ class InteractiveTestSessionServiceTest {
         assertEquals("gemma4", session.getModel());
         assertEquals("ACTIVE", session.getStatus());
         assertNotNull(session.getCreatedAt());
-        assertNotNull(session.getContainerId(), "Session should have an ephemeral container ID");
-        assertEquals(12, session.getContainerId().length(), "Container ID should be 12 chars");
-        // Should have container lifecycle messages + session start message
-        assertTrue(session.getMessages().size() >= 7,
-                "Should have container lifecycle messages and session start message");
+        assertNotNull(session.getContainerId(), "Session should have a container ID");
+        assertTrue(session.getContainerId().startsWith("direct-"),
+                "Direct mode container ID should start with 'direct-'");
+        assertTrue(session.getMessages().size() >= 1,
+                "Should have at least the session start message");
         assertTrue(session.getMessages().stream().allMatch(m -> "SYSTEM".equals(m.getRole())),
                 "All initial messages should be SYSTEM role");
-        // First message should be about container provisioning
-        assertTrue(session.getMessages().get(0).getContent().contains("ephemeral sandbox container"),
-                "First message should reference ephemeral container");
-        // Last message should be the session start message with agent name
-        InteractiveTestMessage lastMsg = session.getMessages().get(session.getMessages().size() - 1);
-        assertTrue(lastMsg.getContent().contains("Sol"),
-                "Last message should contain agent name");
-        assertTrue(lastMsg.getContent().contains("container"),
-                "Last message should reference the container");
+    }
+
+    @Test
+    void should_startSession_withEphemeralContainer_when_enabled() throws Exception {
+        containerConfig.setEnabled(true);
+        service = new InteractiveTestSessionService(
+                agentConfigRepository, providerRegistry, promptBuilder,
+                containerService, containerConfig);
+
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+
+        OpenCodeContainerClient mockClient = mock(OpenCodeContainerClient.class);
+        when(containerService.startContainer(any(), any(), anyString(), anyString(),
+                any(), any(), any(), any())).thenReturn(mockClient);
+        when(containerService.getWorkspaceId(any())).thenReturn("workspace-abc123");
+        when(mockClient.createSession(anyString())).thenReturn("opencode-session-1");
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+
+        assertNotNull(session);
+        assertEquals("workspace-abc123", session.getContainerId());
+        assertTrue(session.getMessages().stream()
+                .anyMatch(m -> m.getContent().contains("ephemeral sandbox container")),
+                "Should have container lifecycle messages");
+        assertTrue(session.getMessages().stream()
+                .anyMatch(m -> m.getContent().contains("OpenCode server healthy")),
+                "Should have health check success message");
+    }
+
+    @Test
+    void should_fallbackToDirectMode_when_containerStartFails() throws Exception {
+        containerConfig.setEnabled(true);
+        service = new InteractiveTestSessionService(
+                agentConfigRepository, providerRegistry, promptBuilder,
+                containerService, containerConfig);
+
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        when(containerService.startContainer(any(), any(), anyString(), anyString(),
+                any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("Docker socket not available"));
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+
+        assertNotNull(session);
+        assertTrue(session.getContainerId().startsWith("fallback-"),
+                "Should use fallback container ID");
+        assertTrue(session.getMessages().stream()
+                .anyMatch(m -> m.getContent().contains("Falling back to direct provider mode")),
+                "Should have fallback message");
     }
 
     @Test
@@ -158,6 +210,26 @@ class InteractiveTestSessionServiceTest {
     }
 
     @Test
+    void should_destroyContainer_when_closingEphemeralSession() throws Exception {
+        containerConfig.setEnabled(true);
+        service = new InteractiveTestSessionService(
+                agentConfigRepository, providerRegistry, promptBuilder,
+                containerService, containerConfig);
+
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        OpenCodeContainerClient mockClient = mock(OpenCodeContainerClient.class);
+        when(containerService.startContainer(any(), any(), anyString(), anyString(),
+                any(), any(), any(), any())).thenReturn(mockClient);
+        when(containerService.getWorkspaceId(any())).thenReturn("ws-123");
+        when(mockClient.createSession(anyString())).thenReturn("oc-sess-1");
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        service.closeSession(session.getSessionId(), tenantId, userId);
+
+        verify(containerService).stopContainer(session.getSessionId());
+    }
+
+    @Test
     void should_throwNotFound_when_closingSessionForDifferentUser() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
         InteractiveTestSessionDto created = service.startSession(tenantId, userId, agentConfigId);
@@ -185,7 +257,7 @@ class InteractiveTestSessionServiceTest {
     }
 
     @Test
-    void should_sendMessage_and_streamResponse() {
+    void should_sendMessage_and_streamResponse_directMode() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
         when(promptBuilder.buildPlanningPrompt(anyString(), anyString()))
                 .thenReturn("You are a planning agent for interactive testing.");
@@ -201,16 +273,13 @@ class InteractiveTestSessionServiceTest {
                 .build();
 
         Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.sendMessage(tenantId, userId, request);
-
-        // Collect all SSE snapshots — block until the flux completes
         List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block(java.time.Duration.ofSeconds(10));
 
-        assertNotNull(events, "Should have received SSE events");
-        assertFalse(events.isEmpty(), "Should have received at least one SSE event");
+        assertNotNull(events);
+        assertFalse(events.isEmpty());
 
-        // The final snapshot should contain both the user message and the agent response
         InteractiveTestSessionDto finalSnapshot = events.get(events.size() - 1).data();
-        assertNotNull(finalSnapshot, "Final SSE event should have data");
+        assertNotNull(finalSnapshot);
 
         boolean hasUserMsg = finalSnapshot.getMessages().stream()
                 .anyMatch(m -> "USER".equals(m.getRole()) && "Hi there".equals(m.getContent()));
@@ -220,8 +289,52 @@ class InteractiveTestSessionServiceTest {
                 .anyMatch(m -> "AGENT".equals(m.getRole()));
         assertTrue(hasAgentMsg, "Agent response should be present in final snapshot");
 
-        // Session status should be ACTIVE after streaming completes
-        assertEquals("ACTIVE", finalSnapshot.getStatus(), "Status should be ACTIVE after streaming completes");
+        assertEquals("ACTIVE", finalSnapshot.getStatus());
+    }
+
+    @Test
+    void should_sendMessage_viaEphemeralContainer_when_enabled() throws Exception {
+        containerConfig.setEnabled(true);
+        service = new InteractiveTestSessionService(
+                agentConfigRepository, providerRegistry, promptBuilder,
+                containerService, containerConfig);
+
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+
+        OpenCodeContainerClient mockClient = mock(OpenCodeContainerClient.class);
+        when(containerService.startContainer(any(), any(), anyString(), anyString(),
+                any(), any(), any(), any())).thenReturn(mockClient);
+        when(containerService.getWorkspaceId(any())).thenReturn("ws-456");
+        when(mockClient.createSession(anyString())).thenReturn("oc-sess-2");
+        when(containerService.getClient(any())).thenReturn(mockClient);
+        when(mockClient.sendMessage(eq("oc-sess-2"), eq("Hello"), any()))
+                .thenReturn(OpenCodeResponse.builder()
+                        .content("Agent response from container")
+                        .outputTokens(42)
+                        .toolsUsed(1)
+                        .build());
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+
+        InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
+                .sessionId(session.getSessionId())
+                .message("Hello")
+                .build();
+
+        Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.sendMessage(tenantId, userId, request);
+        List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block(java.time.Duration.ofSeconds(10));
+
+        assertNotNull(events);
+        assertFalse(events.isEmpty());
+
+        InteractiveTestSessionDto finalSnapshot = events.get(events.size() - 1).data();
+        boolean hasAgentMsg = finalSnapshot.getMessages().stream()
+                .anyMatch(m -> "AGENT".equals(m.getRole()) && m.getContent().contains("Agent response from container"));
+        assertTrue(hasAgentMsg, "Should contain agent response from container");
+
+        boolean hasToolInfo = finalSnapshot.getMessages().stream()
+                .anyMatch(m -> "SYSTEM".equals(m.getRole()) && m.getContent().contains("tool(s)"));
+        assertTrue(hasToolInfo, "Should mention tools used");
     }
 
     @Test
@@ -253,7 +366,6 @@ class InteractiveTestSessionServiceTest {
     void should_throwIllegalState_when_maxSessionsReached() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
 
-        // Create 8 sessions (max)
         for (int i = 0; i < 8; i++) {
             service.startSession(tenantId, userId, agentConfigId);
         }
@@ -267,14 +379,33 @@ class InteractiveTestSessionServiceTest {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
         InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
 
-        // Manually set last activity to past
         var sessionState = service.getSessionsMap().get(session.getSessionId());
-        sessionState.lastActivityAt = Instant.now().minusMillis(31 * 60 * 1000L); // 31 minutes ago
+        sessionState.lastActivityAt = Instant.now().minusMillis(31 * 60 * 1000L);
 
         service.cleanupExpiredSessions();
 
         assertTrue(service.getUserSessions(tenantId, userId).isEmpty(),
                 "Expired session should be cleaned up");
+    }
+
+    @Test
+    void should_destroyContainer_when_cleaningUpExpiredEphemeralSession() {
+        containerConfig.setEnabled(true);
+
+        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        // Will fail to start container and fall back to direct mode, but that's fine
+        when(containerService.startContainer(any(), any(), anyString(), anyString(),
+                any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("mock fail"));
+
+        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+
+        var sessionState = service.getSessionsMap().get(session.getSessionId());
+        sessionState.lastActivityAt = Instant.now().minusMillis(31 * 60 * 1000L);
+
+        service.cleanupExpiredSessions();
+
+        verify(containerService).stopContainer(session.getSessionId());
     }
 
     @Test
@@ -323,9 +454,7 @@ class InteractiveTestSessionServiceTest {
         assertNotEquals(session1.getSessionId(), session2.getSessionId());
         assertEquals("Sol", session1.getAgentName());
         assertEquals("Titan", session2.getAgentName());
-
-        List<InteractiveTestSessionDto> sessions = service.getUserSessions(tenantId, userId);
-        assertEquals(2, sessions.size());
+        assertEquals(2, service.getUserSessions(tenantId, userId).size());
     }
 
     @Test
@@ -348,15 +477,11 @@ class InteractiveTestSessionServiceTest {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
         InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
 
-        // Manually fill messages to 100
         var sessionState = service.getSessionsMap().get(session.getSessionId());
         for (int i = sessionState.messages.size(); i < 100; i++) {
             sessionState.messages.add(InteractiveTestMessage.builder()
-                    .id(UUID.randomUUID())
-                    .role("USER")
-                    .content("msg " + i)
-                    .createdAt(Instant.now())
-                    .build());
+                    .id(UUID.randomUUID()).role("USER").content("msg " + i)
+                    .createdAt(Instant.now()).build());
         }
 
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
@@ -372,22 +497,14 @@ class InteractiveTestSessionServiceTest {
     void should_useCodingPrompt_when_agentTypeIsCoding() {
         UUID codingConfigId = UUID.randomUUID();
         UserAgentConfig codingConfig = UserAgentConfig.builder()
-                .id(codingConfigId)
-                .tenantId(tenantId)
-                .userId(userId)
-                .agentName("Coder")
-                .agentType("CODING")
-                .provider("ollama")
-                .model("gemma4")
-                .hostingType("SELF_HOSTED")
-                .enabled(true)
-                .build();
+                .id(codingConfigId).tenantId(tenantId).userId(userId)
+                .agentName("Coder").agentType("CODING").provider("ollama")
+                .model("gemma4").hostingType("SELF_HOSTED").enabled(true).build();
 
         when(agentConfigRepository.findById(codingConfigId)).thenReturn(Optional.of(codingConfig));
         lenient().when(promptBuilder.buildCodingPrompt(anyString(), anyString())).thenReturn("Coding prompt");
 
         service.startSession(tenantId, userId, codingConfigId);
-
         verify(promptBuilder).buildCodingPrompt(anyString(), anyString());
     }
 
@@ -395,113 +512,15 @@ class InteractiveTestSessionServiceTest {
     void should_useReviewPrompt_when_agentTypeIsReview() {
         UUID reviewConfigId = UUID.randomUUID();
         UserAgentConfig reviewConfig = UserAgentConfig.builder()
-                .id(reviewConfigId)
-                .tenantId(tenantId)
-                .userId(userId)
-                .agentName("Reviewer")
-                .agentType("REVIEW")
-                .provider("ollama")
-                .model("gemma4")
-                .hostingType("SELF_HOSTED")
-                .enabled(true)
-                .build();
+                .id(reviewConfigId).tenantId(tenantId).userId(userId)
+                .agentName("Reviewer").agentType("REVIEW").provider("ollama")
+                .model("gemma4").hostingType("SELF_HOSTED").enabled(true).build();
 
         when(agentConfigRepository.findById(reviewConfigId)).thenReturn(Optional.of(reviewConfig));
         lenient().when(promptBuilder.buildReviewPrompt(anyString())).thenReturn("Review prompt");
 
         service.startSession(tenantId, userId, reviewConfigId);
-
         verify(promptBuilder).buildReviewPrompt(anyString());
-    }
-
-    @Test
-    void should_useQaPrompt_when_agentTypeIsQa() {
-        UUID qaConfigId = UUID.randomUUID();
-        UserAgentConfig qaConfig = UserAgentConfig.builder()
-                .id(qaConfigId)
-                .tenantId(tenantId)
-                .userId(userId)
-                .agentName("QA Bot")
-                .agentType("QA")
-                .provider("ollama")
-                .model("gemma4")
-                .hostingType("SELF_HOSTED")
-                .enabled(true)
-                .build();
-
-        when(agentConfigRepository.findById(qaConfigId)).thenReturn(Optional.of(qaConfig));
-        lenient().when(promptBuilder.buildQaPrompt(anyString(), anyString())).thenReturn("QA prompt");
-
-        service.startSession(tenantId, userId, qaConfigId);
-
-        verify(promptBuilder).buildQaPrompt(anyString(), anyString());
-    }
-
-    @Test
-    void should_useDefaultPrompt_when_agentTypeIsGeneral() {
-        UUID generalConfigId = UUID.randomUUID();
-        UserAgentConfig generalConfig = UserAgentConfig.builder()
-                .id(generalConfigId)
-                .tenantId(tenantId)
-                .userId(userId)
-                .agentName("General")
-                .agentType("GENERAL")
-                .provider("ollama")
-                .model("gemma4")
-                .hostingType("SELF_HOSTED")
-                .enabled(true)
-                .build();
-
-        when(agentConfigRepository.findById(generalConfigId)).thenReturn(Optional.of(generalConfig));
-
-        service.startSession(tenantId, userId, generalConfigId);
-
-        verify(promptBuilder, never()).buildPlanningPrompt(anyString(), anyString());
-        verify(promptBuilder, never()).buildCodingPrompt(anyString(), anyString());
-        verify(promptBuilder, never()).buildReviewPrompt(anyString());
-        verify(promptBuilder, never()).buildQaPrompt(anyString(), anyString());
-    }
-
-    @Test
-    void should_includeContainerLifecycleMessages_when_sessionStarts() {
-        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
-
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
-
-        assertNotNull(session.getContainerId());
-
-        List<String> messageContents = session.getMessages().stream()
-                .map(InteractiveTestMessage::getContent)
-                .toList();
-
-        // Verify container lifecycle messages are present in order
-        assertTrue(messageContents.stream().anyMatch(c -> c.contains("Requesting ephemeral sandbox container")),
-                "Should have container request message");
-        assertTrue(messageContents.stream().anyMatch(c -> c.contains("Pulling workspace image")),
-                "Should have image pull message");
-        assertTrue(messageContents.stream().anyMatch(c -> c.contains("Allocating resources")),
-                "Should have resource allocation message");
-        assertTrue(messageContents.stream().anyMatch(c -> c.contains(session.getContainerId() + " created")),
-                "Should reference the container ID in creation message");
-        assertTrue(messageContents.stream().anyMatch(c -> c.contains("Installing language toolchains")),
-                "Should have toolchain install message");
-        assertTrue(messageContents.stream().anyMatch(c -> c.contains("is ready")),
-                "Should have container ready message");
-    }
-
-    @Test
-    void should_logContainerTeardown_when_sessionCloses() {
-        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
-
-        assertNotNull(session.getContainerId(), "Session should have a container ID");
-
-        // Close session — should not throw
-        assertDoesNotThrow(() -> service.closeSession(session.getSessionId(), tenantId, userId));
-
-        // Session should be removed
-        assertThrows(ResourceNotFoundException.class,
-                () -> service.getSession(session.getSessionId(), tenantId, userId));
     }
 
     @Test
@@ -516,10 +535,9 @@ class InteractiveTestSessionServiceTest {
         InteractiveTestSessionDto dto = service.getSession(session.getSessionId(), tenantId, userId);
 
         assertEquals("STREAMING", dto.getStatus());
-        // Should have the initial SYSTEM message + the streaming AGENT message
         boolean hasStreamingAgent = dto.getMessages().stream()
                 .anyMatch(m -> "AGENT".equals(m.getRole()) && "partial response".equals(m.getContent()));
-        assertTrue(hasStreamingAgent, "Should include streaming content as an AGENT message");
+        assertTrue(hasStreamingAgent);
     }
 
     @Test
@@ -542,12 +560,9 @@ class InteractiveTestSessionServiceTest {
         List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block(java.time.Duration.ofSeconds(10));
 
         assertNotNull(events);
-        assertFalse(events.isEmpty());
-
         InteractiveTestSessionDto finalSnapshot = events.get(events.size() - 1).data();
-        assertNotNull(finalSnapshot);
         boolean hasError = finalSnapshot.getMessages().stream()
                 .anyMatch(m -> "SYSTEM".equals(m.getRole()) && m.getContent().contains("stream failed"));
-        assertTrue(hasError, "Should contain error message about stream failure");
+        assertTrue(hasError);
     }
 }

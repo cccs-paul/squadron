@@ -33,6 +33,21 @@ public class ResilientWorkspaceServiceClient {
         this.resilientClient = resilientClient;
     }
 
+    public Map<String, Object> createWorkspace(Map<String, Object> request) {
+        return resilientClient.execute("createWorkspace",
+                () -> delegate.createWorkspace(request));
+    }
+
+    public Map<String, Object> getWorkspace(String workspaceId) {
+        return resilientClient.execute("getWorkspace",
+                () -> delegate.getWorkspace(workspaceId));
+    }
+
+    public void destroyWorkspace(String workspaceId) {
+        resilientClient.executeVoid("destroyWorkspace",
+                () -> delegate.destroyWorkspace(workspaceId));
+    }
+
     public Map<String, Object> exec(String workspaceId, Map<String, Object> request) {
         return resilientClient.execute("exec",
                 () -> delegate.exec(workspaceId, request));
