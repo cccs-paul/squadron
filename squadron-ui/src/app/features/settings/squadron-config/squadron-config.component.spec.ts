@@ -605,7 +605,7 @@ describe('SquadronConfigComponent', () => {
   it('should_hasStreamingAgentMessage_returnFalse_when_noAgentMessage', () => {
     const session = {
       sessionId: 's1', agentConfigId: 'a1', agentName: 'Sol', provider: 'ollama',
-      model: 'gemma4', status: 'STREAMING' as const, createdAt: '', messages: [
+      model: 'gemma4', status: 'STREAMING' as const, createdAt: '', containerId: 'c1', messages: [
         { id: 'm1', role: 'USER' as const, content: 'hi', createdAt: '' },
       ],
     };
@@ -615,7 +615,7 @@ describe('SquadronConfigComponent', () => {
   it('should_hasStreamingAgentMessage_returnTrue_when_lastMessageIsAgent', () => {
     const session = {
       sessionId: 's1', agentConfigId: 'a1', agentName: 'Sol', provider: 'ollama',
-      model: 'gemma4', status: 'STREAMING' as const, createdAt: '', messages: [
+      model: 'gemma4', status: 'STREAMING' as const, createdAt: '', containerId: 'c1', messages: [
         { id: 'm1', role: 'USER' as const, content: 'hi', createdAt: '' },
         { id: 'm2', role: 'AGENT' as const, content: 'Hello...', createdAt: '' },
       ],
@@ -627,7 +627,7 @@ describe('SquadronConfigComponent', () => {
     const mockSession = {
       sessionId: 'sess-1', agentConfigId: 'a1', agentName: 'Sol',
       provider: 'ollama', model: 'gemma4', status: 'ACTIVE' as const,
-      createdAt: new Date().toISOString(), messages: [],
+      createdAt: new Date().toISOString(), messages: [], containerId: 'container-1',
     };
     testServiceSpy.sendInteractiveMessage.and.returnValue(of(mockSession));
 

@@ -263,6 +263,7 @@ describe('AgentTestService', () => {
       provider: 'ollama', model: 'gemma4', status: 'ACTIVE',
       createdAt: '2026-01-01T00:00:00Z',
       messages: [{ id: 'm1', role: 'SYSTEM', content: 'Session started', createdAt: '2026-01-01T00:00:00Z' }],
+      containerId: 'container-1',
     };
 
     service.startInteractiveSession('a1').subscribe((session) => {
@@ -280,7 +281,7 @@ describe('AgentTestService', () => {
     const mockSession: InteractiveTestSession = {
       sessionId: 'sess-1', agentConfigId: 'a1', agentName: 'Sol',
       provider: 'ollama', model: 'gemma4', status: 'ACTIVE',
-      createdAt: '2026-01-01T00:00:00Z', messages: [],
+      createdAt: '2026-01-01T00:00:00Z', messages: [], containerId: 'container-1',
     };
 
     service.getInteractiveSession('sess-1').subscribe((session) => {
@@ -302,7 +303,7 @@ describe('AgentTestService', () => {
     req.flush(wrapResponse([{
       sessionId: 'sess-1', agentConfigId: 'a1', agentName: 'Sol',
       provider: 'ollama', model: 'gemma4', status: 'ACTIVE',
-      createdAt: '2026-01-01T00:00:00Z', messages: [],
+      createdAt: '2026-01-01T00:00:00Z', messages: [], containerId: 'container-1',
     }]));
   });
 
@@ -318,7 +319,7 @@ describe('AgentTestService', () => {
     const mockSnapshot: InteractiveTestSession = {
       sessionId: 'sess-1', agentConfigId: 'a1', agentName: 'Sol',
       provider: 'ollama', model: 'gemma4', status: 'ACTIVE',
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: '2026-01-01T00:00:00Z', containerId: 'container-1',
       messages: [
         { id: 'm1', role: 'SYSTEM', content: 'Session started', createdAt: '2026-01-01T00:00:00Z' },
         { id: 'm2', role: 'USER', content: 'Hello', createdAt: '2026-01-01T00:00:01Z' },
@@ -379,7 +380,7 @@ describe('AgentTestService', () => {
     const snapshot1: InteractiveTestSession = {
       sessionId: 'sess-1', agentConfigId: 'a1', agentName: 'Sol',
       provider: 'ollama', model: 'gemma4', status: 'STREAMING',
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: '2026-01-01T00:00:00Z', containerId: 'container-1',
       messages: [
         { id: 'm1', role: 'USER', content: 'Hi', createdAt: '2026-01-01T00:00:00Z' },
         { id: 'm2', role: 'AGENT', content: 'Hel', createdAt: '2026-01-01T00:00:01Z' },
@@ -388,7 +389,7 @@ describe('AgentTestService', () => {
     const snapshot2: InteractiveTestSession = {
       sessionId: 'sess-1', agentConfigId: 'a1', agentName: 'Sol',
       provider: 'ollama', model: 'gemma4', status: 'ACTIVE',
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: '2026-01-01T00:00:00Z', containerId: 'container-1',
       messages: [
         { id: 'm1', role: 'USER', content: 'Hi', createdAt: '2026-01-01T00:00:00Z' },
         { id: 'm2', role: 'AGENT', content: 'Hello there!', createdAt: '2026-01-01T00:00:01Z' },

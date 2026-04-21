@@ -29,72 +29,10 @@ export class AgentTestService extends ApiService {
    * HttpClient doesn't natively support Server-Sent Events with POST requests.
    */
   executeTest(request: AgentTestRequest): Observable<AgentTestResult> {
-    return new Observable<AgentTestResult>((subscriber) => {
-      const url = `${this.baseUrl}/agents/test/execute/stream`;
-      const token = this.authService.getAccessToken();
-      const abortController = new AbortController();
-
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(request),
-        signal: abortController.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-
-          const reader = response.body?.getReader();
-          if (!reader) {
-            throw new Error('No response body');
-          }
-
-          const decoder = new TextDecoder();
-          let buffer = '';
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-
-            // Parse SSE events from buffer
-            const lines = buffer.split('\n');
-            buffer = lines.pop() ?? ''; // keep incomplete last line
-
-            let dataBuffer = '';
-            for (const line of lines) {
-              if (line.startsWith('data:')) {
-                dataBuffer += line.substring(5);
-              } else if (line.trim() === '' && dataBuffer) {
-                // End of an SSE event — parse the JSON
-                try {
-                  const result = JSON.parse(dataBuffer) as AgentTestResult;
-                  this.ngZone.run(() => subscriber.next(result));
-                } catch {
-                  // skip malformed events
-                }
-                dataBuffer = '';
-              }
-            }
-          }
-
-          this.ngZone.run(() => subscriber.complete());
-        })
-        .catch((err) => {
-          if (err.name !== 'AbortError') {
-            this.ngZone.run(() => subscriber.error(err));
-          }
-        });
-
-      return () => {
-        abortController.abort();
-      };
-    });
+    return this.streamSse<AgentTestResult>(
+      `${this.baseUrl}/agents/test/execute/stream`,
+      request,
+    );
   }
 
   /** Get the user's test data generator configuration. */
@@ -127,70 +65,10 @@ export class AgentTestService extends ApiService {
    * streams its response, then completes.
    */
   sendInteractiveMessage(sessionId: string, message: string): Observable<InteractiveTestSession> {
-    return new Observable<InteractiveTestSession>((subscriber) => {
-      const url = `${this.baseUrl}/agents/test/interactive/message/stream`;
-      const token = this.authService.getAccessToken();
-      const abortController = new AbortController();
-
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ sessionId, message }),
-        signal: abortController.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-
-          const reader = response.body?.getReader();
-          if (!reader) {
-            throw new Error('No response body');
-          }
-
-          const decoder = new TextDecoder();
-          let buffer = '';
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-
-            const lines = buffer.split('\n');
-            buffer = lines.pop() ?? '';
-
-            let dataBuffer = '';
-            for (const line of lines) {
-              if (line.startsWith('data:')) {
-                dataBuffer += line.substring(5);
-              } else if (line.trim() === '' && dataBuffer) {
-                try {
-                  const session = JSON.parse(dataBuffer) as InteractiveTestSession;
-                  this.ngZone.run(() => subscriber.next(session));
-                } catch {
-                  // skip malformed events
-                }
-                dataBuffer = '';
-              }
-            }
-          }
-
-          this.ngZone.run(() => subscriber.complete());
-        })
-        .catch((err) => {
-          if (err.name !== 'AbortError') {
-            this.ngZone.run(() => subscriber.error(err));
-          }
-        });
-
-      return () => {
-        abortController.abort();
-      };
-    });
+    return this.streamSse<InteractiveTestSession>(
+      `${this.baseUrl}/agents/test/interactive/message/stream`,
+      { sessionId, message },
+    );
   }
 
   /** Get the current state of an interactive test session. */
@@ -210,5 +88,126 @@ export class AgentTestService extends ApiService {
   /** Close an interactive test session. */
   closeInteractiveSession(sessionId: string): Observable<void> {
     return this.delete<void>(`/agents/test/interactive/${sessionId}`);
+  }
+
+  // ====================== Private Helpers ======================
+
+  /**
+   * Streams SSE events from a POST endpoint using fetch(). Handles:
+   * - 401 Unauthorized: automatically refreshes the JWT token and retries once
+   * - Other HTTP errors: throws with a user-friendly message
+   * - SSE parsing: emits parsed JSON objects as they arrive
+   */
+  private streamSse<T>(url: string, body: unknown): Observable<T> {
+    return new Observable<T>((subscriber) => {
+      const abortController = new AbortController();
+      let retried = false;
+
+      const doFetch = (token: string | null): void => {
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(body),
+          signal: abortController.signal,
+        })
+          .then(async (response) => {
+            // On 401, try refreshing the token once
+            if (response.status === 401 && !retried) {
+              retried = true;
+              this.authService.refreshToken().subscribe({
+                next: (result) => {
+                  if (result) {
+                    doFetch(this.authService.getAccessToken());
+                  } else {
+                    this.ngZone.run(() =>
+                      subscriber.error(new Error(
+                        'Your session has expired. Please log in again.')));
+                  }
+                },
+                error: () => {
+                  this.ngZone.run(() =>
+                    subscriber.error(new Error(
+                      'Your session has expired. Please log in again.')));
+                },
+              });
+              return;
+            }
+
+            if (!response.ok) {
+              throw new Error(this.friendlyHttpError(response.status, response.statusText));
+            }
+
+            const reader = response.body?.getReader();
+            if (!reader) {
+              throw new Error('No response body');
+            }
+
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+
+              const lines = buffer.split('\n');
+              buffer = lines.pop() ?? '';
+
+              let dataBuffer = '';
+              for (const line of lines) {
+                if (line.startsWith('data:')) {
+                  dataBuffer += line.substring(5);
+                } else if (line.trim() === '' && dataBuffer) {
+                  try {
+                    const parsed = JSON.parse(dataBuffer) as T;
+                    this.ngZone.run(() => subscriber.next(parsed));
+                  } catch {
+                    // skip malformed events
+                  }
+                  dataBuffer = '';
+                }
+              }
+            }
+
+            this.ngZone.run(() => subscriber.complete());
+          })
+          .catch((err) => {
+            if (err.name !== 'AbortError') {
+              this.ngZone.run(() => subscriber.error(err));
+            }
+          });
+      };
+
+      doFetch(this.authService.getAccessToken());
+
+      return () => {
+        abortController.abort();
+      };
+    });
+  }
+
+  /** Maps HTTP status codes to user-friendly error messages. */
+  private friendlyHttpError(status: number, statusText: string): string {
+    switch (status) {
+      case 401:
+        return 'Your session has expired. Please log in again.';
+      case 403:
+        return 'You do not have permission to perform this action.';
+      case 404:
+        return 'The requested resource was not found. The session may have expired.';
+      case 429:
+        return 'Too many requests. Please wait a moment and try again.';
+      case 502:
+      case 503:
+        return 'The server is temporarily unavailable. Please try again in a few moments.';
+      case 504:
+        return 'The request timed out. The server may be under heavy load.';
+      default:
+        return `Request failed (HTTP ${status}: ${statusText}). Please try again.`;
+    }
   }
 }
