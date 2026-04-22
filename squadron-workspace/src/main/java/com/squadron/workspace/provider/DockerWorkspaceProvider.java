@@ -114,9 +114,9 @@ public class DockerWorkspaceProvider implements WorkspaceProvider {
             // Read-only root filesystem with writable tmpfs mounts
             hostConfig.withReadonlyRootfs(true);
             hostConfig.withTmpFs(Map.of(
-                    "/tmp", "rw,noexec,nosuid,size=256m",
-                    "/home/" + WORKSPACE_USER, "rw,noexec,nosuid,size=2g",
-                    "/var/tmp", "rw,noexec,nosuid,size=128m",
+                    "/tmp", "rw,nosuid,size=256m",
+                    "/home/" + WORKSPACE_USER, "rw,nosuid,size=2g,uid=" + WORKSPACE_USER_ID + ",gid=" + WORKSPACE_GROUP_ID,
+                    "/var/tmp", "rw,nosuid,size=128m",
                     "/run", "rw,noexec,nosuid,size=64m"
             ));
 

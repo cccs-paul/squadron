@@ -87,6 +87,12 @@ class InteractiveTestSessionIntegrationTest {
                 .build();
     }
 
+    private InteractiveTestSessionDto startSessionBlocking(UUID tid, UUID uid, UUID configId) {
+        Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.startSession(tid, uid, configId);
+        List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block();
+        return events.get(events.size() - 1).data();
+    }
+
     @Test
     @DisplayName("should conduct multi-turn conversation with full history")
     void should_conductMultiTurnConversation_withFullHistory() {
@@ -98,7 +104,7 @@ class InteractiveTestSessionIntegrationTest {
                 .thenReturn(Flux.just("Response 2"))
                 .thenReturn(Flux.just("Response 3"));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
         UUID sessionId = session.getSessionId();
 
         // Send 3 messages sequentially
@@ -152,8 +158,8 @@ class InteractiveTestSessionIntegrationTest {
                 .thenReturn(Flux.just("Response for session 1"))
                 .thenReturn(Flux.just("Response for session 2"));
 
-        InteractiveTestSessionDto session1 = service.startSession(tenantId, userId, agentConfigId);
-        InteractiveTestSessionDto session2 = service.startSession(tenantId, userId, agentConfigId2);
+        InteractiveTestSessionDto session1 = startSessionBlocking(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session2 = startSessionBlocking(tenantId, userId, agentConfigId2);
 
         // Send message to session 1
         InteractiveTestMessageRequest req1 = InteractiveTestMessageRequest.builder()
@@ -187,8 +193,8 @@ class InteractiveTestSessionIntegrationTest {
     void should_cleanupOnlyExpiredSessions_notActiveSessions() throws Exception {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
 
-        InteractiveTestSessionDto expiredSession = service.startSession(tenantId, userId, agentConfigId);
-        InteractiveTestSessionDto activeSession = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto expiredSession = startSessionBlocking(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto activeSession = startSessionBlocking(tenantId, userId, agentConfigId);
 
         // Use reflection to access the sessions map and expire one session
         Map<UUID, ?> sessionsMap = getSessionsMap();
@@ -211,7 +217,7 @@ class InteractiveTestSessionIntegrationTest {
     void should_rejectMessage_afterSessionClosed() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
         service.closeSession(session.getSessionId(), tenantId, userId);
 
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
@@ -232,7 +238,7 @@ class InteractiveTestSessionIntegrationTest {
         when(agentProvider.chatStream(anyString(), anyList(), anyString(), any(AgentConfigDto.class)))
                 .thenReturn(Flux.just("Response"));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
         Map<UUID, ?> sessionsMap = getSessionsMap();
         Object sessionState = sessionsMap.get(session.getSessionId());
         Field lastActivityField = sessionState.getClass().getDeclaredField("lastActivityAt");
@@ -261,7 +267,7 @@ class InteractiveTestSessionIntegrationTest {
         when(agentProvider.chatStream(anyString(), anyList(), anyString(), any(AgentConfigDto.class)))
                 .thenReturn(Flux.empty());
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId())

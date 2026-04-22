@@ -70,7 +70,7 @@ public class WorkspaceService {
                 .resourceLimits(resourceLimitsJson)
                 .build();
 
-        workspace = workspaceRepository.save(workspace);
+        workspace = workspaceRepository.saveAndFlush(workspace);
 
         WorkspaceSpec spec = WorkspaceSpec.builder()
                 .tenantId(request.getTenantId())

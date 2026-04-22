@@ -286,17 +286,18 @@ class AgentTestControllerTest {
                 ))
                 .build();
 
+        ServerSentEvent<InteractiveTestSessionDto> sse = ServerSentEvent.<InteractiveTestSessionDto>builder()
+                .event("session-created")
+                .data(session)
+                .build();
+
         when(interactiveService.startSession(eq(tenantId), eq(userId), eq(agentConfigId)))
-                .thenReturn(session);
+                .thenReturn(Flux.just(sse));
 
         mockMvc.perform(post("/api/agents/test/interactive/start")
-                        .param("agentConfigId", agentConfigId.toString()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.agentName").value("Sol"))
-                .andExpect(jsonPath("$.data.provider").value("ollama"))
-                .andExpect(jsonPath("$.data.model").value("gemma4"))
-                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+                        .param("agentConfigId", agentConfigId.toString())
+                        .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+                .andExpect(status().isOk());
 
         verify(interactiveService).startSession(eq(tenantId), eq(userId), eq(agentConfigId));
     }

@@ -95,8 +95,9 @@ class EphemeralContainerServiceTest {
 
         when(workspaceClient.createWorkspace(any()))
                 .thenReturn(Map.of("data", Map.of("id", workspaceId)));
-        doThrow(new RuntimeException("Write failed"))
-                .when(workspaceClient).writeFile(anyString(), anyString(), any(byte[].class));
+        // Config injection via exec fails
+        when(workspaceClient.exec(eq(workspaceId), any()))
+                .thenThrow(new RuntimeException("Exec failed"));
 
         assertThrows(RuntimeException.class,
                 () -> service.startContainer(sessionId, tenantId,
@@ -114,12 +115,12 @@ class EphemeralContainerServiceTest {
         // Workspace created successfully
         when(workspaceClient.createWorkspace(any()))
                 .thenReturn(Map.of("data", Map.of("id", workspaceId)));
-        // Config injected, server started
-        doNothing().when(workspaceClient).writeFile(anyString(), anyString(), any(byte[].class));
         when(workspaceClient.exec(eq(workspaceId), any()))
-                // First exec: start server (returns empty)
+                // First exec: config injection (mkdir + base64 write)
                 .thenReturn(Map.of("data", Map.of("exitCode", 0, "stdout", "")))
-                // Second exec: hostname -i
+                // Second exec: start server
+                .thenReturn(Map.of("data", Map.of("exitCode", 0, "stdout", "")))
+                // Third exec: hostname -i
                 .thenReturn(Map.of("data", Map.of("exitCode", 0, "stdout", "10.0.0.5")));
 
         // Health check always fails -> times out
@@ -199,9 +200,12 @@ class EphemeralContainerServiceTest {
 
         when(workspaceClient.createWorkspace(any()))
                 .thenReturn(Map.of("data", Map.of("id", workspaceId)));
-        doNothing().when(workspaceClient).writeFile(anyString(), anyString(), any(byte[].class));
         when(workspaceClient.exec(eq(workspaceId), any()))
+                // First exec: config injection
                 .thenReturn(Map.of("data", Map.of("exitCode", 0, "stdout", "")))
+                // Second exec: start server
+                .thenReturn(Map.of("data", Map.of("exitCode", 0, "stdout", "")))
+                // Third exec: hostname -i fails
                 .thenReturn(Map.of("data", Map.of("exitCode", 1, "stdout", "")));
 
         assertThrows(RuntimeException.class,

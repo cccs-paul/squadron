@@ -18,9 +18,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -80,6 +82,12 @@ class InteractiveTestEndToEndTest {
                 .build();
     }
 
+    private InteractiveTestSessionDto startSessionBlocking(UUID tid, UUID uid, UUID configId) {
+        Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.startSession(tid, uid, configId);
+        List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block();
+        return events.get(events.size() - 1).data();
+    }
+
     @Test
     @DisplayName("should enforce session limit then recover after close")
     void should_enforceSessionLimitThenRecoverAfterClose() {
@@ -88,7 +96,7 @@ class InteractiveTestEndToEndTest {
         // Create MAX_SESSIONS_PER_USER (8) sessions
         InteractiveTestSessionDto firstSession = null;
         for (int i = 0; i < 8; i++) {
-            InteractiveTestSessionDto s = service.startSession(tenantId, userId, agentConfigId);
+            InteractiveTestSessionDto s = startSessionBlocking(tenantId, userId, agentConfigId);
             if (i == 0) firstSession = s;
         }
 
@@ -100,7 +108,7 @@ class InteractiveTestEndToEndTest {
         service.closeSession(firstSession.getSessionId(), tenantId, userId);
 
         // Now a new session should succeed
-        InteractiveTestSessionDto newSession = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto newSession = startSessionBlocking(tenantId, userId, agentConfigId);
         assertNotNull(newSession);
         assertNotNull(newSession.getSessionId());
     }
@@ -115,7 +123,7 @@ class InteractiveTestEndToEndTest {
                 .thenReturn(Flux.just("Reply A"))
                 .thenReturn(Flux.just("Reply B"));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         // Send two messages sequentially
         InteractiveTestMessageRequest reqA = InteractiveTestMessageRequest.builder()
@@ -177,8 +185,8 @@ class InteractiveTestEndToEndTest {
         when(agentConfigRepository.findById(configIdA)).thenReturn(Optional.of(configA));
         when(agentConfigRepository.findById(configIdB)).thenReturn(Optional.of(configB));
 
-        InteractiveTestSessionDto sessionA = service.startSession(tenantA, userA, configIdA);
-        InteractiveTestSessionDto sessionB = service.startSession(tenantB, userB, configIdB);
+        InteractiveTestSessionDto sessionA = startSessionBlocking(tenantA, userA, configIdA);
+        InteractiveTestSessionDto sessionB = startSessionBlocking(tenantB, userB, configIdB);
 
         // Tenant A cannot access tenant B's session
         assertThrows(ResourceNotFoundException.class,

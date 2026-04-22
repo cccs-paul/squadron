@@ -257,7 +257,7 @@ describe('AgentTestService', () => {
 
   // --- Interactive test methods ---
 
-  it('should_startInteractiveSession_when_called', () => {
+  it('should_startInteractiveSession_when_called', (done) => {
     const mockSession: InteractiveTestSession = {
       sessionId: 'sess-1', agentConfigId: 'a1', agentName: 'Sol',
       provider: 'ollama', model: 'gemma4', status: 'ACTIVE',
@@ -266,15 +266,31 @@ describe('AgentTestService', () => {
       containerId: 'container-1',
     };
 
-    service.startInteractiveSession('a1').subscribe((session) => {
-      expect(session.sessionId).toBe('sess-1');
-      expect(session.agentName).toBe('Sol');
-      expect(session.status).toBe('ACTIVE');
+    const sseBody = `data:${JSON.stringify(mockSession)}\n\n`;
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(sseBody));
+        controller.close();
+      },
     });
+    spyOn(globalThis, 'fetch').and.returnValue(
+      Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })),
+    );
 
-    const req = httpTesting.expectOne(`${apiUrl}/agents/test/interactive/start?agentConfigId=a1`);
-    expect(req.request.method).toBe('POST');
-    req.flush(wrapResponse(mockSession));
+    service.startInteractiveSession('a1').subscribe({
+      next: (session) => {
+        expect(session.sessionId).toBe('sess-1');
+        expect(session.agentName).toBe('Sol');
+        expect(session.status).toBe('ACTIVE');
+      },
+      complete: () => {
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          `${apiUrl}/agents/test/interactive/start?agentConfigId=a1`,
+          jasmine.objectContaining({ method: 'POST' }),
+        );
+        done();
+      },
+    });
   });
 
   it('should_getInteractiveSession_when_called', () => {
@@ -421,15 +437,17 @@ describe('AgentTestService', () => {
     });
   });
 
-  it('should_handleHttpError_when_startInteractiveSessionFails', () => {
+  it('should_handleHttpError_when_startInteractiveSessionFails', (done) => {
+    spyOn(globalThis, 'fetch').and.returnValue(
+      Promise.resolve(new Response(null, { status: 500, statusText: 'Internal Server Error' })),
+    );
+
     service.startInteractiveSession('a1').subscribe({
       error: (err) => {
-        expect(err.status).toBe(500);
+        expect(err.message).toContain('500');
+        done();
       },
     });
-
-    const req = httpTesting.expectOne(`${apiUrl}/agents/test/interactive/start?agentConfigId=a1`);
-    req.flush('Server error', { status: 500, statusText: 'Internal Server Error' });
   });
 
   it('should_handleHttpError_when_closeInteractiveSessionFails', () => {

@@ -82,11 +82,22 @@ class InteractiveTestSessionServiceTest {
                 .build();
     }
 
+    /**
+     * Helper: calls startSession (now returns Flux&lt;SSE&gt;) and blocks to get the final snapshot.
+     */
+    private InteractiveTestSessionDto startSessionBlocking(UUID tenantId, UUID userId, UUID agentConfigId) {
+        Flux<ServerSentEvent<InteractiveTestSessionDto>> flux = service.startSession(tenantId, userId, agentConfigId);
+        List<ServerSentEvent<InteractiveTestSessionDto>> events = flux.collectList().block();
+        assertNotNull(events);
+        assertFalse(events.isEmpty(), "Expected at least one SSE event");
+        return events.get(events.size() - 1).data();
+    }
+
     @Test
     void should_startSession_when_validAgentConfig_directMode() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         assertNotNull(session);
         assertNotNull(session.getSessionId());
@@ -120,7 +131,7 @@ class InteractiveTestSessionServiceTest {
         when(containerService.getWorkspaceId(any())).thenReturn("workspace-abc123");
         when(mockClient.createSession(anyString())).thenReturn("opencode-session-1");
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         assertNotNull(session);
         assertEquals("workspace-abc123", session.getContainerId());
@@ -144,7 +155,7 @@ class InteractiveTestSessionServiceTest {
                 any(), any(), any(), any()))
                 .thenThrow(new RuntimeException("Docker socket not available"));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         assertNotNull(session);
         assertTrue(session.getContainerId().startsWith("fallback-"),
@@ -183,7 +194,7 @@ class InteractiveTestSessionServiceTest {
     @Test
     void should_getSession_when_sessionExists() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
-        InteractiveTestSessionDto created = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto created = startSessionBlocking(tenantId, userId, agentConfigId);
 
         InteractiveTestSessionDto fetched = service.getSession(created.getSessionId(), tenantId, userId);
 
@@ -201,7 +212,7 @@ class InteractiveTestSessionServiceTest {
     @Test
     void should_closeSession_when_sessionExists() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
-        InteractiveTestSessionDto created = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto created = startSessionBlocking(tenantId, userId, agentConfigId);
 
         service.closeSession(created.getSessionId(), tenantId, userId);
 
@@ -223,7 +234,7 @@ class InteractiveTestSessionServiceTest {
         when(containerService.getWorkspaceId(any())).thenReturn("ws-123");
         when(mockClient.createSession(anyString())).thenReturn("oc-sess-1");
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
         service.closeSession(session.getSessionId(), tenantId, userId);
 
         verify(containerService).stopContainer(session.getSessionId());
@@ -232,7 +243,7 @@ class InteractiveTestSessionServiceTest {
     @Test
     void should_throwNotFound_when_closingSessionForDifferentUser() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
-        InteractiveTestSessionDto created = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto created = startSessionBlocking(tenantId, userId, agentConfigId);
         UUID otherUserId = UUID.randomUUID();
 
         assertThrows(ResourceNotFoundException.class,
@@ -241,8 +252,8 @@ class InteractiveTestSessionServiceTest {
 
     @Test
     void should_getUserSessions_when_userHasSessions() {
-        when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
-        service.startSession(tenantId, userId, agentConfigId);
+         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
+        startSessionBlocking(tenantId, userId, agentConfigId);
 
         List<InteractiveTestSessionDto> sessions = service.getUserSessions(tenantId, userId);
 
@@ -265,7 +276,7 @@ class InteractiveTestSessionServiceTest {
         when(mockProvider.chatStream(anyString(), anyList(), anyString(), any(AgentConfigDto.class)))
                 .thenReturn(Flux.just("Hello", " from", " agent!"));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId())
@@ -314,7 +325,7 @@ class InteractiveTestSessionServiceTest {
                         .toolsUsed(1)
                         .build());
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId())
@@ -343,7 +354,7 @@ class InteractiveTestSessionServiceTest {
         when(providerRegistry.getProvider("ollama"))
                 .thenThrow(new RuntimeException("Provider not available"));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId())
@@ -367,7 +378,7 @@ class InteractiveTestSessionServiceTest {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
 
         for (int i = 0; i < 8; i++) {
-            service.startSession(tenantId, userId, agentConfigId);
+            startSessionBlocking(tenantId, userId, agentConfigId);
         }
 
         assertThrows(IllegalStateException.class,
@@ -377,7 +388,7 @@ class InteractiveTestSessionServiceTest {
     @Test
     void should_cleanupExpiredSessions_when_scheduled() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         var sessionState = service.getSessionsMap().get(session.getSessionId());
         sessionState.lastActivityAt = Instant.now().minusMillis(31 * 60 * 1000L);
@@ -398,7 +409,7 @@ class InteractiveTestSessionServiceTest {
                 any(), any(), any(), any()))
                 .thenThrow(new RuntimeException("mock fail"));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         var sessionState = service.getSessionsMap().get(session.getSessionId());
         sessionState.lastActivityAt = Instant.now().minusMillis(31 * 60 * 1000L);
@@ -424,7 +435,7 @@ class InteractiveTestSessionServiceTest {
                 .build();
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         assertNotNull(session);
         assertEquals("Custom Agent", session.getAgentName());
@@ -448,8 +459,8 @@ class InteractiveTestSessionServiceTest {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
         when(agentConfigRepository.findById(agentConfigId2)).thenReturn(Optional.of(agentConfig2));
 
-        InteractiveTestSessionDto session1 = service.startSession(tenantId, userId, agentConfigId);
-        InteractiveTestSessionDto session2 = service.startSession(tenantId, userId, agentConfigId2);
+        InteractiveTestSessionDto session1 = startSessionBlocking(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session2 = startSessionBlocking(tenantId, userId, agentConfigId2);
 
         assertNotEquals(session1.getSessionId(), session2.getSessionId());
         assertEquals("Sol", session1.getAgentName());
@@ -460,7 +471,7 @@ class InteractiveTestSessionServiceTest {
     @Test
     void should_throwNotFound_when_sendingMessageToDifferentUsersSession() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         UUID otherUserId = UUID.randomUUID();
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
@@ -475,7 +486,7 @@ class InteractiveTestSessionServiceTest {
     @Test
     void should_throwIllegalState_when_maxMessagesPerSessionReached() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         var sessionState = service.getSessionsMap().get(session.getSessionId());
         for (int i = sessionState.messages.size(); i < 100; i++) {
@@ -504,7 +515,7 @@ class InteractiveTestSessionServiceTest {
         when(agentConfigRepository.findById(codingConfigId)).thenReturn(Optional.of(codingConfig));
         lenient().when(promptBuilder.buildCodingPrompt(anyString(), anyString())).thenReturn("Coding prompt");
 
-        service.startSession(tenantId, userId, codingConfigId);
+        startSessionBlocking(tenantId, userId, codingConfigId);
         verify(promptBuilder).buildCodingPrompt(anyString(), anyString());
     }
 
@@ -519,14 +530,14 @@ class InteractiveTestSessionServiceTest {
         when(agentConfigRepository.findById(reviewConfigId)).thenReturn(Optional.of(reviewConfig));
         lenient().when(promptBuilder.buildReviewPrompt(anyString())).thenReturn("Review prompt");
 
-        service.startSession(tenantId, userId, reviewConfigId);
+        startSessionBlocking(tenantId, userId, reviewConfigId);
         verify(promptBuilder).buildReviewPrompt(anyString());
     }
 
     @Test
     void should_addStreamingMessage_inToDtoSnapshot_when_streamingContentPresent() {
         when(agentConfigRepository.findById(agentConfigId)).thenReturn(Optional.of(agentConfig));
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         var sessionState = service.getSessionsMap().get(session.getSessionId());
         sessionState.streamingContent = "partial response";
@@ -549,7 +560,7 @@ class InteractiveTestSessionServiceTest {
         when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
                 .thenReturn(Flux.error(new RuntimeException("stream failed")));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
 
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId())
@@ -579,7 +590,7 @@ class InteractiveTestSessionServiceTest {
                         "500 Internal Server Error",
                         new RuntimeException("model requires more system memory (4.0 GiB) than is available (3.8 GiB)"))));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId()).message("test").build();
 
@@ -608,7 +619,7 @@ class InteractiveTestSessionServiceTest {
         when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
                 .thenReturn(Flux.error(new RuntimeException("Connection refused")));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId()).message("test").build();
 
@@ -635,7 +646,7 @@ class InteractiveTestSessionServiceTest {
         when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
                 .thenReturn(Flux.error(new RuntimeException("model 'gemma4' not found")));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId()).message("test").build();
 
@@ -661,7 +672,7 @@ class InteractiveTestSessionServiceTest {
         when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
                 .thenReturn(Flux.error(new RuntimeException("401 Unauthorized")));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId()).message("test").build();
 
@@ -687,7 +698,7 @@ class InteractiveTestSessionServiceTest {
         when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
                 .thenReturn(Flux.error(new RuntimeException("Read timed out")));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId()).message("test").build();
 
@@ -713,7 +724,7 @@ class InteractiveTestSessionServiceTest {
         when(mockProvider.chatStream(anyString(), anyList(), anyString(), any()))
                 .thenReturn(Flux.error(new RuntimeException("429 Too Many Requests")));
 
-        InteractiveTestSessionDto session = service.startSession(tenantId, userId, agentConfigId);
+        InteractiveTestSessionDto session = startSessionBlocking(tenantId, userId, agentConfigId);
         InteractiveTestMessageRequest request = InteractiveTestMessageRequest.builder()
                 .sessionId(session.getSessionId()).message("test").build();
 

@@ -16,7 +16,6 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ExecRequest {
 
-    @NotNull
     private UUID workspaceId;
 
     @NotEmpty

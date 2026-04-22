@@ -20,6 +20,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
@@ -86,7 +88,7 @@ public class InteractiveTestSessionService {
      * If ephemeral containers are enabled, provisions a real sandbox container
      * with an OpenCode server.
      */
-    public InteractiveTestSessionDto startSession(UUID tenantId, UUID userId, UUID agentConfigId) {
+    public Flux<ServerSentEvent<InteractiveTestSessionDto>> startSession(UUID tenantId, UUID userId, UUID agentConfigId) {
         // Validate agent config belongs to this user
         UserAgentConfig agentConfig = TenantScopedLookup.findByIdScoped(
                 agentConfigId,
@@ -134,18 +136,44 @@ public class InteractiveTestSessionService {
                 null // containerId set below
         );
 
-        // Start ephemeral container or fall back to direct LLM
-        if (containerConfig.isEnabled()) {
-            startWithEphemeralContainer(state, agentConfig);
-        } else {
-            startWithDirectProvider(state);
-        }
+        // Capture request context so Feign interceptor can forward auth headers in the virtual thread
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
 
-        sessions.put(sessionId, state);
-        log.info("Interactive test session {} started for agent '{}' by user {} (ephemeral={})",
-                sessionId, agentConfig.getAgentName(), userId, containerConfig.isEnabled());
+        // Stream startup progress via SSE
+        return Flux.create(sink -> {
+            Thread.ofVirtual().name("interactive-start-" + sessionId).start(() -> {
+                try {
+                    // Propagate the original HTTP request context to this thread
+                    // so FeignConfig can forward the Authorization header
+                    if (requestAttributes != null) {
+                        RequestContextHolder.setRequestAttributes(requestAttributes);
+                    }
 
-        return toDto(state);
+                    if (containerConfig.isEnabled()) {
+                        startWithEphemeralContainer(state, agentConfig, sink);
+                    } else {
+                        startWithDirectProvider(state);
+                        emitSnapshot(sink, state);
+                    }
+
+                    sessions.put(sessionId, state);
+                    log.info("Interactive test session {} started for agent '{}' by user {} (ephemeral={})",
+                            sessionId, agentConfig.getAgentName(), userId, containerConfig.isEnabled());
+
+                    emitSnapshot(sink, state);
+                    sink.complete();
+                } catch (Exception e) {
+                    log.error("Failed to start interactive session {}: {}", sessionId, e.getMessage(), e);
+                    state.messages.add(systemMessage("Failed to start session: " + e.getMessage()));
+                    sessions.put(sessionId, state);
+                    emitSnapshot(sink, state);
+                    sink.complete();
+                } finally {
+                    // Clean up to prevent memory leaks
+                    RequestContextHolder.resetRequestAttributes();
+                }
+            });
+        }, FluxSink.OverflowStrategy.BUFFER);
     }
 
     /**
@@ -236,12 +264,18 @@ public class InteractiveTestSessionService {
 
     // --- Ephemeral container mode ---
 
-    private void startWithEphemeralContainer(SessionState state, UserAgentConfig agentConfig) {
-        // Add container lifecycle messages
+    private void startWithEphemeralContainer(SessionState state, UserAgentConfig agentConfig,
+                                                FluxSink<ServerSentEvent<InteractiveTestSessionDto>> sink) {
+        // Add container lifecycle messages and stream each step
         state.messages.add(systemMessage("Requesting ephemeral sandbox container for session " + state.sessionId + "..."));
+        emitSnapshot(sink, state);
+
         state.messages.add(systemMessage("Pulling workspace image: " + containerConfig.getImage()));
+        emitSnapshot(sink, state);
+
         state.messages.add(systemMessage("Allocating resources: " + containerConfig.getCpuLimit() + " vCPU, "
                 + containerConfig.getMemoryLimit() + " memory"));
+        emitSnapshot(sink, state);
 
         try {
             OpenCodeContainerClient client = containerService.startContainer(
@@ -254,7 +288,10 @@ public class InteractiveTestSessionService {
             state.containerId = workspaceId;
 
             state.messages.add(systemMessage("Container " + workspaceId + " created — OpenCode server starting"));
+            emitSnapshot(sink, state);
+
             state.messages.add(systemMessage("OpenCode server healthy — sandbox environment active"));
+            emitSnapshot(sink, state);
 
             // Create an OpenCode session inside the container
             String openCodeSessionId = client.createSession("Interactive Test: " + agentConfig.getAgentName());
@@ -271,6 +308,7 @@ public class InteractiveTestSessionService {
             log.error("Failed to start ephemeral container for session {}: {}", state.sessionId, e.getMessage());
             state.messages.add(systemMessage("Failed to start ephemeral container: " + e.getMessage()
                     + ". Falling back to direct provider mode."));
+            emitSnapshot(sink, state);
             // Fall back to direct provider mode
             state.containerId = "fallback-" + UUID.randomUUID().toString().substring(0, 8);
             addDirectProviderStartMessage(state);

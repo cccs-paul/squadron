@@ -65,10 +65,8 @@ public class OpenCodeConfigGenerator {
         json.append("    \"hostname\": \"0.0.0.0\"\n");
         json.append("  },\n");
 
-        // Auto-grant all permissions (sandbox is ephemeral and isolated)
-        json.append("  \"permission\": {\n");
-        json.append("    \"*\": \"grant\"\n");
-        json.append("  },\n");
+        // Auto-allow all permissions (sandbox is ephemeral and isolated)
+        json.append("  \"permission\": \"allow\",\n");
 
         // Disable features unnecessary in ephemeral containers
         json.append("  \"snapshot\": false,\n");

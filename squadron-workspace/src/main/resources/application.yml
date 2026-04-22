@@ -33,7 +33,7 @@ squadron:
   platform:
     url: ${SQUADRON_PLATFORM_URL:http://localhost:8084}
   workspace:
-    provider: ${WORKSPACE_PROVIDER:kubernetes}
+    provider: ${SQUADRON_WORKSPACE_PROVIDER:${WORKSPACE_PROVIDER:kubernetes}}
     kubernetes:
       namespace: ${WORKSPACE_K8S_NAMESPACE:squadron-workspaces}
       image: ${WORKSPACE_BASE_IMAGE:ubuntu:22.04}

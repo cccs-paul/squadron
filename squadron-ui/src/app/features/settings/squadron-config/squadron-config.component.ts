@@ -889,17 +889,26 @@ export class SquadronConfigComponent implements OnInit, OnDestroy {
     // If session already exists for this agent, don't start a new one
     if (this.interactiveSessions().has(agent.id)) return;
 
-    this.testService.startInteractiveSession(agent.id).subscribe({
-      next: (session) => {
+    // Cancel any existing startup subscription for this agent
+    this.interactiveSubs.get(agent.id)?.unsubscribe();
+
+    const sub = this.testService.startInteractiveSession(agent.id).subscribe({
+      next: (snapshot) => {
         const sessions = new Map(this.interactiveSessions());
-        sessions.set(agent.id!, session);
+        sessions.set(agent.id!, snapshot);
         this.interactiveSessions.set(sessions);
+        this.scrollChatToBottom(agent.id!);
       },
       error: () => {
         this.saveError.set('Failed to start interactive session.');
         setTimeout(() => this.saveError.set(null), 5000);
       },
+      complete: () => {
+        this.interactiveSubs.delete(agent.id!);
+      },
     });
+
+    this.interactiveSubs.set(agent.id, sub);
   }
 
   sendInteractiveMessage(agentId: string): void {

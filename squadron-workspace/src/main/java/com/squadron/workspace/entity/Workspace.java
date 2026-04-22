@@ -47,7 +47,6 @@ public class Workspace {
     @Builder.Default
     private String status = "CREATING";
 
-    @Column(nullable = false)
     private String repoUrl;
 
     private String branch;

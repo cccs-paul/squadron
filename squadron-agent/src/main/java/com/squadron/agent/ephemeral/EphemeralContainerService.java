@@ -196,9 +196,19 @@ public class EphemeralContainerService {
     }
 
     private void injectConfig(String workspaceId, String openCodeConfig) {
-        // Write opencode.json to the container's config directory
-        byte[] configBytes = openCodeConfig.getBytes(StandardCharsets.UTF_8);
-        workspaceClient.writeFile(workspaceId, "/home/squadron/.config/opencode/opencode.json", configBytes);
+        // The container rootfs is read-only and tmpfs mount on /home/squadron wipes
+        // directories created during image build. We use exec (which writes to tmpfs)
+        // instead of Docker's copyToContainer API (which writes to rootfs and fails).
+        String base64Config = java.util.Base64.getEncoder().encodeToString(
+                openCodeConfig.getBytes(StandardCharsets.UTF_8));
+
+        Map<String, Object> writeRequest = new HashMap<>();
+        writeRequest.put("command", List.of(
+                "sh", "-c",
+                "mkdir -p /home/squadron/.config/opencode && echo '" + base64Config
+                + "' | base64 -d > /home/squadron/.config/opencode/opencode.json"
+        ));
+        workspaceClient.exec(workspaceId, writeRequest);
     }
 
     private void startOpenCodeServer(String workspaceId) {

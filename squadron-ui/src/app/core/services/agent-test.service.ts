@@ -51,12 +51,12 @@ export class AgentTestService extends ApiService {
 
   // ====================== Interactive Test Methods ======================
 
-  /** Start a new interactive test session for the given agent config. */
+  /** Start a new interactive test session for the given agent config (SSE streaming). */
   startInteractiveSession(agentConfigId: string): Observable<InteractiveTestSession> {
-    return this.post<ApiResponse<InteractiveTestSession>>(
-      `/agents/test/interactive/start?agentConfigId=${agentConfigId}`,
+    return this.streamSse<InteractiveTestSession>(
+      `${this.baseUrl}/agents/test/interactive/start?agentConfigId=${agentConfigId}`,
       {},
-    ).pipe(map((response) => response.data));
+    );
   }
 
   /**

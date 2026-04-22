@@ -123,15 +123,14 @@ public class AgentTestController {
      * Interactive sessions allow multi-turn, free-form conversation with an agent
      * without requiring a real task, workspace, or project.
      */
-    @PostMapping("/interactive/start")
-    public ResponseEntity<ApiResponse<InteractiveTestSessionDto>> startInteractiveSession(
+    @PostMapping(value = "/interactive/start", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<InteractiveTestSessionDto>> startInteractiveSession(
             @RequestParam UUID agentConfigId) {
         UUID tenantId = TenantContext.getTenantId();
         UUID userId = TenantContext.getUserId();
         log.info("Interactive test session requested: agentConfigId={}, user={}", agentConfigId, userId);
 
-        InteractiveTestSessionDto session = interactiveService.startSession(tenantId, userId, agentConfigId);
-        return ResponseEntity.ok(ApiResponse.success(session));
+        return interactiveService.startSession(tenantId, userId, agentConfigId);
     }
 
     /**

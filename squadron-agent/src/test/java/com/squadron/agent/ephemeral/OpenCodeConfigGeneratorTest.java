@@ -129,7 +129,7 @@ class OpenCodeConfigGeneratorTest {
                 "openai", "gpt-4o", null, "key", "CLOUD", null, "pw");
 
         JsonNode root = mapper.readTree(json);
-        assertEquals("grant", root.get("permission").get("*").asText());
+        assertEquals("allow", root.get("permission").asText());
         assertFalse(root.get("snapshot").asBoolean());
         assertFalse(root.get("autoupdate").asBoolean());
         assertEquals("disabled", root.get("share").asText());
